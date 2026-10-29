@@ -27,6 +27,10 @@ async fn main() -> anyhow::Result<()> {
     let cfg = ServerConfig::load()?;
     let pool = crate::db::init_db(&cfg).await?;
     crate::db::apply_retention(&pool, cfg.retention_days).await?;
+    // Initial ingest (best-effort)
+    if let Err(e) = ingest::ingest_all(&pool, &cfg.logs_dir).await {
+        tracing::warn!(error=%e, "initial ingest failed");
+    }
     let addr = cfg.bind_addr.parse().context("invalid bind_addr")?;
 
     // Build service and enable gRPC-Web
