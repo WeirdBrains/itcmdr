@@ -1,0 +1,27 @@
+# Build artifacts
+/target/
+**/target/
+/app/build/
+/dist/
+/build/
+/.dart_tool/
+/.packages
+/.flutter-plugins*
+/.metadata
+# IDE
+/.idea/
+/.vscode/
+.DS_Store
+# Local configs
+config/site.json
+config/site.local.json
+config/*.local.*
+config/banned.local.txt
+# Generated gRPC for Dart (committed, but ignore protoc cache)
+/app/lib/generated/**/.protoc-cache/
+# Flutter web build
+/app/build/web/
+# Installer outputs
+/installer/out/
+# Logs
+**/*.log
