@@ -20,8 +20,8 @@ IPV4_RE = re.compile(
 # For hostnames: disallow *.local except example.local
 LOCAL_DOMAIN_RE = re.compile(r"\b(?!example\.local)[A-Za-z0-9-]+\.local\b", re.IGNORECASE)
 
-# Heuristic hostnames like XX-XXXXX or XXX-XXX... (uppercase with dash + 3+)
-# Hostname heuristic: UPPER-ALNUM with hyphen and at least one digit in the suffix (e.g., WS-01, DT-6HOP3)
+# Heuristic hostnames like UPPER-ALNUM with a dash and at least one digit in the suffix
+# Examples (placeholders only): WS-01, HOST-1A2B3
 HOSTNAME_HEURISTIC = re.compile(r"\b[A-Z]{2,8}-[A-Z0-9]*\d[A-Z0-9]*\b")
 
 # MAC address patterns
@@ -45,6 +45,16 @@ def scan_file(path: Path):
     except Exception:
         # Skip binary or unreadable files
         return violations
+    # Check for banned literals provided locally (gitignored)
+    banned_file = ROOT / "config" / "banned.local.txt"
+    if banned_file.exists():
+        try:
+            banned = [ln.strip() for ln in banned_file.read_text(encoding="utf-8", errors="ignore").splitlines() if ln.strip() and not ln.strip().startswith("#")]
+            for b in banned:
+                if b and b in data:
+                    violations.append((path, f"BANNED literal found: {b!r}"))
+        except Exception:
+            pass
 
     # IP checks
     for m in IPV4_RE.finditer(data):
