@@ -207,3 +207,20 @@ pub async fn list_machines_overview(pool: &DbPool) -> anyhow::Result<Vec<(String
     Ok(out)
 }
 
+pub async fn save_exception(pool: &DbPool, id: &str, rule_json: &str) -> anyhow::Result<()> {
+    sqlx::query("INSERT OR REPLACE INTO exceptions (id, rule_json, active) VALUES (?,?,1)")
+        .bind(id).bind(rule_json).execute(pool).await?;
+    Ok(())
+}
+
+pub async fn expire_exception(pool: &DbPool, id: &str) -> anyhow::Result<()> {
+    sqlx::query("UPDATE exceptions SET active=0 WHERE id=?").bind(id).execute(pool).await?;
+    Ok(())
+}
+
+pub async fn list_exceptions(pool: &DbPool) -> anyhow::Result<Vec<String>> {
+    let rows = sqlx::query("SELECT rule_json FROM exceptions WHERE active=1").fetch_all(pool).await?;
+    use sqlx::Row;
+    Ok(rows.into_iter().filter_map(|r| r.try_get::<String, _>("rule_json").ok()).collect())
+}
+

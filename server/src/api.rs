@@ -102,6 +102,7 @@ impl Itcmdr for ItcmdrService {
         &self,
         _req: Request<ListExceptionsRequest>,
     ) -> Result<Response<ListExceptionsResponse>, Status> {
+        // Return empty for now; full mapping from DB JSON to prost types can be added later.
         Ok(Response::new(ListExceptionsResponse { rules: vec![] }))
     }
 
@@ -109,18 +110,38 @@ impl Itcmdr for ItcmdrService {
         &self,
         req: Request<SaveExceptionRequest>,
     ) -> Result<Response<SaveExceptionResponse>, Status> {
-        // Echo back with a placeholder id for now.
+        self.check_auth(req.metadata())?;
         let mut rule = req.into_inner().rule.unwrap_or_default();
         if rule.id.is_empty() {
             rule.id = uuid::Uuid::new_v4().to_string();
         }
+        let pool = crate::db::init_db(&self.cfg).await.map_err(internal_err)?;
+        // Persist as JSON using a neutral schema
+        let s = serde_json::json!({
+            "id": rule.id,
+            "scope": {
+                "machines": rule.scope.as_ref().map(|s| s.machines.clone()).unwrap_or_default(),
+                "role": rule.scope.as_ref().and_then(|s| if s.role.is_empty() { None } else { Some(s.role.clone()) })
+            },
+            "check_id": rule.check_id,
+            "check_pattern": rule.check_pattern,
+            "action": rule.action,
+            "reason": rule.reason,
+            "expires": rule.expires,
+            "active": rule.active
+        }).to_string();
+        crate::db::save_exception(&pool, &rule.id, &s).await.map_err(internal_err)?;
         Ok(Response::new(SaveExceptionResponse { rule: Some(rule) }))
     }
 
     async fn expire_exception(
         &self,
-        _req: Request<ExpireExceptionRequest>,
+        req: Request<ExpireExceptionRequest>,
     ) -> Result<Response<ExpireExceptionResponse>, Status> {
+        self.check_auth(req.metadata())?;
+        let id = req.into_inner().id;
+        let pool = crate::db::init_db(&self.cfg).await.map_err(internal_err)?;
+        crate::db::expire_exception(&pool, &id).await.map_err(internal_err)?;
         Ok(Response::new(ExpireExceptionResponse {}))
     }
 }
