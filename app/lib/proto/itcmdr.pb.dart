@@ -1294,6 +1294,297 @@ class ExpireExceptionResponse extends $pb.GeneratedMessage {
   static ExpireExceptionResponse? _defaultInstance;
 }
 
+/// Log browse and search
+class SearchLogsRequest extends $pb.GeneratedMessage {
+  factory SearchLogsRequest({
+    $core.String? query,
+    $core.String? machine,
+    $fixnum.Int64? startTs,
+    $fixnum.Int64? endTs,
+    $core.int? limit,
+  }) {
+    final result = SearchLogsRequest._();
+    if (query != null) result.query = query;
+    if (machine != null) result.machine = machine;
+    if (startTs != null) result.startTs = startTs;
+    if (endTs != null) result.endTs = endTs;
+    if (limit != null) result.limit = limit;
+    return result;
+  }
+
+  SearchLogsRequest._();
+
+  factory SearchLogsRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SearchLogsRequest()..mergeFromBuffer(data, registry);
+  factory SearchLogsRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SearchLogsRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SearchLogsRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: SearchLogsRequest.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'query')
+    ..aOS(2, _omitFieldNames ? '' : 'machine')
+    ..aInt64(3, _omitFieldNames ? '' : 'startTs')
+    ..aInt64(4, _omitFieldNames ? '' : 'endTs')
+    ..aI(5, _omitFieldNames ? '' : 'limit')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SearchLogsRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SearchLogsRequest copyWith(void Function(SearchLogsRequest) updates) =>
+      super.copyWith((message) => updates(message as SearchLogsRequest))
+          as SearchLogsRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use SearchLogsRequest() / SearchLogsRequest.new instead')
+  static SearchLogsRequest create() => SearchLogsRequest._();
+  static $pb.GeneratedMessage $_createMessage() => SearchLogsRequest._();
+  @$core.override
+  SearchLogsRequest createEmptyInstance() => SearchLogsRequest._();
+  @$core.pragma('dart2js:noInline')
+  static SearchLogsRequest getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SearchLogsRequest>(
+          SearchLogsRequest.$_createMessage);
+  static SearchLogsRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get query => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set query($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasQuery() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearQuery() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get machine => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set machine($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasMachine() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearMachine() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get startTs => $_getI64(2);
+  @$pb.TagNumber(3)
+  set startTs($fixnum.Int64 value) => $_setInt64(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasStartTs() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearStartTs() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $fixnum.Int64 get endTs => $_getI64(3);
+  @$pb.TagNumber(4)
+  set endTs($fixnum.Int64 value) => $_setInt64(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasEndTs() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearEndTs() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get limit => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set limit($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasLimit() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearLimit() => $_clearField(5);
+}
+
+class SearchLogsResponse extends $pb.GeneratedMessage {
+  factory SearchLogsResponse({
+    $core.Iterable<$core.String>? lines,
+  }) {
+    final result = SearchLogsResponse._();
+    if (lines != null) result.lines.addAll(lines);
+    return result;
+  }
+
+  SearchLogsResponse._();
+
+  factory SearchLogsResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SearchLogsResponse()..mergeFromBuffer(data, registry);
+  factory SearchLogsResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SearchLogsResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SearchLogsResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: SearchLogsResponse.$_createMessage)
+    ..pPS(1, _omitFieldNames ? '' : 'lines')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SearchLogsResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SearchLogsResponse copyWith(void Function(SearchLogsResponse) updates) =>
+      super.copyWith((message) => updates(message as SearchLogsResponse))
+          as SearchLogsResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use SearchLogsResponse() / SearchLogsResponse.new instead')
+  static SearchLogsResponse create() => SearchLogsResponse._();
+  static $pb.GeneratedMessage $_createMessage() => SearchLogsResponse._();
+  @$core.override
+  SearchLogsResponse createEmptyInstance() => SearchLogsResponse._();
+  @$core.pragma('dart2js:noInline')
+  static SearchLogsResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SearchLogsResponse>(
+          SearchLogsResponse.$_createMessage);
+  static SearchLogsResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<$core.String> get lines => $_getList(0);
+}
+
+/// Live updates
+class WatchUpdatesRequest extends $pb.GeneratedMessage {
+  factory WatchUpdatesRequest() => WatchUpdatesRequest._();
+
+  WatchUpdatesRequest._();
+
+  factory WatchUpdatesRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      WatchUpdatesRequest()..mergeFromBuffer(data, registry);
+  factory WatchUpdatesRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      WatchUpdatesRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'WatchUpdatesRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: WatchUpdatesRequest.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  WatchUpdatesRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  WatchUpdatesRequest copyWith(void Function(WatchUpdatesRequest) updates) =>
+      super.copyWith((message) => updates(message as WatchUpdatesRequest))
+          as WatchUpdatesRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core
+      .Deprecated('Use WatchUpdatesRequest() / WatchUpdatesRequest.new instead')
+  static WatchUpdatesRequest create() => WatchUpdatesRequest._();
+  static $pb.GeneratedMessage $_createMessage() => WatchUpdatesRequest._();
+  @$core.override
+  WatchUpdatesRequest createEmptyInstance() => WatchUpdatesRequest._();
+  @$core.pragma('dart2js:noInline')
+  static WatchUpdatesRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<WatchUpdatesRequest>(
+          WatchUpdatesRequest.$_createMessage);
+  static WatchUpdatesRequest? _defaultInstance;
+}
+
+class Update extends $pb.GeneratedMessage {
+  factory Update({
+    $core.String? kind,
+    $core.String? entity,
+    $core.String? id,
+    $fixnum.Int64? ts,
+  }) {
+    final result = Update._();
+    if (kind != null) result.kind = kind;
+    if (entity != null) result.entity = entity;
+    if (id != null) result.id = id;
+    if (ts != null) result.ts = ts;
+    return result;
+  }
+
+  Update._();
+
+  factory Update.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      Update()..mergeFromBuffer(data, registry);
+  factory Update.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      Update()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'Update',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: Update.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'kind')
+    ..aOS(2, _omitFieldNames ? '' : 'entity')
+    ..aOS(3, _omitFieldNames ? '' : 'id')
+    ..aInt64(4, _omitFieldNames ? '' : 'ts')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  Update clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  Update copyWith(void Function(Update) updates) =>
+      super.copyWith((message) => updates(message as Update)) as Update;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use Update() / Update.new instead')
+  static Update create() => Update._();
+  static $pb.GeneratedMessage $_createMessage() => Update._();
+  @$core.override
+  Update createEmptyInstance() => Update._();
+  @$core.pragma('dart2js:noInline')
+  static Update getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<Update>(Update.$_createMessage);
+  static Update? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get kind => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set kind($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasKind() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearKind() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get entity => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set entity($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasEntity() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearEntity() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get id => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set id($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasId() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearId() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $fixnum.Int64 get ts => $_getI64(3);
+  @$pb.TagNumber(4)
+  set ts($fixnum.Int64 value) => $_setInt64(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasTs() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearTs() => $_clearField(4);
+}
+
 const $core.bool _omitFieldNames =
     $core.bool.fromEnvironment('protobuf.omit_field_names');
 const $core.bool _omitMessageNames =

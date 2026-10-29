@@ -37,12 +37,22 @@ class _HomeShellState extends State<HomeShell> {
     super.initState();
     _channel = createClientChannel();
     _client = ItcmdrClient(_channel);
+    // Subscribe to live updates and refresh overview on events
+    try {
+      final stream = _client.watchUpdates(WatchUpdatesRequest());
+      stream.listen((_) {
+        if (mounted && _index == 0) {
+          // refresh overview silently
+          _overviewKey.currentState?.refresh();
+        }
+      });
+    } catch (_) {}
   }
 
   @override
   Widget build(BuildContext context) {
     final pages = [
-      OverviewPage(client: _client),
+      OverviewPage(key: _overviewKey, client: _client),
       MetricsPage(client: _client),
       ExceptionsPage(client: _client),
       OnDemandPage(client: _client),
@@ -75,6 +85,8 @@ class OverviewPage extends StatefulWidget {
 class _OverviewPageState extends State<OverviewPage> {
   List<Machine> _machines = [];
   String? _error;
+
+  void refresh() => _refresh();
 
   @override
   void initState() {

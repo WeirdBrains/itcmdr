@@ -81,6 +81,22 @@ class ItcmdrClient extends $grpc.Client {
     return $createUnaryCall(_$expireException, request, options: options);
   }
 
+  $grpc.ResponseFuture<$0.SearchLogsResponse> searchLogs(
+    $0.SearchLogsRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$searchLogs, request, options: options);
+  }
+
+  $grpc.ResponseStream<$0.Update> watchUpdates(
+    $0.WatchUpdatesRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createStreamingCall(
+        _$watchUpdates, $async.Stream.fromIterable([request]),
+        options: options);
+  }
+
   // method descriptors
 
   static final _$listMachines =
@@ -118,6 +134,16 @@ class ItcmdrClient extends $grpc.Client {
           '/itcmdr.Itcmdr/ExpireException',
           ($0.ExpireExceptionRequest value) => value.writeToBuffer(),
           $0.ExpireExceptionResponse.fromBuffer);
+  static final _$searchLogs =
+      $grpc.ClientMethod<$0.SearchLogsRequest, $0.SearchLogsResponse>(
+          '/itcmdr.Itcmdr/SearchLogs',
+          ($0.SearchLogsRequest value) => value.writeToBuffer(),
+          $0.SearchLogsResponse.fromBuffer);
+  static final _$watchUpdates =
+      $grpc.ClientMethod<$0.WatchUpdatesRequest, $0.Update>(
+          '/itcmdr.Itcmdr/WatchUpdates',
+          ($0.WatchUpdatesRequest value) => value.writeToBuffer(),
+          $0.Update.fromBuffer);
 }
 
 @$pb.GrpcServiceName('itcmdr.Itcmdr')
@@ -186,6 +212,21 @@ abstract class ItcmdrServiceBase extends $grpc.Service {
         ($core.List<$core.int> value) =>
             $0.ExpireExceptionRequest.fromBuffer(value),
         ($0.ExpireExceptionResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.SearchLogsRequest, $0.SearchLogsResponse>(
+        'SearchLogs',
+        searchLogs_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.SearchLogsRequest.fromBuffer(value),
+        ($0.SearchLogsResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.WatchUpdatesRequest, $0.Update>(
+        'WatchUpdates',
+        watchUpdates_Pre,
+        false,
+        true,
+        ($core.List<$core.int> value) =>
+            $0.WatchUpdatesRequest.fromBuffer(value),
+        ($0.Update value) => value.writeToBuffer()));
   }
 
   $async.Future<$0.ListMachinesResponse> listMachines_Pre(
@@ -248,4 +289,20 @@ abstract class ItcmdrServiceBase extends $grpc.Service {
 
   $async.Future<$0.ExpireExceptionResponse> expireException(
       $grpc.ServiceCall call, $0.ExpireExceptionRequest request);
+
+  $async.Future<$0.SearchLogsResponse> searchLogs_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.SearchLogsRequest> $request) async {
+    return searchLogs($call, await $request);
+  }
+
+  $async.Future<$0.SearchLogsResponse> searchLogs(
+      $grpc.ServiceCall call, $0.SearchLogsRequest request);
+
+  $async.Stream<$0.Update> watchUpdates_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.WatchUpdatesRequest> $request) async* {
+    yield* watchUpdates($call, await $request);
+  }
+
+  $async.Stream<$0.Update> watchUpdates(
+      $grpc.ServiceCall call, $0.WatchUpdatesRequest request);
 }

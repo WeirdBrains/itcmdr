@@ -369,3 +369,58 @@ const ExpireExceptionResponse$json = {
 /// Descriptor for `ExpireExceptionResponse`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List expireExceptionResponseDescriptor =
     $convert.base64Decode('ChdFeHBpcmVFeGNlcHRpb25SZXNwb25zZQ==');
+
+@$core.Deprecated('Use searchLogsRequestDescriptor instead')
+const SearchLogsRequest$json = {
+  '1': 'SearchLogsRequest',
+  '2': [
+    {'1': 'query', '3': 1, '4': 1, '5': 9, '10': 'query'},
+    {'1': 'machine', '3': 2, '4': 1, '5': 9, '10': 'machine'},
+    {'1': 'start_ts', '3': 3, '4': 1, '5': 3, '10': 'startTs'},
+    {'1': 'end_ts', '3': 4, '4': 1, '5': 3, '10': 'endTs'},
+    {'1': 'limit', '3': 5, '4': 1, '5': 5, '10': 'limit'},
+  ],
+};
+
+/// Descriptor for `SearchLogsRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List searchLogsRequestDescriptor = $convert.base64Decode(
+    'ChFTZWFyY2hMb2dzUmVxdWVzdBIUCgVxdWVyeRgBIAEoCVIFcXVlcnkSGAoHbWFjaGluZRgCIA'
+    'EoCVIHbWFjaGluZRIZCghzdGFydF90cxgDIAEoA1IHc3RhcnRUcxIVCgZlbmRfdHMYBCABKANS'
+    'BWVuZFRzEhQKBWxpbWl0GAUgASgFUgVsaW1pdA==');
+
+@$core.Deprecated('Use searchLogsResponseDescriptor instead')
+const SearchLogsResponse$json = {
+  '1': 'SearchLogsResponse',
+  '2': [
+    {'1': 'lines', '3': 1, '4': 3, '5': 9, '10': 'lines'},
+  ],
+};
+
+/// Descriptor for `SearchLogsResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List searchLogsResponseDescriptor = $convert
+    .base64Decode('ChJTZWFyY2hMb2dzUmVzcG9uc2USFAoFbGluZXMYASADKAlSBWxpbmVz');
+
+@$core.Deprecated('Use watchUpdatesRequestDescriptor instead')
+const WatchUpdatesRequest$json = {
+  '1': 'WatchUpdatesRequest',
+};
+
+/// Descriptor for `WatchUpdatesRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List watchUpdatesRequestDescriptor =
+    $convert.base64Decode('ChNXYXRjaFVwZGF0ZXNSZXF1ZXN0');
+
+@$core.Deprecated('Use updateDescriptor instead')
+const Update$json = {
+  '1': 'Update',
+  '2': [
+    {'1': 'kind', '3': 1, '4': 1, '5': 9, '10': 'kind'},
+    {'1': 'entity', '3': 2, '4': 1, '5': 9, '10': 'entity'},
+    {'1': 'id', '3': 3, '4': 1, '5': 9, '10': 'id'},
+    {'1': 'ts', '3': 4, '4': 1, '5': 3, '10': 'ts'},
+  ],
+};
+
+/// Descriptor for `Update`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List updateDescriptor = $convert.base64Decode(
+    'CgZVcGRhdGUSEgoEa2luZBgBIAEoCVIEa2luZBIWCgZlbnRpdHkYAiABKAlSBmVudGl0eRIOCg'
+    'JpZBgDIAEoCVICaWQSDgoCdHMYBCABKANSAnRz');
