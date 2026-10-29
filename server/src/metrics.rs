@@ -61,8 +61,8 @@ pub async fn get_metrics(pool: &DbPool, window_days: i64, rollup: Rollup) -> Res
     .await?;
     for r in rows3 {
         let comp: String = r.try_get("computer")?;
-        let v: i64 = r.try_get::<Option<i64>, _>("mttr")?.unwrap_or(0);
-        points.push(MetricPoint { key: format!("mttr:{}", comp), ts: now.timestamp_millis(), value: v as f64 });
+        let v: f64 = r.try_get::<Option<f64>, _>("mttr")?.unwrap_or(0.0);
+        points.push(MetricPoint { key: format!("mttr:{}", comp), ts: now.timestamp_millis(), value: v });
     }
 
     // Repair failures by check
