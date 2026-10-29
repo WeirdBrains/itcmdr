@@ -6,46 +6,66 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write
+
+env:
+  FLUTTER_VERSION: '3.47.8'
+
 jobs:
   build-windows:
     runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Setup Rust (MSVC)
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-pc-windows-msvc
+        run: |
+          rustup toolchain install stable --profile minimal --target x86_64-pc-windows-msvc
+          rustup default stable
+          cargo --version
 
       - name: Build server (release)
-        run: cargo build -p itcmdr-server --release --target x86_64-pc-windows-msvc
+        run: cargo build -p itcmdr-server --release --locked --target x86_64-pc-windows-msvc
       - name: Prepare server binary for installer path
-        shell: pwsh
         run: |
           New-Item -ItemType Directory -Path server\target\release -Force | Out-Null
-          Copy-Item server\target\x86_64-pc-windows-msvc\release\itcmdr-server.exe server\target\release\itcmdr-server.exe -Force
+          Copy-Item target\x86_64-pc-windows-msvc\release\itcmdr-server.exe server\target\release\itcmdr-server.exe -Force
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: 'stable'
+      - name: Install Flutter ${{ env.FLUTTER_VERSION }}
+        run: |
+          git clone --depth 1 -b $env:FLUTTER_VERSION https://github.com/flutter/flutter.git "$env:RUNNER_TEMP\flutter"
+          Add-Content -Path $env:GITHUB_PATH -Value "$env:RUNNER_TEMP\flutter\bin"
       - name: Enable Windows desktop
-        run: flutter config --enable-windows-desktop
+        run: |
+          flutter --version
+          flutter config --enable-windows-desktop
       - name: Flutter pub get
         working-directory: app
-        run: flutter pub get
+        run: flutter pub get --enforce-lockfile
       - name: Build Flutter Windows app (release)
         working-directory: app
         run: flutter build windows --release
 
-      - name: Install Inno Setup
-        run: choco install innosetup --no-progress -y
-
       - name: Make installer
         run: |
-          & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' installer\itcmdr.iss
+          $iscc = Get-Command iscc.exe -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source
+          if (-not $iscc) {
+            $candidates = @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\Inno Setup 6\ISCC.exe")
+            $iscc = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          }
+          if (-not $iscc) {
+            choco install innosetup --no-progress -y
+            $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          }
+          $version = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME.TrimStart('v') } else { '0.0.0' }
+          & $iscc "/DMyAppVersion=$version" installer\itcmdr.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed with $LASTEXITCODE" }
+          Get-Item installer\out\itcmdr-Setup.exe
 
       - name: Archive artifacts
         uses: actions/upload-artifact@v4
@@ -53,15 +73,19 @@ jobs:
           name: itcmdr-windows-artifacts
           path: |
             installer\out\itcmdr-Setup.exe
-            server\target\x86_64-pc-windows-msvc\release\itcmdr-server.exe
+            target\x86_64-pc-windows-msvc\release\itcmdr-server.exe
             app\build\windows\x64\runner\Release\*
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
-        with:
-          files: |
-            installer\out\itcmdr-Setup.exe
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag --repo $env:GITHUB_REPOSITORY --title "itcmdr $tag" --generate-notes
+            if ($LASTEXITCODE -ne 0) { throw 'gh release create failed' }
+          }
+          gh release upload $tag installer\out\itcmdr-Setup.exe --repo $env:GITHUB_REPOSITORY --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'gh release upload failed' }

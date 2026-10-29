@@ -5,7 +5,9 @@
 ;  - Agent (PowerShell scripts; scheduled task; local log folder C:\maintenanceRuns)
 
 #define MyAppName "itcmdr"
-#define MyAppVersion "0.1.0"
+#ifndef MyAppVersion
+  #define MyAppVersion "0.1.1"
+#endif
 #define InstallDirName "itcmdr"
 
 [Setup]

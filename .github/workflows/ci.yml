@@ -4,26 +4,29 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: '3.47.8'
+
 jobs:
   scan:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Scan repo for site-specific content
-        run: |
-          python3 scripts/scan_repo.py
+        run: python3 scripts/scan_repo.py
 
   rust:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
       - name: Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
+        run: |
+          rustup toolchain install stable --profile minimal --component clippy
+          rustup default stable
+          cargo --version
       - name: Build (server + tools)
         run: cargo build --workspace --all-targets --locked
       - name: Test
@@ -35,9 +38,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: 'stable'
+      - name: Install Flutter ${{ env.FLUTTER_VERSION }}
+        run: |
+          git clone --depth 1 -b "$FLUTTER_VERSION" https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+      - name: Flutter version
+        run: flutter --version
       - name: Flutter pub get
         working-directory: app
         run: flutter pub get --enforce-lockfile
@@ -56,14 +62,11 @@ jobs:
         shell: pwsh
         run: |
           Set-PSRepository -Name 'PSGallery' -InstallationPolicy Trusted
-          Install-Module Pester -Scope CurrentUser -Force
+          Install-Module Pester -Scope CurrentUser -Force -MinimumVersion 5.5.0
           Install-Module PSScriptAnalyzer -Scope CurrentUser -Force
       - name: ScriptAnalyzer
         shell: pwsh
-        run: |
-          Invoke-ScriptAnalyzer -Path agent -Recurse -Severity Warning,Error -EnableExit
+        run: Invoke-ScriptAnalyzer -Path agent -Recurse -Severity Warning,Error -EnableExit
       - name: Pester
         shell: pwsh
-        run: |
-          Invoke-Pester -Path agent/tests -CI
-
+        run: Invoke-Pester -Path agent/tests -CI
