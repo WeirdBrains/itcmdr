@@ -90,6 +90,27 @@ message SaveExceptionResponse { ExceptionRule rule = 1; }
 message ExpireExceptionRequest { string id = 1; }
 message ExpireExceptionResponse {}
 
+// Log browse and search
+message SearchLogsRequest {
+  string query = 1;        // substring or simple pattern
+  string machine = 2;      // optional filter
+  int64 start_ts = 3;      // optional unix millis
+  int64 end_ts = 4;        // optional unix millis
+  int32 limit = 5;         // max lines (default 100)
+}
+message SearchLogsResponse {
+  repeated string lines = 1;
+}
+
+// Live updates
+message WatchUpdatesRequest {}
+message Update {
+  string kind = 1;    // e.g., "run", "check", "request", "exception"
+  string entity = 2;  // e.g., machine or check id
+  string id = 3;      // run_id, request_id, etc.
+  int64 ts = 4;       // unix millis
+}
+
 service Itcmdr {
   rpc ListMachines(ListMachinesRequest) returns (ListMachinesResponse);
   rpc TriggerRuns(TriggerRunsRequest) returns (TriggerRunsResponse);
@@ -98,5 +119,7 @@ service Itcmdr {
   rpc ListExceptions(ListExceptionsRequest) returns (ListExceptionsResponse);
   rpc SaveException(SaveExceptionRequest) returns (SaveExceptionResponse);
   rpc ExpireException(ExpireExceptionRequest) returns (ExpireExceptionResponse);
+  rpc SearchLogs(SearchLogsRequest) returns (SearchLogsResponse);
+  rpc WatchUpdates(WatchUpdatesRequest) returns (stream Update);
 }
 

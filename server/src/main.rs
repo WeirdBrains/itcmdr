@@ -2,6 +2,7 @@ mod config;
 mod api;
 mod db;
 mod metrics;
+mod events;
 mod ingest;
 mod generated {
     // Prost/tonic generated code lives here after build.rs runs.
@@ -27,6 +28,7 @@ async fn main() -> anyhow::Result<()> {
     let cfg = ServerConfig::load()?;
     let pool = crate::db::init_db(&cfg).await?;
     crate::db::apply_retention(&pool, cfg.retention_days).await?;
+    events::init();
     // Initial ingest (best-effort)
     if let Err(e) = ingest::ingest_all(&pool, &cfg.logs_dir).await {
         tracing::warn!(error=%e, "initial ingest failed");

@@ -194,6 +194,48 @@ pub struct ExpireExceptionRequest {
 }
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct ExpireExceptionResponse {}
+/// Log browse and search
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SearchLogsRequest {
+    /// substring or simple pattern
+    #[prost(string, tag = "1")]
+    pub query: ::prost::alloc::string::String,
+    /// optional filter
+    #[prost(string, tag = "2")]
+    pub machine: ::prost::alloc::string::String,
+    /// optional unix millis
+    #[prost(int64, tag = "3")]
+    pub start_ts: i64,
+    /// optional unix millis
+    #[prost(int64, tag = "4")]
+    pub end_ts: i64,
+    /// max lines (default 100)
+    #[prost(int32, tag = "5")]
+    pub limit: i32,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SearchLogsResponse {
+    #[prost(string, repeated, tag = "1")]
+    pub lines: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+/// Live updates
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct WatchUpdatesRequest {}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Update {
+    /// e.g., "run", "check", "request", "exception"
+    #[prost(string, tag = "1")]
+    pub kind: ::prost::alloc::string::String,
+    /// e.g., machine or check id
+    #[prost(string, tag = "2")]
+    pub entity: ::prost::alloc::string::String,
+    /// run_id, request_id, etc.
+    #[prost(string, tag = "3")]
+    pub id: ::prost::alloc::string::String,
+    /// unix millis
+    #[prost(int64, tag = "4")]
+    pub ts: i64,
+}
 /// Metrics and rollups
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
@@ -290,6 +332,26 @@ pub mod itcmdr_server {
             request: tonic::Request<super::ExpireExceptionRequest>,
         ) -> std::result::Result<
             tonic::Response<super::ExpireExceptionResponse>,
+            tonic::Status,
+        >;
+        async fn search_logs(
+            &self,
+            request: tonic::Request<super::SearchLogsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::SearchLogsResponse>,
+            tonic::Status,
+        >;
+        /// Server streaming response type for the WatchUpdates method.
+        type WatchUpdatesStream: tonic::codegen::tokio_stream::Stream<
+                Item = std::result::Result<super::Update, tonic::Status>,
+            >
+            + std::marker::Send
+            + 'static;
+        async fn watch_updates(
+            &self,
+            request: tonic::Request<super::WatchUpdatesRequest>,
+        ) -> std::result::Result<
+            tonic::Response<Self::WatchUpdatesStream>,
             tonic::Status,
         >;
     }
@@ -678,6 +740,95 @@ pub mod itcmdr_server {
                                 max_encoding_message_size,
                             );
                         let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/itcmdr.Itcmdr/SearchLogs" => {
+                    #[allow(non_camel_case_types)]
+                    struct SearchLogsSvc<T: Itcmdr>(pub Arc<T>);
+                    impl<T: Itcmdr> tonic::server::UnaryService<super::SearchLogsRequest>
+                    for SearchLogsSvc<T> {
+                        type Response = super::SearchLogsResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::SearchLogsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Itcmdr>::search_logs(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = SearchLogsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/itcmdr.Itcmdr/WatchUpdates" => {
+                    #[allow(non_camel_case_types)]
+                    struct WatchUpdatesSvc<T: Itcmdr>(pub Arc<T>);
+                    impl<
+                        T: Itcmdr,
+                    > tonic::server::ServerStreamingService<super::WatchUpdatesRequest>
+                    for WatchUpdatesSvc<T> {
+                        type Response = super::Update;
+                        type ResponseStream = T::WatchUpdatesStream;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::ResponseStream>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::WatchUpdatesRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Itcmdr>::watch_updates(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = WatchUpdatesSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.server_streaming(method, req).await;
                         Ok(res)
                     };
                     Box::pin(fut)

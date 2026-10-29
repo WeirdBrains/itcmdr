@@ -3,6 +3,9 @@ use crate::generated::itcmdr::itcmdr_server::Itcmdr;
 use crate::generated::itcmdr::*;
 use tonic::{Request, Response, Status};
 use sha2::{Digest, Sha256};
+use tokio_stream::StreamExt;
+use std::pin::Pin;
+use tokio_stream::wrappers::BroadcastStream;
 
 #[derive(Clone)]
 pub struct ItcmdrService {
@@ -93,9 +96,12 @@ impl Itcmdr for ItcmdrService {
         &self,
         req: Request<GetMetricsRequest>,
     ) -> Result<Response<GetMetricsResponse>, Status> {
-        let _ = req.into_inner();
-        // Placeholder: return empty until implemented fully in metrics module
-        Ok(Response::new(GetMetricsResponse { points: vec![] }))
+        let p = req.into_inner();
+        let pool = crate::db::init_db(&self.cfg).await.map_err(internal_err)?;
+        let pts = crate::metrics::get_metrics(&pool, p.window_days as i64, p.rollup())
+            .await
+            .map_err(internal_err)?;
+        Ok(Response::new(GetMetricsResponse { points: pts }))
     }
 
     async fn list_exceptions(
@@ -143,6 +149,39 @@ impl Itcmdr for ItcmdrService {
         let pool = crate::db::init_db(&self.cfg).await.map_err(internal_err)?;
         crate::db::expire_exception(&pool, &id).await.map_err(internal_err)?;
         Ok(Response::new(ExpireExceptionResponse {}))
+    }
+
+    async fn search_logs(
+        &self,
+        req: Request<SearchLogsRequest>,
+    ) -> Result<Response<SearchLogsResponse>, Status> {
+        let p = req.into_inner();
+        let mut lines = crate::ingest::iter_log_lines(&self.cfg.logs_dir).map_err(internal_err)?;
+        // naive filters
+        if !p.machine.is_empty() {
+            lines.retain(|l| l.contains(&p.machine));
+        }
+        if !p.query.is_empty() {
+            lines.retain(|l| l.to_lowercase().contains(&p.query.to_lowercase()));
+        }
+        let limit = if p.limit <= 0 { 100 } else { p.limit as usize };
+        if lines.len() > limit {
+            lines.truncate(limit);
+        }
+        Ok(Response::new(SearchLogsResponse { lines }))
+    }
+
+    type WatchUpdatesStream = Pin<Box<dyn tokio_stream::Stream<Item = Result<Update, Status>> + Send + 'static>>;
+    async fn watch_updates(
+        &self,
+        _req: Request<WatchUpdatesRequest>,
+    ) -> Result<Response<Self::WatchUpdatesStream>, Status> {
+        let rx = crate::events::subscribe();
+        let stream = BroadcastStream::new(rx).map(|item| match item {
+            Ok(u) => Ok(u),
+            Err(_) => Err(Status::cancelled("update channel closed")),
+        });
+        Ok(Response::new(Box::pin(stream)))
     }
 }
 

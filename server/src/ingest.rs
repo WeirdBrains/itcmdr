@@ -16,6 +16,7 @@ pub struct AgentRecord {
     pub severity: String,
     pub status: String,
     pub action: Option<String>,
+    pub result: Option<String>,
     pub excepted: Option<bool>,
     pub exception_reason: Option<String>,
 }
@@ -127,9 +128,9 @@ pub async fn ingest_all(pool: &crate::db::DbPool, dir: &PathBuf) -> anyhow::Resu
                 let ts_ms = chrono::Utc::now().timestamp_millis(); // fallback
                 let _ = crate::db::record_run_start(pool, &run_id, &computer, role.as_deref(), report_only.unwrap_or(false), ts_ms).await;
             }
-            Ok(LogLine::Check { run_id, computer, category, check_id, severity, status, action, excepted, exceptionReason: exception_reason, .. }) => {
+            Ok(LogLine::Check { run_id, computer, category, check_id, severity, status, action, result, excepted, exceptionReason: exception_reason, .. }) => {
                 let rec = AgentRecord {
-                    run_id, computer, category, check_id, severity, status, action, excepted, exception_reason,
+                    run_id, computer, category, check_id, severity, status, action, result, excepted, exception_reason,
                 };
                 let ts_ms = chrono::Utc::now().timestamp_millis();
                 let _ = crate::db::record_check(pool, &rec, ts_ms).await;

@@ -129,13 +129,14 @@ pub async fn record_check(pool: &DbPool, rec: &crate::ingest::AgentRecord, ts_ms
         .bind(&rec.status)
         .bind(if rec.action.as_deref() == Some("repair") { 1 } else { 0 })
         .bind(rec.action.as_deref().unwrap_or_default())
-        .bind("") // result not included in AgentRecord stub; extend if needed
+        .bind(rec.result.as_deref().unwrap_or_default())
         .bind(ts_ms)
         .bind(rec.excepted.unwrap_or(false) as i32)
         .bind(rec.exception_reason.as_deref().unwrap_or_default())
         .execute(pool).await?;
     update_incidents_for_check(pool, rec, ts_ms).await?;
     update_rollup_daily_for_check(pool, rec, ts_ms).await?;
+    crate::events::notify("check", &rec.computer, &rec.run_id);
     Ok(())
 }
 
@@ -148,11 +149,13 @@ async fn update_incidents_for_check(pool: &DbPool, rec: &crate::ingest::AgentRec
         if open == 0 {
             sqlx::query("INSERT INTO incidents (computer, check_id, opened_ts_ms, is_open) VALUES (?,?,?,1)")
                 .bind(&rec.computer).bind(&rec.check_id).bind(ts_ms).execute(pool).await?;
+            crate::events::notify("incident-open", &rec.computer, &rec.check_id);
         }
     } else if rec.status.eq_ignore_ascii_case("ok") {
         // close any open
         sqlx::query("UPDATE incidents SET closed_ts_ms=?, is_open=0 WHERE computer=? AND check_id=? AND is_open=1")
             .bind(ts_ms).bind(&rec.computer).bind(&rec.check_id).execute(pool).await?;
+        crate::events::notify("incident-close", &rec.computer, &rec.check_id);
     }
     Ok(())
 }
@@ -174,6 +177,7 @@ pub async fn insert_request(pool: &DbPool, request_id: &str, options_json: &str)
     sqlx::query("INSERT OR REPLACE INTO requests (request_id, created_ts_ms, options_json, status) VALUES (?,?,?,?)")
         .bind(request_id).bind(Utc::now().timestamp_millis()).bind(options_json).bind("queued")
         .execute(pool).await?;
+    crate::events::notify("request", "", request_id);
     Ok(())
 }
 
@@ -210,11 +214,13 @@ pub async fn list_machines_overview(pool: &DbPool) -> anyhow::Result<Vec<(String
 pub async fn save_exception(pool: &DbPool, id: &str, rule_json: &str) -> anyhow::Result<()> {
     sqlx::query("INSERT OR REPLACE INTO exceptions (id, rule_json, active) VALUES (?,?,1)")
         .bind(id).bind(rule_json).execute(pool).await?;
+    crate::events::notify("exception-save", "", id);
     Ok(())
 }
 
 pub async fn expire_exception(pool: &DbPool, id: &str) -> anyhow::Result<()> {
     sqlx::query("UPDATE exceptions SET active=0 WHERE id=?").bind(id).execute(pool).await?;
+    crate::events::notify("exception-expire", "", id);
     Ok(())
 }
 
