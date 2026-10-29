@@ -2,7 +2,7 @@ use notify::{Config as NotifyConfig, Event, RecommendedWatcher, RecursiveMode, W
 use serde::Deserialize;
 use std::path::PathBuf;
 use tokio::sync::mpsc;
-use tracing::info;
+use tracing::{info, warn};
 use walkdir::WalkDir;
 
 #[allow(dead_code)]
@@ -100,5 +100,49 @@ pub fn iter_log_lines(root: &std::path::Path) -> anyhow::Result<Vec<String>> {
         }
     }
     Ok(out)
+}
+
+#[derive(Deserialize)]
+#[serde(tag = "type", rename_all = "kebab-case")]
+enum LogLine {
+    #[serde(rename_all = "camelCase")]
+    #[allow(dead_code)]
+    RunStart { run_id: String, computer: String, role: Option<String>, report_only: Option<bool>, started: Option<String> },
+    #[serde(rename_all = "camelCase")]
+    #[allow(dead_code)]
+    Check { run_id: String, computer: String, category: String, check_id: String, severity: String, status: String, attemptedRepair: Option<bool>, action: Option<String>, result: Option<String>, durationMs: Option<i64>, ts: Option<String>, excepted: Option<bool>, exceptionReason: Option<String> },
+    #[serde(rename_all = "camelCase")]
+    #[allow(dead_code)]
+    RunComplete { run_id: String, computer: String, finished: Option<String>, exitCode: Option<i32> },
+    #[serde(other)]
+    Unknown,
+}
+
+pub async fn ingest_all(pool: &crate::db::DbPool, dir: &PathBuf) -> anyhow::Result<()> {
+    let lines = iter_log_lines(dir)?;
+    for line in lines {
+        if line.trim().is_empty() { continue; }
+        match serde_json::from_str::<LogLine>(&line) {
+            Ok(LogLine::RunStart { run_id, computer, role, report_only, started: _ }) => {
+                let ts_ms = chrono::Utc::now().timestamp_millis(); // fallback
+                let _ = crate::db::record_run_start(pool, &run_id, &computer, role.as_deref(), report_only.unwrap_or(false), ts_ms).await;
+            }
+            Ok(LogLine::Check { run_id, computer, category, check_id, severity, status, action, excepted, exceptionReason: exception_reason, .. }) => {
+                let rec = AgentRecord {
+                    run_id, computer, category, check_id, severity, status, action, excepted, exception_reason,
+                };
+                let ts_ms = chrono::Utc::now().timestamp_millis();
+                let _ = crate::db::record_check(pool, &rec, ts_ms).await;
+            }
+            Ok(LogLine::RunComplete { .. }) => {
+                // No-op for now
+            }
+            Ok(LogLine::Unknown) => {}
+            Err(e) => {
+                warn!(error=%e, "failed to parse log line");
+            }
+        }
+    }
+    Ok(())
 }
 

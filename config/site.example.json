@@ -4,7 +4,14 @@
   "network": {
     "lanCidr": "198.51.100.0/24",
     "serverHostname": "SERVER01",
-    "serverAddress": "198.51.100.2"
+    "serverAddress": "198.51.100.2",
+    "domainSuffix": "example.local",
+    "dnsServers": ["198.51.100.2"],
+    "defaultGateway": "198.51.100.2",
+    "nic2": {
+      "interfaceAlias": "Ethernet 2",
+      "registerThisAddress": false
+    }
   },
   "services": {
     "sidexisRestService": {
@@ -18,9 +25,15 @@
     },
     "rcu": {
       "hostname": "RCU-01",
-      "port": 8080
+      "port": 8080,
+      "dataPath": "C:\\\\DataContainer"
     }
   },
+  "printers": [
+    {"name":"PRN-01","address":"198.51.100.58","port":9100},
+    {"name":"PRN-02","address":"198.51.100.59","port":9100},
+    {"name":"PRN-03","address":"198.51.100.60","port":9100}
+  ],
   "shares": {
     "pdata": "\\\\SERVER01\\PDATA",
     "maintenanceRuns": "\\\\SERVER01\\PDATA\\maintenanceRuns"

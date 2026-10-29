@@ -31,6 +31,7 @@ uuid = { version = "1.10", features = ["v4", "serde"] }
 zip = { version = "0.6.6", default-features = false, features = ["deflate"] }
 walkdir = "2.5.0"
 tempfile = "3.10"
+sha2 = "0.10"
 
 
 [build-dependencies]

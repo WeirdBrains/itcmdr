@@ -27,6 +27,8 @@ HOSTNAME_HEURISTIC = re.compile(r"\b[A-Z]{2,8}-[A-Z0-9]*\d[A-Z0-9]*\b")
 # MAC address patterns
 MAC_RE = re.compile(r"\b([0-9A-Fa-f]{2}([-:])){5}[0-9A-Fa-f]{2}\b")
 
+ALLOWED_TOKENS = {"SHA-256"}
+
 TEXT_EXTS = {
     ".rs", ".toml", ".md", ".yml", ".yaml", ".json", ".ps1", ".psd1", ".psm1",
     ".dart", ".proto", ".sh", ".bat", ".iss", ".txt", ".py", ".ts", ".tsx"
@@ -69,6 +71,8 @@ def scan_file(path: Path):
     for m in HOSTNAME_HEURISTIC.finditer(data):
         token = m.group(0)
         if re.fullmatch(r"(WS|PRN)-\d{2,3}", token) or token in {"RCU-01"}:
+            continue
+        if token in ALLOWED_TOKENS:
             continue
         violations.append((path, f"Suspicious hostname-like token: {token}"))
 

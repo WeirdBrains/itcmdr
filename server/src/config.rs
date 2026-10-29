@@ -14,6 +14,12 @@ pub struct ServerConfig {
     pub logs_dir: PathBuf,
     /// SQLite database file path.
     pub database_path: PathBuf,
+    /// Optional folder for request queue (defaults to logs_dir/requests)
+    #[serde(default)]
+    pub requests_dir: Option<PathBuf>,
+    /// Admin token SHA-256 hex (optional). If empty, no auth required.
+    #[serde(default)]
+    pub admin_token_hash: Option<String>,
     /// Retain DB data for at least this many days (default 400)
     #[serde(default = "default_retention_days")]
     pub retention_days: i64,
@@ -68,6 +74,8 @@ impl Default for ServerConfig {
             bind_addr: DEFAULT_BIND.to_string(),
             logs_dir: logs,
             database_path: db,
+            requests_dir: None,
+            admin_token_hash: None,
             retention_days: DEFAULT_RETENTION_DAYS,
             metrics: MetricsConfig::default(),
         }
@@ -101,6 +109,9 @@ impl ServerConfig {
             serde_json::from_str(&s).with_context(|| format!("parsing {:?}", path))?;
         if cfg.bind_addr.trim().is_empty() {
             cfg.bind_addr = DEFAULT_BIND.to_string();
+        }
+        if cfg.requests_dir.is_none() {
+            cfg.requests_dir = Some(cfg.logs_dir.join("requests"));
         }
         Ok(cfg)
     }
