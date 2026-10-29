@@ -1,21 +1,14 @@
 ﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
-<test-results xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="nunit_schema_2.5.xsd" name="Pester" total="1" errors="0" failures="1" not-run="0" inconclusive="0" ignored="0" skipped="0" invalid="0" date="2026-10-29" time="14:23:57">
-  <environment user="m3talsmith" cwd="/mnt/ext1/home/m3talsmith/Projects/WeirdBrains/itcmdr" machine-name="alien-blue" user-domain="" clr-version="10.0.14" platform="Linux" os-version="7.2.8-9-omarchy" nunit-version="2.5.8.0" />
+<test-results xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="nunit_schema_2.5.xsd" name="Pester" total="1" errors="0" failures="0" not-run="0" inconclusive="0" ignored="0" skipped="0" invalid="0" date="2026-10-29" time="14:34:42">
+  <environment platform="Linux" user="m3talsmith" cwd="/mnt/ext1/home/m3talsmith/Projects/WeirdBrains/itcmdr" os-version="7.2.8-9-omarchy" user-domain="" clr-version="10.0.14" machine-name="alien-blue" nunit-version="2.5.8.0" />
   <culture-info current-culture="en-US" current-uiculture="en-US" />
-  <test-suite type="TestFixture" name="Pester" executed="True" result="Failure" success="False" time="0.3672" asserts="0" description="Pester">
+  <test-suite type="TestFixture" name="Pester" executed="True" result="Success" success="True" time="0.3841" asserts="0" description="Pester">
     <results>
-      <test-suite type="TestFixture" name="/mnt/ext1/home/m3talsmith/Projects/WeirdBrains/itcmdr/agent/tests/Invoke-ItcmdrAgent.Tests.ps1" executed="True" result="Failure" success="False" time="0.3672" asserts="0" description="/mnt/ext1/home/m3talsmith/Projects/WeirdBrains/itcmdr/agent/tests/Invoke-ItcmdrAgent.Tests.ps1">
+      <test-suite type="TestFixture" name="/mnt/ext1/home/m3talsmith/Projects/WeirdBrains/itcmdr/agent/tests/Exceptions.Tests.ps1" executed="True" result="Success" success="True" time="0.3841" asserts="0" description="/mnt/ext1/home/m3talsmith/Projects/WeirdBrains/itcmdr/agent/tests/Exceptions.Tests.ps1">
         <results>
-          <test-suite type="TestFixture" name="Invoke-ItcmdrAgent.ps1" executed="True" result="Failure" success="False" time="0.1557" asserts="0" description="Invoke-ItcmdrAgent.ps1">
+          <test-suite type="TestFixture" name="Exceptions handling in Invoke-ItcmdrCheck" executed="True" result="Success" success="True" time="0.1687" asserts="0" description="Exceptions handling in Invoke-ItcmdrCheck">
             <results>
-              <test-case description="parses and runs in ReportOnly without throwing" name="Invoke-ItcmdrAgent.ps1.parses and runs in ReportOnly without throwing" time="0.134" asserts="0" success="False" result="Failure" executed="True">
-                <failure>
-                  <message>Expected no exception to be thrown, but an exception "Site config not found. Provide config/site.json or C:\ProgramData\itcmdr\site.json." was thrown from /mnt/ext1/home/m3talsmith/Projects/WeirdBrains/itcmdr/agent/Invoke-ItcmdrAgent.ps1:46 char:3
-    +   throw 'Site config not found. Provide config/site.json or C:\Progra …
-    +   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~.</message>
-                  <stack-trace>at { &amp; $script -ReportOnly } | Should -Not -Throw, /mnt/ext1/home/m3talsmith/Projects/WeirdBrains/itcmdr/agent/tests/Invoke-ItcmdrAgent.Tests.ps1:6</stack-trace>
-                </failure>
-              </test-case>
+              <test-case description="ignores a failed check when exception action=ignore" name="Exceptions handling in Invoke-ItcmdrCheck.ignores a failed check when exception action=ignore" time="0.1384" asserts="0" success="True" result="Success" executed="True" />
             </results>
           </test-suite>
         </results>

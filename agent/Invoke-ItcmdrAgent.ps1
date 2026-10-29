@@ -128,14 +128,21 @@ function Invoke-ItcmdrCheck {
         if ($ex.scope.machines) {
           if ($ex.scope.machines -contains $Ctx.Computer) { $applies = $true }
         }
-        if ($ex.scope.role) {
+        $hasRoleKey = $false
+        if ($ex.scope -is [hashtable]) { $hasRoleKey = $ex.scope.ContainsKey('role') }
+        elseif ($ex.scope.PSObject -and $ex.scope.PSObject.Properties) { $hasRoleKey = ($ex.scope.PSObject.Properties.Name -contains 'role') }
+        if ($hasRoleKey -and $ex.scope.role) {
           if ($ex.scope.role -eq $Ctx.Role) { $applies = $true }
         }
       }
       if (-not $applies) { continue }
       if ($ex.checkId -and $ex.checkId -ne $Id) { continue }
-      if ($ex.checkPattern -and ($Id -notmatch $ex.checkPattern)) { continue }
-      if ($ex.expires) {
+      $hasPattern = $false
+      if ($ex -is [hashtable]) { $hasPattern = $ex.ContainsKey('checkPattern') }
+      elseif ($ex.PSObject) { $hasPattern = ($ex.PSObject.Properties.Name -contains 'checkPattern') }
+      if ($hasPattern -and $ex.checkPattern -and ($Id -notmatch $ex.checkPattern)) { continue }
+      $hasExpires = if ($ex -is [hashtable]) { $ex.ContainsKey('expires') } elseif ($ex.PSObject) { ($ex.PSObject.Properties.Name -contains 'expires') } else { $false }
+      if ($hasExpires -and $ex.expires) {
         $exp = [datetime]::Parse($ex.expires)
         if ($exp -lt (Get-Date)) { continue }
       }
@@ -307,48 +314,50 @@ function Invoke-ItcmdrServiceChecks {
   }
 }
 
-# Main
-$site = Get-ItcmdrSiteConfig
-$ctx = New-ItcmdrRunContext -Site $site
-$isSystem = [bool]([Security.Principal.WindowsIdentity]::GetCurrent().IsSystem)
-$reportOnlyEffective = if ($PSBoundParameters.ContainsKey('ReportOnly')) { $ReportOnly } else { -not $isSystem }
+if (-not $env:ITCMDR_IMPORT_ONLY) {
+  # Main
+  $site = Get-ItcmdrSiteConfig
+  $ctx = New-ItcmdrRunContext -Site $site
+  $isSystem = [bool]([Security.Principal.WindowsIdentity]::GetCurrent().IsSystem)
+  $reportOnlyEffective = if ($PSBoundParameters.ContainsKey('ReportOnly')) { $ReportOnly } else { -not $isSystem }
 
-# Write run-start
-Write-ItcmdrJsonLine -Path $ctx.LogFile -Record ([pscustomobject]@{
-  type = 'run-start'
-  runId = $ctx.RunId
-  computer = $ctx.Computer
-  role = $ctx.Role
-  reportOnly = $reportOnlyEffective
-  started = (Get-Date).ToString('o')
-  agentVersion = '0.1.0'
-})
+  # Write run-start
+  Write-ItcmdrJsonLine -Path $ctx.LogFile -Record ([pscustomobject]@{
+    type = 'run-start'
+    runId = $ctx.RunId
+    computer = $ctx.Computer
+    role = $ctx.Role
+    reportOnly = $reportOnlyEffective
+    started = (Get-Date).ToString('o')
+    agentVersion = '0.1.0'
+  })
 
-# Guard for clinical activity (skip disruptive repairs when active unless forced)
-$quietOk = Test-ItcmdrClinicalQuiet -Site $site -QuietMinutes 10
-if (-not $quietOk -and -not $Force) {
-  $reportOnlyEffective = $true
+  # Guard for clinical activity (skip disruptive repairs when active unless forced)
+  $quietOk = Test-ItcmdrClinicalQuiet -Site $site -QuietMinutes 10
+  if (-not $quietOk -and -not $Force) {
+    $reportOnlyEffective = $true
+  }
+
+  # Run checks
+  Invoke-ItcmdrNetworkChecks -Ctx $ctx -ReportOnlyLocal:$reportOnlyEffective
+  Invoke-ItcmdrServiceChecks -Ctx $ctx -ReportOnlyLocal:$reportOnlyEffective
+
+  # Retention: prune local logs older than site.retention.agentLocalDays (default 400)
+  $retentionDays = if ($site.retention.agentLocalDays) { [int]$site.retention.agentLocalDays } else { 400 }
+  Get-ChildItem -LiteralPath 'C:\maintenanceRuns' -File -Filter '*.log' -ErrorAction SilentlyContinue |
+    Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-$retentionDays) } |
+    Remove-Item -Force -ErrorAction SilentlyContinue
+
+  # Run-complete
+  Write-ItcmdrJsonLine -Path $ctx.LogFile -Record ([pscustomobject]@{
+    type = 'run-complete'
+    runId = $ctx.RunId
+    computer = $ctx.Computer
+    finished = (Get-Date).ToString('o')
+    exitCode = 0
+  })
+
+  # Push log to share (with queue)
+  Push-ItcmdrLog -Ctx $ctx
 }
-
-# Run checks
-Invoke-ItcmdrNetworkChecks -Ctx $ctx -ReportOnlyLocal:$reportOnlyEffective
-Invoke-ItcmdrServiceChecks -Ctx $ctx -ReportOnlyLocal:$reportOnlyEffective
-
-# Retention: prune local logs older than site.retention.agentLocalDays (default 400)
-$retentionDays = if ($site.retention.agentLocalDays) { [int]$site.retention.agentLocalDays } else { 400 }
-Get-ChildItem -LiteralPath 'C:\maintenanceRuns' -File -Filter '*.log' -ErrorAction SilentlyContinue |
-  Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-$retentionDays) } |
-  Remove-Item -Force -ErrorAction SilentlyContinue
-
-# Run-complete
-Write-ItcmdrJsonLine -Path $ctx.LogFile -Record ([pscustomobject]@{
-  type = 'run-complete'
-  runId = $ctx.RunId
-  computer = $ctx.Computer
-  finished = (Get-Date).ToString('o')
-  exitCode = 0
-})
-
-# Push log to share (with queue)
-Push-ItcmdrLog -Ctx $ctx
 
