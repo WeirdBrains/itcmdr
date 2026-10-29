@@ -1,0 +1,125 @@
+syntax = "proto3";
+
+package itcmdr;
+
+// Machine summary for overview lists.
+message Machine {
+  string name = 1;
+  string status = 2;        // "ok", "warning", "error", etc.
+  int32 open_incidents = 3; // Count of active incident groups
+  int64 last_run_ts = 4;    // Unix millis
+}
+
+message ListMachinesRequest {}
+message ListMachinesResponse {
+  repeated Machine machines = 1;
+}
+
+// Request to trigger runs on one or more machines.
+message TriggerRunsRequest {
+  repeated string machines = 1; // Empty means "all".
+  bool report_only = 2;
+  bool repair = 3;
+  bool force = 4;               // Override clinical guardrails
+  repeated string categories = 5;
+}
+message TriggerRunsResponse {
+  string request_id = 1;
+}
+
+message GetRequestStatusRequest {
+  string request_id = 1;
+}
+message RequestStatus {
+  enum Status {
+    UNKNOWN = 0;
+    QUEUED = 1;
+    RUNNING = 2;
+    DONE = 3;
+    FAILED = 4;
+  }
+  Status status = 1;
+  string message = 2;
+}
+message GetRequestStatusResponse {
+  RequestStatus.Status status = 1;
+  string message = 2;
+}
+
+// Metrics and rollups
+enum Rollup {
+  ROLLUP_DAILY = 0;
+  ROLLUP_WEEKLY = 1;
+  ROLLUP_MONTHLY = 2;
+  ROLLUP_QUARTERLY = 3;
+  ROLLUP_YEARLY = 4;
+}
+
+message GetMetricsRequest {
+  int32 window_days = 1; // e.g., 7, 30, 90, 365
+  Rollup rollup = 2;     // desired aggregation level
+}
+message MetricPoint {
+  string key = 1;      // e.g., machine name or metric id
+  int64 ts = 2;        // bucket start (unix millis)
+  double value = 3;    // generic numeric value (count, rate)
+}
+message GetMetricsResponse {
+  repeated MetricPoint points = 1;
+}
+
+// Exceptions allowlist rules
+message ExceptionScope {
+  repeated string machines = 1; // machine names or patterns (future)
+  string role = 2;              // optional role
+}
+message ExceptionRule {
+  string id = 1;               // server-assigned id
+  ExceptionScope scope = 2;
+  string check_id = 3;         // exact id
+  string check_pattern = 4;    // or regex
+  string action = 5;           // "ignore", "downgrade:warn", "downgrade:info"
+  string reason = 6;
+  string expires = 7;          // ISO date or empty
+  bool active = 8;             // computed
+}
+message ListExceptionsRequest {}
+message ListExceptionsResponse { repeated ExceptionRule rules = 1; }
+message SaveExceptionRequest { ExceptionRule rule = 1; }
+message SaveExceptionResponse { ExceptionRule rule = 1; }
+message ExpireExceptionRequest { string id = 1; }
+message ExpireExceptionResponse {}
+
+// Log browse and search
+message SearchLogsRequest {
+  string query = 1;        // substring or simple pattern
+  string machine = 2;      // optional filter
+  int64 start_ts = 3;      // optional unix millis
+  int64 end_ts = 4;        // optional unix millis
+  int32 limit = 5;         // max lines (default 100)
+}
+message SearchLogsResponse {
+  repeated string lines = 1;
+}
+
+// Live updates
+message WatchUpdatesRequest {}
+message Update {
+  string kind = 1;    // e.g., "run", "check", "request", "exception"
+  string entity = 2;  // e.g., machine or check id
+  string id = 3;      // run_id, request_id, etc.
+  int64 ts = 4;       // unix millis
+}
+
+service Itcmdr {
+  rpc ListMachines(ListMachinesRequest) returns (ListMachinesResponse);
+  rpc TriggerRuns(TriggerRunsRequest) returns (TriggerRunsResponse);
+  rpc GetRequestStatus(GetRequestStatusRequest) returns (GetRequestStatusResponse);
+  rpc GetMetrics(GetMetricsRequest) returns (GetMetricsResponse);
+  rpc ListExceptions(ListExceptionsRequest) returns (ListExceptionsResponse);
+  rpc SaveException(SaveExceptionRequest) returns (SaveExceptionResponse);
+  rpc ExpireException(ExpireExceptionRequest) returns (ExpireExceptionResponse);
+  rpc SearchLogs(SearchLogsRequest) returns (SearchLogsResponse);
+  rpc WatchUpdates(WatchUpdatesRequest) returns (stream Update);
+}
+

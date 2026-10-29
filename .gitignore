@@ -25,3 +25,5 @@ config/banned.local.txt
 /installer/out/
 # Logs
 **/*.log
+# Test output
+testResults.xml
