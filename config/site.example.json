@@ -25,6 +25,42 @@
     "pdata": "\\\\SERVER01\\PDATA",
     "maintenanceRuns": "\\\\SERVER01\\PDATA\\maintenanceRuns"
   },
+  "retention": {
+    "serverDays": 400,
+    "agentLocalDays": 400,
+    "yearlyKeepForever": true
+  },
+  "rotation": {
+    "enabled": true,
+    "timeLocal": "02:10",
+    "weekly": true,
+    "monthly": true,
+    "yearly": true
+  },
+  "exceptions": [
+    {
+      "scope": { "machines": ["RCU-01"] },
+      "checkId": "CONNECTIVITY-RCU-UPSTREAM",
+      "action": "ignore",
+      "reason": "X-ray unit allowed to be unreachable off-hours",
+      "expires": null
+    },
+    {
+      "scope": { "machines": ["WS-01"], "role": null },
+      "checkPattern": "^NET-IFACE-.*169\\.254",
+      "action": "downgrade:warn",
+      "reason": "Known isolated adapter",
+      "expires": "2099-12-31"
+    }
+  ],
+  "backup": {
+    "expectedBackupSources": [
+      "\\\\SERVER01\\PDATA\\maintenanceRuns",
+      "\\\\SERVER01\\PDATA\\maintenanceRuns\\archive\\weekly",
+      "\\\\SERVER01\\PDATA\\maintenanceRuns\\archive\\monthly",
+      "\\\\SERVER01\\PDATA\\maintenanceRuns\\archive\\yearly"
+    ]
+  },
   "stalePatterns": [
     "EXAMPLE-OLD-SERVER",
     "192.0.2.",

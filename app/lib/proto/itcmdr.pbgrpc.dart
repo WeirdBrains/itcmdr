@@ -53,6 +53,34 @@ class ItcmdrClient extends $grpc.Client {
     return $createUnaryCall(_$getRequestStatus, request, options: options);
   }
 
+  $grpc.ResponseFuture<$0.GetMetricsResponse> getMetrics(
+    $0.GetMetricsRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$getMetrics, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.ListExceptionsResponse> listExceptions(
+    $0.ListExceptionsRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$listExceptions, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.SaveExceptionResponse> saveException(
+    $0.SaveExceptionRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$saveException, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.ExpireExceptionResponse> expireException(
+    $0.ExpireExceptionRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$expireException, request, options: options);
+  }
+
   // method descriptors
 
   static final _$listMachines =
@@ -70,6 +98,26 @@ class ItcmdrClient extends $grpc.Client {
       '/itcmdr.Itcmdr/GetRequestStatus',
       ($0.GetRequestStatusRequest value) => value.writeToBuffer(),
       $0.GetRequestStatusResponse.fromBuffer);
+  static final _$getMetrics =
+      $grpc.ClientMethod<$0.GetMetricsRequest, $0.GetMetricsResponse>(
+          '/itcmdr.Itcmdr/GetMetrics',
+          ($0.GetMetricsRequest value) => value.writeToBuffer(),
+          $0.GetMetricsResponse.fromBuffer);
+  static final _$listExceptions =
+      $grpc.ClientMethod<$0.ListExceptionsRequest, $0.ListExceptionsResponse>(
+          '/itcmdr.Itcmdr/ListExceptions',
+          ($0.ListExceptionsRequest value) => value.writeToBuffer(),
+          $0.ListExceptionsResponse.fromBuffer);
+  static final _$saveException =
+      $grpc.ClientMethod<$0.SaveExceptionRequest, $0.SaveExceptionResponse>(
+          '/itcmdr.Itcmdr/SaveException',
+          ($0.SaveExceptionRequest value) => value.writeToBuffer(),
+          $0.SaveExceptionResponse.fromBuffer);
+  static final _$expireException =
+      $grpc.ClientMethod<$0.ExpireExceptionRequest, $0.ExpireExceptionResponse>(
+          '/itcmdr.Itcmdr/ExpireException',
+          ($0.ExpireExceptionRequest value) => value.writeToBuffer(),
+          $0.ExpireExceptionResponse.fromBuffer);
 }
 
 @$pb.GrpcServiceName('itcmdr.Itcmdr')
@@ -104,6 +152,40 @@ abstract class ItcmdrServiceBase extends $grpc.Service {
         ($core.List<$core.int> value) =>
             $0.GetRequestStatusRequest.fromBuffer(value),
         ($0.GetRequestStatusResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.GetMetricsRequest, $0.GetMetricsResponse>(
+        'GetMetrics',
+        getMetrics_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.GetMetricsRequest.fromBuffer(value),
+        ($0.GetMetricsResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.ListExceptionsRequest,
+            $0.ListExceptionsResponse>(
+        'ListExceptions',
+        listExceptions_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) =>
+            $0.ListExceptionsRequest.fromBuffer(value),
+        ($0.ListExceptionsResponse value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.SaveExceptionRequest, $0.SaveExceptionResponse>(
+            'SaveException',
+            saveException_Pre,
+            false,
+            false,
+            ($core.List<$core.int> value) =>
+                $0.SaveExceptionRequest.fromBuffer(value),
+            ($0.SaveExceptionResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.ExpireExceptionRequest,
+            $0.ExpireExceptionResponse>(
+        'ExpireException',
+        expireException_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) =>
+            $0.ExpireExceptionRequest.fromBuffer(value),
+        ($0.ExpireExceptionResponse value) => value.writeToBuffer()));
   }
 
   $async.Future<$0.ListMachinesResponse> listMachines_Pre(
@@ -131,4 +213,39 @@ abstract class ItcmdrServiceBase extends $grpc.Service {
 
   $async.Future<$0.GetRequestStatusResponse> getRequestStatus(
       $grpc.ServiceCall call, $0.GetRequestStatusRequest request);
+
+  $async.Future<$0.GetMetricsResponse> getMetrics_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.GetMetricsRequest> $request) async {
+    return getMetrics($call, await $request);
+  }
+
+  $async.Future<$0.GetMetricsResponse> getMetrics(
+      $grpc.ServiceCall call, $0.GetMetricsRequest request);
+
+  $async.Future<$0.ListExceptionsResponse> listExceptions_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.ListExceptionsRequest> $request) async {
+    return listExceptions($call, await $request);
+  }
+
+  $async.Future<$0.ListExceptionsResponse> listExceptions(
+      $grpc.ServiceCall call, $0.ListExceptionsRequest request);
+
+  $async.Future<$0.SaveExceptionResponse> saveException_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.SaveExceptionRequest> $request) async {
+    return saveException($call, await $request);
+  }
+
+  $async.Future<$0.SaveExceptionResponse> saveException(
+      $grpc.ServiceCall call, $0.SaveExceptionRequest request);
+
+  $async.Future<$0.ExpireExceptionResponse> expireException_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.ExpireExceptionRequest> $request) async {
+    return expireException($call, await $request);
+  }
+
+  $async.Future<$0.ExpireExceptionResponse> expireException(
+      $grpc.ServiceCall call, $0.ExpireExceptionRequest request);
 }

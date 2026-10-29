@@ -1,11 +1,11 @@
 use anyhow::Context;
 use directories::ProjectDirs;
-use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
 static DEFAULT_BIND: &str = "127.0.0.1:50051";
+const DEFAULT_RETENTION_DAYS: i64 = 400;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerConfig {
@@ -14,6 +14,48 @@ pub struct ServerConfig {
     pub logs_dir: PathBuf,
     /// SQLite database file path.
     pub database_path: PathBuf,
+    /// Retain DB data for at least this many days (default 400)
+    #[serde(default = "default_retention_days")]
+    pub retention_days: i64,
+    /// Metrics windows (days) for trends. Defaults: 7,30,90,365
+    #[serde(default)]
+    pub metrics: MetricsConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MetricsConfig {
+    #[serde(default = "default_windows")]
+    pub trend_windows_days: Vec<i64>,
+    /// Rollups supported: daily, weekly, monthly, quarterly, yearly
+    #[serde(default = "default_rollups")]
+    pub rollups: Vec<String>,
+}
+
+impl Default for MetricsConfig {
+    fn default() -> Self {
+        Self {
+            trend_windows_days: default_windows(),
+            rollups: default_rollups(),
+        }
+    }
+}
+
+fn default_windows() -> Vec<i64> {
+    vec![7, 30, 90, 365]
+}
+
+fn default_rollups() -> Vec<String> {
+    vec![
+        "daily".into(),
+        "weekly".into(),
+        "monthly".into(),
+        "quarterly".into(),
+        "yearly".into(),
+    ]
+}
+
+fn default_retention_days() -> i64 {
+    DEFAULT_RETENTION_DAYS
 }
 
 impl Default for ServerConfig {
@@ -26,6 +68,8 @@ impl Default for ServerConfig {
             bind_addr: DEFAULT_BIND.to_string(),
             logs_dir: logs,
             database_path: db,
+            retention_days: DEFAULT_RETENTION_DAYS,
+            metrics: MetricsConfig::default(),
         }
     }
 }

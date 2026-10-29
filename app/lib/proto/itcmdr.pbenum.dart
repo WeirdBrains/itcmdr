@@ -14,6 +14,35 @@ import 'dart:core' as $core;
 
 import 'package:protobuf/protobuf.dart' as $pb;
 
+/// Metrics and rollups
+class Rollup extends $pb.ProtobufEnum {
+  static const Rollup ROLLUP_DAILY =
+      Rollup._(0, _omitEnumNames ? '' : 'ROLLUP_DAILY');
+  static const Rollup ROLLUP_WEEKLY =
+      Rollup._(1, _omitEnumNames ? '' : 'ROLLUP_WEEKLY');
+  static const Rollup ROLLUP_MONTHLY =
+      Rollup._(2, _omitEnumNames ? '' : 'ROLLUP_MONTHLY');
+  static const Rollup ROLLUP_QUARTERLY =
+      Rollup._(3, _omitEnumNames ? '' : 'ROLLUP_QUARTERLY');
+  static const Rollup ROLLUP_YEARLY =
+      Rollup._(4, _omitEnumNames ? '' : 'ROLLUP_YEARLY');
+
+  static const $core.List<Rollup> values = <Rollup>[
+    ROLLUP_DAILY,
+    ROLLUP_WEEKLY,
+    ROLLUP_MONTHLY,
+    ROLLUP_QUARTERLY,
+    ROLLUP_YEARLY,
+  ];
+
+  static final $core.List<Rollup?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 4);
+  static Rollup? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const Rollup._(super.value, super.name);
+}
+
 class RequestStatus_Status extends $pb.ProtobufEnum {
   static const RequestStatus_Status UNKNOWN =
       RequestStatus_Status._(0, _omitEnumNames ? '' : 'UNKNOWN');

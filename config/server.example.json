@@ -1,6 +1,11 @@
 {
   "bind_addr": "127.0.0.1:50051",
   "logs_dir": "./sample-maintenanceRuns",
-  "database_path": "./.local/itcmdr.sqlite"
+  "database_path": "./.local/itcmdr.sqlite",
+  "retention_days": 400,
+  "metrics": {
+    "trend_windows_days": [7, 30, 90, 365],
+    "rollups": ["daily", "weekly", "monthly", "quarterly", "yearly"]
+  }
 }
 

@@ -34,6 +34,7 @@ Source: "..\app\build\windows\x64\runner\Release\*"; DestDir: "{app}\app"; Compo
 ; Agent scripts
 Source: "..\agent\Invoke-ItcmdrAgent.ps1"; DestDir: "{app}\agent"; Components: agent; Flags: ignoreversion
 Source: "..\agent\Install-ItcmdrAgent.ps1"; DestDir: "{app}\agent"; Components: agent; Flags: ignoreversion
+Source: "..\agent\Rotate-ItcmdrLogs.ps1"; DestDir: "{app}\agent"; Components: server; Flags: ignoreversion
 
 [Dirs]
 Name: "C:\maintenanceRuns"; Permissions: users-full; Components: agent
@@ -55,6 +56,8 @@ Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Com
 
 ; Install agent scheduled task
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\agent\Install-ItcmdrAgent.ps1"""; Flags: runhidden; Components: agent; StatusMsg: "Installing agent scheduled task..."
+; Install log rotation scheduled task (daily, server only)
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$time = (Get-Content -Raw -Path (Join-Path $env:ProgramData 'itcmdr\\site.json') | ConvertFrom-Json).rotation.timeLocal; if (-not $time) { $time = '02:10' }; $a = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument '-NoProfile -ExecutionPolicy Bypass -File \"\"\"{app}\agent\Rotate-ItcmdrLogs.ps1\"\"\"'; $t = New-ScheduledTaskTrigger -Daily -At $time; $p = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -RunLevel Highest -LogonType ServiceAccount; $s = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable; Register-ScheduledTask -TaskName 'itcmdr Log Rotation' -Action $a -Trigger $t -Principal $p -Settings $s -Force"""; Flags: runhidden; Components: server; StatusMsg: "Installing log rotation task..."
 
 [UninstallRun]
 Filename: "sc.exe"; Parameters: "stop itcmdr-server"; Flags: runhidden; Components: server

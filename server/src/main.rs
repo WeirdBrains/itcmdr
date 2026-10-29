@@ -1,5 +1,7 @@
 mod config;
 mod api;
+mod db;
+mod metrics;
 mod ingest;
 mod generated {
     // Prost/tonic generated code lives here after build.rs runs.
@@ -12,8 +14,7 @@ use crate::api::ItcmdrService;
 use crate::config::ServerConfig;
 use anyhow::Context;
 use tonic::transport::Server;
-use tonic_web::GrpcWebLayer;
-use tower_http::cors::{Any, CorsLayer};
+
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -24,18 +25,18 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     let cfg = ServerConfig::load()?;
+    let pool = crate::db::init_db(&cfg).await?;
+    crate::db::apply_retention(&pool, cfg.retention_days).await?;
     let addr = cfg.bind_addr.parse().context("invalid bind_addr")?;
 
-    let svc = ItcmdrService::new(cfg.clone()).into_router();
-
-    // Enable gRPC-Web and permissive CORS for simplicity; tighten via config later.
-    let cors = CorsLayer::new().allow_headers(Any).allow_methods(Any).allow_origin(Any);
-    let router = svc.layer(GrpcWebLayer::new()).layer(cors);
+    // Build service and enable gRPC-Web
+    let base = crate::generated::itcmdr::itcmdr_server::ItcmdrServer::new(ItcmdrService::new(cfg.clone()));
+    let svc = tonic_web::enable(base);
 
     tracing::info!(%addr, "starting itcmdr-server");
     Server::builder()
         .accept_http1(true) // for gRPC-Web
-        .add_service(router)
+        .add_service(svc)
         .serve(addr)
         .await?;
 

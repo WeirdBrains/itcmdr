@@ -46,9 +46,57 @@ message GetRequestStatusResponse {
   string message = 2;
 }
 
+// Metrics and rollups
+enum Rollup {
+  ROLLUP_DAILY = 0;
+  ROLLUP_WEEKLY = 1;
+  ROLLUP_MONTHLY = 2;
+  ROLLUP_QUARTERLY = 3;
+  ROLLUP_YEARLY = 4;
+}
+
+message GetMetricsRequest {
+  int32 window_days = 1; // e.g., 7, 30, 90, 365
+  Rollup rollup = 2;     // desired aggregation level
+}
+message MetricPoint {
+  string key = 1;      // e.g., machine name or metric id
+  int64 ts = 2;        // bucket start (unix millis)
+  double value = 3;    // generic numeric value (count, rate)
+}
+message GetMetricsResponse {
+  repeated MetricPoint points = 1;
+}
+
+// Exceptions allowlist rules
+message ExceptionScope {
+  repeated string machines = 1; // machine names or patterns (future)
+  string role = 2;              // optional role
+}
+message ExceptionRule {
+  string id = 1;               // server-assigned id
+  ExceptionScope scope = 2;
+  string check_id = 3;         // exact id
+  string check_pattern = 4;    // or regex
+  string action = 5;           // "ignore", "downgrade:warn", "downgrade:info"
+  string reason = 6;
+  string expires = 7;          // ISO date or empty
+  bool active = 8;             // computed
+}
+message ListExceptionsRequest {}
+message ListExceptionsResponse { repeated ExceptionRule rules = 1; }
+message SaveExceptionRequest { ExceptionRule rule = 1; }
+message SaveExceptionResponse { ExceptionRule rule = 1; }
+message ExpireExceptionRequest { string id = 1; }
+message ExpireExceptionResponse {}
+
 service Itcmdr {
   rpc ListMachines(ListMachinesRequest) returns (ListMachinesResponse);
   rpc TriggerRuns(TriggerRunsRequest) returns (TriggerRunsResponse);
   rpc GetRequestStatus(GetRequestStatusRequest) returns (GetRequestStatusResponse);
+  rpc GetMetrics(GetMetricsRequest) returns (GetMetricsResponse);
+  rpc ListExceptions(ListExceptionsRequest) returns (ListExceptionsResponse);
+  rpc SaveException(SaveExceptionRequest) returns (SaveExceptionResponse);
+  rpc ExpireException(ExpireExceptionRequest) returns (ExpireExceptionResponse);
 }
 

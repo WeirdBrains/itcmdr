@@ -15,6 +15,23 @@ import 'dart:convert' as $convert;
 import 'dart:core' as $core;
 import 'dart:typed_data' as $typed_data;
 
+@$core.Deprecated('Use rollupDescriptor instead')
+const Rollup$json = {
+  '1': 'Rollup',
+  '2': [
+    {'1': 'ROLLUP_DAILY', '2': 0},
+    {'1': 'ROLLUP_WEEKLY', '2': 1},
+    {'1': 'ROLLUP_MONTHLY', '2': 2},
+    {'1': 'ROLLUP_QUARTERLY', '2': 3},
+    {'1': 'ROLLUP_YEARLY', '2': 4},
+  ],
+};
+
+/// Descriptor for `Rollup`. Decode as a `google.protobuf.EnumDescriptorProto`.
+final $typed_data.Uint8List rollupDescriptor = $convert.base64Decode(
+    'CgZSb2xsdXASEAoMUk9MTFVQX0RBSUxZEAASEQoNUk9MTFVQX1dFRUtMWRABEhIKDlJPTExVUF'
+    '9NT05USExZEAISFAoQUk9MTFVQX1FVQVJURVJMWRADEhEKDVJPTExVUF9ZRUFSTFkQBA==');
+
 @$core.Deprecated('Use machineDescriptor instead')
 const Machine$json = {
   '1': 'Machine',
@@ -161,3 +178,194 @@ final $typed_data.Uint8List getRequestStatusResponseDescriptor =
     $convert.base64Decode(
         'ChhHZXRSZXF1ZXN0U3RhdHVzUmVzcG9uc2USNAoGc3RhdHVzGAEgASgOMhwuaXRjbWRyLlJlcX'
         'Vlc3RTdGF0dXMuU3RhdHVzUgZzdGF0dXMSGAoHbWVzc2FnZRgCIAEoCVIHbWVzc2FnZQ==');
+
+@$core.Deprecated('Use getMetricsRequestDescriptor instead')
+const GetMetricsRequest$json = {
+  '1': 'GetMetricsRequest',
+  '2': [
+    {'1': 'window_days', '3': 1, '4': 1, '5': 5, '10': 'windowDays'},
+    {
+      '1': 'rollup',
+      '3': 2,
+      '4': 1,
+      '5': 14,
+      '6': '.itcmdr.Rollup',
+      '10': 'rollup'
+    },
+  ],
+};
+
+/// Descriptor for `GetMetricsRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getMetricsRequestDescriptor = $convert.base64Decode(
+    'ChFHZXRNZXRyaWNzUmVxdWVzdBIfCgt3aW5kb3dfZGF5cxgBIAEoBVIKd2luZG93RGF5cxImCg'
+    'Zyb2xsdXAYAiABKA4yDi5pdGNtZHIuUm9sbHVwUgZyb2xsdXA=');
+
+@$core.Deprecated('Use metricPointDescriptor instead')
+const MetricPoint$json = {
+  '1': 'MetricPoint',
+  '2': [
+    {'1': 'key', '3': 1, '4': 1, '5': 9, '10': 'key'},
+    {'1': 'ts', '3': 2, '4': 1, '5': 3, '10': 'ts'},
+    {'1': 'value', '3': 3, '4': 1, '5': 1, '10': 'value'},
+  ],
+};
+
+/// Descriptor for `MetricPoint`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List metricPointDescriptor = $convert.base64Decode(
+    'CgtNZXRyaWNQb2ludBIQCgNrZXkYASABKAlSA2tleRIOCgJ0cxgCIAEoA1ICdHMSFAoFdmFsdW'
+    'UYAyABKAFSBXZhbHVl');
+
+@$core.Deprecated('Use getMetricsResponseDescriptor instead')
+const GetMetricsResponse$json = {
+  '1': 'GetMetricsResponse',
+  '2': [
+    {
+      '1': 'points',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.itcmdr.MetricPoint',
+      '10': 'points'
+    },
+  ],
+};
+
+/// Descriptor for `GetMetricsResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getMetricsResponseDescriptor = $convert.base64Decode(
+    'ChJHZXRNZXRyaWNzUmVzcG9uc2USKwoGcG9pbnRzGAEgAygLMhMuaXRjbWRyLk1ldHJpY1BvaW'
+    '50UgZwb2ludHM=');
+
+@$core.Deprecated('Use exceptionScopeDescriptor instead')
+const ExceptionScope$json = {
+  '1': 'ExceptionScope',
+  '2': [
+    {'1': 'machines', '3': 1, '4': 3, '5': 9, '10': 'machines'},
+    {'1': 'role', '3': 2, '4': 1, '5': 9, '10': 'role'},
+  ],
+};
+
+/// Descriptor for `ExceptionScope`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List exceptionScopeDescriptor = $convert.base64Decode(
+    'Cg5FeGNlcHRpb25TY29wZRIaCghtYWNoaW5lcxgBIAMoCVIIbWFjaGluZXMSEgoEcm9sZRgCIA'
+    'EoCVIEcm9sZQ==');
+
+@$core.Deprecated('Use exceptionRuleDescriptor instead')
+const ExceptionRule$json = {
+  '1': 'ExceptionRule',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
+    {
+      '1': 'scope',
+      '3': 2,
+      '4': 1,
+      '5': 11,
+      '6': '.itcmdr.ExceptionScope',
+      '10': 'scope'
+    },
+    {'1': 'check_id', '3': 3, '4': 1, '5': 9, '10': 'checkId'},
+    {'1': 'check_pattern', '3': 4, '4': 1, '5': 9, '10': 'checkPattern'},
+    {'1': 'action', '3': 5, '4': 1, '5': 9, '10': 'action'},
+    {'1': 'reason', '3': 6, '4': 1, '5': 9, '10': 'reason'},
+    {'1': 'expires', '3': 7, '4': 1, '5': 9, '10': 'expires'},
+    {'1': 'active', '3': 8, '4': 1, '5': 8, '10': 'active'},
+  ],
+};
+
+/// Descriptor for `ExceptionRule`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List exceptionRuleDescriptor = $convert.base64Decode(
+    'Cg1FeGNlcHRpb25SdWxlEg4KAmlkGAEgASgJUgJpZBIsCgVzY29wZRgCIAEoCzIWLml0Y21kci'
+    '5FeGNlcHRpb25TY29wZVIFc2NvcGUSGQoIY2hlY2tfaWQYAyABKAlSB2NoZWNrSWQSIwoNY2hl'
+    'Y2tfcGF0dGVybhgEIAEoCVIMY2hlY2tQYXR0ZXJuEhYKBmFjdGlvbhgFIAEoCVIGYWN0aW9uEh'
+    'YKBnJlYXNvbhgGIAEoCVIGcmVhc29uEhgKB2V4cGlyZXMYByABKAlSB2V4cGlyZXMSFgoGYWN0'
+    'aXZlGAggASgIUgZhY3RpdmU=');
+
+@$core.Deprecated('Use listExceptionsRequestDescriptor instead')
+const ListExceptionsRequest$json = {
+  '1': 'ListExceptionsRequest',
+};
+
+/// Descriptor for `ListExceptionsRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List listExceptionsRequestDescriptor =
+    $convert.base64Decode('ChVMaXN0RXhjZXB0aW9uc1JlcXVlc3Q=');
+
+@$core.Deprecated('Use listExceptionsResponseDescriptor instead')
+const ListExceptionsResponse$json = {
+  '1': 'ListExceptionsResponse',
+  '2': [
+    {
+      '1': 'rules',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.itcmdr.ExceptionRule',
+      '10': 'rules'
+    },
+  ],
+};
+
+/// Descriptor for `ListExceptionsResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List listExceptionsResponseDescriptor =
+    $convert.base64Decode(
+        'ChZMaXN0RXhjZXB0aW9uc1Jlc3BvbnNlEisKBXJ1bGVzGAEgAygLMhUuaXRjbWRyLkV4Y2VwdG'
+        'lvblJ1bGVSBXJ1bGVz');
+
+@$core.Deprecated('Use saveExceptionRequestDescriptor instead')
+const SaveExceptionRequest$json = {
+  '1': 'SaveExceptionRequest',
+  '2': [
+    {
+      '1': 'rule',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.itcmdr.ExceptionRule',
+      '10': 'rule'
+    },
+  ],
+};
+
+/// Descriptor for `SaveExceptionRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List saveExceptionRequestDescriptor = $convert.base64Decode(
+    'ChRTYXZlRXhjZXB0aW9uUmVxdWVzdBIpCgRydWxlGAEgASgLMhUuaXRjbWRyLkV4Y2VwdGlvbl'
+    'J1bGVSBHJ1bGU=');
+
+@$core.Deprecated('Use saveExceptionResponseDescriptor instead')
+const SaveExceptionResponse$json = {
+  '1': 'SaveExceptionResponse',
+  '2': [
+    {
+      '1': 'rule',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.itcmdr.ExceptionRule',
+      '10': 'rule'
+    },
+  ],
+};
+
+/// Descriptor for `SaveExceptionResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List saveExceptionResponseDescriptor = $convert.base64Decode(
+    'ChVTYXZlRXhjZXB0aW9uUmVzcG9uc2USKQoEcnVsZRgBIAEoCzIVLml0Y21kci5FeGNlcHRpb2'
+    '5SdWxlUgRydWxl');
+
+@$core.Deprecated('Use expireExceptionRequestDescriptor instead')
+const ExpireExceptionRequest$json = {
+  '1': 'ExpireExceptionRequest',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
+  ],
+};
+
+/// Descriptor for `ExpireExceptionRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List expireExceptionRequestDescriptor = $convert
+    .base64Decode('ChZFeHBpcmVFeGNlcHRpb25SZXF1ZXN0Eg4KAmlkGAEgASgJUgJpZA==');
+
+@$core.Deprecated('Use expireExceptionResponseDescriptor instead')
+const ExpireExceptionResponse$json = {
+  '1': 'ExpireExceptionResponse',
+};
+
+/// Descriptor for `ExpireExceptionResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List expireExceptionResponseDescriptor =
+    $convert.base64Decode('ChdFeHBpcmVFeGNlcHRpb25SZXNwb25zZQ==');

@@ -96,11 +96,48 @@ function Invoke-ItcmdrCheck {
   $attempted = $false
   $action = ''
   $result = 'skipped'
+  # Determine if an exception applies
+  $excepted = $false
+  $exceptionReason = $null
+  $actionOverride = $null
+  if ($Ctx.Site.exceptions) {
+    foreach ($ex in $Ctx.Site.exceptions) {
+      $applies = $false
+      if ($ex.scope) {
+        if ($ex.scope.machines) {
+          if ($ex.scope.machines -contains $Ctx.Computer) { $applies = $true }
+        }
+        if ($ex.scope.role) {
+          if ($ex.scope.role -eq $Ctx.Role) { $applies = $true }
+        }
+      }
+      if (-not $applies) { continue }
+      if ($ex.checkId -and $ex.checkId -ne $Id) { continue }
+      if ($ex.checkPattern -and ($Id -notmatch $ex.checkPattern)) { continue }
+      if ($ex.expires) {
+        $exp = [datetime]::Parse($ex.expires)
+        if ($exp -lt (Get-Date)) { continue }
+      }
+      $excepted = $true
+      $exceptionReason = $ex.reason
+      $actionOverride = $ex.action
+      break
+    }
+  }
+
   try {
     $passed = & $Test
     if (-not $passed) {
       $status = 'failed'
-      if (-not $ReportOnlyLocal) {
+      if ($excepted) {
+        # downgrade or ignore
+        switch -regex ($actionOverride) {
+          '^ignore$' { $status = 'ok' }
+          '^downgrade:warn$' { $status = 'failed'; $severity = 'warning' }
+          '^downgrade:info$' { $status = 'ok' }
+          default {}
+        }
+      } elseif (-not $ReportOnlyLocal) {
         $attempted = $true
         $action = 'repair'
         $ok = & $Repair
@@ -132,6 +169,8 @@ function Invoke-ItcmdrCheck {
     result = $result
     durationMs = [int]$sw.ElapsedMilliseconds
     ts = (Get-Date).ToString('o')
+    excepted = $excepted
+    exceptionReason = $exceptionReason
   }
   Write-ItcmdrJsonLine -Record $rec -Path $Ctx.LogFile
 }
@@ -157,6 +196,12 @@ Write-ItcmdrJsonLine -Path $ctx.LogFile -Record ([pscustomobject]@{
 Invoke-ItcmdrCheck -Id 'NET-SELF-LOOPBACK' -Category 'connectivity' -Test {
   Test-Connection -TargetName '127.0.0.1' -Count 1 -Quiet
 } -Repair { $true } -ReportOnlyLocal:$reportOnlyEffective -Ctx $ctx
+
+# Retention: prune local logs older than site.retention.agentLocalDays (default 400)
+$retentionDays = if ($site.retention.agentLocalDays) { [int]$site.retention.agentLocalDays } else { 400 }
+Get-ChildItem -LiteralPath 'C:\maintenanceRuns' -File -Filter '*.log' -ErrorAction SilentlyContinue |
+  Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-$retentionDays) } |
+  Remove-Item -Force -ErrorAction SilentlyContinue
 
 # Run-complete
 Write-ItcmdrJsonLine -Path $ctx.LogFile -Record ([pscustomobject]@{
