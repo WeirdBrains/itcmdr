@@ -56,6 +56,7 @@ class _HomeShellState extends State<HomeShell> {
       MetricsPage(client: _client),
       ExceptionsPage(client: _client),
       OnDemandPage(client: _client),
+      LogsPage(client: _client),
     ];
     return Scaffold(
       appBar: AppBar(title: const Text('itcmdr')),
@@ -67,6 +68,7 @@ class _HomeShellState extends State<HomeShell> {
           NavigationDestination(icon: Icon(Icons.query_stats), label: 'Metrics'),
           NavigationDestination(icon: Icon(Icons.rule), label: 'Exceptions'),
           NavigationDestination(icon: Icon(Icons.playlist_add_check), label: 'On-demand'),
+          NavigationDestination(icon: Icon(Icons.description), label: 'Logs'),
         ],
         onDestinationSelected: (i) => setState(() => _index = i),
       ),
@@ -346,6 +348,56 @@ class _OnDemandPageState extends State<OnDemandPage> {
             const SizedBox(width: 12),
             if (_status != null) Text('Status: $_status'),
           ]),
+        ],
+      ),
+    );
+  }
+}
+
+class LogsPage extends StatefulWidget {
+  final ItcmdrClient client;
+  const LogsPage({super.key, required this.client});
+  @override
+  State<LogsPage> createState() => _LogsPageState();
+}
+
+class _LogsPageState extends State<LogsPage> {
+  final _q = TextEditingController();
+  final _machine = TextEditingController();
+  List<String> _lines = [];
+  Future<void> _search() async {
+    final resp = await widget.client.searchLogs(SearchLogsRequest(
+        query: _q.text, machine: _machine.text, startTs: 0, endTs: 0, limit: 100));
+    setState(() => _lines = resp.lines);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        children: [
+          Row(children: [
+            Expanded(
+                child: TextField(
+              controller: _q,
+              decoration: const InputDecoration(labelText: 'Query'),
+            )),
+            const SizedBox(width: 8),
+            Expanded(
+                child: TextField(
+              controller: _machine,
+              decoration: const InputDecoration(labelText: 'Machine (optional)'),
+            )),
+            const SizedBox(width: 8),
+            ElevatedButton(onPressed: _search, child: const Text('Search')),
+          ]),
+          const SizedBox(height: 8),
+          Expanded(
+              child: ListView.builder(
+                  itemCount: _lines.length,
+                  itemBuilder: (c, i) => SelectableText(_lines[i],
+                      style: const TextStyle(fontFamily: 'monospace'))))
         ],
       ),
     );
