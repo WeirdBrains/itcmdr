@@ -1,0 +1,19 @@
+[workspace]
+members = [
+    "server",
+    "tools/sample-data-gen",
+]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+license = "Apache-2.0"
+homepage = "https://github.com/WeirdBrains/itcmdr"
+repository = "https://github.com/WeirdBrains/itcmdr"
+authors = ["itcmdr contributors"]
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+unused_imports = "deny"
+dead_code = "warn"
+

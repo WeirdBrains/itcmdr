@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "siteName": "Example Dental Office",
+  "network": {
+    "lanCidr": "198.51.100.0/24",
+    "serverHostname": "SERVER01",
+    "serverAddress": "198.51.100.2",
+    "domainSuffix": "example.local",
+    "dnsServers": ["198.51.100.2"],
+    "defaultGateway": "198.51.100.2",
+    "nic2": {
+      "interfaceAlias": "Ethernet 2",
+      "registerThisAddress": false
+    }
+  },
+  "services": {
+    "sidexisRestService": {
+      "name": "SidexisRestService",
+      "ports": [42928, 42929],
+      "expectTlsNameErrors": true
+    },
+    "sironaUsbService": {
+      "name": "SironaUSBService",
+      "pluginProcessName": "Sirona.Schick.SidexisPlugin.ServiceHost"
+    },
+    "rcu": {
+      "hostname": "RCU-01",
+      "port": 8080,
+      "dataPath": "C:\\\\DataContainer"
+    }
+  },
+  "printers": [
+    {"name":"PRN-01","address":"198.51.100.58","port":9100},
+    {"name":"PRN-02","address":"198.51.100.59","port":9100},
+    {"name":"PRN-03","address":"198.51.100.60","port":9100}
+  ],
+  "shares": {
+    "pdata": "\\\\SERVER01\\PDATA",
+    "maintenanceRuns": "\\\\SERVER01\\PDATA\\maintenanceRuns"
+  },
+  "retention": {
+    "serverDays": 400,
+    "agentLocalDays": 400,
+    "yearlyKeepForever": true
+  },
+  "rotation": {
+    "enabled": true,
+    "timeLocal": "02:10",
+    "weekly": true,
+    "monthly": true,
+    "yearly": true
+  },
+  "exceptions": [
+    {
+      "scope": { "machines": ["RCU-01"] },
+      "checkId": "CONNECTIVITY-RCU-UPSTREAM",
+      "action": "ignore",
+      "reason": "X-ray unit allowed to be unreachable off-hours",
+      "expires": null
+    },
+    {
+      "scope": { "machines": ["WS-01"], "role": null },
+      "checkPattern": "^NET-IFACE-.*169\\.254",
+      "action": "downgrade:warn",
+      "reason": "Known isolated adapter",
+      "expires": "2099-12-31"
+    }
+  ],
+  "backup": {
+    "expectedBackupSources": [
+      "\\\\SERVER01\\PDATA\\maintenanceRuns",
+      "\\\\SERVER01\\PDATA\\maintenanceRuns\\archive\\weekly",
+      "\\\\SERVER01\\PDATA\\maintenanceRuns\\archive\\monthly",
+      "\\\\SERVER01\\PDATA\\maintenanceRuns\\archive\\yearly"
+    ]
+  },
+  "stalePatterns": [
+    "EXAMPLE-OLD-SERVER",
+    "192.0.2.",
+    "198.51.100."
+  ]
+}
+
