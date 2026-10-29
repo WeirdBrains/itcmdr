@@ -1,0 +1,67 @@
+name: Release (Windows)
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Rust (MSVC)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Build server (release)
+        run: cargo build -p itcmdr-server --release --target x86_64-pc-windows-msvc
+      - name: Prepare server binary for installer path
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path server\target\release -Force | Out-Null
+          Copy-Item server\target\x86_64-pc-windows-msvc\release\itcmdr-server.exe server\target\release\itcmdr-server.exe -Force
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+      - name: Flutter pub get
+        working-directory: app
+        run: flutter pub get
+      - name: Build Flutter Windows app (release)
+        working-directory: app
+        run: flutter build windows --release
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Make installer
+        run: |
+          & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' installer\itcmdr.iss
+
+      - name: Archive artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: itcmdr-windows-artifacts
+          path: |
+            installer\out\itcmdr-Setup.exe
+            server\target\x86_64-pc-windows-msvc\release\itcmdr-server.exe
+            app\build\windows\x64\runner\Release\*
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            installer\out\itcmdr-Setup.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
