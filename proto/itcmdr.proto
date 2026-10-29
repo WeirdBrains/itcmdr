@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package itcmdr;
+
+// Machine summary for overview lists.
+message Machine {
+  string name = 1;
+  string status = 2;        // "ok", "warning", "error", etc.
+  int32 open_incidents = 3; // Count of active incident groups
+  int64 last_run_ts = 4;    // Unix millis
+}
+
+message ListMachinesRequest {}
+message ListMachinesResponse {
+  repeated Machine machines = 1;
+}
+
+// Request to trigger runs on one or more machines.
+message TriggerRunsRequest {
+  repeated string machines = 1; // Empty means "all".
+  bool report_only = 2;
+  bool repair = 3;
+  bool force = 4;               // Override clinical guardrails
+  repeated string categories = 5;
+}
+message TriggerRunsResponse {
+  string request_id = 1;
+}
+
+message GetRequestStatusRequest {
+  string request_id = 1;
+}
+message RequestStatus {
+  enum Status {
+    UNKNOWN = 0;
+    QUEUED = 1;
+    RUNNING = 2;
+    DONE = 3;
+    FAILED = 4;
+  }
+  Status status = 1;
+  string message = 2;
+}
+message GetRequestStatusResponse {
+  RequestStatus.Status status = 1;
+  string message = 2;
+}
+
+service Itcmdr {
+  rpc ListMachines(ListMachinesRequest) returns (ListMachinesResponse);
+  rpc TriggerRuns(TriggerRunsRequest) returns (TriggerRunsResponse);
+  rpc GetRequestStatus(GetRequestStatusRequest) returns (GetRequestStatusResponse);
+}
+

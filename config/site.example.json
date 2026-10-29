@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "siteName": "Example Dental Office",
+  "network": {
+    "lanCidr": "198.51.100.0/24",
+    "serverHostname": "SERVER01",
+    "serverAddress": "198.51.100.2"
+  },
+  "services": {
+    "sidexisRestService": {
+      "name": "SidexisRestService",
+      "ports": [42928, 42929],
+      "expectTlsNameErrors": true
+    },
+    "sironaUsbService": {
+      "name": "SironaUSBService",
+      "pluginProcessName": "Sirona.Schick.SidexisPlugin.ServiceHost"
+    },
+    "rcu": {
+      "hostname": "RCU-01",
+      "port": 8080
+    }
+  },
+  "shares": {
+    "pdata": "\\\\SERVER01\\PDATA",
+    "maintenanceRuns": "\\\\SERVER01\\PDATA\\maintenanceRuns"
+  },
+  "stalePatterns": [
+    "EXAMPLE-OLD-SERVER",
+    "192.0.2.",
+    "198.51.100."
+  ]
+}
+
