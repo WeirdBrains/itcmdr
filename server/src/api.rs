@@ -108,8 +108,31 @@ impl Itcmdr for ItcmdrService {
         &self,
         _req: Request<ListExceptionsRequest>,
     ) -> Result<Response<ListExceptionsResponse>, Status> {
-        // Return empty for now; full mapping from DB JSON to prost types can be added later.
-        Ok(Response::new(ListExceptionsResponse { rules: vec![] }))
+        let pool = crate::db::init_db(&self.cfg).await.map_err(internal_err)?;
+        let rows = crate::db::list_exceptions(&pool).await.map_err(internal_err)?;
+        let mut rules = Vec::new();
+        for s in rows {
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&s) {
+                let mut rule = ExceptionRule::default();
+                rule.id = v.get("id").and_then(|x| x.as_str()).unwrap_or_default().to_string();
+                if let Some(scope) = v.get("scope") {
+                    let mut sc = ExceptionScope::default();
+                    if let Some(ms) = scope.get("machines").and_then(|m| m.as_array()) {
+                        sc.machines = ms.iter().filter_map(|x| x.as_str().map(|s| s.to_string())).collect();
+                    }
+                    sc.role = scope.get("role").and_then(|x| x.as_str()).unwrap_or_default().to_string();
+                    rule.scope = Some(sc);
+                }
+                rule.check_id = v.get("check_id").and_then(|x| x.as_str()).unwrap_or_default().to_string();
+                rule.check_pattern = v.get("check_pattern").and_then(|x| x.as_str()).unwrap_or_default().to_string();
+                rule.action = v.get("action").and_then(|x| x.as_str()).unwrap_or_default().to_string();
+                rule.reason = v.get("reason").and_then(|x| x.as_str()).unwrap_or_default().to_string();
+                rule.expires = v.get("expires").and_then(|x| x.as_str()).unwrap_or_default().to_string();
+                rule.active = v.get("active").and_then(|x| x.as_bool()).unwrap_or(true);
+                rules.push(rule);
+            }
+        }
+        Ok(Response::new(ListExceptionsResponse { rules }))
     }
 
     async fn save_exception(
