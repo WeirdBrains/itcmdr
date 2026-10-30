@@ -6,10 +6,27 @@ untracked mirror `../itcmdr-HANDOVER.local.md` (next to this repo, never committ
 
 ## Current state (updated 2026-10-30)
 
-- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.2.0** (`6f3b76b`).
+- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.3.0** (checks batch; v0.2.0 was `6f3b76b`).
 - Everything passes on the Linux dev box (Rust, Flutter, Pester, PSScriptAnalyzer, scanner).
 - **Nothing has run on Windows yet** (installer, service, scheduled tasks, agent on a real PC).
 - GitHub release builds are blocked by org billing (see Risks), so there is no installer artifact yet.
+
+## Done (v0.3.0, checks batch)
+
+- `agent/Invoke-ItcmdrAgent.ps1`: `Test-ItcmdrTcp` (TCP connect with timeout, replaces Test-NetConnection;
+  `ITCMDR_TCP_TIMEOUT_MS` overrides). Checks can return `ConvertTo-ItcmdrResult` (ok/detail/skipped);
+  `skipped` = no decision possible (e.g. nobody logged on), never repaired, no incident change.
+- `Invoke-ItcmdrScannerCheck` (category connectivity): `site.scanners[]` {name,address,ports,roles?} ->
+  `SCANNER-<name>-TCP-<port>`, report only. The 3D unit is allowed via an exception rule
+  (`checkPattern ^SCANNER-<name>-`, `downgrade:info`), see `config/site.example.json`.
+- `Invoke-ItcmdrConfigCheck` (category configuration):
+  - `dnsRecords[]` {name,expected[],forbidden[]} -> `DNS-<name>`; repair = local `ipconfig /flushdns` only.
+  - `driveMaps[]` {letter,path} -> `DRIVE-<L>`: reads each loaded user hive (HKU\<sid>\Network); report only.
+  - `printerQueues[]` {name,server,shared}: server role -> `PRNQ-<name>` (exists, shared, status, stuck jobs;
+    repair only removes jobs in error); workstations -> `PRNC-<name>` per-user connection; plus `SVC-Spooler`.
+  - Sirona drift -> `SIRONA-DRIFT-<file>`: files from `sirona.configFiles` (env vars + wildcards) searched for
+    `stalePatterns`, opened read-only with FileShare.ReadWrite. **No repair, ever.**
+- App: `configuration` added to on-demand categories. Tests: `agent/tests/Checks.Tests.ps1`.
 
 ## Done (v0.2.0)
 
@@ -28,13 +45,12 @@ untracked mirror `../itcmdr-HANDOVER.local.md` (next to this repo, never committ
 
 ## In progress
 
-- Nothing mid-flight. Next item to start: backlog #1.
+- Nothing mid-way. Next: backlog #3 (flapping/repeat-offender metrics, charts). Backlog #1 still pending (VM).
 
 ## Backlog (in order)
 
-1. Windows VM test pass (plan below); fix whatever it finds. Tag v0.2.1.
-2. Missing agent checks: scanner connectivity (3D unit allowed as an exception), DNS records,
-   drive maps, printer queues, Sirona drift (detect/report only, never edit Sirona configs). (M)
+1. Windows VM test pass (plan below); fix whatever it finds. **Pending** (VM being set up).
+2. ~~Missing agent checks~~ done in v0.3.0. Real values must be added to the site.json on Windows hosts.
 3. Flapping and repeat-offender metrics; real charts in the app. (S/M)
 4. Log search: time/category/status filters and paging (`api.rs::search_logs`). (S)
 5. Real backup-coverage check (`agent/Report-BackupCoverage.ps1`). (S)
@@ -95,7 +111,7 @@ python3 scripts/scan_repo.py        # leak scanner (also the pre-commit hook)
   Use `Get-ItcmdrValue` for config lookups; StrictMode throws on missing keys.
 - **Never commit real site values** (IPs, hostnames, domains, usernames, MACs).
   `config/site.local.json`, `config/site.json` and `config/banned.local.txt` are gitignored.
-- The scanner allows only `0.0.0.0` and `TCP-<port>` tokens beyond the placeholders; don't widen it further.
+- The scanner allows only `0.0.0.0`, `TCP-<port>` and `SCAN-NN` tokens beyond the placeholders; don't widen it further.
 - Mutating RPCs are refused until `admin_token_hash` is set. That's intended.
 
 ## Where real config lives (not in git)

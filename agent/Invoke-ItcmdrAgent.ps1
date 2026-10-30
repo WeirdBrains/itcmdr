@@ -24,7 +24,7 @@
   Override the guard that skips repairs when clinical activity may be in progress.
 
 .PARAMETER Categories
-  Optional subset of categories to run: network, connectivity, services.
+  Optional subset of categories to run: network, connectivity, configuration, services.
 #>
 [CmdletBinding()]
 param(
@@ -36,7 +36,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-$script:AgentVersion = '0.2.0'
+$script:AgentVersion = '0.3.0'
 
 function ConvertTo-ItcmdrHashtable {
   param($InputObject)
@@ -249,8 +249,17 @@ function Invoke-ItcmdrCheck {
   $actionOverride = if ($rule) { (Get-ItcmdrValue $rule @('action')) } else { $null }
 
   try {
-    $passed = & $Test
-    if (-not $passed) {
+    $res = & $Test
+    $passed = $res
+    $skipped = $false
+    if ($res -is [hashtable] -and $res.ContainsKey('itcmdrResult')) {
+      $passed = [bool]$res.ok
+      $detail = [string]$res.detail
+      $skipped = [bool]$res.skipped
+    }
+    if ($skipped) {
+      $status = 'skipped'
+    } elseif (-not $passed) {
       $status = 'failed'
       if ($excepted) {
         switch -regex ($actionOverride) {
@@ -368,7 +377,7 @@ function Invoke-ItcmdrNetworkCheck {
   $ports += @(445, 53)
   foreach ($port in $ports) {
     Invoke-ItcmdrCheck -Id "NET-SERVER-TCP-$port" -Category 'connectivity' -Test {
-      Test-NetConnection -ComputerName $server -Port $port -WarningAction SilentlyContinue | Select-Object -ExpandProperty TcpTestSucceeded
+      Test-ItcmdrTcp -Address $server -Port $port
     } -ReportOnlyLocal:$ReportOnlyLocal -Ctx $Ctx
   }
 
@@ -381,7 +390,7 @@ function Invoke-ItcmdrNetworkCheck {
   foreach ($p in @((Get-ItcmdrValue $site @('printers')) | Where-Object { $_ })) {
     $addr = (Get-ItcmdrValue $p @('address'))
     Invoke-ItcmdrCheck -Id "PRN-$(Get-ItcmdrValue $p @('name'))-9100" -Category 'connectivity' -Test {
-      Test-NetConnection -ComputerName $addr -Port 9100 -WarningAction SilentlyContinue | Select-Object -ExpandProperty TcpTestSucceeded
+      Test-ItcmdrTcp -Address $addr -Port 9100
     } -ReportOnlyLocal:$ReportOnlyLocal -Ctx $Ctx
   }
 }
@@ -410,6 +419,262 @@ function Invoke-ItcmdrServiceCheck {
   }
 }
 
+function Test-ItcmdrTcp {
+  <# TCP connect with a timeout (cross-platform; replaces Test-NetConnection). #>
+  param([string]$Address, [int]$Port, [int]$TimeoutMs = 0)
+  if (-not $Address) { return $false }
+  if ($TimeoutMs -le 0) { $TimeoutMs = if ($env:ITCMDR_TCP_TIMEOUT_MS) { [int]$env:ITCMDR_TCP_TIMEOUT_MS } else { 3000 } }
+  $client = New-Object System.Net.Sockets.TcpClient
+  try {
+    $ar = $client.BeginConnect($Address, $Port, $null, $null)
+    if (-not $ar.AsyncWaitHandle.WaitOne($TimeoutMs)) { return $false }
+    $client.EndConnect($ar)
+    return $client.Connected
+  } catch {
+    return $false
+  } finally {
+    $client.Close()
+  }
+}
+
+function ConvertTo-ItcmdrResult {
+  <# Rich check result: Ok, Detail, Skipped (no decision possible, e.g. nobody logged on). #>
+  param([bool]$Ok, [string]$Detail = '', [switch]$Skipped)
+  return @{ ok = $Ok; detail = $Detail; skipped = [bool]$Skipped; itcmdrResult = $true }
+}
+
+function Test-ItcmdrDnsRecord {
+  <#
+    Name must resolve to every Expected address and to none of the Forbidden ones
+    (e.g. a retired address that keeps re-registering). Resolver returns IPv4 strings.
+  #>
+  param([string]$Name, [string[]]$Expected = @(), [string[]]$Forbidden = @(), [scriptblock]$Resolver)
+  try { $got = @(& $Resolver $Name | Where-Object { $_ } | ForEach-Object { [string]$_ }) } catch { $got = @() }
+  if ($got.Count -eq 0) { return (ConvertTo-ItcmdrResult -Ok $false -Detail "$Name does not resolve") }
+  $missing = @($Expected | Where-Object { $_ -and ($got -notcontains $_) })
+  $bad = @($Forbidden | Where-Object { $_ -and ($got -contains $_) })
+  $parts = @()
+  if ($missing.Count) { $parts += "missing $($missing -join ', ')" }
+  if ($bad.Count) { $parts += "stale $($bad -join ', ')" }
+  if ($parts.Count) { return (ConvertTo-ItcmdrResult -Ok $false -Detail "$Name -> $($got -join ', '): $($parts -join '; ')") }
+  return (ConvertTo-ItcmdrResult -Ok $true -Detail "$Name -> $($got -join ', ')")
+}
+
+function Get-ItcmdrUserSid {
+  <# SIDs of loaded user hives (logged-on domain/local users), as seen by SYSTEM. #>
+  if (-not (Test-Path 'Registry::HKEY_USERS')) { return @() }
+  return @(Get-ChildItem 'Registry::HKEY_USERS' -ErrorAction SilentlyContinue |
+      Where-Object { $_.PSChildName -match '^S-1-5-21-[\d-]+$' } | ForEach-Object { $_.PSChildName })
+}
+
+function Get-ItcmdrUserDriveMap {
+  <# Persistent drive maps per loaded user hive: @{ sid; letter; remotePath }. #>
+  $out = @()
+  foreach ($sid in Get-ItcmdrUserSid) {
+    $root = "Registry::HKEY_USERS\$sid\Network"
+    foreach ($k in @(Get-ChildItem $root -ErrorAction SilentlyContinue)) {
+      $rp = (Get-ItemProperty -Path $k.PSPath -Name RemotePath -ErrorAction SilentlyContinue).RemotePath
+      $out += @{ sid = $sid; letter = $k.PSChildName.ToUpperInvariant(); remotePath = $rp }
+    }
+  }
+  return , $out
+}
+
+function Test-ItcmdrDriveMap {
+  <# Every logged-on user should have Letter mapped to Path. Skipped when nobody is logged on. #>
+  param([string]$Letter, [string]$Path, [string[]]$UserSid = @(), [object[]]$Mapping = @())
+  $L = $Letter.TrimEnd(':').ToUpperInvariant()
+  if (@($UserSid).Count -eq 0) { return (ConvertTo-ItcmdrResult -Ok $true -Skipped -Detail 'no user logged on') }
+  $wrong = @()
+  foreach ($sid in $UserSid) {
+    $m = @($Mapping | Where-Object { $_.sid -eq $sid -and $_.letter -eq $L }) | Select-Object -First 1
+    if (-not $m) { $wrong += "$($sid): $($L): not mapped" }
+    elseif ($m.remotePath -ne $Path) { $wrong += "$($sid): $($L): $($m.remotePath)" }
+  }
+  if ($wrong.Count) { return (ConvertTo-ItcmdrResult -Ok $false -Detail ("expected $($L): -> $Path; " + ($wrong -join '; '))) }
+  return (ConvertTo-ItcmdrResult -Ok $true -Detail "$($L): -> $Path for $(@($UserSid).Count) user(s)")
+}
+
+function Get-ItcmdrUserPrinterConnection {
+  <# Per-user printer connections: @{ sid; server; queue } from HKU\<sid>\Printers\Connections (",,SERVER,QUEUE"). #>
+  $out = @()
+  foreach ($sid in Get-ItcmdrUserSid) {
+    foreach ($k in @(Get-ChildItem "Registry::HKEY_USERS\$sid\Printers\Connections" -ErrorAction SilentlyContinue)) {
+      $parts = $k.PSChildName.Split(',', [StringSplitOptions]::RemoveEmptyEntries)
+      if ($parts.Count -ge 2) { $out += @{ sid = $sid; server = $parts[0].ToUpperInvariant(); queue = $parts[1].ToUpperInvariant() } }
+    }
+  }
+  return , $out
+}
+
+function Test-ItcmdrPrinterConnection {
+  <# Workstations: every logged-on user should be connected to \\Server\Queue. #>
+  param([string]$Server, [string]$Queue, [string[]]$UserSid = @(), [object[]]$Connection = @())
+  if (@($UserSid).Count -eq 0) { return (ConvertTo-ItcmdrResult -Ok $true -Skipped -Detail 'no user logged on') }
+  $S = $Server.ToUpperInvariant(); $Q = $Queue.ToUpperInvariant()
+  $missing = @($UserSid | Where-Object { $sid = $_; -not @($Connection | Where-Object { $_.sid -eq $sid -and $_.server -eq $S -and $_.queue -eq $Q }).Count })
+  if ($missing.Count) { return (ConvertTo-ItcmdrResult -Ok $false -Detail "\\$Server\$Queue missing for $($missing -join ', ')") }
+  return (ConvertTo-ItcmdrResult -Ok $true -Detail "\\$Server\$Queue connected for $(@($UserSid).Count) user(s)")
+}
+
+function Test-ItcmdrPrintQueueHealth {
+  <#
+    Server: the queue exists, is shared when expected, isn't in an error state, and has no
+    job stuck in error or older than StuckMinutes. Printer/Jobs are Get-Printer/Get-PrintJob objects.
+  #>
+  param($Printer, [object[]]$Job = @(), [bool]$ExpectShared = $true, [int]$StuckMinutes = 60, [datetime]$Now = (Get-Date))
+  if (-not $Printer) { return (ConvertTo-ItcmdrResult -Ok $false -Detail 'queue not found') }
+  $issues = @()
+  if ($ExpectShared -and -not $Printer.Shared) { $issues += 'not shared' }
+  $st = [string]$Printer.PrinterStatus
+  if ($st -match 'Error|Offline|PaperJam|NoToner|PaperOut|UserIntervention') { $issues += "status $st" }
+  $stuck = @($Job | Where-Object { ([string]$_.JobStatus -match 'Error|Blocked') -or ($_.SubmittedTime -and $_.SubmittedTime -lt $Now.AddMinutes(-$StuckMinutes)) })
+  if ($stuck.Count) { $issues += "$($stuck.Count) stuck job(s)" }
+  if ($issues.Count) { return (ConvertTo-ItcmdrResult -Ok $false -Detail ($issues -join '; ')) }
+  return (ConvertTo-ItcmdrResult -Ok $true -Detail "ok ($(@($Job).Count) job(s))")
+}
+
+function Test-ItcmdrSironaDrift {
+  <#
+    Read-only: report config files that still reference retired addresses/hosts.
+    Files are opened with FileShare.ReadWrite so running Sirona services are never disturbed.
+    Never modifies anything.
+  #>
+  param([string]$Path, [string[]]$Pattern = @())
+  if (-not (Test-Path -LiteralPath $Path)) { return (ConvertTo-ItcmdrResult -Ok $true -Skipped -Detail 'file not present') }
+  try {
+    $fs = [IO.File]::Open($Path, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
+    try { $text = (New-Object IO.StreamReader($fs)).ReadToEnd() } finally { $fs.Dispose() }
+  } catch {
+    return (ConvertTo-ItcmdrResult -Ok $false -Detail "unreadable: $($_.Exception.Message)")
+  }
+  $hits = @($Pattern | Where-Object { $_ -and $text.IndexOf($_, [StringComparison]::OrdinalIgnoreCase) -ge 0 })
+  if ($hits.Count) { return (ConvertTo-ItcmdrResult -Ok $false -Detail "stale reference(s): $($hits.Count) pattern(s) matched; fix with vendor tools, not by hand") }
+  return (ConvertTo-ItcmdrResult -Ok $true -Detail 'no stale references')
+}
+
+function Resolve-ItcmdrPathList {
+  <# Expand %ENV% variables and wildcards. #>
+  param([string[]]$Path)
+  $out = @()
+  foreach ($p in @($Path | Where-Object { $_ })) {
+    $e = [Environment]::ExpandEnvironmentVariables($p)
+    if ($e -match '[\*\?]') { $out += @(Get-ChildItem -Path $e -File -ErrorAction SilentlyContinue | ForEach-Object FullName) } else { $out += $e }
+  }
+  return , $out
+}
+
+function Get-ItcmdrSafeId {
+  param([string]$Text)
+  return ($Text -replace '[^A-Za-z0-9\.-]+', '_').Trim('_')
+}
+
+function Test-ItcmdrRoleMatch {
+  <# An entry with no "roles" list applies to every role. #>
+  param($Entry, [string]$Role)
+  $roles = @(Get-ItcmdrValue $Entry @('roles') | Where-Object { $_ })
+  return ($roles.Count -eq 0 -or $roles -contains $Role)
+}
+
+# Scanners/imaging devices: TCP reachability (report only). Devices that may be off
+# (e.g. the 3D unit) are handled with an exception rule, not special code.
+function Invoke-ItcmdrScannerCheck {
+  param([hashtable]$Ctx, [switch]$ReportOnlyLocal)
+  foreach ($s in @(Get-ItcmdrValue $Ctx.Site @('scanners') | Where-Object { $_ })) {
+    if (-not (Test-ItcmdrRoleMatch $s $Ctx.Role)) { continue }
+    $name = Get-ItcmdrValue $s @('name'); $addr = Get-ItcmdrValue $s @('address')
+    foreach ($port in @(Get-ItcmdrValue $s @('ports') | Where-Object { $_ })) {
+      $p = [int]$port
+      Invoke-ItcmdrCheck -Id "SCANNER-$(Get-ItcmdrSafeId $name)-TCP-$p" -Category 'connectivity' -Test {
+        ConvertTo-ItcmdrResult -Ok (Test-ItcmdrTcp -Address $addr -Port $p) -Detail "$($name):$p"
+      } -ReportOnlyLocal:$ReportOnlyLocal -Ctx $Ctx
+    }
+  }
+}
+
+# Configuration checks: DNS records, drive maps, printer queues, Sirona drift.
+function Invoke-ItcmdrConfigCheck {
+  param([hashtable]$Ctx, [switch]$ReportOnlyLocal)
+  $site = $Ctx.Site
+  $resolver = {
+    param($n)
+    if (Get-Command Resolve-DnsName -ErrorAction SilentlyContinue) {
+      Resolve-DnsName -Name $n -Type A -DnsOnly -QuickTimeout -ErrorAction SilentlyContinue | Where-Object { $_.Type -eq 'A' } | ForEach-Object IPAddress
+    } else {
+      [System.Net.Dns]::GetHostAddresses($n) | Where-Object { $_.AddressFamily -eq 'InterNetwork' } | ForEach-Object { $_.ToString() }
+    }
+  }
+  foreach ($r in @(Get-ItcmdrValue $site @('dnsRecords') | Where-Object { $_ })) {
+    if (-not (Test-ItcmdrRoleMatch $r $Ctx.Role)) { continue }
+    $n = Get-ItcmdrValue $r @('name')
+    $exp = @(Get-ItcmdrValue $r @('expected')); $forb = @(Get-ItcmdrValue $r @('forbidden'))
+    Invoke-ItcmdrCheck -Id "DNS-$(Get-ItcmdrSafeId $n)" -Category 'configuration' -Test {
+      Test-ItcmdrDnsRecord -Name $n -Expected $exp -Forbidden $forb -Resolver $resolver
+    } -Repair {
+      # Local cache only; server-side records are reported, never edited.
+      ipconfig /flushdns | Out-Null
+      (Test-ItcmdrDnsRecord -Name $n -Expected $exp -Forbidden $forb -Resolver $resolver).ok
+    } -ReportOnlyLocal:$ReportOnlyLocal -Ctx $Ctx
+  }
+
+  if ($Ctx.Role -ne 'Server') {
+    $sids = Get-ItcmdrUserSid
+    $maps = Get-ItcmdrUserDriveMap
+    foreach ($d in @(Get-ItcmdrValue $site @('driveMaps') | Where-Object { $_ })) {
+      if (-not (Test-ItcmdrRoleMatch $d $Ctx.Role)) { continue }
+      $letter = Get-ItcmdrValue $d @('letter'); $path = Get-ItcmdrValue $d @('path')
+      Invoke-ItcmdrCheck -Id "DRIVE-$($letter.TrimEnd(':').ToUpperInvariant())" -Category 'configuration' -Test {
+        Test-ItcmdrDriveMap -Letter $letter -Path $path -UserSid $sids -Mapping $maps
+      } -ReportOnlyLocal:$ReportOnlyLocal -Ctx $Ctx
+    }
+  }
+
+  $queues = @(Get-ItcmdrValue $site @('printerQueues') | Where-Object { $_ })
+  if ($queues.Count -gt 0 -and (Get-Command Get-Service -ErrorAction SilentlyContinue)) {
+    Invoke-ItcmdrCheck -Id 'SVC-Spooler' -Category 'services' -Test {
+      (Get-Service -Name Spooler -ErrorAction SilentlyContinue).Status -eq 'Running'
+    } -Repair {
+      try { Start-Service -Name Spooler -ErrorAction Stop; $true } catch { $false }
+    } -ReportOnlyLocal:$ReportOnlyLocal -Ctx $Ctx
+  }
+  $conns = if ($Ctx.Role -ne 'Server') { Get-ItcmdrUserPrinterConnection } else { @() }
+  $sids2 = if ($Ctx.Role -ne 'Server') { Get-ItcmdrUserSid } else { @() }
+  foreach ($q in $queues) {
+    if (-not (Test-ItcmdrRoleMatch $q $Ctx.Role)) { continue }
+    $qn = Get-ItcmdrValue $q @('name'); $qs = Get-ItcmdrValue $q @('server')
+    $shared = Get-ItcmdrValue $q @('shared'); if ($null -eq $shared) { $shared = $true }
+    if ($Ctx.Role -eq 'Server') {
+      Invoke-ItcmdrCheck -Id "PRNQ-$(Get-ItcmdrSafeId $qn)" -Category 'configuration' -Test {
+        $pr = Get-Printer -Name $qn -ErrorAction SilentlyContinue
+        $jobs = if ($pr) { @(Get-PrintJob -PrinterName $qn -ErrorAction SilentlyContinue) } else { @() }
+        Test-ItcmdrPrintQueueHealth -Printer $pr -Job $jobs -ExpectShared ([bool]$shared)
+      } -Repair {
+        # Only clears jobs that are in an error state; never touches drivers, ports or sharing.
+        try {
+          Get-PrintJob -PrinterName $qn -ErrorAction SilentlyContinue | Where-Object { [string]$_.JobStatus -match 'Error' } | Remove-PrintJob -ErrorAction SilentlyContinue
+          $pr = Get-Printer -Name $qn -ErrorAction SilentlyContinue
+          (Test-ItcmdrPrintQueueHealth -Printer $pr -Job @(Get-PrintJob -PrinterName $qn -ErrorAction SilentlyContinue) -ExpectShared ([bool]$shared)).ok
+        } catch { $false }
+      } -ReportOnlyLocal:$ReportOnlyLocal -Ctx $Ctx
+    } elseif ($qs) {
+      Invoke-ItcmdrCheck -Id "PRNC-$(Get-ItcmdrSafeId $qn)" -Category 'configuration' -Test {
+        Test-ItcmdrPrinterConnection -Server $qs -Queue $qn -UserSid $sids2 -Connection $conns
+      } -ReportOnlyLocal:$ReportOnlyLocal -Ctx $Ctx
+    }
+  }
+
+  # Sirona drift: detect/report only. No -Repair on purpose.
+  $patterns = @(Get-ItcmdrValue $site @('stalePatterns') | Where-Object { $_ })
+  $files = Resolve-ItcmdrPathList @(Get-ItcmdrValue $site @('sirona', 'configFiles'))
+  if ($patterns.Count -gt 0) {
+    foreach ($f in $files) {
+      Invoke-ItcmdrCheck -Id "SIRONA-DRIFT-$(Get-ItcmdrSafeId ([IO.Path]::GetFileName($f)))" -Category 'configuration' -Test {
+        Test-ItcmdrSironaDrift -Path $f -Pattern $patterns
+      } -ReportOnlyLocal:$ReportOnlyLocal -Ctx $Ctx
+    }
+  }
+}
+
 if (-not $env:ITCMDR_IMPORT_ONLY) {
   $site = Get-ItcmdrSiteConfig
   $ctx = New-ItcmdrRunContext -Site $site -Categories $Categories
@@ -429,6 +694,8 @@ if (-not $env:ITCMDR_IMPORT_ONLY) {
   })
 
   Invoke-ItcmdrNetworkCheck -Ctx $ctx -ReportOnlyLocal:$reportOnlyEffective
+  Invoke-ItcmdrScannerCheck -Ctx $ctx -ReportOnlyLocal:$reportOnlyEffective
+  Invoke-ItcmdrConfigCheck -Ctx $ctx -ReportOnlyLocal:$reportOnlyEffective
   Invoke-ItcmdrServiceCheck -Ctx $ctx -ReportOnlyLocal:$reportOnlyEffective
 
   $retentionDays = if ((Get-ItcmdrValue $site @('retention')) -and (Get-ItcmdrValue $site @('retention','agentLocalDays'))) { [int](Get-ItcmdrValue $site @('retention','agentLocalDays')) } else { 400 }

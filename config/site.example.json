@@ -6,7 +6,9 @@
     "serverHostname": "SERVER01",
     "serverAddress": "198.51.100.2",
     "domainSuffix": "example.local",
-    "dnsServers": ["198.51.100.2"],
+    "dnsServers": [
+      "198.51.100.2"
+    ],
     "defaultGateway": "198.51.100.2",
     "nic2": {
       "interfaceAlias": "Ethernet 2",
@@ -16,7 +18,10 @@
   "services": {
     "sidexisRestService": {
       "name": "SidexisRestService",
-      "ports": [42928, 42929],
+      "ports": [
+        42928,
+        42929
+      ],
       "expectTlsNameErrors": true
     },
     "sironaUsbService": {
@@ -30,9 +35,21 @@
     }
   },
   "printers": [
-    {"name":"PRN-01","address":"198.51.100.58","port":9100},
-    {"name":"PRN-02","address":"198.51.100.59","port":9100},
-    {"name":"PRN-03","address":"198.51.100.60","port":9100}
+    {
+      "name": "PRN-01",
+      "address": "198.51.100.58",
+      "port": 9100
+    },
+    {
+      "name": "PRN-02",
+      "address": "198.51.100.59",
+      "port": 9100
+    },
+    {
+      "name": "PRN-03",
+      "address": "198.51.100.60",
+      "port": 9100
+    }
   ],
   "shares": {
     "pdata": "\\\\SERVER01\\PDATA",
@@ -52,14 +69,32 @@
   },
   "exceptions": [
     {
-      "scope": { "machines": ["RCU-01"] },
+      "scope": {
+        "machines": []
+      },
+      "checkPattern": "^SCANNER-SCAN-03-",
+      "action": "downgrade:info",
+      "reason": "3D unit is allowed to be off or unreachable",
+      "expires": null
+    },
+    {
+      "scope": {
+        "machines": [
+          "RCU-01"
+        ]
+      },
       "checkId": "CONNECTIVITY-RCU-UPSTREAM",
       "action": "ignore",
       "reason": "X-ray unit allowed to be unreachable off-hours",
       "expires": null
     },
     {
-      "scope": { "machines": ["WS-01"], "role": null },
+      "scope": {
+        "machines": [
+          "WS-01"
+        ],
+        "role": null
+      },
       "checkPattern": "^NET-IFACE-.*169\\.254",
       "action": "downgrade:warn",
       "reason": "Known isolated adapter",
@@ -77,7 +112,62 @@
   "stalePatterns": [
     "EXAMPLE-OLD-SERVER",
     "192.0.2.",
-    "198.51.100."
-  ]
+    "203.0.113."
+  ],
+  "scanners": [
+    {
+      "name": "SCAN-01",
+      "address": "198.51.100.40",
+      "ports": [
+        1999
+      ]
+    },
+    {
+      "name": "SCAN-03",
+      "address": "198.51.100.50",
+      "ports": [
+        1999
+      ],
+      "note": "3D unit; often powered off, see exceptions"
+    }
+  ],
+  "dnsRecords": [
+    {
+      "name": "SERVER01.example.local",
+      "expected": [
+        "198.51.100.2"
+      ],
+      "forbidden": [
+        "198.51.100.3"
+      ]
+    },
+    {
+      "name": "RCU-01.example.local",
+      "expected": [
+        "198.51.100.30"
+      ]
+    }
+  ],
+  "driveMaps": [
+    {
+      "letter": "P:",
+      "path": "\\\\SERVER01\\PDATA",
+      "roles": [
+        "Workstation"
+      ]
+    }
+  ],
+  "printerQueues": [
+    {
+      "name": "PRN-03",
+      "server": "SERVER01",
+      "shared": true
+    }
+  ],
+  "sirona": {
+    "configFiles": [
+      "%ProgramData%\\Sirona\\SIDEXIS\\*.ini",
+      "C:\\Program Files (x86)\\Sirona Dental\\*\\*.config"
+    ]
+  }
 }
-
