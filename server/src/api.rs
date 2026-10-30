@@ -13,7 +13,30 @@ use tonic::{Request, Response, Status};
 pub struct ItcmdrService {
     cfg: ServerConfig,
     pool: DbPool,
+    nonces: std::sync::Arc<crate::auth::NonceCache>,
 }
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum AuthMode {
+    Token,
+    Both,
+    Signed,
+}
+
+impl AuthMode {
+    pub fn from_config(s: &str) -> AuthMode {
+        match s.trim().to_ascii_lowercase().as_str() {
+            "token" => AuthMode::Token,
+            "signed" => AuthMode::Signed,
+            _ => AuthMode::Both,
+        }
+    }
+}
+
+const M_TRIGGER: &str = "/itcmdr.Itcmdr/TriggerRuns";
+const M_SAVE_EXC: &str = "/itcmdr.Itcmdr/SaveException";
+const M_EXPIRE_EXC: &str = "/itcmdr.Itcmdr/ExpireException";
+const M_LIST_AUDIT: &str = "/itcmdr.Itcmdr/ListAudit";
 
 pub fn sha256_hex(s: &str) -> String {
     format!("{:x}", Sha256::digest(s.as_bytes()))
@@ -57,7 +80,66 @@ pub fn authorize(
 
 impl ItcmdrService {
     pub fn new(cfg: ServerConfig, pool: DbPool) -> Self {
-        Self { cfg, pool }
+        Self {
+            cfg,
+            pool,
+            nonces: Default::default(),
+        }
+    }
+
+    fn mode(&self) -> AuthMode {
+        AuthMode::from_config(&self.cfg.auth_mode)
+    }
+
+    async fn signed<T: prost::Message>(
+        &self,
+        req: &Request<T>,
+        method: &str,
+        min: crate::auth::Role,
+    ) -> Result<crate::auth::Principal, Status> {
+        let body = req.get_ref().encode_to_vec();
+        let p = crate::auth::verify(
+            &self.pool,
+            &self.nonces,
+            req.metadata(),
+            method,
+            &body,
+            chrono::Utc::now().timestamp_millis(),
+        )
+        .await?;
+        crate::auth::require(&p, min)?;
+        Ok(p)
+    }
+
+    /// Mutating calls: a signed request with at least `min`, or (modes token/both) the legacy token.
+    /// Returns the actor for the audit log.
+    async fn authz<T: prost::Message>(
+        &self,
+        req: &Request<T>,
+        method: &str,
+        min: crate::auth::Role,
+    ) -> Result<String, Status> {
+        let mode = self.mode();
+        if mode == AuthMode::Signed
+            || (mode == AuthMode::Both && crate::auth::has_signature(req.metadata()))
+        {
+            return Ok(self.signed(req, method, min).await?.actor());
+        }
+        authorize(&self.cfg, req.metadata())
+    }
+
+    /// Read calls: open in modes token/both (a signature, if sent, must still be valid);
+    /// in signed mode they need a key with at least `min`.
+    async fn read_guard<T: prost::Message>(
+        &self,
+        req: &Request<T>,
+        method: &str,
+        min: crate::auth::Role,
+    ) -> Result<(), Status> {
+        if self.mode() == AuthMode::Signed || crate::auth::has_signature(req.metadata()) {
+            self.signed(req, method, min).await?;
+        }
+        Ok(())
     }
 
     async fn audit(&self, actor: &str, action: &str, detail: &serde_json::Value) {
@@ -80,8 +162,14 @@ impl ItcmdrService {
 impl Itcmdr for ItcmdrService {
     async fn list_machines(
         &self,
-        _req: Request<ListMachinesRequest>,
+        req: Request<ListMachinesRequest>,
     ) -> Result<Response<ListMachinesResponse>, Status> {
+        self.read_guard(
+            &req,
+            "/itcmdr.Itcmdr/ListMachines",
+            crate::auth::Role::Client,
+        )
+        .await?;
         let items = crate::db::list_machines_overview(&self.pool)
             .await
             .map_err(internal_err)?;
@@ -101,7 +189,7 @@ impl Itcmdr for ItcmdrService {
         &self,
         req: Request<TriggerRunsRequest>,
     ) -> Result<Response<TriggerRunsResponse>, Status> {
-        let actor = authorize(&self.cfg, req.metadata())?;
+        let actor = self.authz(&req, M_TRIGGER, crate::auth::Role::User).await?;
         let id = uuid::Uuid::new_v4().to_string();
         let body = req.into_inner();
         let options = serde_json::json!({
@@ -127,6 +215,12 @@ impl Itcmdr for ItcmdrService {
         &self,
         req: Request<GetRequestStatusRequest>,
     ) -> Result<Response<GetRequestStatusResponse>, Status> {
+        self.read_guard(
+            &req,
+            "/itcmdr.Itcmdr/GetRequestStatus",
+            crate::auth::Role::Client,
+        )
+        .await?;
         let id = req.into_inner().request_id;
         // Fold in any new responses before answering.
         let _ = crate::requests::sync_requests(
@@ -156,6 +250,8 @@ impl Itcmdr for ItcmdrService {
         &self,
         req: Request<GetMetricsRequest>,
     ) -> Result<Response<GetMetricsResponse>, Status> {
+        self.read_guard(&req, "/itcmdr.Itcmdr/GetMetrics", crate::auth::Role::Client)
+            .await?;
         let p = req.into_inner();
         let pts = crate::metrics::get_metrics(&self.pool, p.window_days as i64, p.rollup())
             .await
@@ -167,6 +263,12 @@ impl Itcmdr for ItcmdrService {
         &self,
         req: Request<ListExceptionsRequest>,
     ) -> Result<Response<ListExceptionsResponse>, Status> {
+        self.read_guard(
+            &req,
+            "/itcmdr.Itcmdr/ListExceptions",
+            crate::auth::Role::Client,
+        )
+        .await?;
         let inc = req.into_inner().include_inactive;
         let rules = crate::exceptions::load(&self.pool, inc)
             .await
@@ -181,7 +283,9 @@ impl Itcmdr for ItcmdrService {
         &self,
         req: Request<SaveExceptionRequest>,
     ) -> Result<Response<SaveExceptionResponse>, Status> {
-        let actor = authorize(&self.cfg, req.metadata())?;
+        let actor = self
+            .authz(&req, M_SAVE_EXC, crate::auth::Role::Admin)
+            .await?;
         let rule = req.into_inner().rule.unwrap_or_default();
         let mut doc = ExceptionDoc::from_proto(&rule);
         doc.validate().map_err(Status::invalid_argument)?;
@@ -213,7 +317,9 @@ impl Itcmdr for ItcmdrService {
         &self,
         req: Request<ExpireExceptionRequest>,
     ) -> Result<Response<ExpireExceptionResponse>, Status> {
-        let actor = authorize(&self.cfg, req.metadata())?;
+        let actor = self
+            .authz(&req, M_EXPIRE_EXC, crate::auth::Role::Admin)
+            .await?;
         let id = req.into_inner().id;
         if !crate::db::expire_exception(&self.pool, &id)
             .await
@@ -231,6 +337,8 @@ impl Itcmdr for ItcmdrService {
         &self,
         req: Request<SearchLogsRequest>,
     ) -> Result<Response<SearchLogsResponse>, Status> {
+        self.read_guard(&req, "/itcmdr.Itcmdr/SearchLogs", crate::auth::Role::User)
+            .await?;
         let p = req.into_inner();
         let lines = crate::ingest::iter_log_lines(&self.cfg.logs_dir).map_err(internal_err)?;
         let page = crate::search::search(lines, &p);
@@ -245,6 +353,8 @@ impl Itcmdr for ItcmdrService {
         &self,
         req: Request<ListAuditRequest>,
     ) -> Result<Response<ListAuditResponse>, Status> {
+        self.read_guard(&req, M_LIST_AUDIT, crate::auth::Role::Admin)
+            .await?;
         let limit = match req.into_inner().limit {
             n if n <= 0 => 200,
             n => n.min(5000) as i64,
@@ -267,8 +377,14 @@ impl Itcmdr for ItcmdrService {
         Pin<Box<dyn tokio_stream::Stream<Item = Result<Update, Status>> + Send + 'static>>;
     async fn watch_updates(
         &self,
-        _req: Request<WatchUpdatesRequest>,
+        req: Request<WatchUpdatesRequest>,
     ) -> Result<Response<Self::WatchUpdatesStream>, Status> {
+        self.read_guard(
+            &req,
+            "/itcmdr.Itcmdr/WatchUpdates",
+            crate::auth::Role::Client,
+        )
+        .await?;
         // Lagged receivers skip missed events instead of ending the stream.
         let stream =
             BroadcastStream::new(crate::events::subscribe()).filter_map(|item| item.ok().map(Ok));

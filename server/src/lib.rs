@@ -1,10 +1,12 @@
 #![allow(clippy::result_large_err, clippy::field_reassign_with_default)]
 pub mod api;
+pub mod auth;
 pub mod config;
 pub mod db;
 pub mod events;
 pub mod exceptions;
 pub mod ingest;
+pub mod keys;
 pub mod metrics;
 pub mod requests;
 pub mod search;
