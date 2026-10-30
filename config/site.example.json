@@ -107,6 +107,25 @@
       "\\\\SERVER01\\PDATA\\maintenanceRuns\\archive\\weekly",
       "\\\\SERVER01\\PDATA\\maintenanceRuns\\archive\\blocks",
       "\\\\SERVER01\\PDATA\\maintenanceRuns\\archive\\yearly"
+    ],
+    "tasks": [
+      {
+        "name": "Sidexis SQL Backup",
+        "maxAgeHours": 26
+      },
+      {
+        "name": "EndoVision DB Backup",
+        "maxAgeHours": 26
+      }
+    ],
+    "destinations": [
+      {
+        "name": "NIGHTLY",
+        "path": "\\\\SERVER01\\Backups\\Nightly",
+        "pattern": "*.bak",
+        "maxAgeHours": 26,
+        "minBytes": 1048576
+      }
     ]
   },
   "stalePatterns": [

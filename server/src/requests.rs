@@ -61,16 +61,27 @@ fn read_responses(dir: &Path, request_id: &str) -> Vec<(String, String)> {
         .collect()
 }
 
-/// Update every queued/running request from the response files. Returns how many changed.
-pub async fn sync_requests(pool: &DbPool, responses_dir: &Path) -> anyhow::Result<usize> {
+/// Give up on a request that is still queued/running after `timeout_ms`.
+pub fn apply_timeout(status: String, msg: String, age_ms: i64, timeout_ms: i64) -> (String, String) {
+    if timeout_ms > 0 && age_ms > timeout_ms && (status == "queued" || status == "running") {
+        return ("timed_out".into(), format!("timed out after {} min; {msg}", timeout_ms / 60_000));
+    }
+    (status, msg)
+}
+
+/// Update every queued/running request from the response files; time out requests
+/// nobody finished within `timeout_ms` (0 = never). Returns how many changed.
+pub async fn sync_requests(pool: &DbPool, responses_dir: &Path, timeout_ms: i64) -> anyhow::Result<usize> {
     let mut changed = 0;
-    for (id, options) in crate::db::pending_requests(pool).await? {
+    let now = chrono::Utc::now().timestamp_millis();
+    for (id, options, created) in crate::db::pending_requests(pool).await? {
         let expected: Vec<String> = serde_json::from_str::<serde_json::Value>(&options)
             .ok()
             .and_then(|v| v.get("machines").cloned())
             .and_then(|m| serde_json::from_value(m).ok())
             .unwrap_or_default();
         let (status, msg) = aggregate(&expected, &read_responses(responses_dir, &id));
+        let (status, msg) = apply_timeout(status, msg, now - created, timeout_ms);
         if crate::db::set_request_status(pool, &id, &status, &msg).await? {
             changed += 1;
         }
@@ -96,5 +107,15 @@ mod tests {
         assert_eq!(aggregate(&exp, &[r("WS-01", "done"), r("WS-02", "done")]).0, "done");
         assert_eq!(aggregate(&exp, &[r("WS-01", "failed"), r("WS-02", "done")]).0, "failed");
         assert_eq!(aggregate(&[], &[r("WS-03", "done")]).0, "done");
+    }
+
+    #[test]
+    fn times_out_only_unfinished_requests() {
+        let t = |s: &str, age| apply_timeout(s.into(), "m".into(), age, 1000).0;
+        assert_eq!(t("running", 1001), "timed_out");
+        assert_eq!(t("queued", 1001), "timed_out");
+        assert_eq!(t("running", 999), "running");
+        assert_eq!(t("done", 5000), "done");
+        assert_eq!(apply_timeout("queued".into(), "m".into(), 1 << 40, 0).0, "queued");
     }
 }

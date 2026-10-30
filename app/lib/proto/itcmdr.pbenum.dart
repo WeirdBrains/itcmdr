@@ -54,6 +54,8 @@ class RequestStatus_Status extends $pb.ProtobufEnum {
       RequestStatus_Status._(3, _omitEnumNames ? '' : 'DONE');
   static const RequestStatus_Status FAILED =
       RequestStatus_Status._(4, _omitEnumNames ? '' : 'FAILED');
+  static const RequestStatus_Status TIMED_OUT =
+      RequestStatus_Status._(5, _omitEnumNames ? '' : 'TIMED_OUT');
 
   static const $core.List<RequestStatus_Status> values = <RequestStatus_Status>[
     UNKNOWN,
@@ -61,10 +63,11 @@ class RequestStatus_Status extends $pb.ProtobufEnum {
     RUNNING,
     DONE,
     FAILED,
+    TIMED_OUT,
   ];
 
   static final $core.List<RequestStatus_Status?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 4);
+      $pb.ProtobufEnum.$_initByValueList(values, 5);
   static RequestStatus_Status? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

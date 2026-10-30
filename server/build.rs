@@ -9,7 +9,7 @@ fn main() {
 
     tonic_build::configure()
         .build_server(true)
-        .build_client(false)
+        .build_client(true)
         .out_dir(out_dir)
         .compile_protos(&[proto_dir.join("itcmdr.proto")], &[proto_dir])
         .expect("failed to compile protos");

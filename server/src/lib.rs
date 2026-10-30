@@ -26,7 +26,7 @@ pub async fn tick(pool: &db::DbPool, cfg: &ServerConfig) {
         Ok(_) => {}
         Err(e) => tracing::warn!(error=%e, "ingest failed"),
     }
-    if let Err(e) = requests::sync_requests(pool, &cfg.responses_dir()).await {
+    if let Err(e) = requests::sync_requests(pool, &cfg.responses_dir(), cfg.request_timeout_ms()).await {
         tracing::warn!(error=%e, "request sync failed");
     }
 }

@@ -24,7 +24,7 @@
   Override the guard that skips repairs when clinical activity may be in progress.
 
 .PARAMETER Categories
-  Optional subset of categories to run: network, connectivity, configuration, services.
+  Optional subset of categories to run: network, connectivity, configuration, backup, services.
 #>
 [CmdletBinding()]
 param(
@@ -36,7 +36,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-$script:AgentVersion = '0.3.0'
+$script:AgentVersion = '0.5.0'
 
 function ConvertTo-ItcmdrHashtable {
   param($InputObject)
@@ -675,6 +675,82 @@ function Invoke-ItcmdrConfigCheck {
   }
 }
 
+function Test-ItcmdrBackupTask {
+  <#
+    Info: @{ exists; state; lastRun; lastResult } (from Get-ScheduledTask/Get-ScheduledTaskInfo).
+    OK when the task exists, is not disabled, last ran within MaxAgeHours and returned 0.
+  #>
+  param([hashtable]$Info, [double]$MaxAgeHours = 26, [datetime]$Now = (Get-Date))
+  if (-not $Info -or -not $Info.exists) { return (ConvertTo-ItcmdrResult -Ok $false -Detail 'task not found') }
+  $issues = @()
+  if ([string]$Info.state -eq 'Disabled') { $issues += 'disabled' }
+  $last = $Info.lastRun
+  if (-not $last -or $last -lt (Get-Date '2000-01-01')) { $issues += 'never ran' }
+  elseif ($last -lt $Now.AddHours(-$MaxAgeHours)) { $issues += "last ran $([int]($Now - $last).TotalHours)h ago" }
+  if ($null -ne $Info.lastResult -and [int64]$Info.lastResult -ne 0) { $issues += ('last result 0x{0:X}' -f [int64]$Info.lastResult) }
+  if ($issues.Count) { return (ConvertTo-ItcmdrResult -Ok $false -Detail ($issues -join '; ')) }
+  return (ConvertTo-ItcmdrResult -Ok $true -Detail "last ran $($last.ToString('s'))")
+}
+
+function Get-ItcmdrBackupTaskInfo {
+  param([string]$Name)
+  if (-not (Get-Command Get-ScheduledTask -ErrorAction SilentlyContinue)) { return @{ exists = $false } }
+  $t = Get-ScheduledTask -TaskName $Name -ErrorAction SilentlyContinue | Select-Object -First 1
+  if (-not $t) { return @{ exists = $false } }
+  $i = $t | Get-ScheduledTaskInfo -ErrorAction SilentlyContinue
+  return @{ exists = $true; state = [string]$t.State; lastRun = $(if ($i) { $i.LastRunTime }); lastResult = $(if ($i) { $i.LastTaskResult }) }
+}
+
+function Test-ItcmdrBackupDestination {
+  <# The newest file matching Pattern under Path (recursive) is recent enough and not empty. #>
+  param([string]$Path, [string]$Pattern = '*', [double]$MaxAgeHours = 26, [int64]$MinBytes = 1, [datetime]$Now = (Get-Date))
+  if (-not (Test-Path -LiteralPath $Path)) { return (ConvertTo-ItcmdrResult -Ok $false -Detail 'destination unreachable') }
+  $newest = Get-ChildItem -LiteralPath $Path -Filter $Pattern -File -Recurse -ErrorAction SilentlyContinue |
+    Sort-Object LastWriteTime -Descending | Select-Object -First 1
+  if (-not $newest) { return (ConvertTo-ItcmdrResult -Ok $false -Detail "no $Pattern files") }
+  $age = $Now - $newest.LastWriteTime
+  $issues = @()
+  if ($age.TotalHours -gt $MaxAgeHours) { $issues += "newest is $([int]$age.TotalHours)h old" }
+  if ($newest.Length -lt $MinBytes) { $issues += "newest is $($newest.Length) bytes" }
+  if ($issues.Count) { return (ConvertTo-ItcmdrResult -Ok $false -Detail ($issues -join '; ')) }
+  return (ConvertTo-ItcmdrResult -Ok $true -Detail "newest $($newest.Name), $([int]$age.TotalHours)h old, $($newest.Length) bytes")
+}
+
+# Backup coverage (category backup, report only; nothing is ever started or changed).
+function Invoke-ItcmdrBackupCheck {
+  param([hashtable]$Ctx, [switch]$ReportOnlyLocal, [scriptblock]$TaskInfo = { param($n) Get-ItcmdrBackupTaskInfo -Name $n })
+  $getInfo = $TaskInfo
+  $b = Get-ItcmdrValue $Ctx.Site @('backup')
+  if (-not $b) { return }
+  $i = 0
+  foreach ($src in @(Get-ItcmdrValue $b @('expectedBackupSources') | Where-Object { $_ })) {
+    $i++
+    if ($Ctx.Role -ne 'Server') { break }
+    $sp = [string]$src
+    Invoke-ItcmdrCheck -Id ("BACKUP-SRC-" + [char](64 + [Math]::Min($i, 26))) -Category 'backup' -Test {
+      ConvertTo-ItcmdrResult -Ok (Test-Path -LiteralPath $sp) -Detail $sp
+    } -ReportOnlyLocal:$ReportOnlyLocal -Ctx $Ctx
+  }
+  foreach ($t in @(Get-ItcmdrValue $b @('tasks') | Where-Object { $_ })) {
+    if (-not (Test-ItcmdrRoleMatch $t $Ctx.Role) -or ($null -eq (Get-ItcmdrValue $t @('roles')) -and $Ctx.Role -ne 'Server')) { continue }
+    $tn = [string](Get-ItcmdrValue $t @('name'))
+    $tmax = Get-ItcmdrValue $t @('maxAgeHours'); if (-not $tmax) { $tmax = 26 }
+    Invoke-ItcmdrCheck -Id "BACKUP-TASK-$(Get-ItcmdrSafeId $tn)" -Category 'backup' -Test {
+      Test-ItcmdrBackupTask -Info (& $getInfo $tn) -MaxAgeHours $tmax
+    } -ReportOnlyLocal:$ReportOnlyLocal -Ctx $Ctx
+  }
+  foreach ($d in @(Get-ItcmdrValue $b @('destinations') | Where-Object { $_ })) {
+    if (-not (Test-ItcmdrRoleMatch $d $Ctx.Role) -or ($null -eq (Get-ItcmdrValue $d @('roles')) -and $Ctx.Role -ne 'Server')) { continue }
+    $dn = [string](Get-ItcmdrValue $d @('name')); $dp = [string](Get-ItcmdrValue $d @('path'))
+    $pat = Get-ItcmdrValue $d @('pattern'); if (-not $pat) { $pat = '*' }
+    $dmax = Get-ItcmdrValue $d @('maxAgeHours'); if (-not $dmax) { $dmax = 26 }
+    $dmin = Get-ItcmdrValue $d @('minBytes'); if (-not $dmin) { $dmin = 1 }
+    Invoke-ItcmdrCheck -Id "BACKUP-DEST-$(Get-ItcmdrSafeId $dn)" -Category 'backup' -Test {
+      Test-ItcmdrBackupDestination -Path $dp -Pattern $pat -MaxAgeHours $dmax -MinBytes $dmin
+    } -ReportOnlyLocal:$ReportOnlyLocal -Ctx $Ctx
+  }
+}
+
 if (-not $env:ITCMDR_IMPORT_ONLY) {
   $site = Get-ItcmdrSiteConfig
   $ctx = New-ItcmdrRunContext -Site $site -Categories $Categories
@@ -696,6 +772,7 @@ if (-not $env:ITCMDR_IMPORT_ONLY) {
   Invoke-ItcmdrNetworkCheck -Ctx $ctx -ReportOnlyLocal:$reportOnlyEffective
   Invoke-ItcmdrScannerCheck -Ctx $ctx -ReportOnlyLocal:$reportOnlyEffective
   Invoke-ItcmdrConfigCheck -Ctx $ctx -ReportOnlyLocal:$reportOnlyEffective
+  Invoke-ItcmdrBackupCheck -Ctx $ctx -ReportOnlyLocal:$reportOnlyEffective
   Invoke-ItcmdrServiceCheck -Ctx $ctx -ReportOnlyLocal:$reportOnlyEffective
 
   $retentionDays = if ((Get-ItcmdrValue $site @('retention')) -and (Get-ItcmdrValue $site @('retention','agentLocalDays'))) { [int](Get-ItcmdrValue $site @('retention','agentLocalDays')) } else { 400 }

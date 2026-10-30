@@ -1,54 +1,52 @@
 <#
 .SYNOPSIS
-  Report coverage of expected backup sources and optionally stage a fallback archive.
+  Report backup coverage on demand (same checks the nightly agent runs in category "backup").
+
+.DESCRIPTION
+  Reads site.json "backup": expectedBackupSources (must exist), tasks (scheduled backup jobs:
+  present, enabled, ran within maxAgeHours, result 0) and destinations (newest file matching
+  pattern is recent and at least minBytes). Report only: nothing is started or changed.
+  Prints one line per check and exits 1 when anything failed.
+
+.PARAMETER SitePath
+  site.json to use (defaults to the agent's lookup).
 
 .PARAMETER StageTo
-  Optional folder to stage a compressed fallback of maintenanceRuns after nightly runs.
+  Optional folder to also stage a compressed copy of -Source (the local maintenance log folder).
 #>
 [CmdletBinding()]
 param(
-  [string]$StageTo
+  [string]$SitePath,
+  [string]$StageTo,
+  [string]$Source = 'C:\maintenanceRuns'
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-function Get-ItcmdrSite {
-  $candidates = @('config/site.json','C:\ProgramData\itcmdr\site.json')
-  foreach ($p in $candidates) { if (Test-Path $p) { return ((Get-Content $p -Raw).TrimStart([char]0xFEFF) | ConvertFrom-Json) } }
-  return @{} 
-}
+$env:ITCMDR_IMPORT_ONLY = '1'
+try { . (Join-Path $PSScriptRoot 'Invoke-ItcmdrAgent.ps1') } finally { Remove-Item Env:ITCMDR_IMPORT_ONLY -ErrorAction SilentlyContinue }
 
-$site = Get-ItcmdrSite
-$expected = @()
-if ($site -and $site.PSObject.Properties['backup'] -and $site.backup.PSObject.Properties['expectedBackupSources']) { $expected = @($site.backup.expectedBackupSources) }
+$site = if ($SitePath) { ConvertFrom-ItcmdrJson (Get-Content -LiteralPath $SitePath -Raw) } else { Get-ItcmdrSiteConfig }
+$log = Join-Path ([IO.Path]::GetTempPath()) ("itcmdr-backup-$([guid]::NewGuid()).log")
+$ctx = @{ RunId = [guid]::NewGuid().ToString(); Computer = $env:COMPUTERNAME; Role = 'Server'; Site = $site; LogFile = $log; Exceptions = @() }
+Invoke-ItcmdrBackupCheck -Ctx $ctx -ReportOnlyLocal
 
-$tasks = @('Sidexis SQL Backup','EndoVision DB Backup')
-$found = @()
-foreach ($t in $tasks) {
-  $task = Get-ScheduledTask -TaskName $t -ErrorAction SilentlyContinue
-  if ($task) {
-    $found += [pscustomobject]@{ name=$t; exists=$true }
-  } else {
-    $found += [pscustomobject]@{ name=$t; exists=$false }
+$failed = 0
+if (Test-Path -LiteralPath $log) {
+  foreach ($r in @(Get-Content -LiteralPath $log | ForEach-Object { $_ | ConvertFrom-Json })) {
+    if ($r.status -eq 'failed') { $failed++ }
+    Write-Output ('{0,-7} {1,-32} {2}' -f $r.status, $r.checkId, $r.detail)
   }
+  Remove-Item -LiteralPath $log -Force -ErrorAction SilentlyContinue
+} else {
+  Write-Output 'No backup section in site.json; nothing to check.'
 }
-
-$report = [pscustomobject]@{
-  timestamp = (Get-Date).ToString('o')
-  expected = $expected
-  tasks = $found
-}
-
-$out = $report | ConvertTo-Json -Depth 6
-$dest = 'C:\maintenanceRuns\backup-coverage.json'
-$out | Out-File -LiteralPath $dest -Encoding utf8
 
 if ($StageTo) {
   if (-not (Test-Path $StageTo)) { New-Item -ItemType Directory -Path $StageTo -Force | Out-Null }
   $zipPath = Join-Path $StageTo ('maintenanceRuns_{0:yyyyMMddHHmmss}.zip' -f (Get-Date))
-  Compress-Archive -LiteralPath 'C:\maintenanceRuns' -DestinationPath $zipPath -CompressionLevel Optimal -Force
+  Compress-Archive -LiteralPath $Source -DestinationPath $zipPath -CompressionLevel Optimal -Force
+  Write-Output "Staged $zipPath"
 }
-
-Write-Output "Wrote coverage report to $dest"
-
+if ($failed -gt 0) { exit 1 }

@@ -8,6 +8,7 @@ const logCategories = [
   'network',
   'connectivity',
   'configuration',
+  'backup',
   'services',
 ];
 const logStatuses = ['', 'ok', 'failed', 'skipped'];
