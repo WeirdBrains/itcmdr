@@ -1,5 +1,33 @@
 # Changelog
 
+## v0.10.0 (2026-10-30)
+- Plugin runtime (decisions 6, 11): plugins are separate processes serving gRPC `PluginService`
+  (`proto/plugin.proto`: Describe, Verify, Execute, Log) on loopback with a per-launch secret
+  handshake. Order: Describe, Verify, Execute; a failed Verify stops the run (`verify-failed`), Log is
+  called on any failure, every call times out (`plugins.timeout_secs`, 600). Runs recorded in
+  `plugin_runs` and audited (`plugin-run`).
+- `itcmdr-plugin` Rust crate (SDK + host side + log helpers + validator); PowerShell module
+  `agent/Itcmdr.Plugin.psm1` and host `itcmdr-plugin-ps` (Windows PowerShell 5.1 by default,
+  setting `plugins.powershell`).
+- Per-run log path `ITCMDR_LOG_PATH` = `<data>/plugin-logs/<plugin>/<date>.jsonl`, mirrored to the share's
+  `plugin-logs/`; the weekly rotation zips finished weeks; server backups include `plugin-logs/**`.
+- Log standard `itcmdr.log/v1` (`docs/LOG-STANDARD.md`): validator, per-file reject counts, metrics
+  ingest into the DB, `GetPluginMetrics` (raw or daily, label filters), `ListPluginRuns`, `RunPlugin`.
+- Scheduled runs (decision 14), stored in the encrypted DB: targets all / machines / groups (agent
+  roles), check categories and/or plugins, report-only or repair, presets (`hourly`, `every Nh`,
+  `daily HH:MM`, `weekdays HH:MM`, `weekly <day> HH:MM`) or `cron <5 fields>`, IANA timezone with DST
+  handling, office-hours guard (`schedule.office_hours`; report-only-in-hours by default,
+  skip-in-hours, none), one active run per schedule, missed runs recorded (skip or catch-up once,
+  `schedule.grace_secs`). Runs are queued through the on-demand path. gRPC Create/Update/Delete/
+  List/Pause/Resume/RunNow/ListScheduleRuns (admin manage, user run-now/read, audited) and
+  `itcmdr-cli schedule add|list|edit|rm|pause|resume|run-now|history`. `TriggerRuns` accepts plugins.
+- `itcmdr-cli plugins run NAME [--report-only] [--arg k=v]` and `plugins runs`.
+- App-triggered restore, server side (decision 13): `StageRestore` (owner), `GetRestoreStatus`, and
+  the `itcmdr-restore` helper (stop, safety copy, restore, start, health check, automatic rollback).
+  server.json `restore.stop_command` / `start_command`; setting `restore.health_timeout_secs`.
+- Schema version 3 (plugin_runs, plugin_log_files, plugin_metrics, schedules, schedule_runs; pruned by
+  DB retention). Installer ships `itcmdr-plugin-ps.exe`, `itcmdr-restore.exe` and the module.
+
 ## v0.9.1 (2026-10-30)
 - Settings everywhere (decision 15 widened): every tunable value is a typed setting with today's value as its default,
   documented in `docs/SETTINGS.md` (29 keys: backup, ingest interval, request timeout, DB retention, metric thresholds,

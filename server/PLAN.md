@@ -297,6 +297,7 @@ JSON. The rest sounds good to me").
       window, rollup), serves them, and the app charts them (v0.12.0).
     - **Releases:** the schema doc, validator and ingest go in v0.9.0, the runtime log path and helpers in v0.10.0, the
       built-in plugins on v1 in v0.11.0, and the app charts in v0.12.0.
+    - **Status:** ✅ doc, validator, ingest, helpers and runtime log path done in v0.10.0 (`docs/LOG-STANDARD.md`).
     - **Tests:** schema validation (good and bad lines), helpers produce valid lines (Rust + Pester), ingest
       extracts metrics and counts rejects, and plugin logs are included in rotation and backup coverage.
 12. **Storage follow-ups** (Michael, Oct 30 2026):
@@ -351,6 +352,8 @@ JSON. The rest sounds good to me").
         answers within a timeout), the helper restores the safety copy, restarts and reports `rolled-back`.
       - **Placement:** server pieces (RPCs, helper, rollback, tests incl. a forced failed health check) in
         v0.10.0; the app's Backup & Restore screen in v0.12.0. v0.9.1 stays on settings.
+    - **Status:** ✅ app-triggered restore server side done in v0.10.0 (StageRestore, GetRestoreStatus,
+      `itcmdr-restore`, rollback); words sealed client-side is deferred to the app (v0.12.0).
 
 14. **Scheduled runs** (Michael, Oct 30 2026: "We should have a way to schedule runs in the app and cli").
     - **The server owns schedules**, stored in the encrypted DB: id, name, target (machines, groups or all),
@@ -386,6 +389,7 @@ JSON. The rest sounds good to me").
       guard, RPC roles and audit.
     - **Release:** server, gRPC and CLI in v0.10.0 (next to the plugin runtime, so "specific plugins" can be
       targeted); app screen in v0.12.0. No version shift.
+    - **Status:** ✅ server, gRPC and CLI done in v0.10.0; built-in schedules v0.11.0, app v0.12.0.
 
 15. **Configurable paths** (Michael, Oct 30 2026: backup paths must be preferences he can set, not hard-coded).
     - **Agent:** site.json `paths.localLogs` (default `C:\maintenanceRuns`: run logs, local `requests\`) and
@@ -460,6 +464,29 @@ JSON. The rest sounds good to me").
 - Plugins (Michael, t393u): a validated package is **enabled** on install (other versions disabled) unless
   `--disabled` or `plugins.enable_on_install = false`; `--enable` is accepted as a no-op. Quarantine unchanged.
 
+### Notes from the v0.10.0 build
+
+- Plugin runtime: `runtime.rs` launches a plugin (`bin` main file directly, `powershell` through
+  `itcmdr-plugin-ps --script`), reads the `ITCMDR-PLUGIN|1|tcp|127.0.0.1:port` handshake (loopback only),
+  sends the per-launch secret in `x-itcmdr-plugin-secret`, then Describe (name must match), Verify (if
+  listed), Execute, and Log on failure. Statuses: ok, verify-failed, failed, error. Service plugins run on
+  the server; plugin-only on-demand/scheduled requests are executed and closed by the server, agent
+  categories still go through request files.
+- `itcmdr-plugin-ps` calls the script once per stage with JSON on stdin and reads the last
+  `ITCMDR-RESULT|{json}` line; it finds the module via `ITCMDR_PS_MODULE` (default `..\agent\`).
+  PowerShell unrolls one-element arrays, so the host accepts a single result object too.
+- Logs: `<data>/plugin-logs/<plugin>/<date>.jsonl`, server run-start/run-end lines, mirrored to the share,
+  weekly-zipped by the rotation, in backups (merge on restore). Ingest keeps `lines_done` per file and
+  counts rejects. Schema 3.
+- Scheduler (`schedule.rs`): specs as JSON in `schedules`, history in `schedule_runs`. Groups are agent roles
+  from each machine's latest run. `tick` runs after each ingest pass. Missed = due more than
+  `schedule.grace_secs` ago; catch-up runs once. Resume and edits don't replay the past. The second of two
+  repeated wall-clock times at the end of DST is skipped (fires once). Run-now skips the server guard
+  only (the agent's clinical guard still applies).
+- Restore: words over the authenticated, owner-only channel to the helper's stdin (sealing on the client is
+  deferred to the app work in v0.12.0). Health = DB opens, schema matches, integrity_check, gRPC answers.
+  Test hook `ITCMDR_RESTORE_FORCE_HEALTH_FAIL`.
+
 ### Auth notes from the v0.7.0 build
 
 - `auth_mode` in server.json: `token` (legacy only), `both` (default: signed requests, or the legacy token for
@@ -494,7 +521,7 @@ JSON. The rest sounds good to me").
 | v0.8.1 | configurable paths (decision 15): agent `paths.localLogs`/`agentData`, installer LocalLogs, backup settings RPCs + `itcmdr-cli config`; backup retention by 4-week blocks; plans for decisions 14-15 |
 | v0.9.0 | packages: format, validation (exact file list, sha256, signature), quarantine + index, plugins install --url/--path, list/enable/disable/remove, plugin files in backups |
 | v0.9.1 | settings everywhere (decision 15 widened): typed Settings registry + `ListSettings`/`UpdateSetting` (+ backup `GetSettings`/`UpdateSettings`), runtime wiring, plugins enabled on install, `itcmdr-cli config list`, central agent settings (global + per machine) with site.json as local override, `docs/SETTINGS.md`, basic app Settings screen |
-| v0.10.0 | app-triggered restore server side (decision 13: StageRestore, restore helper, status, health-check rollback); plugin runtime: PluginService gRPC, Rust crate, PowerShell module + host, Verify then Execute, Log on error, timeouts, on-demand + audit hooks; per-run log path + log/metric helpers; log standard doc + validator + generic metrics ingest (decision 11, moved from v0.9.0); scheduled runs: server scheduler, schedule RPCs, `itcmdr-cli schedule` (decision 14) |
+| v0.10.0 ✅ | app-triggered restore server side (decision 13: StageRestore, restore helper, status, health-check rollback); plugin runtime: PluginService gRPC, Rust crate, PowerShell module + host, Verify then Execute, Log on error, timeouts, on-demand + audit hooks; per-run log path + log/metric helpers; log standard doc + validator + generic metrics ingest (decision 11, moved from v0.9.0); scheduled runs: server scheduler, schedule RPCs, `itcmdr-cli schedule` (decision 14) |
 | v0.11.0 | built-in checks as plugins: the existing agent checks/repairs rebuilt as service plugins and run through the plugin system (decision 10), logging in itcmdr.log/v1; nightly agent task and nightly backup as built-in schedules (decision 14, no-gap rule) |
 | v0.12.0 | Flutter: Service Plugins section, app registration, user/key management, plugin metric charts, Backup & Restore screen, Schedules screen; app signs requests, default auth_mode -> signed |
 | v0.13.0 | installer: first-run master setup showing the words once; Windows VM test items in the handover |

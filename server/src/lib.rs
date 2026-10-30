@@ -7,10 +7,15 @@ pub mod db;
 pub mod events;
 pub mod exceptions;
 pub mod ingest;
+pub mod jobs;
 pub mod keys;
 pub mod metrics;
 pub mod packages;
+pub mod plugin_logs;
 pub mod requests;
+pub mod restore;
+pub mod runtime;
+pub mod schedule;
 pub mod search;
 pub mod settings;
 pub mod storage;
@@ -36,6 +41,15 @@ pub async fn tick(pool: &db::DbPool, cfg: &ServerConfig) {
         ),
         Ok(_) => {}
         Err(e) => tracing::warn!(error=%e, "ingest failed"),
+    }
+    match plugin_logs::ingest(pool, &cfg.layout().plugin_logs()).await {
+        Ok(s) if s.rejects > 0 => tracing::warn!(
+            lines = s.lines,
+            rejects = s.rejects,
+            "plugin log lines rejected"
+        ),
+        Ok(_) => {}
+        Err(e) => tracing::warn!(error=%e, "plugin log ingest failed"),
     }
     let timeout_ms = settings::get_i64(pool, Some(cfg), "server.request_timeout_secs").await * 1000;
     if let Err(e) = requests::sync_requests(pool, &cfg.responses_dir(), timeout_ms).await {
@@ -86,6 +100,9 @@ pub async fn run(
             }
             first = false;
             tick(&bg_pool, &bg_cfg).await;
+            if let Err(e) = schedule::tick(&bg_pool, &bg_cfg, chrono::Utc::now()).await {
+                tracing::warn!(error=%e, "scheduler failed");
+            }
             backup::nightly(&bg_pool, &bg_cfg).await;
             if last_retention.elapsed() > Duration::from_secs(24 * 3600) {
                 last_retention = std::time::Instant::now();

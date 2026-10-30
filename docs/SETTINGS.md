@@ -44,8 +44,13 @@ Every tunable value in itcmdr is a typed setting with today's behaviour as its d
 | `paths.localLogs` | agent | path (on each PC) | `C:\maintenanceRuns` | next run | admin/owner (RPC, app, CLI) | Local run logs and requests\ folder on each PC. |
 | `plugins.enable_on_install` | server | bool | `true` | next pass / next use | admin/owner (RPC, app, CLI) | Enable a package that passed validation when it is installed (other versions are disabled). |
 | `plugins.max_package_mib` | server | int 1..2048 | `256` | next pass / next use | admin/owner (RPC, app, CLI) | Largest plugin package accepted (MiB). |
+| `plugins.powershell` | server | text | `powershell.exe` (Windows; `pwsh` elsewhere) | next pass / next use | admin/owner (RPC, app, CLI) | PowerShell used by itcmdr-plugin-ps (Windows PowerShell 5.1 by default). |
+| `plugins.timeout_secs` | server | int 10..86400 | `600` | next pass / next use | admin/owner (RPC, app, CLI) | Per-stage timeout of a plugin run (seconds). |
+| `restore.health_timeout_secs` | server | int 5..3600 | `120` | next pass / next use | admin/owner (RPC, app, CLI) | How long the restore helper waits for the restarted server before rolling back. |
 | `retention.agentLocalDays` | agent | int 1..3650 | `400` | next run | admin/owner (RPC, app, CLI) | Days of local run logs kept on each PC. |
 | `rotation.timeLocal` | agent | time | `02:10` | server reinstall | admin/owner (RPC, app, CLI) | Log rotation task time on the server. |
+| `schedule.grace_secs` | server | int 30..86400 | `300` | next pass / next use | admin/owner (RPC, app, CLI) | A run due longer ago than this counts as missed (server was down). |
+| `schedule.office_hours` | server | text | `Mon-Fri 07:00-18:00` | next pass / next use | admin/owner (RPC, app, CLI) | Office hours for the schedule guard, in each schedule's timezone. |
 | `search.default_limit` | server | int 1..1000 | `100` | next pass / next use | admin/owner (RPC, app, CLI) | Log search page size when the client asks for none. |
 | `search.max_limit` | server | int 100..10000 | `1000` | next pass / next use | admin/owner (RPC, app, CLI) | Largest log search page. |
 | `server.auth_mode` | server | text | `both` | restart | nobody at runtime (server.json + restart) | token / both / signed (server.json only: security-critical). |
@@ -53,6 +58,12 @@ Every tunable value in itcmdr is a typed setting with today's behaviour as its d
 | `server.ingest_interval_secs` | server | int 5..3600 | `30` | next pass / next use | admin/owner (RPC, app, CLI) | Seconds between log ingest / request sync passes. |
 | `server.request_timeout_secs` | server | int 60..604800 | `10800` | next pass / next use | admin/owner (RPC, app, CLI) | On-demand requests still queued/running after this many seconds become timed_out. |
 | `server.retention_days` | server | int 30..3650 | `400` | next pass / next use | admin/owner (RPC, app, CLI) | Days of run/check data kept in the database. |
+
+## server.json only
+
+- `restore.stop_command` / `restore.start_command`: argv lists the restore helper runs to stop and
+  start the service (default `["sc.exe", "stop", "itcmdr-server"]` / `["sc.exe", "start", "itcmdr-server"]` on
+  Windows, empty elsewhere). They run commands, so they are not changeable over RPC.
 
 ## Not settings (on purpose)
 

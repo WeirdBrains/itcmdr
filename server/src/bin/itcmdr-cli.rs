@@ -52,6 +52,9 @@ enum Cmd {
     /// Runtime settings stored in the DB (override server.json): backup.dir, backup.hour, ...
     #[command(subcommand)]
     Config(ConfigCmd),
+    /// Scheduled runs (decision 14).
+    #[command(subcommand)]
+    Schedule(ScheduleCmd),
     /// Restore an archive into the data dir. Stop the server first.
     Restore {
         #[arg(long)]
@@ -143,6 +146,22 @@ enum PluginsCmd {
     },
     /// Packages refused so far (quarantine/index.jsonl).
     Quarantine,
+    /// Run an enabled plugin now (Verify, then Execute; Log on failure).
+    Run {
+        /// NAME or NAME@VERSION
+        spec: String,
+        #[arg(long)]
+        report_only: bool,
+        /// Plugin argument KEY=VALUE (repeatable).
+        #[arg(long = "arg")]
+        args: Vec<String>,
+    },
+    /// Recent plugin runs.
+    Runs {
+        plugin: Option<String>,
+        #[arg(long, default_value_t = 20)]
+        limit: i64,
+    },
     /// Build and sign a package from DIR/package.toml (checksums are filled in).
     Pack {
         #[arg(long)]
@@ -214,6 +233,195 @@ enum BackupCmd {
         #[arg(long)]
         dir: Option<PathBuf>,
     },
+}
+
+#[derive(clap::Args, Clone, Default)]
+struct ScheduleArgs {
+    /// hourly | "every 6h" | "daily 01:30" | "weekdays 07:00" | "weekly mon 02:00" | "cron M H DOM MON DOW"
+    #[arg(long)]
+    when: Option<String>,
+    /// IANA timezone (e.g. America/New_York) or "local".
+    #[arg(long)]
+    tz: Option<String>,
+    /// Target every machine.
+    #[arg(long)]
+    all: bool,
+    /// Target machines (comma-separated or repeated).
+    #[arg(long, value_delimiter = ',')]
+    machines: Vec<String>,
+    /// Target groups = agent roles (Server, Workstation, RCU).
+    #[arg(long, value_delimiter = ',')]
+    groups: Vec<String>,
+    /// Check categories (empty = all).
+    #[arg(long, value_delimiter = ',')]
+    categories: Vec<String>,
+    /// Service plugins to run on the server.
+    #[arg(long, value_delimiter = ',')]
+    plugins: Vec<String>,
+    /// Repair (default report-only).
+    #[arg(long, conflicts_with = "report_only")]
+    repair: bool,
+    #[arg(long)]
+    report_only: bool,
+    /// report-only-in-hours (default) | skip-in-hours | none
+    #[arg(long)]
+    guard: Option<String>,
+    /// skip (default) | catch-up
+    #[arg(long)]
+    missed: Option<String>,
+}
+
+#[derive(Subcommand)]
+enum ScheduleCmd {
+    /// Create a schedule.
+    Add {
+        #[arg(long)]
+        name: String,
+        #[command(flatten)]
+        a: ScheduleArgs,
+        /// Create paused.
+        #[arg(long)]
+        paused: bool,
+    },
+    /// All schedules with their next runs.
+    List,
+    /// Change a schedule (only the given options change).
+    Edit {
+        id: String,
+        #[arg(long)]
+        name: Option<String>,
+        #[command(flatten)]
+        a: ScheduleArgs,
+    },
+    /// Delete a schedule (built-in ones need --force; pause them instead).
+    Rm {
+        id: String,
+        #[arg(long)]
+        force: bool,
+    },
+    Pause {
+        id: String,
+    },
+    Resume {
+        id: String,
+    },
+    /// Queue a run now (no office-hours guard; the agent's clinical guard still applies).
+    RunNow {
+        id: String,
+    },
+    /// Run history (all schedules, or one).
+    History {
+        id: Option<String>,
+        #[arg(long, default_value_t = 20)]
+        limit: i64,
+    },
+}
+
+fn apply_args(mut s: srv::schedule::Spec, a: &ScheduleArgs) -> srv::schedule::Spec {
+    if let Some(w) = &a.when {
+        s.when = w.clone();
+    }
+    if let Some(t) = &a.tz {
+        s.timezone = t.clone();
+    }
+    if a.all || !a.machines.is_empty() || !a.groups.is_empty() {
+        s.all_machines = a.all;
+        s.machines = a.machines.clone();
+        s.groups = a.groups.clone();
+    }
+    if !a.categories.is_empty() {
+        s.categories = a.categories.clone();
+    }
+    if !a.plugins.is_empty() {
+        s.plugins = a.plugins.clone();
+    }
+    if a.repair {
+        s.repair = true;
+    }
+    if a.report_only {
+        s.repair = false;
+    }
+    if let Some(g) = &a.guard {
+        s.guard = g.clone();
+    }
+    if let Some(m) = &a.missed {
+        s.missed = m.clone();
+    }
+    s
+}
+
+fn ms_local(ms: i64) -> String {
+    chrono::DateTime::from_timestamp_millis(ms)
+        .map(|t| {
+            t.with_timezone(&chrono::Local)
+                .format("%Y-%m-%d %H:%M %Z")
+                .to_string()
+        })
+        .unwrap_or_default()
+}
+
+fn print_schedule(s: &srv::schedule::Schedule, json: bool) -> Result<()> {
+    let next: Vec<String> = if s.enabled {
+        srv::schedule::next_times(&s.spec, chrono::Utc::now(), 3)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|t| ms_local(t.timestamp_millis()))
+            .collect()
+    } else {
+        vec![]
+    };
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string(&serde_json::json!({"schedule": s, "next": next}))?
+        );
+        return Ok(());
+    }
+    let target = if s.spec.all_machines {
+        "all machines".to_string()
+    } else if !s.spec.groups.is_empty() {
+        format!("groups {}", s.spec.groups.join(","))
+    } else if !s.spec.machines.is_empty() {
+        s.spec.machines.join(",")
+    } else {
+        "server".into()
+    };
+    let what = [
+        (!s.spec.categories.is_empty()).then(|| format!("checks {}", s.spec.categories.join(","))),
+        (!s.spec.plugins.is_empty()).then(|| format!("plugins {}", s.spec.plugins.join(","))),
+    ]
+    .into_iter()
+    .flatten()
+    .collect::<Vec<_>>()
+    .join(" + ");
+    println!(
+        "{}  {}  [{}]  {} ({})  {} on {}  {}  guard={} missed={}{}  next: {}",
+        &s.id[..8],
+        s.name,
+        if s.enabled { "on" } else { "paused" },
+        s.spec.when,
+        s.spec.timezone,
+        if what.is_empty() {
+            "all checks".into()
+        } else {
+            what
+        },
+        target,
+        if s.spec.repair {
+            "repair"
+        } else {
+            "report-only"
+        },
+        s.spec.guard,
+        s.spec.missed,
+        if s.spec.builtin { " built-in" } else { "" },
+        if next.is_empty() {
+            "-".into()
+        } else {
+            next.join(", ")
+        }
+    );
+    Ok(())
 }
 
 #[derive(Subcommand)]
@@ -617,6 +825,73 @@ fn run(rt: &tokio::runtime::Runtime) -> Result<()> {
                             }
                         }
                     }
+                    PluginsCmd::Run {
+                        spec,
+                        report_only,
+                        args,
+                    } => {
+                        let mut a = std::collections::BTreeMap::new();
+                        for kv in args {
+                            let (k, v) = kv.split_once('=').ok_or_else(|| {
+                                anyhow::anyhow!("--arg wants KEY=VALUE, got {kv}")
+                            })?;
+                            a.insert(k.to_string(), v.to_string());
+                        }
+                        let rep = srv::runtime::run_plugin(
+                            &pool,
+                            &cfg,
+                            srv::runtime::RunSpec {
+                                plugin: spec.clone(),
+                                report_only: *report_only,
+                                args: a,
+                                ..Default::default()
+                            },
+                            "itcmdr-cli",
+                        )
+                        .await?;
+                        if json {
+                            println!("{}", serde_json::to_string_pretty(&rep)?);
+                        } else {
+                            for st in &rep.stages {
+                                println!(
+                                    "{:8} {}  {}",
+                                    st.stage,
+                                    if st.ok { "ok" } else { "FAILED" },
+                                    st.message
+                                );
+                            }
+                            for (c, s, m) in &rep.results {
+                                println!("  {c} {s} {m}");
+                            }
+                            println!(
+                                "{} {}: {}  (log {})",
+                                rep.plugin,
+                                rep.status,
+                                rep.message,
+                                rep.log_path.display()
+                            );
+                        }
+                        if rep.status != "ok" {
+                            bail!("plugin run {}", rep.status);
+                        }
+                    }
+                    PluginsCmd::Runs { plugin, limit } => {
+                        for r in srv::runtime::list_runs(&pool, plugin.as_deref(), *limit).await? {
+                            if json {
+                                println!("{}", serde_json::to_string(&r)?);
+                            } else {
+                                println!(
+                                    "{}  {} {}  {}  {}  {}",
+                                    ms_local(r.started_ms),
+                                    r.plugin,
+                                    r.version,
+                                    r.machine,
+                                    r.status,
+                                    r.message
+                                );
+                            }
+                        }
+                    }
                     PluginsCmd::Pack { .. } => unreachable!(),
                 }
                 Ok(())
@@ -782,6 +1057,83 @@ fn run(rt: &tokio::runtime::Runtime) -> Result<()> {
                         Ok(())
                     }
                 }
+            })
+        }
+        Cmd::Schedule(sc) => {
+            let cfg = load()?;
+            let json = cli.json;
+            rt.block_on(async {
+                let pool = srv::db::init_db(&cfg).await?;
+                let audit = |action: &'static str, d: serde_json::Value| {
+                    let pool = pool.clone();
+                    async move { srv::db::insert_audit(&pool, "itcmdr-cli", action, &d.to_string()).await }
+                };
+                match sc {
+                    ScheduleCmd::Add { name, a, paused } => {
+                        let s = srv::schedule::create(&pool, name, apply_args(Default::default(), a), !paused).await?;
+                        audit("schedule-create", serde_json::json!({"id": s.id, "name": s.name, "spec": s.spec})).await?;
+                        print_schedule(&s, json)?;
+                    }
+                    ScheduleCmd::List => {
+                        for s in srv::schedule::list(&pool).await? {
+                            print_schedule(&s, json)?;
+                        }
+                    }
+                    ScheduleCmd::Edit { id, name, a } => {
+                        let cur = srv::schedule::get(&pool, id).await?;
+                        let s = srv::schedule::update(&pool, &cur.id, name.as_deref(), apply_args(cur.spec.clone(), a)).await?;
+                        audit("schedule-update", serde_json::json!({"id": s.id, "name": s.name, "spec": s.spec})).await?;
+                        print_schedule(&s, json)?;
+                    }
+                    ScheduleCmd::Rm { id, force } => {
+                        let s = srv::schedule::delete(&pool, id, *force).await?;
+                        audit("schedule-delete", serde_json::json!({"id": s.id, "name": s.name})).await?;
+                        println!("deleted {}", s.name);
+                    }
+                    ScheduleCmd::Pause { id } | ScheduleCmd::Resume { id } => {
+                        let on = matches!(sc, ScheduleCmd::Resume { .. });
+                        let s = srv::schedule::set_enabled(&pool, id, on).await?;
+                        audit(if on { "schedule-resume" } else { "schedule-pause" }, serde_json::json!({"id": s.id, "name": s.name})).await?;
+                        print_schedule(&s, json)?;
+                    }
+                    ScheduleCmd::RunNow { id } => {
+                        let s = srv::schedule::get(&pool, id).await?;
+                        let now = chrono::Utc::now().timestamp_millis();
+                        let (o, rid, note) = srv::schedule::fire(&pool, &cfg, &s, now, "run now by itcmdr-cli", "itcmdr-cli", false).await?;
+                        audit("schedule-run-now", serde_json::json!({"id": s.id, "outcome": o, "request_id": rid})).await?;
+                        println!("{o} {} {note}", rid.unwrap_or_default());
+                        // Plugin parts run in this process: wait for them before exiting.
+                        if !s.spec.plugins.is_empty() && o == "queued" {
+                            for _ in 0..1200 {
+                                let n: i64 = sqlx::query_scalar("SELECT count(*) FROM requests r JOIN schedule_runs s ON s.request_id = r.request_id WHERE s.schedule_id = ? AND r.status IN ('queued','running')")
+                                    .bind(&s.id).fetch_one(&pool).await?;
+                                if n == 0 || !s.spec.categories.is_empty() {
+                                    break;
+                                }
+                                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                            }
+                        }
+                    }
+                    ScheduleCmd::History { id, limit } => {
+                        let names: std::collections::HashMap<String, String> =
+                            srv::schedule::list(&pool).await?.into_iter().map(|s| (s.id, s.name)).collect();
+                        for r in srv::schedule::history(&pool, id.as_deref(), *limit).await? {
+                            if json {
+                                println!("{}", serde_json::to_string(&r)?);
+                            } else {
+                                println!(
+                                    "{}  {}  {}  {}  {}",
+                                    ms_local(r.ts_ms),
+                                    names.get(&r.schedule_id).cloned().unwrap_or_else(|| r.schedule_id.clone()),
+                                    r.outcome,
+                                    r.request_id.unwrap_or_default(),
+                                    r.note
+                                );
+                            }
+                        }
+                    }
+                }
+                Ok(())
             })
         }
         Cmd::Restore { from, dry_run } => {

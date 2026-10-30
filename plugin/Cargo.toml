@@ -1,0 +1,27 @@
+[package]
+name = "itcmdr-plugin"
+version = "0.10.0"
+edition = "2021"
+description = "itcmdr service plugin SDK: PluginService contract, serve(), host launcher, itcmdr.log/v1 helpers"
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+tokio = { version = "1.40", features = ["rt-multi-thread", "macros", "net", "io-util", "process", "time"] }
+tokio-stream = { version = "0.1", features = ["net"] }
+tonic = { version = "0.12", features = ["transport"] }
+prost = "0.13"
+serde_json = "1.0"
+chrono = "0.4"
+rand = "0.8"
+hex = "0.4"
+anyhow = "1.0"
+
+[build-dependencies]
+tonic-build = { version = "0.12", features = ["prost"] }
+protoc-bin-vendored = "3.0"
+
+[dev-dependencies]
+tempfile = "3.10"

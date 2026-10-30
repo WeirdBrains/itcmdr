@@ -210,24 +210,25 @@ impl Itcmdr for ItcmdrService {
         req: Request<TriggerRunsRequest>,
     ) -> Result<Response<TriggerRunsResponse>, Status> {
         let actor = self.authz(&req, M_TRIGGER, crate::auth::Role::User).await?;
-        let id = uuid::Uuid::new_v4().to_string();
         let body = req.into_inner();
-        let options = serde_json::json!({
-            "requestId": id,
-            "machines": body.machines,
-            "reportOnly": body.report_only,
-            "repair": body.repair,
-            "force": body.force,
-            "categories": body.categories
-        });
-        crate::db::insert_request(&self.pool, &id, &options.to_string())
+        let r = crate::jobs::RunRequest {
+            machines: body.machines,
+            categories: body.categories,
+            plugins: body.plugins,
+            report_only: body.report_only,
+            repair: body.repair,
+            force: body.force,
+            schedule_id: None,
+        };
+        let id = crate::jobs::queue_run(&self.pool, &self.cfg, &r, &actor)
             .await
             .map_err(internal_err)?;
-        let dir = self.cfg.requests_dir();
-        std::fs::create_dir_all(&dir).map_err(internal_err)?;
-        std::fs::write(dir.join(format!("{id}.json")), options.to_string())
-            .map_err(internal_err)?;
-        self.audit(&actor, "trigger-runs", &options).await;
+        self.audit(
+            &actor,
+            "trigger-runs",
+            &serde_json::json!({"requestId": id, "request": r}),
+        )
+        .await;
         Ok(Response::new(TriggerRunsResponse { request_id: id }))
     }
 
@@ -593,6 +594,393 @@ impl Itcmdr for ItcmdrService {
         Ok(Response::new(UpdateSettingResponse { setting: item }))
     }
 
+    async fn run_plugin(
+        &self,
+        req: Request<RunPluginRequest>,
+    ) -> Result<Response<RunPluginResponse>, Status> {
+        let actor = self
+            .authz(&req, "/itcmdr.Itcmdr/RunPlugin", crate::auth::Role::Admin)
+            .await?;
+        let r = req.into_inner();
+        let spec = crate::runtime::RunSpec {
+            plugin: r.plugin,
+            machine: r.machine,
+            report_only: r.report_only,
+            args: r.args.into_iter().collect(),
+            request_id: None,
+        };
+        let rep = crate::runtime::run_plugin(&self.pool, &self.cfg, spec, &actor)
+            .await
+            .map_err(|e| Status::failed_precondition(format!("{e:#}")))?;
+        Ok(Response::new(RunPluginResponse {
+            run_id: rep.run_id,
+            status: rep.status,
+            message: rep.message,
+            stages: rep
+                .stages
+                .into_iter()
+                .map(|s| PluginStage {
+                    stage: s.stage,
+                    ok: s.ok,
+                    message: s.message,
+                })
+                .collect(),
+            results: rep
+                .results
+                .into_iter()
+                .map(|(c, s, m)| PluginCheckResult {
+                    check_id: c,
+                    status: s,
+                    message: m,
+                })
+                .collect(),
+        }))
+    }
+
+    async fn list_plugin_runs(
+        &self,
+        req: Request<ListPluginRunsRequest>,
+    ) -> Result<Response<ListPluginRunsResponse>, Status> {
+        self.read_guard(
+            &req,
+            "/itcmdr.Itcmdr/ListPluginRuns",
+            crate::auth::Role::User,
+        )
+        .await?;
+        let r = req.into_inner();
+        let p = (!r.plugin.is_empty()).then_some(r.plugin.as_str());
+        let lim = if r.limit <= 0 { 100 } else { r.limit as i64 };
+        let rows = crate::runtime::list_runs(&self.pool, p, lim)
+            .await
+            .map_err(internal_err)?;
+        Ok(Response::new(ListPluginRunsResponse {
+            runs: rows
+                .into_iter()
+                .map(|x| PluginRun {
+                    id: x.id,
+                    plugin: x.plugin,
+                    version: x.version,
+                    machine: x.machine,
+                    started: x.started_ms,
+                    finished: x.finished_ms,
+                    status: x.status,
+                    message: x.message,
+                    request_id: x.request_id.unwrap_or_default(),
+                })
+                .collect(),
+        }))
+    }
+
+    async fn get_plugin_metrics(
+        &self,
+        req: Request<GetPluginMetricsRequest>,
+    ) -> Result<Response<GetPluginMetricsResponse>, Status> {
+        self.read_guard(
+            &req,
+            "/itcmdr.Itcmdr/GetPluginMetrics",
+            crate::auth::Role::User,
+        )
+        .await?;
+        let r = req.into_inner();
+        let labels: Vec<(String, String)> = r.labels.into_iter().collect();
+        let w = if r.window_days <= 0 {
+            7
+        } else {
+            r.window_days as i64
+        };
+        let pts = crate::plugin_logs::query(&self.pool, &r.name, &labels, w, r.daily)
+            .await
+            .map_err(internal_err)?;
+        let rej = crate::plugin_logs::rejects(&self.pool)
+            .await
+            .map_err(internal_err)?;
+        Ok(Response::new(GetPluginMetricsResponse {
+            points: pts
+                .into_iter()
+                .map(|p| PluginMetricPoint {
+                    name: p.name,
+                    labels: p.labels,
+                    ts: p.ts_ms,
+                    value: p.value,
+                })
+                .collect(),
+            rejects: rej
+                .into_iter()
+                .map(|(file, count)| LogRejects { file, count })
+                .collect(),
+        }))
+    }
+
+    async fn create_schedule(
+        &self,
+        req: Request<SaveScheduleRequest>,
+    ) -> Result<Response<ScheduleResponse>, Status> {
+        let actor = self
+            .authz(
+                &req,
+                "/itcmdr.Itcmdr/CreateSchedule",
+                crate::auth::Role::Admin,
+            )
+            .await?;
+        let s = req.into_inner().schedule.unwrap_or_default();
+        let (name, enabled) = (s.name.clone(), s.enabled);
+        let created = crate::schedule::create(&self.pool, &name, from_proto_schedule(&s), enabled)
+            .await
+            .map_err(bad_arg)?;
+        self.audit(
+            &actor,
+            "schedule-create",
+            &serde_json::json!({"id": created.id, "name": created.name, "spec": created.spec}),
+        )
+        .await;
+        Ok(Response::new(ScheduleResponse {
+            schedule: Some(to_proto_schedule(&created)),
+        }))
+    }
+
+    async fn update_schedule(
+        &self,
+        req: Request<SaveScheduleRequest>,
+    ) -> Result<Response<ScheduleResponse>, Status> {
+        let actor = self
+            .authz(
+                &req,
+                "/itcmdr.Itcmdr/UpdateSchedule",
+                crate::auth::Role::Admin,
+            )
+            .await?;
+        let s = req.into_inner().schedule.unwrap_or_default();
+        let id = if s.id.is_empty() {
+            s.name.clone()
+        } else {
+            s.id.clone()
+        };
+        let mut u =
+            crate::schedule::update(&self.pool, &id, Some(&s.name), from_proto_schedule(&s))
+                .await
+                .map_err(bad_arg)?;
+        if u.enabled != s.enabled {
+            u = crate::schedule::set_enabled(&self.pool, &u.id, s.enabled)
+                .await
+                .map_err(bad_arg)?;
+        }
+        self.audit(
+            &actor,
+            "schedule-update",
+            &serde_json::json!({"id": u.id, "name": u.name, "spec": u.spec, "enabled": u.enabled}),
+        )
+        .await;
+        Ok(Response::new(ScheduleResponse {
+            schedule: Some(to_proto_schedule(&u)),
+        }))
+    }
+
+    async fn delete_schedule(
+        &self,
+        req: Request<ScheduleRef>,
+    ) -> Result<Response<ScheduleResponse>, Status> {
+        let actor = self
+            .authz(
+                &req,
+                "/itcmdr.Itcmdr/DeleteSchedule",
+                crate::auth::Role::Admin,
+            )
+            .await?;
+        let r = req.into_inner();
+        let d = crate::schedule::delete(&self.pool, &r.id, r.force)
+            .await
+            .map_err(bad_arg)?;
+        self.audit(
+            &actor,
+            "schedule-delete",
+            &serde_json::json!({"id": d.id, "name": d.name, "force": r.force}),
+        )
+        .await;
+        Ok(Response::new(ScheduleResponse {
+            schedule: Some(to_proto_schedule(&d)),
+        }))
+    }
+
+    async fn list_schedules(
+        &self,
+        req: Request<ListSchedulesRequest>,
+    ) -> Result<Response<ListSchedulesResponse>, Status> {
+        self.read_guard(
+            &req,
+            "/itcmdr.Itcmdr/ListSchedules",
+            crate::auth::Role::User,
+        )
+        .await?;
+        let l = crate::schedule::list(&self.pool)
+            .await
+            .map_err(internal_err)?;
+        Ok(Response::new(ListSchedulesResponse {
+            schedules: l.iter().map(to_proto_schedule).collect(),
+        }))
+    }
+
+    async fn pause_schedule(
+        &self,
+        req: Request<ScheduleRef>,
+    ) -> Result<Response<ScheduleResponse>, Status> {
+        let actor = self
+            .authz(
+                &req,
+                "/itcmdr.Itcmdr/PauseSchedule",
+                crate::auth::Role::Admin,
+            )
+            .await?;
+        let s = crate::schedule::set_enabled(&self.pool, &req.into_inner().id, false)
+            .await
+            .map_err(bad_arg)?;
+        self.audit(
+            &actor,
+            "schedule-pause",
+            &serde_json::json!({"id": s.id, "name": s.name}),
+        )
+        .await;
+        Ok(Response::new(ScheduleResponse {
+            schedule: Some(to_proto_schedule(&s)),
+        }))
+    }
+
+    async fn resume_schedule(
+        &self,
+        req: Request<ScheduleRef>,
+    ) -> Result<Response<ScheduleResponse>, Status> {
+        let actor = self
+            .authz(
+                &req,
+                "/itcmdr.Itcmdr/ResumeSchedule",
+                crate::auth::Role::Admin,
+            )
+            .await?;
+        let s = crate::schedule::set_enabled(&self.pool, &req.into_inner().id, true)
+            .await
+            .map_err(bad_arg)?;
+        self.audit(
+            &actor,
+            "schedule-resume",
+            &serde_json::json!({"id": s.id, "name": s.name}),
+        )
+        .await;
+        Ok(Response::new(ScheduleResponse {
+            schedule: Some(to_proto_schedule(&s)),
+        }))
+    }
+
+    async fn run_schedule_now(
+        &self,
+        req: Request<ScheduleRef>,
+    ) -> Result<Response<RunScheduleNowResponse>, Status> {
+        let actor = self
+            .authz(
+                &req,
+                "/itcmdr.Itcmdr/RunScheduleNow",
+                crate::auth::Role::User,
+            )
+            .await?;
+        let s = crate::schedule::get(&self.pool, &req.into_inner().id)
+            .await
+            .map_err(bad_arg)?;
+        let (outcome, rid, note) = crate::schedule::fire(
+            &self.pool,
+            &self.cfg,
+            &s,
+            chrono::Utc::now().timestamp_millis(),
+            &format!("run now by {actor}"),
+            &actor,
+            false,
+        )
+        .await
+        .map_err(internal_err)?;
+        self.audit(
+            &actor,
+            "schedule-run-now",
+            &serde_json::json!({"id": s.id, "name": s.name, "outcome": outcome, "request_id": rid}),
+        )
+        .await;
+        Ok(Response::new(RunScheduleNowResponse {
+            outcome,
+            request_id: rid.unwrap_or_default(),
+            note,
+        }))
+    }
+
+    async fn list_schedule_runs(
+        &self,
+        req: Request<ListScheduleRunsRequest>,
+    ) -> Result<Response<ListScheduleRunsResponse>, Status> {
+        self.read_guard(
+            &req,
+            "/itcmdr.Itcmdr/ListScheduleRuns",
+            crate::auth::Role::User,
+        )
+        .await?;
+        let r = req.into_inner();
+        let id = (!r.id.is_empty()).then_some(r.id.as_str());
+        let lim = if r.limit <= 0 { 100 } else { r.limit as i64 };
+        let rows = crate::schedule::history(&self.pool, id, lim)
+            .await
+            .map_err(bad_arg)?;
+        Ok(Response::new(ListScheduleRunsResponse {
+            runs: rows
+                .into_iter()
+                .map(|x| ScheduleRun {
+                    schedule_id: x.schedule_id,
+                    ts: x.ts_ms,
+                    due: x.due_ms,
+                    request_id: x.request_id.unwrap_or_default(),
+                    outcome: x.outcome,
+                    note: x.note,
+                })
+                .collect(),
+        }))
+    }
+
+    async fn stage_restore(
+        &self,
+        req: Request<StageRestoreRequest>,
+    ) -> Result<Response<StageRestoreResponse>, Status> {
+        let actor = self
+            .authz(
+                &req,
+                "/itcmdr.Itcmdr/StageRestore",
+                crate::auth::Role::Owner,
+            )
+            .await?;
+        let r = req.into_inner();
+        let words = zeroize::Zeroizing::new(r.words);
+        let res = crate::restore::stage(&self.pool, &self.cfg, &r.backup, &words, &actor).await;
+        self.audit(
+            &actor,
+            "restore-stage",
+            &serde_json::json!({"backup": r.backup, "ok": res.is_ok(), "error": res.as_ref().err().map(|e| format!("{e:#}"))}),
+        )
+        .await;
+        let st = res.map_err(|e| Status::failed_precondition(format!("{e:#}")))?;
+        Ok(Response::new(StageRestoreResponse {
+            status: Some(to_proto_restore(&st)),
+        }))
+    }
+
+    async fn get_restore_status(
+        &self,
+        req: Request<GetRestoreStatusRequest>,
+    ) -> Result<Response<GetRestoreStatusResponse>, Status> {
+        self.authz(
+            &req,
+            "/itcmdr.Itcmdr/GetRestoreStatus",
+            crate::auth::Role::Admin,
+        )
+        .await?;
+        Ok(Response::new(GetRestoreStatusResponse {
+            status: crate::restore::read_status(&self.cfg)
+                .as_ref()
+                .map(to_proto_restore),
+        }))
+    }
+
     type WatchUpdatesStream =
         Pin<Box<dyn tokio_stream::Stream<Item = Result<Update, Status>> + Send + 'static>>;
     async fn watch_updates(
@@ -614,6 +1002,76 @@ impl Itcmdr for ItcmdrService {
 
 fn internal_err<E: std::fmt::Display>(e: E) -> Status {
     Status::internal(e.to_string())
+}
+
+fn bad_arg(e: anyhow::Error) -> Status {
+    let m = format!("{e:#}");
+    if m.starts_with("no schedule ") {
+        return Status::not_found(m);
+    }
+    Status::invalid_argument(m)
+}
+
+fn from_proto_schedule(s: &Schedule) -> crate::schedule::Spec {
+    crate::schedule::Spec {
+        all_machines: s.all_machines,
+        machines: s.machines.clone(),
+        groups: s.groups.clone(),
+        categories: s.categories.clone(),
+        plugins: s.plugins.clone(),
+        repair: s.repair,
+        when: s.when.clone(),
+        timezone: s.timezone.clone(),
+        guard: s.guard.clone(),
+        missed: s.missed.clone(),
+        builtin: false,
+    }
+}
+
+fn to_proto_schedule(s: &crate::schedule::Schedule) -> Schedule {
+    let next = if s.enabled {
+        crate::schedule::next_times(&s.spec, chrono::Utc::now(), 3)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|t| t.timestamp_millis())
+            .collect()
+    } else {
+        vec![]
+    };
+    Schedule {
+        id: s.id.clone(),
+        name: s.name.clone(),
+        enabled: s.enabled,
+        all_machines: s.spec.all_machines,
+        machines: s.spec.machines.clone(),
+        groups: s.spec.groups.clone(),
+        categories: s.spec.categories.clone(),
+        plugins: s.spec.plugins.clone(),
+        repair: s.spec.repair,
+        when: s.spec.when.clone(),
+        timezone: s.spec.timezone.clone(),
+        guard: s.spec.guard.clone(),
+        missed: s.spec.missed.clone(),
+        builtin: s.spec.builtin,
+        next_runs: next,
+        last_fire: s.last_fire_ms,
+    }
+}
+
+fn to_proto_restore(s: &crate::restore::Status) -> RestoreStatus {
+    RestoreStatus {
+        state: s.state.clone(),
+        message: s.message.clone(),
+        backup: s.archive.clone(),
+        actor: s.actor.clone(),
+        started: s.started_ms,
+        updated: s.updated_ms,
+        safety_copy: s
+            .safety_copy
+            .as_ref()
+            .map(|p| p.display().to_string())
+            .unwrap_or_default(),
+    }
 }
 
 fn value_text(v: &serde_json::Value) -> String {

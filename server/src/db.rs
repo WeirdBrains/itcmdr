@@ -8,7 +8,7 @@ pub type DbPool = Pool<Sqlite>;
 
 /// Bumped whenever the schema changes. Stored as `PRAGMA user_version`; backups record it and
 /// restore refuses archives from a newer schema (older ones are migrated by `create_schema`).
-pub const SCHEMA_VERSION: i64 = 2;
+pub const SCHEMA_VERSION: i64 = 3;
 
 /// Open (creating if needed) the SQLCipher database. The data dir layout and DB key are created
 /// on first use. A pre-0.6 plaintext database at the target path, or `itcmdr.sqlite` next to it,
@@ -325,6 +325,56 @@ async fn create_schema(pool: &DbPool) -> anyhow::Result<()> {
         package_sha256 TEXT NOT NULL,
         UNIQUE(name, version)
     );
+    CREATE TABLE IF NOT EXISTS plugin_runs (
+        id TEXT PRIMARY KEY,
+        plugin TEXT NOT NULL,
+        version TEXT NOT NULL,
+        machine TEXT NOT NULL,
+        started_ms INTEGER NOT NULL,
+        finished_ms INTEGER NOT NULL,
+        status TEXT NOT NULL,
+        message TEXT NOT NULL,
+        log_path TEXT NOT NULL,
+        actor TEXT NOT NULL,
+        request_id TEXT
+    );
+    CREATE TABLE IF NOT EXISTS plugin_log_files (
+        path TEXT PRIMARY KEY,
+        lines_done INTEGER NOT NULL,
+        rejects INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS plugin_metrics (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        plugin TEXT NOT NULL,
+        name TEXT NOT NULL,
+        labels TEXT NOT NULL,
+        ts_ms INTEGER NOT NULL,
+        value REAL NOT NULL,
+        unit TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        run_id TEXT NOT NULL,
+        machine TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS ix_plugin_metrics ON plugin_metrics(name, ts_ms);
+    CREATE TABLE IF NOT EXISTS schedules (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE,
+        spec TEXT NOT NULL,
+        enabled INTEGER NOT NULL DEFAULT 1,
+        last_fire_ms INTEGER NOT NULL,
+        created_ms INTEGER NOT NULL,
+        updated_ms INTEGER NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS schedule_runs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        schedule_id TEXT NOT NULL,
+        ts_ms INTEGER NOT NULL,
+        due_ms INTEGER NOT NULL,
+        request_id TEXT,
+        outcome TEXT NOT NULL,
+        note TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS ix_schedule_runs ON schedule_runs(schedule_id, ts_ms);
     CREATE TABLE IF NOT EXISTS server_meta (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
@@ -405,6 +455,14 @@ pub async fn apply_retention(pool: &DbPool, retention_days: i64) -> anyhow::Resu
         .bind(&cutoff_day)
         .execute(pool)
         .await?;
+    let cutoff = chrono::Utc::now().timestamp_millis() - retention_days * 86_400_000;
+    for t in [
+        "DELETE FROM plugin_metrics WHERE ts_ms < ?",
+        "DELETE FROM plugin_runs WHERE started_ms < ?",
+        "DELETE FROM schedule_runs WHERE ts_ms < ?",
+    ] {
+        sqlx::query(t).bind(cutoff).execute(pool).await?;
+    }
     Ok(())
 }
 

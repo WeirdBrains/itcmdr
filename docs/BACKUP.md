@@ -9,8 +9,9 @@ What's in an archive (`itcmdr-YYYYMMDD-HHMMSSmmm-<kind>.itcb`):
 | `server.json` | the config in effect |
 | `service_plugins/**` | installed plugin packages (v0.9.0) |
 | `quarantine/index.jsonl` | refused packages (the quarantined files themselves are not archived) |
+| `plugin-logs/**` | per-run plugin logs, `itcmdr.log/v1` (v0.10.0); a restore merges them and keeps existing files |
 
-Plugin config and plugin logs join the archive in v0.10.0. `keys/db.key` and `keys/root` are never archived: they are bound to the machine.
+Plugin config lives in the database (settings). `keys/db.key` and `keys/root` are never archived: they are bound to the machine.
 
 The whole archive is encrypted for the master key (only the 24 words open it). The header (manifest
 with versions, schema version and sha256 per file) is signed by the server's root key, which carries a
@@ -38,8 +39,26 @@ itcmdr-cli backup prune [--dir DIR]
 itcmdr-cli restore --from ARCHIVE [--dry-run]   # words on stdin; stop the service first
 ```
 
-gRPC: `CreateBackup`, `ListBackups`, `VerifyBackup` (admin or owner, audit-logged). Restore is
-CLI-only because it replaces the database under a stopped server.
+gRPC: `CreateBackup`, `ListBackups`, `VerifyBackup` (admin or owner, audit-logged).
+
+## Restore from the app (v0.10.0, server side)
+
+`StageRestore {backup, words}` (owner only, audited as `restore-stage`; the words are never logged):
+
+1. The archive (a name from `ListBackups`) is fully verified and decrypted with the words; nothing
+   changes if that fails.
+2. `restore/job.json` is written and `itcmdr-restore` is started (detached on Windows). The words
+   go to it on stdin only.
+3. The helper runs `restore.stop_command` (server.json, default `sc.exe stop itcmdr-server`), takes
+   the `pre-restore-<ts>` safety copy, restores, runs `restore.start_command` and health-checks:
+   the DB opens with the right schema, `integrity_check` passes and gRPC answers, within
+   `restore.health_timeout_secs`.
+4. If any step after the copy fails, the safety copy is put back and the service restarted
+   (`rolled-back`, audited `restore-rolled-back`); otherwise `done` (`restore-done`).
+
+`GetRestoreStatus` (admin) returns the state (`staged`, `stopping`, `restoring`, `starting`,
+`health-check`, `rolling-back`, `done`, `rolled-back`, `failed`) and every step from
+`restore/status.json`. The live server.json is never overwritten.
 
 ## Restore onto a replacement machine
 
