@@ -1,0 +1,50 @@
+[
+  {
+    "body_hex": "",
+    "method": "/itcmdr.Itcmdr/ListMachines",
+    "name": "ListMachines/empty",
+    "signed_message": "itcmdr-req/v1\n/itcmdr.Itcmdr/ListMachines\n1790000000000\n0123456789abcdef\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "signed_message_nonce": "0123456789abcdef",
+    "signed_message_ts": 1790000000000
+  },
+  {
+    "body_hex": "0a0557532d30310a0557532d303210012a076e6574776f726b2a087365727669636573",
+    "method": "/itcmdr.Itcmdr/TriggerRuns",
+    "name": "TriggerRuns/typical",
+    "signed_message": "itcmdr-req/v1\n/itcmdr.Itcmdr/TriggerRuns\n1790000000000\n0123456789abcdef\n6fec41b78b24fb484ef102d63b87c1e50bc04f402d1d4b756bdb6820ac36d82f",
+    "signed_message_nonce": "0123456789abcdef",
+    "signed_message_ts": 1790000000000
+  },
+  {
+    "body_hex": "",
+    "method": "/itcmdr.Itcmdr/TriggerRuns",
+    "name": "TriggerRuns/defaults-omitted",
+    "signed_message": "itcmdr-req/v1\n/itcmdr.Itcmdr/TriggerRuns\n1790000000000\n0123456789abcdef\ne3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "signed_message_nonce": "0123456789abcdef",
+    "signed_message_ts": 1790000000000
+  },
+  {
+    "body_hex": "0a3f1a074e45542d444e532a0e646f776e67726164653a7761726e32185072617869732d447275636b657220e28093206b6e6f776e3a0a323032362d31322d3331",
+    "method": "/itcmdr.Itcmdr/SaveException",
+    "name": "SaveException/nested-unicode",
+    "signed_message": "itcmdr-req/v1\n/itcmdr.Itcmdr/SaveException\n1790000000000\n0123456789abcdef\nde0564ed4f2bd81b0eae0e2b8b18f9c289058e8daa54fb60b16d2b90c1e973e0",
+    "signed_message_nonce": "0123456789abcdef",
+    "signed_message_ts": 1790000000000
+  },
+  {
+    "body_hex": "0a0774696d656f75741880d8c1a28c3420ffffffffffffffffff01286440ac02",
+    "method": "/itcmdr.Itcmdr/SearchLogs",
+    "name": "SearchLogs/ints",
+    "signed_message": "itcmdr-req/v1\n/itcmdr.Itcmdr/SearchLogs\n1790000000000\n0123456789abcdef\n83299aa3487eb5e75387f0393d7ef614adb1bcecc0358cf86d5122078496bc27",
+    "signed_message_nonce": "0123456789abcdef",
+    "signed_message_ts": 1790000000000
+  },
+  {
+    "body_hex": "0a266974636d64722d32303236313033302d3032303030303030302d6e696768746c792e69746362",
+    "method": "/itcmdr.Itcmdr/VerifyBackup",
+    "name": "VerifyBackup/name",
+    "signed_message": "itcmdr-req/v1\n/itcmdr.Itcmdr/VerifyBackup\n1790000000000\n0123456789abcdef\n20af63c8757d89b4757015bb8500e319632a0fefff098b931ad2483a4c247cd2",
+    "signed_message_nonce": "0123456789abcdef",
+    "signed_message_ts": 1790000000000
+  }
+]

@@ -6,6 +6,10 @@ use std::str::FromStr;
 
 pub type DbPool = Pool<Sqlite>;
 
+/// Bumped whenever the schema changes. Stored as `PRAGMA user_version`; backups record it and
+/// restore refuses archives from a newer schema (older ones are migrated by `create_schema`).
+pub const SCHEMA_VERSION: i64 = 1;
+
 /// Open (creating if needed) the SQLCipher database. The data dir layout and DB key are created
 /// on first use. A pre-0.6 plaintext database at the target path, or `itcmdr.sqlite` next to it,
 /// is encrypted first (see `migrate_plaintext`).
@@ -315,6 +319,9 @@ async fn create_schema(pool: &DbPool) -> anyhow::Result<()> {
     )
     .execute(pool)
     .await?;
+    sqlx::query(&format!("PRAGMA user_version = {SCHEMA_VERSION}"))
+        .execute(pool)
+        .await?;
     for role in ROLES {
         sqlx::query("INSERT INTO roles(id, name) SELECT ?, ? WHERE NOT EXISTS (SELECT 1 FROM roles WHERE name = ?)")
             .bind(uuid::Uuid::new_v4().to_string())

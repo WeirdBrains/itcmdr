@@ -62,6 +62,10 @@ impl Layout {
     pub fn plugin_logs(&self) -> PathBuf {
         self.root.join("plugin-logs")
     }
+    /// Default backup folder (server.json `backup.dir` overrides it, e.g. the share).
+    pub fn backups(&self) -> PathBuf {
+        self.root.join("backups")
+    }
     pub fn database(&self) -> PathBuf {
         self.root.join(DB_FILE)
     }

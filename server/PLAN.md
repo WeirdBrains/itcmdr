@@ -346,6 +346,18 @@ JSON. The rest sounds good to me").
 - Master derivation is pinned by a test vector (`keys.rs::known_vector_is_stable`). Changing it would break
   words already written down.
 
+### Notes from the v0.8.0 build
+
+- `itcmdr-cli` is a second binary in the server crate (shares the library); it works on the local data
+  dir, so run it on the server. Words are read from stdin only.
+- Archive format `itcmdr-backup/v1` (`server/src/backup.rs`, `docs/BACKUP.md`). Snapshot via
+  `ATTACH ... KEY` + `sqlcipher_export` (one read transaction, same db.key). Schema version is
+  `PRAGMA user_version` (`db::SCHEMA_VERSION`, now 1).
+- Restore is CLI-only (needs the service stopped); there is no restore RPC. It issues a new root key
+  because `keys/root` is DPAPI-bound to the old machine, and it doesn't overwrite the active
+  server.json (written to `restored-server.json` for review).
+- Signed requests: canonical encoding rules and shared vectors in `docs/SIGNING.md`.
+
 ### Release breakdown
 
 | Tag | Scope |

@@ -470,6 +470,96 @@ pub fn require(p: &Principal, min: Role) -> Result<(), Status> {
     }
 }
 
+/// One registered key, for `itcmdr-cli keys list`.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct KeyInfo {
+    pub kind: String,
+    pub name: String,
+    pub role: String,
+    pub fingerprint: String,
+    pub created_at: String,
+    pub revoked_at: Option<String>,
+}
+
+pub async fn list_keys(pool: &DbPool) -> Result<Vec<KeyInfo>> {
+    let mut out = Vec::new();
+    for (kind, t) in [("user", "users"), ("client", "clients")] {
+        let rows = sqlx::query(&format!(
+            "SELECT k.name, r.name AS role, k.fingerprint, k.created_at, k.revoked_at FROM {t} k \
+             JOIN roles r ON r.id = k.role_id ORDER BY k.created_at"
+        ))
+        .fetch_all(pool)
+        .await?;
+        for r in rows {
+            out.push(KeyInfo {
+                kind: kind.into(),
+                name: r.get("name"),
+                role: r.get("role"),
+                fingerprint: r.get("fingerprint"),
+                created_at: r.get("created_at"),
+                revoked_at: r.get("revoked_at"),
+            });
+        }
+    }
+    Ok(out)
+}
+
+/// The stored certificate of an active key.
+pub async fn certificate_of(pool: &DbPool, fingerprint: &str) -> Result<Certificate> {
+    for t in ["clients", "users"] {
+        let c: Option<Option<String>> = sqlx::query_scalar(&format!(
+            "SELECT certificate FROM {t} WHERE fingerprint = ? AND revoked_at IS NULL"
+        ))
+        .bind(fingerprint)
+        .fetch_optional(pool)
+        .await?;
+        if let Some(Some(c)) = c {
+            return Ok(serde_json::from_str(&c)?);
+        }
+    }
+    bail!("no active key with fingerprint {fingerprint}")
+}
+
+/// Replace the root client's key (after a restore onto another machine, where `keys/root` from
+/// the old machine can't be opened): new keypair certified by the words, old root keys revoked.
+pub async fn rotate_root(pool: &DbPool, layout: &Layout, master: &Master) -> Result<String> {
+    let mp = master_public(pool)
+        .await?
+        .ok_or_else(|| anyhow!("server is not initialized"))?;
+    if mp.ed25519 != master.signing.verifying_key() {
+        bail!("these recovery words do not belong to this server");
+    }
+    let root = keys::new_keypair();
+    let cert = keys::certify(
+        &master.signing,
+        "client",
+        "root",
+        "owner",
+        &root.verifying_key(),
+    );
+    let now = chrono::Utc::now().to_rfc3339();
+    let mut tx = pool.begin().await?;
+    sqlx::query("UPDATE clients SET revoked_at = ? WHERE name = 'root' AND revoked_at IS NULL")
+        .bind(&now)
+        .execute(&mut *tx)
+        .await?;
+    insert_key(
+        &mut tx,
+        "client",
+        "root",
+        Role::Owner,
+        None,
+        None,
+        &root,
+        &cert,
+    )
+    .await?;
+    layout.ensure()?;
+    crate::storage::write_secret(&layout.keys().join("root"), root.as_bytes())?;
+    tx.commit().await?;
+    Ok(cert.fingerprint)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

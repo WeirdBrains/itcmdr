@@ -142,6 +142,17 @@ impl ItcmdrService {
         Ok(())
     }
 
+    fn backup_info(b: crate::backup::BackupInfo) -> BackupInfo {
+        BackupInfo {
+            name: b.name,
+            size: b.size as i64,
+            created_ts: b.manifest.created_ms,
+            kind: b.manifest.kind,
+            itcmdr_version: b.manifest.itcmdr_version,
+            schema_version: b.manifest.schema_version,
+        }
+    }
+
     async fn audit(&self, actor: &str, action: &str, detail: &serde_json::Value) {
         if let Err(e) =
             crate::db::insert_audit(&self.pool, actor, action, &detail.to_string()).await
@@ -371,6 +382,85 @@ impl Itcmdr for ItcmdrService {
             })
             .collect();
         Ok(Response::new(ListAuditResponse { entries }))
+    }
+
+    async fn create_backup(
+        &self,
+        req: Request<CreateBackupRequest>,
+    ) -> Result<Response<CreateBackupResponse>, Status> {
+        let actor = self
+            .authz(
+                &req,
+                "/itcmdr.Itcmdr/CreateBackup",
+                crate::auth::Role::Admin,
+            )
+            .await?;
+        let b = crate::backup::create(&self.pool, &self.cfg, "manual", None)
+            .await
+            .map_err(|e| Status::failed_precondition(format!("backup failed: {e:#}")))?;
+        self.audit(
+            &actor,
+            "backup-create",
+            &serde_json::json!({"name": b.name, "size": b.size}),
+        )
+        .await;
+        Ok(Response::new(CreateBackupResponse {
+            backup: Some(Self::backup_info(b)),
+        }))
+    }
+
+    async fn list_backups(
+        &self,
+        req: Request<ListBackupsRequest>,
+    ) -> Result<Response<ListBackupsResponse>, Status> {
+        let actor = self
+            .authz(&req, "/itcmdr.Itcmdr/ListBackups", crate::auth::Role::Admin)
+            .await?;
+        let list = crate::backup::list(&self.cfg.backup_dir()).map_err(internal_err)?;
+        self.audit(
+            &actor,
+            "backup-list",
+            &serde_json::json!({"count": list.len()}),
+        )
+        .await;
+        Ok(Response::new(ListBackupsResponse {
+            backups: list.into_iter().map(Self::backup_info).collect(),
+        }))
+    }
+
+    async fn verify_backup(
+        &self,
+        req: Request<VerifyBackupRequest>,
+    ) -> Result<Response<VerifyBackupResponse>, Status> {
+        let actor = self
+            .authz(
+                &req,
+                "/itcmdr.Itcmdr/VerifyBackup",
+                crate::auth::Role::Admin,
+            )
+            .await?;
+        let name = req.into_inner().name;
+        if name.is_empty() || name.contains(['/', '\\']) || name.contains("..") {
+            return Err(Status::invalid_argument(
+                "name must be a plain archive file name",
+            ));
+        }
+        let master = crate::auth::master_public(&self.pool)
+            .await
+            .map_err(internal_err)?
+            .ok_or_else(|| Status::failed_precondition("server is not initialized"))?;
+        let r = crate::backup::verify(&self.cfg.backup_dir().join(&name), Some(&master.ed25519));
+        let (ok, message) = match r {
+            Ok(_) => (true, "signature and contents hash are valid (decrypting needs the words: itcmdr-cli backup verify --deep)".to_string()),
+            Err(e) => (false, format!("{e:#}")),
+        };
+        self.audit(
+            &actor,
+            "backup-verify",
+            &serde_json::json!({"name": name, "ok": ok}),
+        )
+        .await;
+        Ok(Response::new(VerifyBackupResponse { ok, message }))
     }
 
     type WatchUpdatesStream =

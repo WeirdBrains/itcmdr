@@ -249,7 +249,7 @@ pub struct AuditEntry {
     pub ts: i64,
     #[prost(string, tag = "2")]
     pub actor: ::prost::alloc::string::String,
-    /// "trigger-runs", "exception-add", "exception-edit", "exception-expire"
+    /// "trigger-runs", "exception-add", "exception-edit", "exception-expire", "backup-create", "backup-verify", "backup-list"
     #[prost(string, tag = "3")]
     pub action: ::prost::alloc::string::String,
     /// JSON
@@ -283,6 +283,51 @@ pub struct Update {
     /// unix millis
     #[prost(int64, tag = "4")]
     pub ts: i64,
+}
+/// Backups (decision 13). Owner/admin only, audit-logged. Restore is CLI-only (server stopped):
+/// itcmdr-cli restore --from <archive> \[--dry-run\]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BackupInfo {
+    #[prost(string, tag = "1")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(int64, tag = "2")]
+    pub size: i64,
+    /// unix millis
+    #[prost(int64, tag = "3")]
+    pub created_ts: i64,
+    /// manual, nightly, pre-restore
+    #[prost(string, tag = "4")]
+    pub kind: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub itcmdr_version: ::prost::alloc::string::String,
+    #[prost(int64, tag = "6")]
+    pub schema_version: i64,
+}
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct CreateBackupRequest {}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CreateBackupResponse {
+    #[prost(message, optional, tag = "1")]
+    pub backup: ::core::option::Option<BackupInfo>,
+}
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct ListBackupsRequest {}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListBackupsResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub backups: ::prost::alloc::vec::Vec<BackupInfo>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct VerifyBackupRequest {
+    #[prost(string, tag = "1")]
+    pub name: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct VerifyBackupResponse {
+    #[prost(bool, tag = "1")]
+    pub ok: bool,
+    #[prost(string, tag = "2")]
+    pub message: ::prost::alloc::string::String,
 }
 /// Metrics and rollups
 /// Buckets are aligned to ISO weeks: weekly = ISO week (Mon-Sun);
@@ -617,6 +662,77 @@ pub mod itcmdr_client {
             req.extensions_mut().insert(GrpcMethod::new("itcmdr.Itcmdr", "ListAudit"));
             self.inner.unary(req, path, codec).await
         }
+        pub async fn create_backup(
+            &mut self,
+            request: impl tonic::IntoRequest<super::CreateBackupRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::CreateBackupResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/itcmdr.Itcmdr/CreateBackup",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("itcmdr.Itcmdr", "CreateBackup"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn list_backups(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListBackupsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListBackupsResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/itcmdr.Itcmdr/ListBackups",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut().insert(GrpcMethod::new("itcmdr.Itcmdr", "ListBackups"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn verify_backup(
+            &mut self,
+            request: impl tonic::IntoRequest<super::VerifyBackupRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::VerifyBackupResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/itcmdr.Itcmdr/VerifyBackup",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("itcmdr.Itcmdr", "VerifyBackup"));
+            self.inner.unary(req, path, codec).await
+        }
         pub async fn watch_updates(
             &mut self,
             request: impl tonic::IntoRequest<super::WatchUpdatesRequest>,
@@ -717,6 +833,27 @@ pub mod itcmdr_server {
             request: tonic::Request<super::ListAuditRequest>,
         ) -> std::result::Result<
             tonic::Response<super::ListAuditResponse>,
+            tonic::Status,
+        >;
+        async fn create_backup(
+            &self,
+            request: tonic::Request<super::CreateBackupRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::CreateBackupResponse>,
+            tonic::Status,
+        >;
+        async fn list_backups(
+            &self,
+            request: tonic::Request<super::ListBackupsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListBackupsResponse>,
+            tonic::Status,
+        >;
+        async fn verify_backup(
+            &self,
+            request: tonic::Request<super::VerifyBackupRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::VerifyBackupResponse>,
             tonic::Status,
         >;
         /// Server streaming response type for the WatchUpdates method.
@@ -1193,6 +1330,141 @@ pub mod itcmdr_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = ListAuditSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/itcmdr.Itcmdr/CreateBackup" => {
+                    #[allow(non_camel_case_types)]
+                    struct CreateBackupSvc<T: Itcmdr>(pub Arc<T>);
+                    impl<
+                        T: Itcmdr,
+                    > tonic::server::UnaryService<super::CreateBackupRequest>
+                    for CreateBackupSvc<T> {
+                        type Response = super::CreateBackupResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::CreateBackupRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Itcmdr>::create_backup(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = CreateBackupSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/itcmdr.Itcmdr/ListBackups" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListBackupsSvc<T: Itcmdr>(pub Arc<T>);
+                    impl<
+                        T: Itcmdr,
+                    > tonic::server::UnaryService<super::ListBackupsRequest>
+                    for ListBackupsSvc<T> {
+                        type Response = super::ListBackupsResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListBackupsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Itcmdr>::list_backups(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListBackupsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/itcmdr.Itcmdr/VerifyBackup" => {
+                    #[allow(non_camel_case_types)]
+                    struct VerifyBackupSvc<T: Itcmdr>(pub Arc<T>);
+                    impl<
+                        T: Itcmdr,
+                    > tonic::server::UnaryService<super::VerifyBackupRequest>
+                    for VerifyBackupSvc<T> {
+                        type Response = super::VerifyBackupResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::VerifyBackupRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Itcmdr>::verify_backup(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = VerifyBackupSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
