@@ -259,6 +259,21 @@ JSON. The rest sounds good to me").
    user, i.e. protected by file permissions. That is weaker than DPAPI, so use full-disk encryption on Linux hosts.
    Config secrets and plugin resources are encrypted with the same key where feasible (later releases).
 
+10. **Built-in checks become plugins** (Michael, Oct 30 2026: "the current scripts should be rebuilt as
+    plugins and used that way"). The checks and repairs in `agent/Invoke-ItcmdrAgent.ps1` are repackaged as
+    signed service plugins and run through the plugin system:
+    - IP/network, connectivity, scanner reachability, DNS records, drive maps, printer queues + spooler,
+      Sirona drift and backup coverage. The on-demand poller and log rotation also become plugins where that fits
+      (they may stay scheduled scripts that call the plugin runner, decided during v0.11.0).
+    - **Same behaviour:** the existing Pester tests run against the plugin versions and must pass unchanged
+      (plus plugin-contract tests).
+    - **Same rules:** the clinical guard (no disruptive repair during clinic hours without `force`), exceptions
+      (site.json + server export), report-only defaults, and Sirona drift detect/report only (never edited).
+      Check ids and the JSON Lines log format stay the same, so ingest, metrics and history continue.
+    - **Clean migration, no gap in nightly coverage:** the plugin versions first run side by side with the
+      current nightly task in report-only mode and their results are compared. The scheduled task switches
+      over only after matching results, and the old script stays as a fallback until one full week is clean.
+
 ### Release breakdown
 
 | Tag | Scope |
@@ -268,5 +283,6 @@ JSON. The rest sounds good to me").
 | v0.8.0 | itcmdr-cli: init, service register [--name], user add, key rotate/revoke |
 | v0.9.0 | packages: format, validation (exact file list, sha256, signature), quarantine, plugins install --url/--path, list/enable/disable/remove |
 | v0.10.0 | plugin runtime: PluginService gRPC, Rust crate, PowerShell module + host, Verify then Execute, Log on error, timeouts, on-demand + audit hooks |
-| v0.11.0 | Flutter: Service Plugins section, app registration, user/key management |
-| v0.12.0 | installer: first-run master setup showing the words once; Windows VM test items in the handover |
+| v0.11.0 | built-in checks as plugins: the existing agent checks/repairs rebuilt as service plugins and run through the plugin system (see below) |
+| v0.12.0 | Flutter: Service Plugins section, app registration, user/key management |
+| v0.13.0 | installer: first-run master setup showing the words once; Windows VM test items in the handover |
