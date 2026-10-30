@@ -54,6 +54,58 @@ pub struct ServerConfig {
     /// Metrics windows (days) for trends. Defaults: 7,30,90,365
     #[serde(default)]
     pub metrics: MetricsConfig,
+    /// Backups (decision 13).
+    #[serde(default)]
+    pub backup: BackupConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackupConfig {
+    /// Archive folder (e.g. the share). Default: `<data_dir>/backups`.
+    #[serde(default)]
+    pub dir: Option<PathBuf>,
+    /// Take a nightly backup (default true; skipped until `init` has run).
+    #[serde(default = "yes")]
+    pub nightly: bool,
+    /// Local hour (0-23) from which the nightly backup is due (default 2).
+    #[serde(default = "default_backup_hour")]
+    pub hour: u32,
+    /// Nightly retention: newest per day / ISO week / month (defaults 7 / 4 / 12).
+    #[serde(default = "default_keep_daily")]
+    pub keep_daily: usize,
+    #[serde(default = "default_keep_weekly")]
+    pub keep_weekly: usize,
+    #[serde(default = "default_keep_monthly")]
+    pub keep_monthly: usize,
+}
+
+impl Default for BackupConfig {
+    fn default() -> Self {
+        Self {
+            dir: None,
+            nightly: true,
+            hour: default_backup_hour(),
+            keep_daily: default_keep_daily(),
+            keep_weekly: default_keep_weekly(),
+            keep_monthly: default_keep_monthly(),
+        }
+    }
+}
+
+fn yes() -> bool {
+    true
+}
+fn default_backup_hour() -> u32 {
+    2
+}
+fn default_keep_daily() -> usize {
+    7
+}
+fn default_keep_weekly() -> usize {
+    4
+}
+fn default_keep_monthly() -> usize {
+    12
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -122,6 +174,7 @@ impl Default for ServerConfig {
             request_timeout_secs: DEFAULT_REQUEST_TIMEOUT_SECS,
             exceptions_export_path: None,
             metrics: MetricsConfig::default(),
+            backup: BackupConfig::default(),
         }
     }
 }
@@ -140,6 +193,13 @@ impl ServerConfig {
             env.as_deref(),
             self.data_dir.as_deref(),
         ))
+    }
+
+    pub fn backup_dir(&self) -> PathBuf {
+        self.backup
+            .dir
+            .clone()
+            .unwrap_or_else(|| self.layout().backups())
     }
 
     pub fn database_path(&self) -> PathBuf {

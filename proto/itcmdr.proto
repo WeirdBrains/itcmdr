@@ -115,7 +115,7 @@ message SearchLogsResponse {
 message AuditEntry {
   int64 ts = 1;        // unix millis
   string actor = 2;
-  string action = 3;   // "trigger-runs", "exception-add", "exception-edit", "exception-expire"
+  string action = 3;   // "trigger-runs", "exception-add", "exception-edit", "exception-expire", "backup-create", "backup-verify", "backup-list"
   string detail = 4;   // JSON
 }
 message ListAuditRequest { int32 limit = 1; }
@@ -130,6 +130,23 @@ message Update {
   int64 ts = 4;       // unix millis
 }
 
+// Backups (decision 13). Owner/admin only, audit-logged. Restore is CLI-only (server stopped):
+// itcmdr-cli restore --from <archive> [--dry-run]
+message BackupInfo {
+  string name = 1;
+  int64 size = 2;
+  int64 created_ts = 3;      // unix millis
+  string kind = 4;           // manual, nightly, pre-restore
+  string itcmdr_version = 5;
+  int64 schema_version = 6;
+}
+message CreateBackupRequest {}
+message CreateBackupResponse { BackupInfo backup = 1; }
+message ListBackupsRequest {}
+message ListBackupsResponse { repeated BackupInfo backups = 1; }
+message VerifyBackupRequest { string name = 1; }
+message VerifyBackupResponse { bool ok = 1; string message = 2; }
+
 service Itcmdr {
   rpc ListMachines(ListMachinesRequest) returns (ListMachinesResponse);
   rpc TriggerRuns(TriggerRunsRequest) returns (TriggerRunsResponse);
@@ -140,6 +157,9 @@ service Itcmdr {
   rpc ExpireException(ExpireExceptionRequest) returns (ExpireExceptionResponse);
   rpc SearchLogs(SearchLogsRequest) returns (SearchLogsResponse);
   rpc ListAudit(ListAuditRequest) returns (ListAuditResponse);
+  rpc CreateBackup(CreateBackupRequest) returns (CreateBackupResponse);
+  rpc ListBackups(ListBackupsRequest) returns (ListBackupsResponse);
+  rpc VerifyBackup(VerifyBackupRequest) returns (VerifyBackupResponse);
   rpc WatchUpdates(WatchUpdatesRequest) returns (stream Update);
 }
 

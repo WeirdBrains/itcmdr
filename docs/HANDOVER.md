@@ -6,10 +6,17 @@ untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committ
 
 ## Current state (updated 2026-10-30)
 
-- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.7.0** (keys & signed auth). See `CHANGELOG.md`, root `PLAN.md`.
+- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.8.0** (itcmdr-cli, backup & restore). See `CHANGELOG.md`, root `PLAN.md`.
 - Everything passes on the Linux dev box (Rust, Flutter, Pester, PSScriptAnalyzer, scanner).
 - **Nothing has run on Windows yet** (installer, service, scheduled tasks, agent on a real PC).
 - GitHub release builds are blocked by org billing (see Risks), so there is no installer artifact yet.
+
+## Done (v0.8.0, itcmdr-cli + backup & restore)
+
+- `server/src/bin/itcmdr-cli.rs` (clap). `server/src/backup.rs`: `create`, `verify`, `open`, `list`, `prune_plan`/`prune`, `nightly`, `restore`.
+- `auth.rs`: `list_keys`, `certificate_of`, `rotate_root`. `db::SCHEMA_VERSION` (user_version). Config `backup` section.
+- RPCs `CreateBackup`/`ListBackups`/`VerifyBackup` in `api.rs`. Docs: `docs/BACKUP.md`, `docs/SIGNING.md`.
+- Tests: `server/tests/backup.rs` (6, incl. CLI end to end), `server/tests/signing.rs` (2).
 
 ## Done (v0.7.0, keys & auth)
 
@@ -82,7 +89,7 @@ untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committ
 
 ## In progress
 
-- Nothing mid-way. Next: **v0.8.0 itcmdr-cli + backup & restore** (decision 13). Statuses: root `PLAN.md`.
+- Nothing mid-way. Next: **v0.9.0 packages**. Statuses: root `PLAN.md`.
 
 ## Backlog (in order)
 
@@ -154,6 +161,9 @@ python3 scripts/scan_repo.py        # leak scanner (also the pre-commit hook)
   printed ONCE and are the only way to certify new keys and recover `db.key`. Don't set `auth_mode = signed` until
   the app can sign (v0.12.0), or the app loses access.
 - Never change the master derivation (`keys.rs`); the pinned test vector guards it.
+- Never edit `proto/signing_vectors.json` to make a test pass; regenerate (ITCMDR_REGEN_VECTORS=1) only for a deliberate protocol change.
+- Bump `db::SCHEMA_VERSION` with every schema change: restore uses it to refuse archives from newer versions.
+- Tests that start the server should set `backup.nightly = false` (the loop would otherwise write a backup into the temp dir).
 - **SQLCipher build** needs perl + a C compiler (vendored OpenSSL); GitHub Windows runners have Strawberry Perl.
   The first build takes ~40 s on alien-blue.
 - **Losing `keys/db.key` means losing the database** (it is random, not derived from the words). Back up the

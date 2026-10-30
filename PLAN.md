@@ -35,8 +35,8 @@ also covered by the Windows VM test pass below.
 | v0.6.0 | Storage: data dir, SQLCipher DB, roles/users/clients, migration | ✅ Done | `v0.6.0` / `0ce70c0` | 2026-10-30 |
 | v0.6.1 | Docs: this roadmap | ✅ Done | `v0.6.1` / `a4b0eb6` | 2026-10-30 |
 | v0.6.2 | Storage follow-up: auto-delete the plaintext backup after a verified migration | ✅ Done | `v0.6.2` / `19c297c` | 2026-10-30 |
-| v0.7.0 | Keys & auth: BIP39 master, certified keys, signed requests, roles, db.key escrow | ✅ Done | `v0.7.0` | 2026-10-30 |
-| v0.8.0 | itcmdr-cli (init, register, users, keys) + backup & restore | 📋 Planned | — | — |
+| v0.7.0 | Keys & auth: BIP39 master, certified keys, signed requests, roles, db.key escrow | ✅ Done | `v0.7.0` (4afe6c7) | 2026-10-30 |
+| v0.8.0 | itcmdr-cli (init, register, users, keys) + backup & restore | ✅ Done | `v0.8.0` | 2026-10-30 |
 | v0.9.0 | Packages: format, validation, signatures, quarantine, install/list/enable/disable/remove; log standard + validator + metrics ingest | 📋 Planned | — | — |
 | v0.10.0 | Plugin runtime: PluginService gRPC, Rust crate, PowerShell module + host, stages, per-run log path + helpers | 📋 Planned | — | — |
 | v0.11.0 | Built-in checks as plugins (same behaviour, no gap in nightly coverage) | 📋 Planned | — | — |
@@ -52,7 +52,8 @@ also covered by the Windows VM test pass below.
 | Real site values in site.json | 📋 Pending (on-site) | Scanners (incl. the 3D unit + exception), DNS records, drive maps, printer queues, Sirona config paths, stale patterns, backup tasks/destinations. See HANDOVER.local.md |
 | Delete the plaintext DB backup after the v0.6 migration | ✅ Done (decided) | Decision 12: deleted automatically after a verified read-back (v0.6.2); kept if verification fails |
 | DB key recovery (`keys/db.key`) | ✅ Done (v0.7.0) | Decision 12: `keys/db.key.escrow` sealed for the master key; `itcmdr-server recover-db-key` with the 24 words |
-| Backup & restore | 📋 Planned (decided) | Decision 13: core + CLI + RPCs in v0.8.0, plugins join in v0.9.0/v0.10.0, app screen in v0.12.0 |
+| Backup & restore | 🔄 Core done (v0.8.0) | Decision 13: DB + escrow + config, CLI, RPCs, nightly + retention in v0.8.0; plugins join in v0.9.0/v0.10.0; app screen in v0.12.0 |
+| Signing canonical encoding | 🔄 Rust done (v0.8.0) | `docs/SIGNING.md`, `proto/signing_vectors.json`; the Dart test against the same vectors lands with app signing (v0.12.0) |
 | Retire the shared admin token | 📋 Planned | `auth_mode = signed` retires it today; the default moves from `both` to `signed` in v0.12.0 once the app signs requests |
 | `docs/LOG-STANDARD.md` | 📋 Planned | Written with v0.9.0/v0.10.0 (decision 11) |
 
@@ -122,11 +123,15 @@ also covered by the Windows VM test pass below.
 - [x] db.key escrow under the master key (`keys/db.key.escrow`, X25519 + HKDF + XChaCha20-Poly1305); `itcmdr-server recover-db-key` re-protects it with DPAPI / 0600 (decision 12)
 - [~] Retire the shared admin token: `auth_mode = signed` does it; default stays `both` until v0.12.0 (the app can't sign yet)
 
-### v0.8.0 itcmdr-cli + backup & restore 📋
-- [ ] `init`, `service register [--name]`, `user add`, `key rotate`, `key revoke`
-- [ ] Offline master signing / recovery from the words
-- [ ] `backup create|list|verify`, `restore --from <archive> [--dry-run]`, owner/admin backup RPCs (audited), nightly backup to the share with retention (decision 13)
-- [ ] Tests: round trip on a fresh data dir with only the words, tampered archive rejected, consistent under writes, retention
+### v0.8.0 itcmdr-cli + backup & restore ✅
+- [x] `itcmdr-cli` (installed next to the server): `init`, `recover-db-key`, `service register --name`, `user add`, `keys certify|new|register|list|revoke|rotate`
+- [x] Offline certification from the words (`keys certify` / `keys new` need no data dir; words only on stdin)
+- [x] Backup archive: consistent SQLCipher snapshot + db.key escrow + config, encrypted for the master key, signed by the root key, manifest with versions/schema/sha256 (`docs/BACKUP.md`)
+- [x] `backup create|list|verify [--deep]|prune`, `restore --from <archive> [--dry-run]` (safety copy, schema check, db.key from the words, new root key)
+- [x] RPCs `CreateBackup`, `ListBackups`, `VerifyBackup` (admin/owner, audited); restore is CLI-only (server stopped)
+- [x] Nightly backup (server.json `backup`, default 02:00 local) with daily/weekly/monthly retention
+- [x] Tests: round trip on a fresh data dir with only the words, tampered/foreign archive rejected, consistent under writes, retention, RPC roles + audit, CLI end to end
+- [x] Signing: canonical encoding rules + pinned vectors (`docs/SIGNING.md`); Dart side in v0.12.0
 
 ### v0.9.0 Packages 📋
 - [ ] package.toml (`[[files]]`, `main = true`), exact file list, sha256, admin/owner signature

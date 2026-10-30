@@ -6,7 +6,7 @@
 
 #define MyAppName "itcmdr"
 #ifndef MyAppVersion
-  #define MyAppVersion "0.7.0"
+  #define MyAppVersion "0.8.0"
 #endif
 #define InstallDirName "itcmdr"
 
@@ -31,6 +31,7 @@ Name: "agent"; Description: "Agent (PowerShell + scheduled tasks)"; Types: full 
 [Files]
 ; Server binary (built by CI)
 Source: "..\server\target\release\itcmdr-server.exe"; DestDir: "{app}\server"; Components: server; Flags: ignoreversion
+Source: "..\server\target\release\itcmdr-cli.exe"; DestDir: "{app}\server"; Components: server; Flags: ignoreversion
 ; App build
 Source: "..\app\build\windows\x64\runner\Release\*"; DestDir: "{app}\app"; Components: app; Flags: recursesubdirs ignoreversion
 ; Agent scripts
