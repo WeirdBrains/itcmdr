@@ -1,5 +1,8 @@
 # Changelog
 
+## v0.5.1 (2026-10-30)
+- Docs only: service plugin plan with the agreed implementation plan and release breakdown (`server/PLAN.md`).
+
 ## v0.5.0 (2026-10-30)
 - Agent 0.5.0: real backup coverage (category `backup`, server role, report only): expected sources
   exist, backup scheduled tasks present/enabled/recent/result 0, newest file at each destination is

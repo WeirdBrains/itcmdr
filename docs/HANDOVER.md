@@ -6,7 +6,7 @@ untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committ
 
 ## Current state (updated 2026-10-30)
 
-- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.5.0** (backup coverage, stale locks/timeouts, gRPC integration test). See `CHANGELOG.md`.
+- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.5.1** (docs: plugin plan in `server/PLAN.md`; code = v0.5.0). See `CHANGELOG.md`.
 - Everything passes on the Linux dev box (Rust, Flutter, Pester, PSScriptAnalyzer, scanner).
 - **Nothing has run on Windows yet** (installer, service, scheduled tasks, agent on a real PC).
 - GitHub release builds are blocked by org billing (see Risks), so there is no installer artifact yet.
@@ -62,7 +62,7 @@ untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committ
 
 ## In progress
 
-- Nothing mid-way. Remaining: backlog #1 (Windows VM test, pending) and #8 (Actions billing / Windows installer build).
+- **Plugin workstream** (plan: `server/PLAN.md` -> 'Implementation plan (agreed Oct 30 2026)'). Next: **v0.6.0 storage**. Uncommitted locally: `server/Cargo.toml` adds `libsqlite3-sys` (bundled-sqlcipher-vendored-openssl; builds on Linux in ~40s, needs perl), `rand`, `hex`, plus `Cargo.lock`. Next step: `server/src/storage.rs` (data dir, DB key, DPAPI), SQLCipher `init_db`, roles/users/clients tables, plaintext->encrypted migration, tests, tag v0.6.0.
 
 ## Backlog (in order)
 
