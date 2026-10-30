@@ -4,7 +4,9 @@ import 'package:fixnum/fixnum.dart';
 import 'package:flutter/material.dart';
 import 'package:grpc/grpc_or_grpcweb.dart';
 
+import 'charts.dart';
 import 'exceptions_form.dart';
+import 'logs_page.dart';
 import 'proto/itcmdr.pbgrpc.dart';
 import 'settings.dart';
 
@@ -113,7 +115,7 @@ class _HomeShellState extends State<HomeShell> {
     final pages = <Widget>[
       OverviewPage(key: key, client: c, updates: updates),
       MetricsPage(key: key, client: c),
-      LogsPage(key: key, client: c),
+      LogsPage(key: key, client: c, errText: errText),
       ExceptionsPage(key: key, client: c, settings: s, updates: updates),
       OnDemandPage(key: key, client: c, settings: s, updates: updates),
       AuditPage(key: key, client: c, updates: updates),
@@ -350,9 +352,6 @@ class _MetricsPageState extends State<MetricsPage> {
         .value;
     final repairs = _with('repair_failures').toList()
       ..sort((a, b) => b.value.compareTo(a.value));
-    final buckets = _with('incidents').toList()
-      ..sort((a, b) => a.ts.compareTo(b.ts));
-    final maxInc = buckets.fold<double>(1, (a, p) => p.value > a ? p.value : a);
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
@@ -409,47 +408,37 @@ class _MetricsPageState extends State<MetricsPage> {
               ],
           ],
         ),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Incidents per ${rollupLabels[_rollup]} bucket',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                for (final p in buckets)
-                  Row(
-                    children: [
-                      SizedBox(
-                        width: 220,
-                        child: Text(
-                          '${fmtTs(p.ts).split(' ').first}  ${_rest(p)}',
-                        ),
-                      ),
-                      Expanded(
-                        child: LinearProgressIndicator(
-                          value: p.value / maxInc,
-                          minHeight: 10,
-                        ),
-                      ),
-                      SizedBox(
-                        width: 48,
-                        child: Text(
-                          p.value.toStringAsFixed(0),
-                          textAlign: TextAlign.right,
-                        ),
-                      ),
-                    ],
-                  ),
-              ],
-            ),
-          ),
+        BarChart(
+          title: 'Incidents per ${rollupLabels[_rollup]} (all machines)',
+          bars: seriesByBucket(_points, 'incidents'),
+        ),
+        BarChart(
+          title: 'Uptime per ${rollupLabels[_rollup]} (average of machines)',
+          bars: seriesByBucket(_points, 'uptime', average: true),
+          maxY: 1,
+          format: (v) => '${(v * 100).round()}%',
+        ),
+        _table(
+          'Flapping checks (ok/failed changes in the window)',
+          ['Machine', 'Check', 'Changes'],
+          [for (final p in _sorted('flaps')) _split(p)],
+        ),
+        _table(
+          'Repeat offenders (incidents in the window)',
+          ['Machine', 'Check', 'Incidents'],
+          [for (final p in _sorted('repeat_offender')) _split(p)],
         ),
       ],
     );
   }
+
+  List<MetricPoint> _sorted(String prefix) =>
+      _with(prefix).toList()..sort((a, b) => b.value.compareTo(a.value));
+  List<String> _split(MetricPoint p) => [
+    _rest(p).split(':').first,
+    _rest(p).split(':').skip(1).join(':'),
+    p.value.toStringAsFixed(0),
+  ];
 }
 
 class ExceptionsPage extends StatefulWidget {
@@ -759,88 +748,6 @@ class _OnDemandPageState extends State<OnDemandPage> with LiveRefresh {
       Text(label),
     ],
   );
-}
-
-class LogsPage extends StatefulWidget {
-  final ItcmdrClient client;
-  const LogsPage({super.key, required this.client});
-  @override
-  State<LogsPage> createState() => _LogsPageState();
-}
-
-class _LogsPageState extends State<LogsPage> {
-  final _q = TextEditingController();
-  final _machine = TextEditingController();
-  List<String> _lines = [];
-  String? _error;
-
-  @override
-  void dispose() {
-    _q.dispose();
-    _machine.dispose();
-    super.dispose();
-  }
-
-  Future<void> _search() async {
-    try {
-      final resp = await widget.client.searchLogs(
-        SearchLogsRequest(query: _q.text, machine: _machine.text, limit: 500),
-      );
-      if (mounted) {
-        setState(() {
-          _lines = resp.lines;
-          _error = null;
-        });
-      }
-    } catch (e) {
-      if (mounted) setState(() => _error = errText(e));
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _q,
-                  decoration: const InputDecoration(labelText: 'Text'),
-                  onSubmitted: (_) => _search(),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextField(
-                  controller: _machine,
-                  decoration: const InputDecoration(
-                    labelText: 'Machine (optional)',
-                  ),
-                  onSubmitted: (_) => _search(),
-                ),
-              ),
-              const SizedBox(width: 8),
-              FilledButton(onPressed: _search, child: const Text('Search')),
-            ],
-          ),
-          if (_error != null) Text('Error: $_error'),
-          const SizedBox(height: 8),
-          Expanded(
-            child: ListView.builder(
-              itemCount: _lines.length,
-              itemBuilder: (c, i) => SelectableText(
-                _lines[i],
-                style: const TextStyle(fontFamily: 'monospace'),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class AuditPage extends StatefulWidget {

@@ -99,10 +99,15 @@ message SearchLogsRequest {
   string machine = 2;      // optional filter
   int64 start_ts = 3;      // optional unix millis
   int64 end_ts = 4;        // optional unix millis
-  int32 limit = 5;         // max lines (default 100)
+  int32 limit = 5;         // max lines per page (default 100, max 1000)
+  string category = 6;     // optional: network, connectivity, configuration, services
+  string status = 7;       // optional: ok, failed, skipped
+  int32 offset = 8;        // paging: lines to skip (newest first)
 }
 message SearchLogsResponse {
-  repeated string lines = 1;
+  repeated string lines = 1;  // JSON lines, newest first
+  int32 total = 2;            // matches before paging
+  int32 next_offset = 3;      // 0 when there are no more pages
 }
 
 // Audit log of mutating actions (on-demand runs, exception changes)

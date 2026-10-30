@@ -27,3 +27,4 @@ config/banned.local.txt
 **/*.log
 # Test output
 testResults.xml
+HANDOVER.local.md

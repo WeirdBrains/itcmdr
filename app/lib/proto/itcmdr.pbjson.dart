@@ -385,6 +385,9 @@ const SearchLogsRequest$json = {
     {'1': 'start_ts', '3': 3, '4': 1, '5': 3, '10': 'startTs'},
     {'1': 'end_ts', '3': 4, '4': 1, '5': 3, '10': 'endTs'},
     {'1': 'limit', '3': 5, '4': 1, '5': 5, '10': 'limit'},
+    {'1': 'category', '3': 6, '4': 1, '5': 9, '10': 'category'},
+    {'1': 'status', '3': 7, '4': 1, '5': 9, '10': 'status'},
+    {'1': 'offset', '3': 8, '4': 1, '5': 5, '10': 'offset'},
   ],
 };
 
@@ -392,19 +395,23 @@ const SearchLogsRequest$json = {
 final $typed_data.Uint8List searchLogsRequestDescriptor = $convert.base64Decode(
     'ChFTZWFyY2hMb2dzUmVxdWVzdBIUCgVxdWVyeRgBIAEoCVIFcXVlcnkSGAoHbWFjaGluZRgCIA'
     'EoCVIHbWFjaGluZRIZCghzdGFydF90cxgDIAEoA1IHc3RhcnRUcxIVCgZlbmRfdHMYBCABKANS'
-    'BWVuZFRzEhQKBWxpbWl0GAUgASgFUgVsaW1pdA==');
+    'BWVuZFRzEhQKBWxpbWl0GAUgASgFUgVsaW1pdBIaCghjYXRlZ29yeRgGIAEoCVIIY2F0ZWdvcn'
+    'kSFgoGc3RhdHVzGAcgASgJUgZzdGF0dXMSFgoGb2Zmc2V0GAggASgFUgZvZmZzZXQ=');
 
 @$core.Deprecated('Use searchLogsResponseDescriptor instead')
 const SearchLogsResponse$json = {
   '1': 'SearchLogsResponse',
   '2': [
     {'1': 'lines', '3': 1, '4': 3, '5': 9, '10': 'lines'},
+    {'1': 'total', '3': 2, '4': 1, '5': 5, '10': 'total'},
+    {'1': 'next_offset', '3': 3, '4': 1, '5': 5, '10': 'nextOffset'},
   ],
 };
 
 /// Descriptor for `SearchLogsResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List searchLogsResponseDescriptor = $convert
-    .base64Decode('ChJTZWFyY2hMb2dzUmVzcG9uc2USFAoFbGluZXMYASADKAlSBWxpbmVz');
+final $typed_data.Uint8List searchLogsResponseDescriptor = $convert.base64Decode(
+    'ChJTZWFyY2hMb2dzUmVzcG9uc2USFAoFbGluZXMYASADKAlSBWxpbmVzEhQKBXRvdGFsGAIgAS'
+    'gFUgV0b3RhbBIfCgtuZXh0X29mZnNldBgDIAEoBVIKbmV4dE9mZnNldA==');
 
 @$core.Deprecated('Use auditEntryDescriptor instead')
 const AuditEntry$json = {
