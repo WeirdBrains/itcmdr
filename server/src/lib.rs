@@ -3,6 +3,7 @@ pub mod api;
 pub mod auth;
 pub mod backup;
 pub mod config;
+pub mod cutover;
 pub mod db;
 pub mod events;
 pub mod exceptions;
@@ -69,6 +70,10 @@ pub async fn run(
         settings::get_i64(&pool, Some(&cfg), "server.retention_days").await,
     )
     .await?;
+    // Built-in default schedules (decision 14, v0.11.0): idempotent on every start/upgrade.
+    if let Err(e) = cutover::seed_defaults(&pool, &cfg).await {
+        tracing::warn!(error=%e, "seeding the default schedules failed");
+    }
     if let Err(e) = settings::export_agent(&pool, &cfg).await {
         tracing::warn!(error=%e, "agent settings export failed");
     }
@@ -103,7 +108,9 @@ pub async fn run(
             if let Err(e) = schedule::tick(&bg_pool, &bg_cfg, chrono::Utc::now()).await {
                 tracing::warn!(error=%e, "scheduler failed");
             }
-            backup::nightly(&bg_pool, &bg_cfg).await;
+            if let Err(e) = cutover::export_state(&bg_pool, &bg_cfg).await {
+                tracing::warn!(error=%e, "schedule state export failed");
+            }
             if last_retention.elapsed() > Duration::from_secs(24 * 3600) {
                 last_retention = std::time::Instant::now();
                 let days =

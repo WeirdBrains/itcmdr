@@ -603,6 +603,12 @@ pub struct Schedule {
     pub next_runs: ::prost::alloc::vec::Vec<i64>,
     #[prost(int64, tag = "16")]
     pub last_fire: i64,
+    /// nightly-agent-run | nightly-backup (built-ins only)
+    #[prost(string, tag = "17")]
+    pub builtin_key: ::prost::alloc::string::String,
+    /// "" = run checks/plugins; "backup" = server nightly backup
+    #[prost(string, tag = "18")]
+    pub action: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SaveScheduleRequest {
@@ -620,6 +626,8 @@ pub struct ScheduleRef {
     pub id: ::prost::alloc::string::String,
     #[prost(bool, tag = "2")]
     pub force: bool,
+    #[prost(string, tag = "3")]
+    pub confirm: ::prost::alloc::string::String,
 }
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct ListSchedulesRequest {}
@@ -1465,6 +1473,30 @@ pub mod itcmdr_client {
                 .insert(GrpcMethod::new("itcmdr.Itcmdr", "ListScheduleRuns"));
             self.inner.unary(req, path, codec).await
         }
+        pub async fn reset_schedule_to_default(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ScheduleRef>,
+        ) -> std::result::Result<
+            tonic::Response<super::ScheduleResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/itcmdr.Itcmdr/ResetScheduleToDefault",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("itcmdr.Itcmdr", "ResetScheduleToDefault"));
+            self.inner.unary(req, path, codec).await
+        }
         pub async fn stage_restore(
             &mut self,
             request: impl tonic::IntoRequest<super::StageRestoreRequest>,
@@ -1739,6 +1771,13 @@ pub mod itcmdr_server {
             request: tonic::Request<super::ListScheduleRunsRequest>,
         ) -> std::result::Result<
             tonic::Response<super::ListScheduleRunsResponse>,
+            tonic::Status,
+        >;
+        async fn reset_schedule_to_default(
+            &self,
+            request: tonic::Request<super::ScheduleRef>,
+        ) -> std::result::Result<
+            tonic::Response<super::ScheduleResponse>,
             tonic::Status,
         >;
         async fn stage_restore(
@@ -3029,6 +3068,50 @@ pub mod itcmdr_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = ListScheduleRunsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/itcmdr.Itcmdr/ResetScheduleToDefault" => {
+                    #[allow(non_camel_case_types)]
+                    struct ResetScheduleToDefaultSvc<T: Itcmdr>(pub Arc<T>);
+                    impl<T: Itcmdr> tonic::server::UnaryService<super::ScheduleRef>
+                    for ResetScheduleToDefaultSvc<T> {
+                        type Response = super::ScheduleResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ScheduleRef>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Itcmdr>::reset_schedule_to_default(&inner, request)
+                                    .await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ResetScheduleToDefaultSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

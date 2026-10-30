@@ -55,6 +55,9 @@ enum Cmd {
     /// Scheduled runs (decision 14).
     #[command(subcommand)]
     Schedule(ScheduleCmd),
+    /// Nightly task -> default schedule cutover (v0.11.0): status, switch (gated), rollback.
+    #[command(subcommand)]
+    Cutover(CutoverCmd),
     /// Restore an archive into the data dir. Stop the server first.
     Restore {
         #[arg(long)]
@@ -306,11 +309,18 @@ enum ScheduleCmd {
         #[command(flatten)]
         a: ScheduleArgs,
     },
-    /// Delete a schedule (built-in ones need --force; pause them instead).
+    /// Delete a schedule. Built-in ones: pause them instead; deleting needs --force and
+    /// --confirm <exact name> (and is remembered: upgrades don't re-create it).
     Rm {
         id: String,
         #[arg(long)]
         force: bool,
+        #[arg(long)]
+        confirm: Option<String>,
+    },
+    /// Restore a built-in schedule (nightly-agent-run, nightly-backup, or its name) to its defaults.
+    ResetToDefault {
+        which: String,
     },
     Pause {
         id: String,
@@ -328,6 +338,62 @@ enum ScheduleCmd {
         #[arg(long, default_value_t = 20)]
         limit: i64,
     },
+}
+
+#[derive(Subcommand)]
+enum CutoverCmd {
+    /// Cutover state, the last 7 days of parity results, machines, and what still blocks the switch.
+    Status,
+    /// Record that the plugin runtime and poller were verified on the Windows VM (gate b).
+    VmVerified {
+        /// Clear the flag.
+        #[arg(long)]
+        off: bool,
+    },
+    /// Switch the nightly run to the default schedule. Refused until every gate passes.
+    Switch,
+    /// One-command rollback: the SYSTEM task runs the nightly again (agents re-enable it).
+    Rollback,
+}
+
+fn print_gate(g: &srv::cutover::Gate, json: bool) -> anyhow::Result<()> {
+    if json {
+        println!("{}", serde_json::to_string_pretty(g)?);
+        return Ok(());
+    }
+    println!(
+        "cutover state: {}   safe to switch: {}   VM verified: {}",
+        g.state,
+        if g.ok { "yes" } else { "no" },
+        g.vm_verified
+    );
+    println!("parity (built-in vs plugin versions, report-only):");
+    for d in &g.days {
+        println!(
+            "  {}  runs {:>3}  matched {:>5}  mismatched {:>3}  errors {:>3}  {}",
+            d.day,
+            d.runs,
+            d.matched,
+            d.mismatched,
+            d.errors,
+            d.machines.join(",")
+        );
+    }
+    for m in &g.machines {
+        println!(
+            "  machine {}  last run {}  cutover {}  trigger {}  plugins {}  sees schedules {}",
+            m.machine,
+            ms_local(m.last_run_ms),
+            m.cutover,
+            m.trigger,
+            m.plugin_mode,
+            m.sees_schedules
+        );
+    }
+    for p in &g.problems {
+        println!("  blocking: {p}");
+    }
+    Ok(())
 }
 
 fn apply_args(mut s: srv::schedule::Spec, a: &ScheduleArgs) -> srv::schedule::Spec {
@@ -439,6 +505,7 @@ fn print_schedule(s: &srv::schedule::Schedule, json: bool) -> Result<()> {
     let what = [
         (!s.spec.categories.is_empty()).then(|| format!("checks {}", s.spec.categories.join(","))),
         (!s.spec.plugins.is_empty()).then(|| format!("plugins {}", s.spec.plugins.join(","))),
+        (s.spec.action == "backup").then(|| "server backup".to_string()),
     ]
     .into_iter()
     .flatten()
@@ -457,7 +524,9 @@ fn print_schedule(s: &srv::schedule::Schedule, json: bool) -> Result<()> {
             what
         },
         target,
-        if s.spec.repair {
+        if s.spec.action == "backup" {
+            "-"
+        } else if s.spec.repair {
             "repair"
         } else {
             "report-only"
@@ -1175,10 +1244,15 @@ fn run(rt: &tokio::runtime::Runtime) -> Result<()> {
                     let pool = pool.clone();
                     async move { srv::db::insert_audit(&pool, "itcmdr-cli", action, &d.to_string()).await }
                 };
+                srv::cutover::seed_defaults(&pool, &cfg).await?;
                 match sc {
                     ScheduleCmd::Add { name, a, paused } => {
                         let s = srv::schedule::create(&pool, name, apply_args(Default::default(), a), !paused).await?;
                         audit("schedule-create", serde_json::json!({"id": s.id, "name": s.name, "spec": s.spec})).await?;
+                        print_schedule(&s, json)?;
+                    }
+                    ScheduleCmd::ResetToDefault { which } => {
+                        let s = srv::cutover::reset_to_default(&pool, &cfg, which, "itcmdr-cli").await?;
                         print_schedule(&s, json)?;
                     }
                     ScheduleCmd::List => {
@@ -1192,8 +1266,8 @@ fn run(rt: &tokio::runtime::Runtime) -> Result<()> {
                         audit("schedule-update", serde_json::json!({"id": s.id, "name": s.name, "spec": s.spec})).await?;
                         print_schedule(&s, json)?;
                     }
-                    ScheduleCmd::Rm { id, force } => {
-                        let s = srv::schedule::delete(&pool, id, *force).await?;
+                    ScheduleCmd::Rm { id, force, confirm } => {
+                        let s = srv::schedule::delete(&pool, id, *force, confirm.as_deref()).await?;
                         audit("schedule-delete", serde_json::json!({"id": s.id, "name": s.name})).await?;
                         println!("deleted {}", s.name);
                     }
@@ -1238,6 +1312,32 @@ fn run(rt: &tokio::runtime::Runtime) -> Result<()> {
                                 );
                             }
                         }
+                    }
+                }
+                Ok(())
+            })
+        }
+        Cmd::Cutover(cc) => {
+            let cfg = load()?;
+            let json = cli.json;
+            rt.block_on(async {
+                let pool = srv::db::init_db(&cfg).await?;
+                srv::cutover::seed_defaults(&pool, &cfg).await?;
+                let now = chrono::Utc::now();
+                match cc {
+                    CutoverCmd::Status => print_gate(&srv::cutover::gate(&pool, now).await?, json)?,
+                    CutoverCmd::VmVerified { off } => {
+                        srv::cutover::set_vm_verified(&pool, "itcmdr-cli", !off).await?;
+                        println!("Windows VM verification {}", if *off { "cleared" } else { "recorded" });
+                    }
+                    CutoverCmd::Switch => {
+                        let g = srv::cutover::switch(&pool, &cfg, "itcmdr-cli", now).await?;
+                        println!("switched: the default schedule runs the nightly; agents disable their task on the next poll (fallback stays installed).");
+                        print_gate(&g, json)?;
+                    }
+                    CutoverCmd::Rollback => {
+                        srv::cutover::rollback(&pool, &cfg, "itcmdr-cli").await?;
+                        println!("rolled back: the SYSTEM task runs the nightly again; agents re-enable it on the next poll.");
                     }
                 }
                 Ok(())

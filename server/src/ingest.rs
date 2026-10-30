@@ -39,6 +39,13 @@ enum LogLine {
         role: Option<String>,
         report_only: Option<bool>,
         started: Option<String>,
+        /// v0.11.0: task | schedule | fallback | on-demand
+        trigger: Option<String>,
+        /// v0.11.0: task | schedule (the agent's cutover state)
+        cutover: Option<String>,
+        /// v0.11.0: `ts` of the schedule-state.json the agent last read (RFC 3339)
+        schedule_state_ts: Option<String>,
+        plugin_mode: Option<String>,
     },
     #[serde(rename_all = "camelCase")]
     Check {
@@ -54,6 +61,18 @@ enum LogLine {
         ts: Option<String>,
         excepted: Option<bool>,
         exception_reason: Option<String>,
+    },
+    /// v0.11.0: built-in checks vs. their plugin versions (report-only, same run).
+    #[serde(rename_all = "camelCase")]
+    Parity {
+        run_id: String,
+        computer: String,
+        ts: Option<String>,
+        matched: Option<i64>,
+        #[serde(default)]
+        mismatched: Vec<serde_json::Value>,
+        #[serde(default)]
+        errors: Vec<serde_json::Value>,
     },
     #[serde(rename_all = "camelCase")]
     RunComplete {
@@ -223,9 +242,25 @@ pub async fn ingest_all(pool: &crate::db::DbPool, dir: &Path) -> anyhow::Result<
                     role,
                     report_only,
                     started,
+                    trigger,
+                    cutover,
+                    schedule_state_ts,
+                    plugin_mode,
                 }) => {
                     let ts = parse_ts(started.as_deref()).unwrap_or(mtime);
                     run_ts.insert(run_id.clone(), ts);
+                    if cutover.is_some() || trigger.is_some() {
+                        crate::cutover::record_agent_state(
+                            pool,
+                            &computer,
+                            ts,
+                            cutover.as_deref().unwrap_or("task"),
+                            trigger.as_deref().unwrap_or(""),
+                            parse_ts(schedule_state_ts.as_deref()).unwrap_or(0),
+                            plugin_mode.as_deref().unwrap_or(""),
+                        )
+                        .await?;
+                    }
                     events.push((
                         ts,
                         0,
@@ -279,6 +314,28 @@ pub async fn ingest_all(pool: &crate::db::DbPool, dir: &Path) -> anyhow::Result<
                 }) => {
                     let t = parse_ts(finished.as_deref()).unwrap_or(mtime);
                     events.push((t, 2, Ev::Complete { run_id, exit_code }));
+                }
+                Ok(LogLine::Parity {
+                    run_id,
+                    computer,
+                    ts,
+                    matched,
+                    mismatched,
+                    errors,
+                }) => {
+                    let t = parse_ts(ts.as_deref())
+                        .or_else(|| run_ts.get(&run_id).copied())
+                        .unwrap_or(mtime);
+                    crate::cutover::record_parity(
+                        pool,
+                        &run_id,
+                        &computer,
+                        t,
+                        matched.unwrap_or(0),
+                        &mismatched,
+                        &errors,
+                    )
+                    .await?;
                 }
                 Ok(LogLine::Unknown) => {}
                 Err(e) => warn!(error=%e, file=%p.display(), "skipping unparsable log line"),

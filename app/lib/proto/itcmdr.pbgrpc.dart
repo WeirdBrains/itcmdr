@@ -221,6 +221,14 @@ class ItcmdrClient extends $grpc.Client {
     return $createUnaryCall(_$listScheduleRuns, request, options: options);
   }
 
+  $grpc.ResponseFuture<$0.ScheduleResponse> resetScheduleToDefault(
+    $0.ScheduleRef request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$resetScheduleToDefault, request,
+        options: options);
+  }
+
   $grpc.ResponseFuture<$0.StageRestoreResponse> stageRestore(
     $0.StageRestoreRequest request, {
     $grpc.CallOptions? options,
@@ -381,6 +389,11 @@ class ItcmdrClient extends $grpc.Client {
       '/itcmdr.Itcmdr/ListScheduleRuns',
       ($0.ListScheduleRunsRequest value) => value.writeToBuffer(),
       $0.ListScheduleRunsResponse.fromBuffer);
+  static final _$resetScheduleToDefault =
+      $grpc.ClientMethod<$0.ScheduleRef, $0.ScheduleResponse>(
+          '/itcmdr.Itcmdr/ResetScheduleToDefault',
+          ($0.ScheduleRef value) => value.writeToBuffer(),
+          $0.ScheduleResponse.fromBuffer);
   static final _$stageRestore =
       $grpc.ClientMethod<$0.StageRestoreRequest, $0.StageRestoreResponse>(
           '/itcmdr.Itcmdr/StageRestore',
@@ -628,6 +641,13 @@ abstract class ItcmdrServiceBase extends $grpc.Service {
         ($core.List<$core.int> value) =>
             $0.ListScheduleRunsRequest.fromBuffer(value),
         ($0.ListScheduleRunsResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.ScheduleRef, $0.ScheduleResponse>(
+        'ResetScheduleToDefault',
+        resetScheduleToDefault_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.ScheduleRef.fromBuffer(value),
+        ($0.ScheduleResponse value) => value.writeToBuffer()));
     $addMethod(
         $grpc.ServiceMethod<$0.StageRestoreRequest, $0.StageRestoreResponse>(
             'StageRestore',
@@ -885,6 +905,14 @@ abstract class ItcmdrServiceBase extends $grpc.Service {
 
   $async.Future<$0.ListScheduleRunsResponse> listScheduleRuns(
       $grpc.ServiceCall call, $0.ListScheduleRunsRequest request);
+
+  $async.Future<$0.ScheduleResponse> resetScheduleToDefault_Pre(
+      $grpc.ServiceCall $call, $async.Future<$0.ScheduleRef> $request) async {
+    return resetScheduleToDefault($call, await $request);
+  }
+
+  $async.Future<$0.ScheduleResponse> resetScheduleToDefault(
+      $grpc.ServiceCall call, $0.ScheduleRef request);
 
   $async.Future<$0.StageRestoreResponse> stageRestore_Pre(
       $grpc.ServiceCall $call,

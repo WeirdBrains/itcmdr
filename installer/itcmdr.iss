@@ -10,7 +10,7 @@
 
 #define MyAppName "itcmdr"
 #ifndef MyAppVersion
-  #define MyAppVersion "0.10.1"
+  #define MyAppVersion "0.11.0"
 #endif
 #define InstallDirName "itcmdr"
 #ifndef LocalLogs
@@ -47,6 +47,11 @@ Source: "..\app\build\windows\x64\runner\Release\*"; DestDir: "{app}\app"; Compo
 Source: "..\agent\Invoke-ItcmdrAgent.ps1"; DestDir: "{app}\agent"; Components: agent; Flags: ignoreversion
 Source: "..\agent\Install-ItcmdrAgent.ps1"; DestDir: "{app}\agent"; Components: agent; Flags: ignoreversion
 Source: "..\agent\Poll-ItcmdrRequests.ps1"; DestDir: "{app}\agent"; Components: agent; Flags: ignoreversion
+Source: "..\agent\Itcmdr.Checks.ps1"; DestDir: "{app}\agent"; Components: agent; Flags: ignoreversion
+Source: "..\agent\Itcmdr.PluginRunner.ps1"; DestDir: "{app}\agent"; Components: agent; Flags: ignoreversion
+Source: "..\agent\Set-ItcmdrCutover.ps1"; DestDir: "{app}\agent"; Components: agent; Flags: ignoreversion
+; Built-in check plugins (v0.11.0): the only plugin copies agents run; never downloaded
+Source: "..\plugins\builtin\*"; Excludes: "*.toml,Build-BuiltinPlugins.ps1"; DestDir: "{app}\agent\plugins"; Components: agent; Flags: ignoreversion recursesubdirs
 Source: "..\agent\Report-BackupCoverage.ps1"; DestDir: "{app}\agent"; Components: server; Flags: ignoreversion
 Source: "..\agent\Push-Install-ItcmdrAgent.ps1"; DestDir: "{app}\agent"; Components: agent; Flags: ignoreversion
 Source: "..\agent\Rotate-ItcmdrLogs.ps1"; DestDir: "{app}\agent"; Components: server; Flags: ignoreversion

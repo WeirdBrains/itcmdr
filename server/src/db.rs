@@ -8,7 +8,7 @@ pub type DbPool = Pool<Sqlite>;
 
 /// Bumped whenever the schema changes. Stored as `PRAGMA user_version`; backups record it and
 /// restore refuses archives from a newer schema (older ones are migrated by `create_schema`).
-pub const SCHEMA_VERSION: i64 = 3;
+pub const SCHEMA_VERSION: i64 = 4;
 
 /// Open (creating if needed) the SQLCipher database. The data dir layout and DB key are created
 /// on first use. A pre-0.6 plaintext database at the target path, or `itcmdr.sqlite` next to it,
@@ -375,6 +375,25 @@ async fn create_schema(pool: &DbPool) -> anyhow::Result<()> {
         note TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS ix_schedule_runs ON schedule_runs(schedule_id, ts_ms);
+    CREATE TABLE IF NOT EXISTS parity_runs (
+        run_id TEXT PRIMARY KEY,
+        machine TEXT NOT NULL,
+        ts_ms INTEGER NOT NULL,
+        day TEXT NOT NULL,
+        matched INTEGER NOT NULL,
+        mismatched INTEGER NOT NULL,
+        errors INTEGER NOT NULL,
+        detail TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS ix_parity_runs ON parity_runs(day, machine);
+    CREATE TABLE IF NOT EXISTS agent_state (
+        machine TEXT PRIMARY KEY,
+        ts_ms INTEGER NOT NULL,
+        cutover TEXT NOT NULL,
+        trigger TEXT NOT NULL,
+        schedule_state_ms INTEGER NOT NULL,
+        plugin_mode TEXT NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS server_meta (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
@@ -439,6 +458,10 @@ pub async fn apply_retention(pool: &DbPool, retention_days: i64) -> anyhow::Resu
         .execute(pool)
         .await?;
     sqlx::query("DELETE FROM checks WHERE ts_ms < ?")
+        .bind(cutoff_ms)
+        .execute(pool)
+        .await?;
+    sqlx::query("DELETE FROM parity_runs WHERE ts_ms < ?")
         .bind(cutoff_ms)
         .execute(pool)
         .await?;
