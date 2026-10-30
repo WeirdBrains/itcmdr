@@ -46,6 +46,9 @@ enum Cmd {
     /// Backups (decision 13).
     #[command(subcommand)]
     Backup(BackupCmd),
+    /// Runtime settings stored in the DB (override server.json): backup.dir, backup.hour, ...
+    #[command(subcommand)]
+    Config(ConfigCmd),
     /// Restore an archive into the data dir. Stop the server first.
     Restore {
         #[arg(long)]
@@ -161,6 +164,16 @@ enum BackupCmd {
         #[arg(long)]
         dir: Option<PathBuf>,
     },
+}
+
+#[derive(Subcommand)]
+enum ConfigCmd {
+    /// Show the effective settings (and which come from the DB).
+    Get { key: Option<String> },
+    /// Set one key, e.g. `config set backup.hour 3`. Folders must exist and be writable.
+    Set { key: String, value: String },
+    /// Remove an override (back to server.json / default).
+    Unset { key: String },
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -450,7 +463,13 @@ fn main() -> Result<()> {
                     print_backup(cli.json, &b)
                 }),
                 BackupCmd::List { dir } => {
-                    for b in srv::backup::list(&dir.clone().unwrap_or_else(|| cfg.backup_dir()))? {
+                    let d = match dir {
+                        Some(d) => d.clone(),
+                        None => rt.block_on(async {
+                            srv::settings::backup_dir(&srv::db::init_db(&cfg).await?, &cfg).await
+                        })?,
+                    };
+                    for b in srv::backup::list(&d)? {
                         print_backup(cli.json, &b)?;
                     }
                     Ok(())
@@ -479,15 +498,74 @@ fn main() -> Result<()> {
                     Ok(())
                 }
                 BackupCmd::Prune { dir } => {
-                    for n in srv::backup::prune(
-                        &dir.clone().unwrap_or_else(|| cfg.backup_dir()),
-                        &cfg.backup,
-                    )? {
+                    let (d, bc) = rt.block_on(async {
+                        let pool = srv::db::init_db(&cfg).await?;
+                        let bc = srv::settings::effective_backup(&pool, &cfg).await?;
+                        let d = bc.dir.clone().unwrap_or_else(|| cfg.layout().backups());
+                        anyhow::Ok((dir.clone().unwrap_or(d), bc))
+                    })?;
+                    for n in srv::backup::prune(&d, &bc)? {
                         println!("deleted {n}");
                     }
                     Ok(())
                 }
             }
+        }
+        Cmd::Config(c) => {
+            let cfg = load()?;
+            rt.block_on(async {
+                let pool = srv::db::init_db(&cfg).await?;
+                match c {
+                    ConfigCmd::Get { key } => {
+                        let b = srv::settings::effective_backup(&pool, &cfg).await?;
+                        let over = srv::settings::overridden(&pool).await?;
+                        let v = serde_json::to_value(&b)?;
+                        for k in srv::settings::BACKUP_KEYS {
+                            if key.as_deref().is_some_and(|q| q != k) {
+                                continue;
+                            }
+                            let field = &k["backup.".len()..];
+                            let val = match &v[field] {
+                                serde_json::Value::Null if field == "dir" => {
+                                    format!("(default) {}", cfg.layout().backups().display())
+                                }
+                                x => x.to_string().trim_matches('"').to_string(),
+                            };
+                            let src = if over.iter().any(|o| o == k) {
+                                "db"
+                            } else {
+                                "server.json/default"
+                            };
+                            println!("{k} = {val}    [{src}]");
+                        }
+                        Ok(())
+                    }
+                    ConfigCmd::Set { key, value } => {
+                        srv::settings::set_key(&pool, &cfg, key, value).await?;
+                        srv::db::insert_audit(
+                            &pool,
+                            "itcmdr-cli",
+                            "settings-update",
+                            &serde_json::json!({"key": key, "value": value}).to_string(),
+                        )
+                        .await?;
+                        println!("{key} = {value}");
+                        Ok(())
+                    }
+                    ConfigCmd::Unset { key } => {
+                        srv::settings::unset_key(&pool, key).await?;
+                        srv::db::insert_audit(
+                            &pool,
+                            "itcmdr-cli",
+                            "settings-update",
+                            &serde_json::json!({"key": key, "unset": true}).to_string(),
+                        )
+                        .await?;
+                        println!("{key} reverted to server.json/default");
+                        Ok(())
+                    }
+                }
+            })
         }
         Cmd::Restore { from, dry_run } => {
             let cfg = load()?;

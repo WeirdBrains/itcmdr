@@ -13,12 +13,15 @@
 
 .PARAMETER StageTo
   Optional folder to also stage a compressed copy of -Source (the local maintenance log folder).
+
+.PARAMETER Source
+  Folder to stage. Default: site.json paths.localLogs, else C:\maintenanceRuns.
 #>
 [CmdletBinding()]
 param(
   [string]$SitePath,
   [string]$StageTo,
-  [string]$Source = 'C:\maintenanceRuns'
+  [string]$Source
 )
 
 Set-StrictMode -Version Latest
@@ -30,6 +33,7 @@ try { . (Join-Path $PSScriptRoot 'Invoke-ItcmdrAgent.ps1') } finally { Remove-It
 $site = if ($SitePath) { ConvertFrom-ItcmdrJson (Get-Content -LiteralPath $SitePath -Raw) } else { Get-ItcmdrSiteConfig }
 $log = Join-Path ([IO.Path]::GetTempPath()) ("itcmdr-backup-$([guid]::NewGuid()).log")
 $ctx = @{ RunId = [guid]::NewGuid().ToString(); Computer = $env:COMPUTERNAME; Role = 'Server'; Site = $site; LogFile = $log; Exceptions = @() }
+if (-not $Source) { $Source = Get-ItcmdrPath -Site $site -Name localLogs }
 Invoke-ItcmdrBackupCheck -Ctx $ctx -ReportOnlyLocal
 
 $failed = 0

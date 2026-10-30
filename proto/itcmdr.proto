@@ -115,7 +115,7 @@ message SearchLogsResponse {
 message AuditEntry {
   int64 ts = 1;        // unix millis
   string actor = 2;
-  string action = 3;   // "trigger-runs", "exception-add", "exception-edit", "exception-expire", "backup-create", "backup-verify", "backup-list"
+  string action = 3;   // "trigger-runs", "exception-add", "exception-edit", "exception-expire", "backup-create", "backup-verify", "backup-list", "settings-update"
   string detail = 4;   // JSON
 }
 message ListAuditRequest { int32 limit = 1; }
@@ -147,6 +147,20 @@ message ListBackupsResponse { repeated BackupInfo backups = 1; }
 message VerifyBackupRequest { string name = 1; }
 message VerifyBackupResponse { bool ok = 1; string message = 2; }
 
+// Settings (decision 15). Admin/owner only, audit-logged. Stored in the DB, override server.json.
+message BackupSettings {
+  string dir = 1;          // empty = <data_dir>/backups; must exist and be writable
+  bool nightly = 2;
+  uint32 hour = 3;         // local hour 0-23
+  uint32 keep_daily = 4;
+  uint32 keep_weekly = 5;
+  uint32 keep_blocks = 6;  // 4-week blocks (ISO weeks 4N-3..4N)
+}
+message GetSettingsRequest {}
+message GetSettingsResponse { BackupSettings backup = 1; }
+message UpdateSettingsRequest { BackupSettings backup = 1; }
+message UpdateSettingsResponse { BackupSettings backup = 1; }
+
 service Itcmdr {
   rpc ListMachines(ListMachinesRequest) returns (ListMachinesResponse);
   rpc TriggerRuns(TriggerRunsRequest) returns (TriggerRunsResponse);
@@ -160,6 +174,8 @@ service Itcmdr {
   rpc CreateBackup(CreateBackupRequest) returns (CreateBackupResponse);
   rpc ListBackups(ListBackupsRequest) returns (ListBackupsResponse);
   rpc VerifyBackup(VerifyBackupRequest) returns (VerifyBackupResponse);
+  rpc GetSettings(GetSettingsRequest) returns (GetSettingsResponse);
+  rpc UpdateSettings(UpdateSettingsRequest) returns (UpdateSettingsResponse);
   rpc WatchUpdates(WatchUpdatesRequest) returns (stream Update);
 }
 

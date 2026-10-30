@@ -29,6 +29,6 @@
     "hour": 2,
     "keep_daily": 7,
     "keep_weekly": 4,
-    "keep_monthly": 12
+    "keep_blocks": 13
   }
 }

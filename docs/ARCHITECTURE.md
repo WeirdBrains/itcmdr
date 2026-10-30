@@ -16,8 +16,8 @@ The agent and poller run under Windows PowerShell 5.1 (the `powershell.exe` used
 
 ## Agent runs and logs
 
-- Each run writes `C:\maintenanceRuns\<COMPUTER>_<yyyyMMdd-HHmmss>_<runId>.log`: a `run-start` record, one `check` record per check (`checkId`, `category`, `status`, `attemptedRepair`, `result`, `ts`, `excepted`, ...), then `run-complete`.
-- The log is copied to `shares.maintenanceRuns`. If the share is unreachable, the log is queued in `C:\ProgramData\itcmdr\spool\outbox` and sent on the next run.
+- Each run writes `<paths.localLogs>\<COMPUTER>_<yyyyMMdd-HHmmss>_<runId>.log` (site.json; default `C:\maintenanceRuns`): a `run-start` record, one `check` record per check (`checkId`, `category`, `status`, `attemptedRepair`, `result`, `ts`, `excepted`, ...), then `run-complete`.
+- The log is copied to `shares.maintenanceRuns`. If the share is unreachable, the log is queued in `<paths.agentData>\spool\outbox` (default `C:\ProgramData\itcmdr`) and sent on the next run.
 - Repairs run only as SYSTEM, or with `-Repair`, and never with `-ReportOnly`.
 - The clinical guard: if files under `services.rcu.dataPath` changed in the last 10 minutes, the run is report-only unless `-Force` is given.
 - Checks that have no safe automatic repair (port and share reachability) are logged as failures without a repair attempt.
