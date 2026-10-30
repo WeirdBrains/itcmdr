@@ -6,9 +6,9 @@ untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committ
 
 ## Current state (updated 2026-10-30)
 
-- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.10.0** (plugin runtime, log standard, scheduler, restore server side). See `CHANGELOG.md`, root `PLAN.md`.
+- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.10.1** (Windows VM fixes; v0.10.0 plugin runtime, log standard, scheduler, restore server side). See `CHANGELOG.md`, root `PLAN.md`.
 - Everything passes on the Linux dev box (Rust, Flutter, Pester, PSScriptAnalyzer, scanner).
-- **Nothing has run on Windows yet** (installer, service, scheduled tasks, agent on a real PC).
+- First Windows VM pass done (v0.10.1): installer, service, tasks, agent, plugins, schedules, backup/restore. See Windows VM test plan → Results.
 - GitHub release builds are blocked by org billing (see Risks), so there is no installer artifact yet.
 
 ## Done (v0.10.0, plugin runtime + scheduler + restore server side)
@@ -124,11 +124,11 @@ untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committ
 
 ## In progress
 
-v0.10.0 released (tag v0.10.0). Next: Windows VM checks (Pester + PS 5.1 plugin host), then v0.11.0 built-in checks as plugins.
+v0.10.1 released (Windows VM fixes). Next: remaining VM items (app UI on Windows, second PC, share offline), then v0.11.0 built-in checks as plugins.
 
 ## Backlog (in order)
 
-1. Windows VM test pass (plan below); fix whatever it finds. **Pending** (VM being set up).
+1. Windows VM test pass: first pass done in v0.10.1 (results below). Still to do: the app UI on Windows (connect, trigger, settings screen), a real second PC as agent, and the share offline queue.
 2. ~~Missing agent checks~~ done in v0.3.0. Real values must be added to the site.json on Windows hosts.
 3. ~~Flapping/repeat-offender metrics, charts~~ done in v0.4.0.
 4. ~~Log search filters and paging~~ done in v0.4.0.
@@ -183,6 +183,32 @@ python3 scripts/scan_repo.py        # leak scanner (also the pre-commit hook)
    restarts the service via sc.exe and rolls back on a failed health check.
 7. Rotation with `-Root <copy> -Today 2027-01-04`: the zips open in Explorer, and the server ingests the archive.
 8. Uninstall removes the service, the tasks and the firewall rule.
+
+### Results: first VM pass (v0.10.1, 2026-10-30, Windows 11 Pro, Windows PowerShell 5.1)
+
+Built on the VM (Rust MSVC, Flutter, Inno Setup), installed silently with the full set of components, and used a local folder shared as `PDATA` to stand in for the share. Placeholder office values only.
+
+| Item | Result |
+|---|---|
+| Pester 65/65 and PSScriptAnalyzer 0 findings under PS 5.1 (Pester 6.2) | ✅ after fixing the tests' 3-argument `Join-Path` |
+| Installer compiles | ✅ after fixes (brace escapes, quoting, `[Code]` comments, `target\release` path) |
+| Silent install: service Running (delayed-auto, under `%ProgramData%\itcmdr`), 3 tasks, firewall rule, files | ✅ |
+| Service starts again after a reboot | ✅ |
+| `hash-token` + restart; `itcmdr-cli init` (words shown once), `user add`, `keys list` | ✅ |
+| Nightly task (SYSTEM): log written, copied to the share | ✅ |
+| Ingest of agent logs | ❌ → fixed: PS 5.1 wrote a UTF8 byte-order mark, so the run-start line was lost (fixed in both the agent and the server) |
+| On-demand `TriggerRuns` → request file → poller → DONE | ✅ (~60 s) |
+| Plugin `pack` / `install` (enabled) / `run` through `itcmdr-plugin-ps` on PS 5.1 (CLI and the SYSTEM service via `RunPlugin`) | ✅ |
+| A failed Verify skips Execute; `plugins runs`; v1 log + share mirror; `GetPluginMetrics` | ✅ |
+| Schedules: minute cron fired, the concurrency skip worked, pause/rm, next runs with timezones | ✅ |
+| Central agent settings per machine → `agent-settings.json` on the share → the agent sees the value | ✅ |
+| Backup create, list, verify, verify --deep | ✅ |
+| Rotation task: weekly zip including `plugin-logs/` | ✅. The server read those zipped plugin logs as agent logs ❌ → fixed |
+| In-place upgrade over a running install | ✅ |
+| `restore-stage` (new CLI on the StageRestore path) → sc.exe stop/start → done; wrong words refused | ✅ |
+| Forced health failure → rolled back, service running, old value back | ✅ |
+| Uninstall removes the service, tasks, firewall rule and program dir, and keeps the data; reinstall picks it up | ✅ |
+| Agent repairs on a VM with the example site.json | ⚠️ NET-IP-CORRECT set the example DNS server and cut the VM off. Expected with wrong site values: site.json must match the real network before repairs run |
 
 ## Risks and gotchas
 

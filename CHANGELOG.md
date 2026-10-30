@@ -1,5 +1,29 @@
 # Changelog
 
+## v0.10.1 (2026-10-30)
+First Windows VM pass (Windows 11, Windows PowerShell 5.1), with fixes:
+- Agent logs: Windows PowerShell 5.1 wrote a UTF8 byte-order mark, so the server could not read the first line
+  (run-start) and no machines appeared. The agent and rotation now write UTF8 without a byte-order mark, and the
+  server ignores a BOM.
+- The server no longer reads `plugin-logs/` entries in weekly zips as agent logs.
+- Installer: it compiles now. Literal braces are escaped. The rotation task comes from the new
+  `Install-ItcmdrRotationTask.ps1` instead of an inline command. Pascal comments are fixed in `[Code]`.
+  Binaries come from the workspace's `target\release` (release.yml copies every exe there).
+- App: the Windows executable is `itcmdr.exe` (it was `app.exe`, which did not match the installer
+  shortcuts).
+- Tests: 3-argument `Join-Path` (PowerShell 7 only) was replaced, so Pester passes on 5.1 (65/65).
+- New `itcmdr-cli restore-stage --backup NAME [--wait]` (words on stdin; the StageRestore path signed
+  with the root key) and `restore-status`.
+- Verified on the VM:
+  - service install, boot start, upgrade, uninstall and reinstall (data kept)
+  - init and keys
+  - the nightly task, on-demand runs through the poller, and ingest
+  - a plugin Execute through the PS 5.1 host
+  - schedules and central settings
+  - backup verify --deep and rotation
+  - restore with done and forced-rollback runs
+- Docs: log standard stage names for the server lines; Windows VM results in the handover.
+
 ## v0.10.0 (2026-10-30)
 - Plugin runtime (decisions 6, 11): plugins are separate processes serving gRPC `PluginService`
   (`proto/plugin.proto`: Describe, Verify, Execute, Log) on loopback with a per-launch secret

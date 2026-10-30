@@ -36,7 +36,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-$script:AgentVersion = '0.10.0'
+$script:AgentVersion = '0.10.1'
 
 function ConvertTo-ItcmdrHashtable {
   param($InputObject)
@@ -313,7 +313,8 @@ function Push-ItcmdrLog {
 function Write-ItcmdrJsonLine {
   param([object]$Record, [string]$Path)
   $json = $Record | ConvertTo-Json -Compress -Depth 6
-  Add-Content -LiteralPath $Path -Value $json -Encoding UTF8
+  # UTF8 without a byte-order mark (PS 5.1's -Encoding UTF8 adds one, which breaks the first JSON line).
+  [IO.File]::AppendAllText($Path, $json + "`r`n", (New-Object Text.UTF8Encoding($false)))
 }
 
 function Invoke-ItcmdrCheck {
