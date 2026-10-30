@@ -122,11 +122,11 @@ async fn request_status_follows_response_files() {
     let st = |p| async move { itcmdr_server::db::get_request_status(p, "r1").await.unwrap().0 };
     assert_eq!(st(&pool).await, "queued");
     w("WS-01", "running");
-    itcmdr_server::requests::sync_requests(&pool, &resp).await.unwrap();
+    itcmdr_server::requests::sync_requests(&pool, &resp, 0).await.unwrap();
     assert_eq!(st(&pool).await, "running");
     w("WS-01", "done");
     w("WS-02", "done");
-    itcmdr_server::requests::sync_requests(&pool, &resp).await.unwrap();
+    itcmdr_server::requests::sync_requests(&pool, &resp, 0).await.unwrap();
     assert_eq!(st(&pool).await, "done");
 }
 

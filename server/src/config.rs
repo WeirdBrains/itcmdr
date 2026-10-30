@@ -7,6 +7,8 @@ use std::path::PathBuf;
 static DEFAULT_BIND: &str = "127.0.0.1:50051";
 const DEFAULT_RETENTION_DAYS: i64 = 400;
 const DEFAULT_INGEST_INTERVAL_SECS: u64 = 30;
+/// Longer than the poller task's 2h limit, so a slow run is not cut short.
+const DEFAULT_REQUEST_TIMEOUT_SECS: u64 = 3 * 3600;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerConfig {
@@ -31,6 +33,9 @@ pub struct ServerConfig {
     /// Seconds between ingest/request-sync passes (default 30).
     #[serde(default = "default_ingest_interval")]
     pub ingest_interval_secs: u64,
+    /// Queued/running on-demand requests become `timed_out` after this many seconds (default 3h).
+    #[serde(default = "default_request_timeout")]
+    pub request_timeout_secs: u64,
     /// Where exception rules are exported for agents (defaults to logs_dir/exceptions.json).
     #[serde(default)]
     pub exceptions_export_path: Option<PathBuf>,
@@ -61,6 +66,10 @@ fn default_windows() -> Vec<i64> {
     vec![7, 30, 90, 365]
 }
 
+fn default_request_timeout() -> u64 {
+    DEFAULT_REQUEST_TIMEOUT_SECS
+}
+
 fn default_rollups() -> Vec<String> {
     vec!["daily".into(), "weekly".into(), "block4".into(), "yearly".into()]
 }
@@ -86,6 +95,7 @@ impl Default for ServerConfig {
             allow_insecure_no_auth: false,
             retention_days: DEFAULT_RETENTION_DAYS,
             ingest_interval_secs: DEFAULT_INGEST_INTERVAL_SECS,
+            request_timeout_secs: DEFAULT_REQUEST_TIMEOUT_SECS,
             exceptions_export_path: None,
             metrics: MetricsConfig::default(),
         }
@@ -97,6 +107,10 @@ pub fn project_dirs() -> ProjectDirs {
 }
 
 impl ServerConfig {
+    pub fn request_timeout_ms(&self) -> i64 {
+        (self.request_timeout_secs as i64).saturating_mul(1000)
+    }
+
     /// Precedence:
     /// 1. ITCMDR_SERVER_CONFIG env var (path to JSON)
     /// 2. ./config/server.json

@@ -74,6 +74,8 @@ pub mod request_status {
         Running = 2,
         Done = 3,
         Failed = 4,
+        /// nobody finished within request_timeout_secs
+        TimedOut = 5,
     }
     impl Status {
         /// String value of the enum field names used in the ProtoBuf definition.
@@ -87,6 +89,7 @@ pub mod request_status {
                 Self::Running => "RUNNING",
                 Self::Done => "DONE",
                 Self::Failed => "FAILED",
+                Self::TimedOut => "TIMED_OUT",
             }
         }
         /// Creates an enum from field names used in the ProtoBuf definition.
@@ -97,6 +100,7 @@ pub mod request_status {
                 "RUNNING" => Some(Self::Running),
                 "DONE" => Some(Self::Done),
                 "FAILED" => Some(Self::Failed),
+                "TIMED_OUT" => Some(Self::TimedOut),
                 _ => None,
             }
         }
@@ -245,7 +249,7 @@ pub struct AuditEntry {
     pub ts: i64,
     #[prost(string, tag = "2")]
     pub actor: ::prost::alloc::string::String,
-    /// "trigger-runs", "exception-save", "exception-expire"
+    /// "trigger-runs", "exception-add", "exception-edit", "exception-expire"
     #[prost(string, tag = "3")]
     pub action: ::prost::alloc::string::String,
     /// JSON
@@ -313,6 +317,329 @@ impl Rollup {
             "ROLLUP_BLOCK4" => Some(Self::Block4),
             "ROLLUP_YEARLY" => Some(Self::Yearly),
             _ => None,
+        }
+    }
+}
+/// Generated client implementations.
+pub mod itcmdr_client {
+    #![allow(
+        unused_variables,
+        dead_code,
+        missing_docs,
+        clippy::wildcard_imports,
+        clippy::let_unit_value,
+    )]
+    use tonic::codegen::*;
+    use tonic::codegen::http::Uri;
+    #[derive(Debug, Clone)]
+    pub struct ItcmdrClient<T> {
+        inner: tonic::client::Grpc<T>,
+    }
+    impl ItcmdrClient<tonic::transport::Channel> {
+        /// Attempt to create a new client by connecting to a given endpoint.
+        pub async fn connect<D>(dst: D) -> Result<Self, tonic::transport::Error>
+        where
+            D: TryInto<tonic::transport::Endpoint>,
+            D::Error: Into<StdError>,
+        {
+            let conn = tonic::transport::Endpoint::new(dst)?.connect().await?;
+            Ok(Self::new(conn))
+        }
+    }
+    impl<T> ItcmdrClient<T>
+    where
+        T: tonic::client::GrpcService<tonic::body::BoxBody>,
+        T::Error: Into<StdError>,
+        T::ResponseBody: Body<Data = Bytes> + std::marker::Send + 'static,
+        <T::ResponseBody as Body>::Error: Into<StdError> + std::marker::Send,
+    {
+        pub fn new(inner: T) -> Self {
+            let inner = tonic::client::Grpc::new(inner);
+            Self { inner }
+        }
+        pub fn with_origin(inner: T, origin: Uri) -> Self {
+            let inner = tonic::client::Grpc::with_origin(inner, origin);
+            Self { inner }
+        }
+        pub fn with_interceptor<F>(
+            inner: T,
+            interceptor: F,
+        ) -> ItcmdrClient<InterceptedService<T, F>>
+        where
+            F: tonic::service::Interceptor,
+            T::ResponseBody: Default,
+            T: tonic::codegen::Service<
+                http::Request<tonic::body::BoxBody>,
+                Response = http::Response<
+                    <T as tonic::client::GrpcService<tonic::body::BoxBody>>::ResponseBody,
+                >,
+            >,
+            <T as tonic::codegen::Service<
+                http::Request<tonic::body::BoxBody>,
+            >>::Error: Into<StdError> + std::marker::Send + std::marker::Sync,
+        {
+            ItcmdrClient::new(InterceptedService::new(inner, interceptor))
+        }
+        /// Compress requests with the given encoding.
+        ///
+        /// This requires the server to support it otherwise it might respond with an
+        /// error.
+        #[must_use]
+        pub fn send_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.inner = self.inner.send_compressed(encoding);
+            self
+        }
+        /// Enable decompressing responses.
+        #[must_use]
+        pub fn accept_compressed(mut self, encoding: CompressionEncoding) -> Self {
+            self.inner = self.inner.accept_compressed(encoding);
+            self
+        }
+        /// Limits the maximum size of a decoded message.
+        ///
+        /// Default: `4MB`
+        #[must_use]
+        pub fn max_decoding_message_size(mut self, limit: usize) -> Self {
+            self.inner = self.inner.max_decoding_message_size(limit);
+            self
+        }
+        /// Limits the maximum size of an encoded message.
+        ///
+        /// Default: `usize::MAX`
+        #[must_use]
+        pub fn max_encoding_message_size(mut self, limit: usize) -> Self {
+            self.inner = self.inner.max_encoding_message_size(limit);
+            self
+        }
+        pub async fn list_machines(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListMachinesRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListMachinesResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/itcmdr.Itcmdr/ListMachines",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("itcmdr.Itcmdr", "ListMachines"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn trigger_runs(
+            &mut self,
+            request: impl tonic::IntoRequest<super::TriggerRunsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::TriggerRunsResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/itcmdr.Itcmdr/TriggerRuns",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut().insert(GrpcMethod::new("itcmdr.Itcmdr", "TriggerRuns"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn get_request_status(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetRequestStatusRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetRequestStatusResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/itcmdr.Itcmdr/GetRequestStatus",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("itcmdr.Itcmdr", "GetRequestStatus"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn get_metrics(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetMetricsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetMetricsResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static("/itcmdr.Itcmdr/GetMetrics");
+            let mut req = request.into_request();
+            req.extensions_mut().insert(GrpcMethod::new("itcmdr.Itcmdr", "GetMetrics"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn list_exceptions(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListExceptionsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListExceptionsResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/itcmdr.Itcmdr/ListExceptions",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("itcmdr.Itcmdr", "ListExceptions"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn save_exception(
+            &mut self,
+            request: impl tonic::IntoRequest<super::SaveExceptionRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::SaveExceptionResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/itcmdr.Itcmdr/SaveException",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("itcmdr.Itcmdr", "SaveException"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn expire_exception(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ExpireExceptionRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ExpireExceptionResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/itcmdr.Itcmdr/ExpireException",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("itcmdr.Itcmdr", "ExpireException"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn search_logs(
+            &mut self,
+            request: impl tonic::IntoRequest<super::SearchLogsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::SearchLogsResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static("/itcmdr.Itcmdr/SearchLogs");
+            let mut req = request.into_request();
+            req.extensions_mut().insert(GrpcMethod::new("itcmdr.Itcmdr", "SearchLogs"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn list_audit(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListAuditRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListAuditResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static("/itcmdr.Itcmdr/ListAudit");
+            let mut req = request.into_request();
+            req.extensions_mut().insert(GrpcMethod::new("itcmdr.Itcmdr", "ListAudit"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn watch_updates(
+            &mut self,
+            request: impl tonic::IntoRequest<super::WatchUpdatesRequest>,
+        ) -> std::result::Result<
+            tonic::Response<tonic::codec::Streaming<super::Update>>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/itcmdr.Itcmdr/WatchUpdates",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("itcmdr.Itcmdr", "WatchUpdates"));
+            self.inner.server_streaming(req, path, codec).await
         }
     }
 }

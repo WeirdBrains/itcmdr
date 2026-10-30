@@ -150,14 +150,16 @@ const RequestStatus_Status$json = {
     {'1': 'RUNNING', '2': 2},
     {'1': 'DONE', '2': 3},
     {'1': 'FAILED', '2': 4},
+    {'1': 'TIMED_OUT', '2': 5},
   ],
 };
 
 /// Descriptor for `RequestStatus`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List requestStatusDescriptor = $convert.base64Decode(
     'Cg1SZXF1ZXN0U3RhdHVzEjQKBnN0YXR1cxgBIAEoDjIcLml0Y21kci5SZXF1ZXN0U3RhdHVzLl'
-    'N0YXR1c1IGc3RhdHVzEhgKB21lc3NhZ2UYAiABKAlSB21lc3NhZ2UiRAoGU3RhdHVzEgsKB1VO'
-    'S05PV04QABIKCgZRVUVVRUQQARILCgdSVU5OSU5HEAISCAoERE9ORRADEgoKBkZBSUxFRBAE');
+    'N0YXR1c1IGc3RhdHVzEhgKB21lc3NhZ2UYAiABKAlSB21lc3NhZ2UiUwoGU3RhdHVzEgsKB1VO'
+    'S05PV04QABIKCgZRVUVVRUQQARILCgdSVU5OSU5HEAISCAoERE9ORRADEgoKBkZBSUxFRBAEEg'
+    '0KCVRJTUVEX09VVBAF');
 
 @$core.Deprecated('Use getRequestStatusResponseDescriptor instead')
 const GetRequestStatusResponse$json = {

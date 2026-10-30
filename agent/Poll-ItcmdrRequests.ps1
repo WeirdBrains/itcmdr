@@ -71,7 +71,9 @@ function Write-ItcmdrResponse {
 }
 
 function Invoke-ItcmdrPoll {
-  param([string[]]$RequestDirectory, [string]$Computer, [string]$AgentPath)
+  # StaleLockMinutes: a lock older than this was left by a crashed/killed poller (the task's
+  # limit is 2h), so it is removed and the request is claimed again.
+  param([string[]]$RequestDirectory, [string]$Computer, [string]$AgentPath, [int]$StaleLockMinutes = 150)
   $handled = 0
   foreach ($dir in $RequestDirectory) {
     if (-not (Test-Path -LiteralPath $dir)) { continue }
@@ -89,6 +91,13 @@ function Invoke-ItcmdrPoll {
       $machines = @($req['machines'] | Where-Object { $_ })
       if ($machines.Count -gt 0 -and $machines -notcontains $Computer) { continue }
       $lock = "$($file.FullName).$Computer.lock"
+      if (Test-Path -LiteralPath $lock) {
+        $age = (Get-Date).ToUniversalTime() - (Get-Item -LiteralPath $lock).LastWriteTimeUtc
+        if ($age.TotalMinutes -gt $StaleLockMinutes) {
+          Write-Verbose "Removing stale lock $lock ($([int]$age.TotalMinutes) min old)"
+          Remove-Item -LiteralPath $lock -Force -ErrorAction SilentlyContinue
+        }
+      }
       try { New-Item -ItemType File -Path $lock -ErrorAction Stop | Out-Null } catch { continue }
       try {
         Write-ItcmdrResponse -Dir $respDir -RequestId $rid -Computer $Computer -Status 'running'
