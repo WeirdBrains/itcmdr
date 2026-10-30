@@ -299,13 +299,25 @@ JSON. The rest sounds good to me").
       built-in plugins on v1 in v0.11.0, and the app charts in v0.12.0.
     - **Tests:** schema validation (good and bad lines), helpers produce valid lines (Rust + Pester), ingest
       extracts metrics and counts rejects, and plugin logs are included in rotation and backup coverage.
+12. **Storage follow-ups** (Michael, Oct 30 2026):
+    - **Plaintext backup auto-delete (v0.6.2).** After migrating a pre-0.6 plaintext DB, the server reads the
+      encrypted DB back at its final path. When the per-table row counts match the plaintext source, the
+      `*.plaintext-backup` is overwritten with zeros, synced, deleted and logged. If verification fails, it is kept
+      and an error is logged. Overwriting is best effort: SSDs and copy-on-write filesystems may keep old blocks.
+    - **DB key escrow under the master key (v0.7.0).** `keys/db.key` is also stored wrapped for the master key, so
+      it can be recovered from the 24 words. Planned scheme: the master seed (from BIP39) derives an X25519 key
+      pair. The server stores only the public half. db.key is sealed with ephemeral X25519 + HKDF (SHA-256) +
+      XChaCha20-Poly1305 into `keys/db.key.escrow`, which also goes into the backup. Recovery on a replacement
+      machine: `itcmdr-cli master recover-db-key` takes the words, unwraps the key and protects it again with
+      DPAPI (or 0600 on Linux). The exact scheme is documented and tested in v0.7.0.
 
 ### Release breakdown
 
 | Tag | Scope |
 |---|---|
 | v0.6.0 | storage: data dir layout, SQLCipher DB, roles/users/clients tables, migration of the existing plaintext DB |
-| v0.7.0 | keys & auth: BIP39 words, master init (shown once), certified client/user keys, signed requests + roles; the shared token is retired once the new auth works (migration path documented) |
+| v0.6.2 | storage follow-up: verified migration deletes the plaintext backup (decision 12) |
+| v0.7.0 | keys & auth: BIP39 words, master init (shown once), certified client/user keys, signed requests + roles, db.key escrow under the master key + recovery (decision 12); the shared token is retired once the new auth works (migration path documented) |
 | v0.8.0 | itcmdr-cli: init, service register [--name], user add, key rotate/revoke |
 | v0.9.0 | packages: format, validation (exact file list, sha256, signature), quarantine, plugins install --url/--path, list/enable/disable/remove; log standard doc + validator + generic metrics ingest (decision 11) |
 | v0.10.0 | plugin runtime: PluginService gRPC, Rust crate, PowerShell module + host, Verify then Execute, Log on error, timeouts, on-demand + audit hooks; per-run log path + log/metric helpers |

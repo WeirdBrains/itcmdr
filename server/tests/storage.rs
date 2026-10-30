@@ -152,10 +152,12 @@ async fn migrates_legacy_plaintext_database() {
         .unwrap();
     pool.close().await;
     assert!(!legacy.exists());
-    assert!(tmp
-        .path()
-        .join("data/itcmdr.sqlite.plaintext-backup")
-        .exists());
+    assert!(
+        !tmp.path()
+            .join("data/itcmdr.sqlite.plaintext-backup")
+            .exists(),
+        "verified migration deletes the plaintext backup"
+    );
     assert!(!itcmdr_server::storage::is_plaintext_sqlite(
         &c.database_path()
     ));
@@ -182,7 +184,18 @@ async fn migrates_plaintext_in_place_for_an_explicit_database_path() {
         .unwrap();
     assert_eq!(n, 3);
     assert!(!itcmdr_server::storage::is_plaintext_sqlite(&p));
-    assert!(tmp.path().join("custom.db.plaintext-backup").exists());
+    assert!(!tmp.path().join("custom.db.plaintext-backup").exists());
+    let leftovers: Vec<_> = std::fs::read_dir(tmp.path())
+        .unwrap()
+        .filter_map(Result::ok)
+        .map(|e| e.file_name())
+        .collect();
+    assert!(
+        !leftovers
+            .iter()
+            .any(|n| n.to_string_lossy().contains("encrypting")),
+        "{leftovers:?}"
+    );
 }
 
 #[test]
@@ -197,4 +210,40 @@ fn data_dir_flag_beats_config() {
     c.data_dir_flag = Some("/from-flag".into());
     assert_eq!(c.layout().root, Path::new("/from-flag"));
     assert_eq!(c.database_path(), Path::new("/from-flag/itcmdr.database"));
+}
+
+#[tokio::test]
+async fn keeps_the_plaintext_backup_when_read_back_does_not_match() {
+    let tmp = tempfile::tempdir().unwrap();
+    let c = cfg(tmp.path());
+    let pool = itcmdr_server::db::init_db(&c).await.unwrap();
+    let real = itcmdr_server::db::table_counts_of(&pool).await.unwrap();
+    pool.close().await;
+    let key = itcmdr_server::storage::load_or_create_db_key(&c.layout()).unwrap();
+    let backup = tmp.path().join("old.plaintext-backup");
+    std::fs::write(&backup, b"plaintext").unwrap();
+
+    let mut wrong = real.clone();
+    wrong[0].1 += 1;
+    assert!(
+        !itcmdr_server::db::finish_migration(&c.database_path(), &backup, &key, &wrong)
+            .await
+            .unwrap()
+    );
+    assert!(backup.exists(), "kept on count mismatch");
+    assert!(
+        !itcmdr_server::db::finish_migration(&c.database_path(), &backup, &[9u8; 32], &real)
+            .await
+            .unwrap()
+    );
+    assert!(
+        backup.exists(),
+        "kept when the encrypted DB can't be read back"
+    );
+    assert!(
+        itcmdr_server::db::finish_migration(&c.database_path(), &backup, &key, &real)
+            .await
+            .unwrap()
+    );
+    assert!(!backup.exists(), "deleted after a verified read-back");
 }

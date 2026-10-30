@@ -117,8 +117,49 @@ pub async fn migrate_plaintext(target: &std::path::Path, key: &[u8; 32]) -> anyh
         let _ = std::fs::remove_file(side);
     }
     std::fs::rename(&tmp, target)?;
-    tracing::warn!(backup=%backup.display(), "plaintext database migrated; delete the plaintext backup once verified");
+    finish_migration(target, &backup, key, &counts_plain).await?;
     Ok(true)
+}
+
+/// Read the encrypted database back at its final path. When the per-table row counts match the
+/// plaintext source, the plaintext backup is overwritten and deleted (decision 12). Otherwise the
+/// backup is kept and a warning is logged. Returns true when the backup was removed.
+pub async fn finish_migration(
+    target: &std::path::Path,
+    backup: &std::path::Path,
+    key: &[u8; 32],
+    expected: &[(String, i64)],
+) -> anyhow::Result<bool> {
+    let readback = async {
+        let enc = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(encrypted_options(target, key)?)
+            .await?;
+        let c = table_counts(&enc).await;
+        enc.close().await;
+        c
+    }
+    .await;
+    match readback {
+        Ok(c) if c.as_slice() == expected => {
+            crate::storage::shred_file(backup)?;
+            tracing::warn!(backup=%backup.display(), "plaintext database migrated and verified; plaintext backup overwritten and deleted");
+            Ok(true)
+        }
+        Ok(c) => {
+            tracing::error!(backup=%backup.display(), ?expected, actual=?c, "encrypted database read-back mismatch; plaintext backup KEPT");
+            Ok(false)
+        }
+        Err(e) => {
+            tracing::error!(backup=%backup.display(), error=%e, "encrypted database read-back failed; plaintext backup KEPT");
+            Ok(false)
+        }
+    }
+}
+
+/// Per-table row counts (used to verify a migration).
+pub async fn table_counts_of(pool: &DbPool) -> anyhow::Result<Vec<(String, i64)>> {
+    table_counts(pool).await
 }
 
 async fn table_counts(pool: &DbPool) -> anyhow::Result<Vec<(String, i64)>> {
