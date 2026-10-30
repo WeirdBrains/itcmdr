@@ -25,6 +25,7 @@ if (-not (Test-Path -LiteralPath $agentPath)) {
 $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$agentPath`""
 # Time: setting agent.nightlyTime (site.json agent.nightlyTime, else central, else 01:30).
 $nightly = '01:30'
+$site = $null
 try {
   $env:ITCMDR_IMPORT_ONLY = '1'
   . $agentPath
@@ -34,14 +35,21 @@ try {
   $nightly = [string](Get-ItcmdrSetting -Site $site -Key 'agent.nightlyTime')
 } catch { Write-Warning "Using the default nightly time 01:30: $_" }
 $at = ConvertTo-ItcmdrNightlyTime -Time $nightly
-$trigger = New-ScheduledTaskTrigger -Daily -At ($at.AddSeconds($StaggerSeconds))
+$nightlyTrigger = New-ScheduledTaskTrigger -Daily -At ($at.AddSeconds($StaggerSeconds))
 $principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -RunLevel Highest -LogonType ServiceAccount
-$task = New-ScheduledTask -Action $action -Trigger $trigger -Principal $principal -Settings (New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable)
+$task = New-ScheduledTask -Action $action -Trigger $nightlyTrigger -Principal $principal -Settings (New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable)
 
 if ($PSCmdlet.ShouldProcess($taskName, 'Register-ScheduledTask')) {
   try {
     Register-ScheduledTask -TaskName $taskName -InputObject $task -Force | Out-Null
     Write-Output "Installed scheduled task '$taskName'"
+    # v0.11.0: after the cutover the task is a disabled fallback; an upgrade must keep it disabled.
+    $cutState = 'task'
+    try { if ($site) { $cutState = (Get-ItcmdrCutoverState -Site $site).State } } catch { $cutState = 'task' }
+    if ($cutState -eq 'schedule') {
+      Disable-ScheduledTask -TaskName $taskName | Out-Null
+      Write-Output "Kept '$taskName' disabled (cutover: the default schedule runs the nightly)"
+    }
   } catch {
     throw "Failed to register scheduled task: $_"
   }

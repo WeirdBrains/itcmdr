@@ -224,7 +224,10 @@ async fn grpc_end_to_end() {
     for a in ["trigger-runs", "exception-add", "exception-expire"] {
         assert!(actions.contains(&a), "missing audit {a}: {actions:?}");
     }
-    assert!(audit.iter().all(|e| e.actor == "tester"));
+    // Seeding the built-in schedules on start is the server's own entry.
+    assert!(audit.iter().all(
+        |e| e.actor == "tester" || (e.action == "schedule-seed" && e.actor == "itcmdr-server")
+    ));
 
     stop_tx.send(()).unwrap();
     tokio::time::timeout(Duration::from_secs(5), server)

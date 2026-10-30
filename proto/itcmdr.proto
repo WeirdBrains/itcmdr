@@ -242,10 +242,12 @@ message Schedule {
   bool builtin = 14;
   repeated int64 next_runs = 15;   // ms, next 3
   int64 last_fire = 16;
+  string builtin_key = 17;         // nightly-agent-run | nightly-backup (built-ins only)
+  string action = 18;              // "" = run checks/plugins; "backup" = server nightly backup
 }
 message SaveScheduleRequest { Schedule schedule = 1; }
 message ScheduleResponse { Schedule schedule = 1; }
-message ScheduleRef { string id = 1; bool force = 2; }   // id or name; force deletes a built-in
+message ScheduleRef { string id = 1; bool force = 2; string confirm = 3; }   // id or name; deleting a built-in needs force + confirm = its exact name
 message ListSchedulesRequest {}
 message ListSchedulesResponse { repeated Schedule schedules = 1; }
 message RunScheduleNowResponse { string outcome = 1; string request_id = 2; string note = 3; }
@@ -303,6 +305,7 @@ service Itcmdr {
   rpc ResumeSchedule(ScheduleRef) returns (ScheduleResponse);
   rpc RunScheduleNow(ScheduleRef) returns (RunScheduleNowResponse);
   rpc ListScheduleRuns(ListScheduleRunsRequest) returns (ListScheduleRunsResponse);
+  rpc ResetScheduleToDefault(ScheduleRef) returns (ScheduleResponse);   // built-ins: restore defaults (re-creates a deleted one)
   rpc StageRestore(StageRestoreRequest) returns (StageRestoreResponse);
   rpc GetRestoreStatus(GetRestoreStatusRequest) returns (GetRestoreStatusResponse);
   rpc WatchUpdates(WatchUpdatesRequest) returns (stream Update);

@@ -1,5 +1,48 @@
 # Changelog
 
+## v0.11.0 (2026-10-30)
+Built-in checks as plugins and the nightly run/backup as built-in schedules (decisions 10 and 14). No
+install is switched: the SYSTEM task stays the source of truth until `itcmdr-cli cutover switch` passes its gate.
+- Check library `agent/Itcmdr.Checks.ps1` (moved out of `Invoke-ItcmdrAgent.ps1`, same code). Five built-in
+  check plugins in `plugins/builtin/` call the same check functions, so ids, records, the clinical guard,
+  exceptions and report-only rules are unchanged; each check also gets an itcmdr.log/v1 line:
+  `itcmdr-network` (IP, server ports, PDATA share, printer 9100), `itcmdr-scanners`, `itcmdr-config` (DNS,
+  drive maps, printer queues + spooler, Sirona drift report-only), `itcmdr-backup-coverage`, `itcmdr-services`.
+  `plugins/builtin/Build-BuiltinPlugins.ps1` stages them (and signs them with `itcmdr-cli plugins pack`).
+- **Agents run only the plugin copies installed with the agent** (`{app}\agent\plugins`, also pushed by
+  `Push-Install-ItcmdrAgent.ps1`). Agents never download or copy plugins from the share or the network. Plugin
+  packages are fetched by the server only (plain HTTPS fetch, `ureq`, then signature + checksum validation).
+- Parallel report-only run (`agent.pluginMode` = auto): before the switch every nightly run first runs the plugin
+  versions report-only (pre-repair state), then the built-in checks as before, and writes a `parity` line
+  (matched, mismatched, errors). After the switch the plugins are the run, and a plugin that can't run falls
+  back to its built-in check function (`plugin-fallback` line).
+- Default schedules, seeded idempotently on every start/upgrade (and by `itcmdr-cli schedule|cutover`):
+  `Nightly agent run` (agent.nightlyTime, all machines, all categories, repair, office-hours guard; paused until
+  the switch) and `Nightly backup` (backup.hour, catch-up; replaces the hard-wired backup check). Editable and
+  pausable; deleting one needs `--force --confirm "<exact name>"` (gRPC: `force` + `confirm`) and is
+  remembered so upgrades don't re-create it; `itcmdr-cli schedule reset-to-default` / `ResetScheduleToDefault`.
+  Proto: `Schedule.builtin_key`, `Schedule.action`, `ScheduleRef.confirm`.
+- Cutover: `itcmdr-cli cutover status|vm-verified|switch|rollback`. `switch` needs the last 7 full days with
+  parity results and no mismatches/errors for every machine that ran, the Windows VM flag, and every recently
+  active machine reading `schedule-state.json` (written to the share every scheduler pass). `rollback` is the
+  one-command way back. Agents follow the state from the poller: the nightly task is disabled (never deleted)
+  after the switch and re-enabled on rollback; an agent reinstall keeps a disabled task disabled.
+  `Set-ItcmdrCutover.ps1 -To task|schedule|auto` is the local one-command rollback/pin.
+- Local fallback: after the switch, if no nightly ran `agent.fallbackGraceMinutes` (120) after agent.nightlyTime
+  and the server is unreachable (`schedule-state.json` older than `agent.serverStaleMinutes`, 15) or nothing
+  arrived, the poller runs the nightly locally (`trigger = fallback`). A schedule paused on purpose is respected.
+- Ingest: `parity` lines and the agent's cutover view (run-start `trigger`, `cutover`, `scheduleStateTs`,
+  `pluginMode`). DB schema 4 (`parity_runs`, `agent_state`).
+- Fixes: "local" schedules use the host's IANA zone (a daily 02:00 fired at 01:00 on the fall-back day with
+  chrono's Local on Windows); the agent no longer fails off-Windows when checking for SYSTEM;
+  `Install-ItcmdrAgent.ps1` no longer reuses the agent's `$Trigger` parameter name (found on the VM).
+- Tests: Rust 87 (seeding, defaults vs task settings, delete/confirm/reset, backup schedule, gate, switch,
+  rollback, DST); Pester 81 (plugin vs built-in record parity per check family, parity rules, cutover follow/pin,
+  server-down fallback, end-to-end runs before/after the switch and with plugins missing).
+- Windows VM (PS 5.1): Pester 81/81, upgrade, default schedules, SYSTEM nightly with parity 17/17, schedule
+  run-now with trigger=schedule, local switch/rollback, reinstall keeps the task disabled, server-down fallback,
+  share-offline queue and flush.
+
 ## v0.10.1 (2026-10-30)
 First Windows VM pass (Windows 11, Windows PowerShell 5.1), with fixes:
 - Agent logs: Windows PowerShell 5.1 wrote a UTF8 byte-order mark, so the server could not read the first line

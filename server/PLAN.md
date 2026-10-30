@@ -273,6 +273,8 @@ JSON. The rest sounds good to me").
     - **Clean migration, no gap in nightly coverage:** the plugin versions first run side by side with the
       current nightly task in report-only mode and their results are compared. The scheduled task switches
       over only after matching results, and the old script stays as a fallback until one full week is clean.
+    - **Status:** ✅ v0.11.0 (five plugins over `agent/Itcmdr.Checks.ps1`, parity on every nightly, gated
+      cutover). No install switched yet; see "Notes from the v0.11.0 build".
 11. **Plugin logging and a structured log standard** (Michael, Oct 30 2026: "When a plugin logs, I want to
     give it a path to log to so that we can back them up and gather metrics from them... Maybe we should have a
     log standard for structured logs.").
@@ -389,7 +391,7 @@ JSON. The rest sounds good to me").
       guard, RPC roles and audit.
     - **Release:** server, gRPC and CLI in v0.10.0 (next to the plugin runtime, so "specific plugins" can be
       targeted); app screen in v0.12.0. No version shift.
-    - **Status:** ✅ server, gRPC and CLI done in v0.10.0; built-in schedules v0.11.0, app v0.12.0.
+    - **Status:** ✅ server, gRPC and CLI done in v0.10.0; built-in schedules, gated cutover, rollback and local fallback done in v0.11.0 (no install switched yet); app v0.12.0.
 
 15. **Configurable paths** (Michael, Oct 30 2026: backup paths must be preferences he can set, not hard-coded).
     - **Agent:** site.json `paths.localLogs` (default `C:\maintenanceRuns`: run logs, local `requests\`) and
@@ -428,6 +430,11 @@ JSON. The rest sounds good to me").
       - **Tests:** defaults equal current behaviour, overrides apply, bad values rejected, RPC roles + audit,
         the agent picks up centrally served settings.
       - **Built in v0.9.1:** see the notes below and `docs/SETTINGS.md`.
+
+16. **Agents run only shipped plugin copies** (agreed Oct 30 2026, Michael: plugin downloads must be a plain
+    HTTPS fetch by the server only). Agents run the built-in plugins installed next to the agent scripts and
+    never download or copy plugins (the share is writable by every PC). Packages are fetched over HTTPS and run
+    by the server only. A signed index for distributing plugins to agents is deferred. **Status:** ✅ v0.11.0.
 
 ### Notes from the v0.9.0 build
 
@@ -487,6 +494,33 @@ JSON. The rest sounds good to me").
   deferred to the app work in v0.12.0). Health = DB opens, schema matches, integrity_check, gRPC answers.
   Test hook `ITCMDR_RESTORE_FORCE_HEALTH_FAIL`.
 
+### Notes from the v0.11.0 build
+- **Decision 16: agents run only the plugin copies installed with the agent** (agreed Oct 30 2026). Every PC can
+  write to the maintenanceRuns share, so a share copy checked against a hash list on the same share would let one
+  compromised workstation plant code that runs as SYSTEM everywhere. Agents run `{app}\agent\plugins\<name>` (or
+  `plugins/builtin/<name>` in a source tree) and never download or copy plugins. Plugin packages are fetched by the
+  server only, as a plain HTTPS fetch (`ureq` in `packages.rs`; `http://` stays for loopback tests), then validated
+  (exact file list, sha256, signature) before install. A signed share index for agents is deferred.
+- **Decision 10, as built:** the check library moved to `agent/Itcmdr.Checks.ps1` unchanged; five plugins
+  (`itcmdr-network`, `itcmdr-scanners`, `itcmdr-config`, `itcmdr-backup-coverage`, `itcmdr-services`) follow the
+  existing function boundaries, so DNS/drive maps/printers/Sirona drift are one plugin (`itcmdr-config`). Each
+  plugin bundles the library, runs as a child PowerShell process with the plugin protocol (stdin JSON,
+  `ITCMDR-RESULT`), and writes both the agent-format records (into the nightly log, so ingest/metrics/history are
+  unchanged) and itcmdr.log/v1 lines. The poller and rotation stay scheduled scripts.
+- **Parity rule:** plugin versions run first, report-only, so both sides see the pre-repair state; statuses are
+  compared as "seen before repair" (fail/repaired → fail, ok/excepted → ok, skipped); a check missing on one side
+  is a mismatch. One `parity` line per run; the gate needs 7 full days with no mismatches or plugin errors for
+  every machine that ran.
+- **Decision 14, as built:** the backup became the `Nightly backup` schedule (`action = backup`, catch-up, skipped
+  quietly before `init`); `backup.nightly`/`backup.hour` are now its seed defaults. The agent schedule is seeded
+  paused (the task is the source of truth) and is enabled by `cutover switch`. Agents learn the state from
+  `<share>/schedule-state.json`; a pinned local state (`Set-ItcmdrCutover.ps1`) wins. Known limit: that file is on
+  the writable share, so a compromised PC could forge it; the worst case is a missed or local nightly run (no code
+  runs from it), and the local fallback still runs when nothing arrives. Signing it is deferred with the share index.
+- **Found on the VM:** `Install-ItcmdrAgent.ps1` dot-sources the agent, whose new `[ValidateSet] $Trigger`
+  parameter collided with the script's `$trigger` task trigger (re-registration failed); renamed and guarded by a
+  test. chrono's `Local` on Windows put a daily 02:00 at 01:00 on the fall-back day; "local" now uses the IANA zone.
+
 ### Notes from the v0.10.1 Windows VM pass
 
 - Windows PowerShell 5.1's `-Encoding UTF8` writes a BOM; the agent writes through `UTF8Encoding($false)` and the
@@ -531,6 +565,6 @@ JSON. The rest sounds good to me").
 | v0.9.1 | settings everywhere (decision 15 widened): typed Settings registry + `ListSettings`/`UpdateSetting` (+ backup `GetSettings`/`UpdateSettings`), runtime wiring, plugins enabled on install, `itcmdr-cli config list`, central agent settings (global + per machine) with site.json as local override, `docs/SETTINGS.md`, basic app Settings screen |
 | v0.10.0 ✅ | app-triggered restore server side (decision 13: StageRestore, restore helper, status, health-check rollback); plugin runtime: PluginService gRPC, Rust crate, PowerShell module + host, Verify then Execute, Log on error, timeouts, on-demand + audit hooks; per-run log path + log/metric helpers; log standard doc + validator + generic metrics ingest (decision 11, moved from v0.9.0); scheduled runs: server scheduler, schedule RPCs, `itcmdr-cli schedule` (decision 14) |
 | v0.10.1 ✅ | first Windows VM pass: BOM-safe agent logs + ingest, zipped plugin logs skipped, installer compiles, app exe name, PS 5.1 test fixes, `itcmdr-cli restore-stage` / `restore-status` |
-| v0.11.0 | built-in checks as plugins: the existing agent checks/repairs rebuilt as service plugins and run through the plugin system (decision 10), logging in itcmdr.log/v1; nightly agent task and nightly backup as built-in schedules (decision 14, no-gap rule) |
+| v0.11.0 ✅ | built-in checks as plugins: the existing agent checks/repairs rebuilt as service plugins and run through the plugin system (decision 10), logging in itcmdr.log/v1; nightly agent task and nightly backup as built-in schedules (decision 14, no-gap rule); agents run only shipped plugin copies (decision 16) |
 | v0.12.0 | Flutter: Service Plugins section, app registration, user/key management, plugin metric charts, Backup & Restore screen, Schedules screen; app signs requests, default auth_mode -> signed |
 | v0.13.0 | installer: first-run master setup showing the words once; Windows VM test items in the handover |

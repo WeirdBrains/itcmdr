@@ -34,7 +34,15 @@ pub struct Spec {
     pub missed: String,
     /// Built-in schedules (v0.11.0) can't be deleted by accident.
     pub builtin: bool,
+    /// Which built-in default this is (`nightly-agent-run`, `nightly-backup`); empty otherwise.
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub builtin_key: String,
+    /// "" = queue a run (categories/plugins); "backup" = take the nightly server backup.
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub action: String,
 }
+
+pub const ACTIONS: [&str; 2] = ["", "backup"];
 
 pub const GUARDS: [&str; 3] = ["report-only-in-hours", "skip-in-hours", "none"];
 pub const MISSED: [&str; 2] = ["skip", "catch-up"];
@@ -107,8 +115,18 @@ pub fn to_cron(when: &str) -> Result<String> {
 pub fn next_times(spec: &Spec, after: DateTime<Utc>, n: usize) -> Result<Vec<DateTime<Utc>>> {
     let s = cron::Schedule::from_str(&to_cron(&spec.when)?).map_err(|e| anyhow!("{e}"))?;
     let tz = spec.timezone.trim();
+    // "local" = the host's IANA zone when it can be named: chrono's Local on Windows put a
+    // 02:00 run at 01:00 on the fall-back day (seen on the Windows VM, v0.11.0).
+    let local_zone = || {
+        iana_time_zone::get_timezone()
+            .ok()
+            .and_then(|n| n.parse::<chrono_tz::Tz>().ok())
+    };
     Ok(if tz.is_empty() || tz.eq_ignore_ascii_case("local") {
-        first_of_repeats(&s, &after.with_timezone(&chrono::Local), n)
+        match local_zone() {
+            Some(z) => first_of_repeats(&s, &after.with_timezone(&z), n),
+            None => first_of_repeats(&s, &after.with_timezone(&chrono::Local), n),
+        }
     } else {
         let z: chrono_tz::Tz = tz.parse().map_err(|_| anyhow!("unknown timezone {tz:?}"))?;
         first_of_repeats(&s, &after.with_timezone(&z), n)
@@ -216,6 +234,19 @@ pub fn validate(name: &str, s: &mut Spec) -> Result<()> {
     }
     to_cron(&s.when)?;
     next_times(s, Utc::now(), 1)?;
+    if !ACTIONS.contains(&s.action.as_str()) {
+        bail!("action must be one of {ACTIONS:?}");
+    }
+    if s.action == "backup" {
+        // Runs on the server: no machines, categories or plugins.
+        s.all_machines = false;
+        s.machines.clear();
+        s.groups.clear();
+        s.categories.clear();
+        s.plugins.clear();
+        s.repair = false;
+        return Ok(());
+    }
     let targets =
         s.all_machines as u8 + (!s.machines.is_empty()) as u8 + (!s.groups.is_empty()) as u8;
     if s.plugins.is_empty() && targets != 1 {
@@ -301,6 +332,11 @@ pub async fn update(
         .unwrap_or(&cur.name)
         .to_string();
     spec.builtin = cur.spec.builtin;
+    spec.builtin_key = cur.spec.builtin_key.clone();
+    if cur.spec.builtin {
+        // A built-in keeps what it does; timing, targets, categories, repair and guard stay editable.
+        spec.action = cur.spec.action.clone();
+    }
     validate(&name, &mut spec)?;
     // A changed timing starts counting from now (no burst of "missed" runs).
     let last = if spec.when != cur.spec.when || spec.timezone != cur.spec.timezone {
@@ -321,11 +357,24 @@ pub async fn update(
     get(pool, &cur.id).await
 }
 
-pub async fn delete(pool: &DbPool, id: &str, force: bool) -> Result<Schedule> {
+/// Delete. A built-in needs `force` plus `confirm` = its exact name (callers check owner/admin) and is
+/// then remembered as deleted, so upgrades don't re-seed it (`reset-to-default` brings it back).
+pub async fn delete(
+    pool: &DbPool,
+    id: &str,
+    force: bool,
+    confirm: Option<&str>,
+) -> Result<Schedule> {
     let s = get(pool, id).await?;
     if s.spec.builtin && !force {
         bail!(
-            "{} is a built-in schedule: pause it instead (or delete with force)",
+            "{} is a built-in schedule: pause it instead (or delete with force, owner/admin only)",
+            s.name
+        );
+    }
+    if s.spec.builtin && confirm != Some(s.name.as_str()) {
+        bail!(
+            "{} is a built-in schedule: deleting it needs the confirm set to its exact name (pausing is usually what you want)",
             s.name
         );
     }
@@ -333,6 +382,9 @@ pub async fn delete(pool: &DbPool, id: &str, force: bool) -> Result<Schedule> {
         .bind(&s.id)
         .execute(pool)
         .await?;
+    if s.spec.builtin && !s.spec.builtin_key.is_empty() {
+        crate::cutover::mark_deleted(pool, &s.spec.builtin_key, true).await?;
+    }
     Ok(s)
 }
 
@@ -441,6 +493,28 @@ pub async fn fire(
     apply_guard: bool,
 ) -> Result<(String, Option<String>, String)> {
     let mut notes = vec![reason.to_string()];
+    if s.spec.action == "backup" {
+        if !matches!(crate::auth::master_public(pool).await, Ok(Some(_))) {
+            // Like the old loop: nothing to encrypt for before `init`; no audit noise.
+            let note = format!("{reason}; skipped: not initialized yet (itcmdr-cli init)");
+            record(pool, &s.id, due_ms, None, "skipped", &note).await?;
+            return Ok(("skipped".into(), None, note));
+        }
+        let (o, note) = match crate::backup::nightly_now(pool, cfg).await {
+            Ok(n) => ("done", format!("{reason}; {n}")),
+            Err(e) => ("failed", format!("{reason}; {e:#}")),
+        };
+        record(pool, &s.id, due_ms, None, o, &note).await?;
+        let _ = crate::db::insert_audit(
+            pool,
+            actor,
+            "schedule-fire",
+            &serde_json::json!({"schedule": s.name, "id": s.id, "outcome": o, "note": note})
+                .to_string(),
+        )
+        .await;
+        return Ok((o.into(), None, note));
+    }
     if let Some(r) = active_request(pool, &s.id).await? {
         let note = format!("previous run {r} still active");
         record(pool, &s.id, due_ms, None, "skipped", &note).await?;

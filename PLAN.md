@@ -41,8 +41,8 @@ also covered by the Windows VM test pass below.
 | v0.9.0 | Packages: format, validation, signature, quarantine, plugins install/list/enable/disable/remove, plugins in backups | ✅ Done | `v0.9.0` (073671d) | 2026-10-30 |
 | v0.9.1 | Settings everywhere: typed Settings API, central agent settings, `docs/SETTINGS.md`, basic app Settings screen; validated plugins enabled on install | ✅ Done | `v0.9.1` (4e66a71) | 2026-10-30 |
 | v0.10.0 | Plugin runtime, log standard, scheduled runs (server, gRPC, CLI), app-triggered restore (server side) | ✅ Done | `v0.10.0` (faa2ae6) | 2026-10-30 |
-| v0.10.1 | First Windows VM pass + fixes (BOM in agent logs, installer compile, app exe name, PS 5.1 tests), `itcmdr-cli restore-stage` | ✅ Done | `v0.10.1` | 2026-10-30 |
-| v0.11.0 | Built-in checks as plugins; nightly task + backup as built-in schedules | 📋 Planned | — | — |
+| v0.10.1 | First Windows VM pass + fixes (BOM in agent logs, installer compile, app exe name, PS 5.1 tests), `itcmdr-cli restore-stage` | ✅ Done | `v0.10.1` (2366819) | 2026-10-30 |
+| v0.11.0 | Built-in checks as plugins (parallel report-only, parity); nightly run + backup as built-in schedules; gated cutover, rollback, local fallback | ✅ Done | `v0.11.0` | 2026-10-30 |
 | v0.12.0 | Flutter: Service Plugins, registration, users/keys, plugin metric charts, Backup & Restore (incl. restore with the words), Schedules, signed requests | 📋 Planned | — | — |
 | v0.13.0 | Installer: first-run master setup (words shown once); VM test items | 📋 Planned | — | — |
 
@@ -50,7 +50,7 @@ also covered by the Windows VM test pass below.
 
 | Item | Status | Notes |
 |---|---|---|
-| Windows VM test pass | 🔄 First pass done (v0.10.1) | Server, installer, agent, plugins, schedules, backup/restore verified on Windows 11 / PS 5.1; still to do: app UI on Windows, a second PC, share-offline queue. Results in docs/HANDOVER.md |
+| Windows VM test pass | 🔄 Second pass done (v0.11.0) | v0.10.1: server, installer, agent, plugins, schedules, backup/restore; v0.11.0: plugin parity, default schedules, cutover/rollback/fallback, share-offline queue. Still to do: app UI on Windows, a second PC. Results in docs/HANDOVER.md |
 | GitHub Actions installer builds | ⛔ Blocked | Org billing ("payments failed / spending limit"). Workaround in use: the installer builds on the Windows test VM (v0.10.1) |
 | Real site values in site.json | 📋 Pending (on-site) | Scanners (incl. the 3D unit + exception), DNS records, drive maps, printer queues, Sirona config paths, stale patterns, backup tasks/destinations. See HANDOVER.local.md |
 | Delete the plaintext DB backup after the v0.6 migration | ✅ Done (decided) | Decision 12: deleted automatically after a verified read-back (v0.6.2); kept if verification fails |
@@ -58,7 +58,7 @@ also covered by the Windows VM test pass below.
 | Backup & restore | 🔄 Core done (v0.8.0) | Decision 13: DB + escrow + config, CLI, RPCs, nightly + retention in v0.8.0; plugins in v0.9.0; app-triggered restore (`StageRestore` + restore helper + health-check rollback) server side done in v0.10.0; app Backup & Restore screen in v0.12.0 |
 | All hard-coded values as settings | ✅ Done (v0.9.1) | Decision 15 widened: 29 typed settings (`docs/SETTINGS.md`), `ListSettings`/`UpdateSetting`, `itcmdr-cli config`, central `agent-settings.json`, basic app screen; full app section in v0.12.0 |
 | Configurable paths | ✅ Done (v0.8.1) | Decision 15: agent `paths.localLogs`/`agentData`, installer LocalLogs, backup settings in the DB via RPC + `itcmdr-cli config` |
-| Scheduled runs | 🔄 Server done (v0.10.0) | Decision 14: server scheduler + RPCs + `itcmdr-cli schedule` done in v0.10.0; built-in schedules with v0.11.0, app screen in v0.12.0 |
+| Scheduled runs | 🔄 Server + defaults done (v0.11.0) | Decision 14: server scheduler + RPCs + `itcmdr-cli schedule` done in v0.10.0; built-in schedules + gated cutover done in v0.11.0, app screen in v0.12.0 |
 | Backup retention by 4-week blocks | ✅ Done (v0.8.1) | 7 daily, 4 weekly, 13 four-week blocks (ISO weeks 4N-3..4N) instead of 12 months |
 | Plugins enabled on install | ✅ Done (v0.9.1) | A validated package is enabled on install (other versions disabled); `--disabled` opts out; setting `plugins.enable_on_install` (default true); failures still quarantine |
 | Signing canonical encoding | 🔄 Rust done (v0.8.0) | `docs/SIGNING.md`, `proto/signing_vectors.json`; the Dart test against the same vectors lands with app signing (v0.12.0) |
@@ -181,15 +181,17 @@ also covered by the Windows VM test pass below.
 - [x] `itcmdr-cli plugins run|runs`; plugin logs in the weekly rotation and server backups
 - [x] Tests: PS host stages + verify-fail + Log + v1 lines, bin plugins, bad handshake, metrics + rejects, on-demand plugin requests, scheduler (fire, concurrency, missed skip/catch-up, guard, groups, DST), schedule RPC roles + audit + CLI, restore done + forced rollback + roles + wrong words, Pester module + rotation
 
-### v0.11.0 Built-in checks as plugins 📋
-- [ ] Network, connectivity, scanner, DNS, drive maps, printers, Sirona drift, backup coverage as signed plugins
-- [ ] Existing Pester tests pass against the plugin versions
-- [ ] Clinical guard, exceptions, report-only rules unchanged; logging in `itcmdr.log/v1`
-- [ ] Side-by-side report-only run, switch-over, one clean week before retiring the old script
-- [ ] Default schedules seeded on every install/upgrade (idempotent): nightly agent run matching the current task, nightly backup; editable/pausable, delete needs owner/admin + confirm, reset-to-default (decision 14)
-- [ ] Safe cutover: task stays source of truth, default schedule report-only in parallel; switch after one matching week + Windows VM verification + agent sees schedules active
-- [ ] After switch: task kept disabled as fallback, one-command rollback; agent runs locally if the server is unreachable
-- [ ] Tests: idempotent seeding, defaults match task settings, cutover gating, server-down fallback, rollback
+### v0.11.0 Built-in checks as plugins ✅
+Agreed 2026-10-30: agents run only the plugin copies shipped with the agent, never copies pulled from the share or the network; plugin packages are fetched (HTTPS) and run by the server only. A signed share index is deferred.
+- [x] Network/connectivity, scanners, config (DNS, drive maps, printers, Sirona drift), backup coverage, services as five plugins over one shared check library
+- [x] Pester: plugin versions give the same records as the built-in functions (scanners incl. exception and role filter, Sirona drift, backup coverage, network, services)
+- [x] Clinical guard, exceptions, report-only rules unchanged; one itcmdr.log/v1 line per check
+- [x] Side-by-side report-only run on every nightly with a `parity` line; switch gated on 7 clean days; built-in functions stay as per-plugin fallback
+- [x] Default schedules seeded on every start/upgrade (idempotent); editable/pausable; delete needs owner/admin + `--confirm <name>` and is remembered; reset-to-default
+- [x] Safe cutover: task stays source of truth, agent schedule paused; `cutover switch` needs 7 clean parity days + VM flag + agents reading `schedule-state.json`
+- [x] After switch: task disabled (kept), `itcmdr-cli cutover rollback` / `Set-ItcmdrCutover.ps1 -To task`; poller runs locally when the server is unreachable
+- [x] Tests: Rust (seeding, defaults, delete/reset, backup schedule, gate, switch/rollback, DST) and Pester (parity, cutover, fallback, end to end); Windows VM under PS 5.1
+- [ ] Real installs: collect a week of parity, then `cutover vm-verified` + `cutover switch` (on site, by Michael)
 
 ### v0.12.0 Flutter 📋
 - [ ] Service Plugins section (import, enable/disable, view)

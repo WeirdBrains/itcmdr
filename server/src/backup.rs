@@ -519,19 +519,12 @@ pub fn prune(dir: &Path, cfg: &crate::config::BackupConfig) -> Result<Vec<String
 }
 
 /// Background loop hook: take tonight's backup when due, then prune. Errors are logged.
-pub async fn nightly(pool: &DbPool, cfg: &ServerConfig) {
-    let Ok(bc) = crate::settings::effective_backup(pool, cfg).await else {
-        return;
-    };
-    if !bc.nightly {
-        return;
-    }
-    let now = chrono::Local::now();
-    if now.hour_() < bc.hour {
-        return;
-    }
+/// Take today's nightly backup unless one exists for today, then prune. Run by the built-in
+/// `nightly-backup` schedule (v0.11.0; it replaced the hard-wired hourly check). Returns a note.
+pub async fn nightly_now(pool: &DbPool, cfg: &ServerConfig) -> Result<String> {
+    let bc = crate::settings::effective_backup(pool, cfg).await?;
     let dir = bc.dir.clone().unwrap_or_else(|| cfg.layout().backups());
-    let today = now.format("%Y-%m-%d").to_string();
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
     let done = std::fs::read_dir(&dir)
         .map(|rd| {
             rd.flatten().any(|e| {
@@ -542,32 +535,23 @@ pub async fn nightly(pool: &DbPool, cfg: &ServerConfig) {
         })
         .unwrap_or(false);
     if done {
-        return;
+        return Ok(format!("a nightly backup for {today} exists"));
     }
-    match auth::master_public(pool).await {
-        Ok(Some(_)) => {}
-        _ => return, // not initialized yet: nothing can be encrypted
+    if !matches!(auth::master_public(pool).await, Ok(Some(_))) {
+        bail!("not initialized yet (itcmdr-cli init): nothing can be encrypted");
     }
-    match create(pool, cfg, "nightly", None).await {
-        Ok(b) => {
-            tracing::info!(archive=%b.path.display(), size=b.size, "nightly backup written");
-            match prune(&dir, &bc) {
-                Ok(d) if !d.is_empty() => tracing::info!(deleted=?d, "old backups pruned"),
-                Ok(_) => {}
-                Err(e) => tracing::warn!(error=%e, "backup retention failed"),
-            }
-        }
-        Err(e) => tracing::warn!(error=%e, "nightly backup failed"),
+    let b = create(pool, cfg, "nightly", None).await?;
+    tracing::info!(archive=%b.path.display(), size=b.size, "nightly backup written");
+    let mut note = format!(
+        "written {}",
+        b.path.file_name().unwrap_or_default().to_string_lossy()
+    );
+    match prune(&dir, &bc) {
+        Ok(d) if !d.is_empty() => note.push_str(&format!("; pruned {}", d.len())),
+        Ok(_) => {}
+        Err(e) => tracing::warn!(error=%e, "backup retention failed"),
     }
-}
-
-trait HourExt {
-    fn hour_(&self) -> u32;
-}
-impl HourExt for chrono::DateTime<chrono::Local> {
-    fn hour_(&self) -> u32 {
-        chrono::Timelike::hour(self)
-    }
+    Ok(note)
 }
 
 #[derive(Debug, Default, Serialize)]
