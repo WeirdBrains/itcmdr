@@ -6,10 +6,19 @@ untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committ
 
 ## Current state (updated 2026-10-30)
 
-- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.4.0** (metrics/charts + log search). See `CHANGELOG.md`.
+- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.5.0** (backup coverage, stale locks/timeouts, gRPC integration test). See `CHANGELOG.md`.
 - Everything passes on the Linux dev box (Rust, Flutter, Pester, PSScriptAnalyzer, scanner).
 - **Nothing has run on Windows yet** (installer, service, scheduled tasks, agent on a real PC).
 - GitHub release builds are blocked by org billing (see Risks), so there is no installer artifact yet.
+
+## Done (v0.5.0)
+
+- Agent: `Invoke-ItcmdrBackupCheck` + `Test-ItcmdrBackupTask` / `Test-ItcmdrBackupDestination`
+  (`site.backup.{expectedBackupSources -> BACKUP-SRC-A.., tasks, destinations}`; server role unless an entry lists `roles`).
+  `agent/Report-BackupCoverage.ps1` reuses them. Tests: `agent/tests/Backup.Tests.ps1`.
+- Poller: `Invoke-ItcmdrPoll -StaleLockMinutes` (default 150, above the task's 2h limit).
+- Server: `requests.rs::apply_timeout`, config `request_timeout_secs` (default 10800), status `TIMED_OUT`.
+- `server/tests/grpc.rs`: end-to-end over real gRPC (client codegen is now on in `server/build.rs`).
 
 ## Done (v0.4.0)
 
@@ -53,7 +62,7 @@ untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committ
 
 ## In progress
 
-- Nothing mid-way. Next: backlog #5 (backup coverage), then #6, #7 -> v0.5.0. Backlog #1 still pending (VM).
+- Nothing mid-way. Remaining: backlog #1 (Windows VM test, pending) and #8 (Actions billing / Windows installer build).
 
 ## Backlog (in order)
 
@@ -61,9 +70,9 @@ untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committ
 2. ~~Missing agent checks~~ done in v0.3.0. Real values must be added to the site.json on Windows hosts.
 3. ~~Flapping/repeat-offender metrics, charts~~ done in v0.4.0.
 4. ~~Log search filters and paging~~ done in v0.4.0.
-5. Real backup-coverage check (`agent/Report-BackupCoverage.ps1`). (S)
-6. Poller: clear stale locks after a crash; server: time out requests nobody answers. (S)
-7. gRPC integration test against a running server. (S)
+5. ~~Backup coverage~~ done in v0.5.0. Real task names/destinations: see HANDOVER.local.md → Real-site notes.
+6. ~~Stale locks, request timeouts~~ done in v0.5.0.
+7. ~~gRPC integration test~~ done in v0.5.0.
 8. Unblock GitHub Actions (billing) or build the installer on a Windows machine.
 
 ## Build and test (Linux dev box)

@@ -100,13 +100,14 @@ impl Itcmdr for ItcmdrService {
     async fn get_request_status(&self, req: Request<GetRequestStatusRequest>) -> Result<Response<GetRequestStatusResponse>, Status> {
         let id = req.into_inner().request_id;
         // Fold in any new responses before answering.
-        let _ = crate::requests::sync_requests(&self.pool, &self.cfg.responses_dir()).await;
+        let _ = crate::requests::sync_requests(&self.pool, &self.cfg.responses_dir(), self.cfg.request_timeout_ms()).await;
         let (status, message) = crate::db::get_request_status(&self.pool, &id).await.map_err(internal_err)?;
         let mapped = match status.as_str() {
             "queued" => request_status::Status::Queued,
             "running" => request_status::Status::Running,
             "done" => request_status::Status::Done,
             "failed" => request_status::Status::Failed,
+            "timed_out" => request_status::Status::TimedOut,
             _ => request_status::Status::Unknown,
         } as i32;
         Ok(Response::new(GetRequestStatusResponse { status: mapped, message }))

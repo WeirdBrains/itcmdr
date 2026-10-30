@@ -37,6 +37,7 @@ message RequestStatus {
     RUNNING = 2;
     DONE = 3;
     FAILED = 4;
+    TIMED_OUT = 5;  // nobody finished within request_timeout_secs
   }
   Status status = 1;
   string message = 2;
@@ -114,7 +115,7 @@ message SearchLogsResponse {
 message AuditEntry {
   int64 ts = 1;        // unix millis
   string actor = 2;
-  string action = 3;   // "trigger-runs", "exception-save", "exception-expire"
+  string action = 3;   // "trigger-runs", "exception-add", "exception-edit", "exception-expire"
   string detail = 4;   // JSON
 }
 message ListAuditRequest { int32 limit = 1; }

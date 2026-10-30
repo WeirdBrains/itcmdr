@@ -315,9 +315,10 @@ pub async fn get_request_status(pool: &DbPool, request_id: &str) -> anyhow::Resu
 }
 
 /// Requests still in flight: (id, options_json).
-pub async fn pending_requests(pool: &DbPool) -> anyhow::Result<Vec<(String, String)>> {
-    let rows = sqlx::query("SELECT request_id, options_json FROM requests WHERE status IN ('queued','running')").fetch_all(pool).await?;
-    Ok(rows.into_iter().map(|r| (r.get("request_id"), r.get("options_json"))).collect())
+/// (request_id, options_json, created_ts_ms) of queued/running requests.
+pub async fn pending_requests(pool: &DbPool) -> anyhow::Result<Vec<(String, String, i64)>> {
+    let rows = sqlx::query("SELECT request_id, options_json, created_ts_ms FROM requests WHERE status IN ('queued','running')").fetch_all(pool).await?;
+    Ok(rows.into_iter().map(|r| (r.get("request_id"), r.get("options_json"), r.get("created_ts_ms"))).collect())
 }
 
 pub async fn set_request_status(pool: &DbPool, request_id: &str, status: &str, message: &str) -> anyhow::Result<bool> {

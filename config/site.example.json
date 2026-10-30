@@ -107,6 +107,25 @@
       "\\\\SERVER01\\DATA\\maintenanceRuns\\archive\\weekly",
       "\\\\SERVER01\\DATA\\maintenanceRuns\\archive\\blocks",
       "\\\\SERVER01\\DATA\\maintenanceRuns\\archive\\yearly"
+    ],
+    "tasks": [
+      {
+        "name": "ExampleVendor SQL Backup",
+        "maxAgeHours": 26
+      },
+      {
+        "name": "ExampleVendor DB Backup",
+        "maxAgeHours": 26
+      }
+    ],
+    "destinations": [
+      {
+        "name": "NIGHTLY",
+        "path": "\\\\SERVER01\\Backups\\Nightly",
+        "pattern": "*.bak",
+        "maxAgeHours": 26,
+        "minBytes": 1048576
+      }
     ]
   },
   "stalePatterns": [

@@ -48,6 +48,17 @@ if (`$Categories -contains 'boom') { throw 'agent failed' }
     @(Get-ChildItem $req -Filter '*.lock').Count | Should -Be 0
   }
 
+  It 'skips a request locked by a live poller but reclaims a stale lock' {
+    Set-Content -LiteralPath (Join-Path $req 'r9.json') -Value '{"machines":["WS-01"]}'
+    $lock = Join-Path $req 'r9.json.WS-01.lock'
+    New-Item -ItemType File -Path $lock | Out-Null
+    Invoke-ItcmdrPoll -RequestDirectory $req -Computer 'WS-01' -AgentPath $agent | Should -Be 0
+    (Get-Item $lock).LastWriteTimeUtc = (Get-Date).ToUniversalTime().AddHours(-3)
+    Invoke-ItcmdrPoll -RequestDirectory $req -Computer 'WS-01' -AgentPath $agent | Should -Be 1
+    (Get-Content (Join-Path $root 'responses/r9.WS-01.json') -Raw | ConvertFrom-Json).status | Should -Be 'done'
+    Test-Path $lock | Should -BeFalse
+  }
+
   It 'ignores requests for other machines and lets every machine answer an all-machines request' {
     Set-Content -LiteralPath (Join-Path $req 'r2.json') -Value '{"machines":["WS-09"]}'
     Set-Content -LiteralPath (Join-Path $req 'r3.json') -Value '{"machines":[]}'
