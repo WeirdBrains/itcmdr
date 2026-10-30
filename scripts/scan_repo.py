@@ -18,8 +18,9 @@ IPV4_RE = re.compile(
     r"\b(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)\b"
 )
 
-# For hostnames: disallow *.local except example.local
-LOCAL_DOMAIN_RE = re.compile(r"\b(?!example\.local)[A-Za-z0-9-]+\.local\b", re.IGNORECASE)
+# For hostnames: disallow *.local except example.local and local-only file names
+# such as site.local.json / banned.local.txt / *.local.md
+LOCAL_DOMAIN_RE = re.compile(r"\b(?!example\.local)[A-Za-z0-9-]+\.local\b(?!\.(?:json|txt|md)\b)", re.IGNORECASE)
 
 # Heuristic hostnames like UPPER-ALNUM with a dash and at least one digit in the suffix
 # Examples (placeholders only): WS-01, HOST-1A2B3

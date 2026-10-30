@@ -1,0 +1,104 @@
+# itcmdr handover notes
+
+Keep this file current: update it at the start of each work item and in every commit.
+Placeholders only (SERVER01, WS-01, RCU-01, 198.51.100.x). Real site notes go in the
+untracked mirror `../itcmdr-HANDOVER.local.md` (next to this repo, never committed).
+
+## Current state (updated 2026-10-30)
+
+- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.2.0** (`6f3b76b`).
+- Everything passes on the Linux dev box (Rust, Flutter, Pester, PSScriptAnalyzer, scanner).
+- **Nothing has run on Windows yet** (installer, service, scheduled tasks, agent on a real PC).
+- GitHub release builds are blocked by org billing (see Risks), so there is no installer artifact yet.
+
+## Done (v0.2.0)
+
+- Server (`server/src`): idempotent timestamp-correct ingest incl. nested zips (`ingest.rs::ingest_all`),
+  incident dedup (`db.rs::update_incidents_for_check`), ISO-aligned metrics/rollups daily/weekly/
+  4-week block/ISO yearly (`metrics.rs`), Windows service + console mode (`main.rs`), on-demand
+  status from poller responses (`requests.rs`), exceptions format/validation/export
+  (`exceptions.rs`), token auth + audit log + ListAudit (`api.rs`), 400-day retention (`db.rs::apply_retention`).
+- Agent (`agent/`): PS 5.1-compatible; exceptions from site.json + server export; `-Categories`,
+  `-Repair`; poller with per-machine locks and responses; rotation weekly -> 4-week blocks -> ISO yearly
+  with verified manifests (`Rotate-ItcmdrLogs.ps1::Invoke-ItcmdrRotation`).
+- App (`app/lib`): Settings (host/port/TLS/token/actor), exceptions add/edit/expire, on-demand,
+  audit tab, ranked metrics tables, live refresh.
+- Installer (`installer/itcmdr.iss`): service with `--service`, config template, firewall, tasks, uninstall.
+- Sample data: `tools/sample-data-gen`.
+
+## In progress
+
+- Nothing mid-flight. Next item to start: backlog #1.
+
+## Backlog (in order)
+
+1. Windows VM test pass (plan below); fix whatever it finds. Tag v0.2.1.
+2. Missing agent checks: scanner connectivity (3D unit allowed as an exception), DNS records,
+   drive maps, printer queues, Sirona drift (detect/report only, never edit Sirona configs). (M)
+3. Flapping and repeat-offender metrics; real charts in the app. (S/M)
+4. Log search: time/category/status filters and paging (`api.rs::search_logs`). (S)
+5. Real backup-coverage check (`agent/Report-BackupCoverage.ps1`). (S)
+6. Poller: clear stale locks after a crash; server: time out requests nobody answers. (S)
+7. gRPC integration test against a running server. (S)
+8. Unblock GitHub Actions (billing) or build the installer on a Windows machine.
+
+## Build and test (Linux dev box)
+
+Tools are under `~/Projects/tools` (flutter, pwsh, protoc); add them to PATH:
+`export PATH=$HOME/Projects/tools/flutter/bin:$HOME/Projects/tools/pwsh:$HOME/Projects/tools/protoc/bin:$HOME/.pub-cache/bin:$PATH`
+
+```
+cargo build --workspace --all-targets && cargo test --workspace
+cargo clippy --workspace --all-targets -- -D warnings
+(cd app && flutter pub get && flutter analyze && flutter test)
+pwsh -NoProfile -c 'Invoke-ScriptAnalyzer -Path agent -Recurse -Severity Warning,Error'
+pwsh -NoProfile -c '$c=New-PesterConfiguration;$c.Run.Path="agent/tests";Invoke-Pester -Configuration $c'
+python3 scripts/scan_repo.py        # leak scanner (also the pre-commit hook)
+```
+
+- Dart protos: `protoc -I proto --dart_out=grpc:app/lib/proto proto/itcmdr.proto` (protoc_plugin 25.1.0).
+- Rust protos regenerate automatically via `server/build.rs`.
+- The Windows service code can't be fully cross-compiled here (SQLite needs Windows headers);
+  type-check it by copying `main.rs` into a scratch crate and running `cargo check --target x86_64-pc-windows-gnullvm`.
+
+## Release procedure
+
+1. All the checks above are green, and `scan_repo.py` is clean.
+2. Grep the staged diff against `config/banned.local.txt`; it must have 0 hits.
+3. Commit on `main`. Bump `MyAppVersion` in `installer/itcmdr.iss` and `AgentVersion` in the agent.
+4. `git tag -a vX.Y.Z -m "itcmdr vX.Y.Z"`, then `git push origin main`, then `git push origin vX.Y.Z`.
+5. Never force-push, and never move or delete tags. Push only tested, tagged commits.
+6. The tag triggers `.github/workflows/release.yml`, which builds the Windows installer once Actions works.
+
+## Windows VM test plan
+
+1. Install with `/DAllowSubnet=<lab subnet>`; `sc qc itcmdr-server` shows `"…\itcmdr-server.exe" --service`;
+   the service is Running; `%ProgramData%\itcmdr\server-logs\itcmdr-server.txt` exists; it survives a stop/start and a reboot.
+2. Set `logs_dir` and `admin_token_hash` (`itcmdr-server.exe hash-token <t>`) in `%ProgramData%\itcmdr\server.json`,
+   then restart; the app connects; with no token in the app, a trigger gives the clear error.
+3. `powershell.exe -File Invoke-ItcmdrAgent.ps1 -ReportOnly` under **Windows PowerShell 5.1**: the JSONL log
+   appears, is copied to the share, and is queued when the share is offline.
+4. Start the nightly and poller tasks manually as SYSTEM; the poller repeats every minute and skips overlaps.
+5. On-demand: one machine, then all machines; status moves queued -> running -> done.
+6. An exception added in the app appears in `<share>\exceptions.json` and is honoured on the next run.
+7. Rotation with `-Root <copy> -Today 2027-01-04`: the zips open in Explorer, and the server ingests the archive.
+8. Uninstall removes the service, the tasks and the firewall rule.
+
+## Risks and gotchas
+
+- **GitHub Actions is blocked by billing** on the WeirdBrains org ("payments failed / spending limit").
+  The repo is private, so Windows minutes are billed.
+- **The Actions allowlist is set at the org level.** Only GitHub-owned actions are allowed, so the
+  workflows use no third-party actions (keep it that way, or have an org admin allow them).
+- **PowerShell 5.1:** the scheduled tasks run `powershell.exe` (5.1). Don't use `ConvertFrom-Json -AsHashtable`,
+  `[System.Globalization.ISOWeek]`, three-argument `Join-Path` (fine in tests only), or other PS7-only features.
+  Use `Get-ItcmdrValue` for config lookups; StrictMode throws on missing keys.
+- **Never commit real site values** (IPs, hostnames, domains, usernames, MACs).
+  `config/site.local.json`, `config/site.json` and `config/banned.local.txt` are gitignored.
+- The scanner allows only `0.0.0.0` and `TCP-<port>` tokens beyond the placeholders; don't widen it further.
+- Mutating RPCs are refused until `admin_token_hash` is set. That's intended.
+
+## Where real config lives (not in git)
+
+- The dev box: `config/site.local.json` and `config/banned.local.txt` in the repo (gitignored), plus `../itcmdr-HANDOVER.local.md`.
+- Windows hosts: `C:\ProgramData\itcmdr\site.json` and `C:\ProgramData\itcmdr\server.json`.
