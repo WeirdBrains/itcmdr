@@ -973,7 +973,13 @@ class ExceptionRule extends $pb.GeneratedMessage {
 }
 
 class ListExceptionsRequest extends $pb.GeneratedMessage {
-  factory ListExceptionsRequest() => ListExceptionsRequest._();
+  factory ListExceptionsRequest({
+    $core.bool? includeInactive,
+  }) {
+    final result = ListExceptionsRequest._();
+    if (includeInactive != null) result.includeInactive = includeInactive;
+    return result;
+  }
 
   ListExceptionsRequest._();
 
@@ -988,6 +994,7 @@ class ListExceptionsRequest extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'ListExceptionsRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
       createEmptyInstance: ListExceptionsRequest.$_createMessage)
+    ..aOB(1, _omitFieldNames ? '' : 'includeInactive')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1013,6 +1020,15 @@ class ListExceptionsRequest extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<ListExceptionsRequest>(
           ListExceptionsRequest.$_createMessage);
   static ListExceptionsRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.bool get includeInactive => $_getBF(0);
+  @$pb.TagNumber(1)
+  set includeInactive($core.bool value) => $_setBool(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasIncludeInactive() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearIncludeInactive() => $_clearField(1);
 }
 
 class ListExceptionsResponse extends $pb.GeneratedMessage {
@@ -1449,6 +1465,207 @@ class SearchLogsResponse extends $pb.GeneratedMessage {
 
   @$pb.TagNumber(1)
   $pb.PbList<$core.String> get lines => $_getList(0);
+}
+
+/// Audit log of mutating actions (on-demand runs, exception changes)
+class AuditEntry extends $pb.GeneratedMessage {
+  factory AuditEntry({
+    $fixnum.Int64? ts,
+    $core.String? actor,
+    $core.String? action,
+    $core.String? detail,
+  }) {
+    final result = AuditEntry._();
+    if (ts != null) result.ts = ts;
+    if (actor != null) result.actor = actor;
+    if (action != null) result.action = action;
+    if (detail != null) result.detail = detail;
+    return result;
+  }
+
+  AuditEntry._();
+
+  factory AuditEntry.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      AuditEntry()..mergeFromBuffer(data, registry);
+  factory AuditEntry.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      AuditEntry()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'AuditEntry',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: AuditEntry.$_createMessage)
+    ..aInt64(1, _omitFieldNames ? '' : 'ts')
+    ..aOS(2, _omitFieldNames ? '' : 'actor')
+    ..aOS(3, _omitFieldNames ? '' : 'action')
+    ..aOS(4, _omitFieldNames ? '' : 'detail')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AuditEntry clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AuditEntry copyWith(void Function(AuditEntry) updates) =>
+      super.copyWith((message) => updates(message as AuditEntry)) as AuditEntry;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use AuditEntry() / AuditEntry.new instead')
+  static AuditEntry create() => AuditEntry._();
+  static $pb.GeneratedMessage $_createMessage() => AuditEntry._();
+  @$core.override
+  AuditEntry createEmptyInstance() => AuditEntry._();
+  @$core.pragma('dart2js:noInline')
+  static AuditEntry getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<AuditEntry>(AuditEntry.$_createMessage);
+  static AuditEntry? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get ts => $_getI64(0);
+  @$pb.TagNumber(1)
+  set ts($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasTs() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearTs() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get actor => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set actor($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasActor() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearActor() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get action => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set action($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasAction() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearAction() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get detail => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set detail($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasDetail() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearDetail() => $_clearField(4);
+}
+
+class ListAuditRequest extends $pb.GeneratedMessage {
+  factory ListAuditRequest({
+    $core.int? limit,
+  }) {
+    final result = ListAuditRequest._();
+    if (limit != null) result.limit = limit;
+    return result;
+  }
+
+  ListAuditRequest._();
+
+  factory ListAuditRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListAuditRequest()..mergeFromBuffer(data, registry);
+  factory ListAuditRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListAuditRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ListAuditRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: ListAuditRequest.$_createMessage)
+    ..aI(1, _omitFieldNames ? '' : 'limit')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListAuditRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListAuditRequest copyWith(void Function(ListAuditRequest) updates) =>
+      super.copyWith((message) => updates(message as ListAuditRequest))
+          as ListAuditRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ListAuditRequest() / ListAuditRequest.new instead')
+  static ListAuditRequest create() => ListAuditRequest._();
+  static $pb.GeneratedMessage $_createMessage() => ListAuditRequest._();
+  @$core.override
+  ListAuditRequest createEmptyInstance() => ListAuditRequest._();
+  @$core.pragma('dart2js:noInline')
+  static ListAuditRequest getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ListAuditRequest>(
+          ListAuditRequest.$_createMessage);
+  static ListAuditRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get limit => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set limit($core.int value) => $_setSignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasLimit() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearLimit() => $_clearField(1);
+}
+
+class ListAuditResponse extends $pb.GeneratedMessage {
+  factory ListAuditResponse({
+    $core.Iterable<AuditEntry>? entries,
+  }) {
+    final result = ListAuditResponse._();
+    if (entries != null) result.entries.addAll(entries);
+    return result;
+  }
+
+  ListAuditResponse._();
+
+  factory ListAuditResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListAuditResponse()..mergeFromBuffer(data, registry);
+  factory ListAuditResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListAuditResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ListAuditResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: ListAuditResponse.$_createMessage)
+    ..pPM<AuditEntry>(1, _omitFieldNames ? '' : 'entries',
+        subBuilder: AuditEntry.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListAuditResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListAuditResponse copyWith(void Function(ListAuditResponse) updates) =>
+      super.copyWith((message) => updates(message as ListAuditResponse))
+          as ListAuditResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ListAuditResponse() / ListAuditResponse.new instead')
+  static ListAuditResponse create() => ListAuditResponse._();
+  static $pb.GeneratedMessage $_createMessage() => ListAuditResponse._();
+  @$core.override
+  ListAuditResponse createEmptyInstance() => ListAuditResponse._();
+  @$core.pragma('dart2js:noInline')
+  static ListAuditResponse getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ListAuditResponse>(
+          ListAuditResponse.$_createMessage);
+  static ListAuditResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<AuditEntry> get entries => $_getList(0);
 }
 
 /// Live updates

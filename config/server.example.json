@@ -4,10 +4,11 @@
   "database_path": "./.local/itcmdr.sqlite",
   "requests_dir": "./sample-maintenanceRuns/requests",
   "admin_token_hash": "",
+  "allow_insecure_no_auth": false,
   "retention_days": 400,
+  "ingest_interval_secs": 30,
   "metrics": {
     "trend_windows_days": [7, 30, 90, 365],
-    "rollups": ["daily", "weekly", "monthly", "quarterly", "yearly"]
+    "rollups": ["daily", "weekly", "block4", "yearly"]
   }
 }
-

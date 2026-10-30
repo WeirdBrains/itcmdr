@@ -21,13 +21,9 @@ if (-not (Test-Path -LiteralPath $agentPath)) {
   throw "Agent script not found at $agentPath"
 }
 
-$action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$agentPath`" -ReportOnly:`$false"
-$trigger = New-ScheduledTaskTrigger -Daily -At 1:30am
-if ($StaggerSeconds -gt 0) {
-  $trigger = New-ScheduledTaskTrigger -Once -At ((Get-Date).Date.AddHours(1).AddMinutes(30).AddSeconds($StaggerSeconds))
-  $trigger.Repetition = New-ScheduledTaskTrigger -Once -At ((Get-Date).Date.AddHours(1).AddMinutes(30).AddSeconds($StaggerSeconds))
-  $trigger.Repetition.Interval = 'P1D'
-}
+# Nightly run: repairs on (SYSTEM default); the clinical-activity guard still applies.
+$action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$agentPath`""
+$trigger = New-ScheduledTaskTrigger -Daily -At ((Get-Date).Date.AddHours(1).AddMinutes(30).AddSeconds($StaggerSeconds))
 $principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -RunLevel Highest -LogonType ServiceAccount
 $task = New-ScheduledTask -Action $action -Trigger $trigger -Principal $principal -Settings (New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable)
 
@@ -43,10 +39,10 @@ if ($PSCmdlet.ShouldProcess($taskName, 'Register-ScheduledTask')) {
 # Poller task (every 1 minute)
 $pollName = 'itcmdr Agent Poller'
 $pollAction = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$(Join-Path $scriptDir 'Poll-ItcmdrRequests.ps1')`""
-$pollTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1)
-$pollTrigger.Repetition = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1)
-$pollTrigger.Repetition.Interval = 'PT1M'
-$pollTask = New-ScheduledTask -Action $pollAction -Trigger $pollTrigger -Principal $principal -Settings (New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable)
+# Repeats every minute indefinitely; a still-running poll makes the next one skip.
+$pollTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 1)
+$pollSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Hours 2)
+$pollTask = New-ScheduledTask -Action $pollAction -Trigger $pollTrigger -Principal $principal -Settings $pollSettings
 if ($PSCmdlet.ShouldProcess($pollName, 'Register-ScheduledTask')) {
   try {
     Register-ScheduledTask -TaskName $pollName -InputObject $pollTask -Force | Out-Null

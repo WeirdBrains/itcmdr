@@ -47,11 +47,14 @@ message GetRequestStatusResponse {
 }
 
 // Metrics and rollups
+// Buckets are aligned to ISO weeks: weekly = ISO week (Mon-Sun);
+// block4 = 4-ISO-week block N covering weeks 4N-3..4N (13 per ISO year,
+// week 53 folds into block 13); yearly = ISO year.
 enum Rollup {
   ROLLUP_DAILY = 0;
   ROLLUP_WEEKLY = 1;
-  ROLLUP_MONTHLY = 2;
-  ROLLUP_QUARTERLY = 3;
+  ROLLUP_BLOCK4 = 2;
+  reserved 3;      // was ROLLUP_QUARTERLY (dropped)
   ROLLUP_YEARLY = 4;
 }
 
@@ -83,7 +86,7 @@ message ExceptionRule {
   string expires = 7;          // ISO date or empty
   bool active = 8;             // computed
 }
-message ListExceptionsRequest {}
+message ListExceptionsRequest { bool include_inactive = 1; }
 message ListExceptionsResponse { repeated ExceptionRule rules = 1; }
 message SaveExceptionRequest { ExceptionRule rule = 1; }
 message SaveExceptionResponse { ExceptionRule rule = 1; }
@@ -101,6 +104,16 @@ message SearchLogsRequest {
 message SearchLogsResponse {
   repeated string lines = 1;
 }
+
+// Audit log of mutating actions (on-demand runs, exception changes)
+message AuditEntry {
+  int64 ts = 1;        // unix millis
+  string actor = 2;
+  string action = 3;   // "trigger-runs", "exception-save", "exception-expire"
+  string detail = 4;   // JSON
+}
+message ListAuditRequest { int32 limit = 1; }
+message ListAuditResponse { repeated AuditEntry entries = 1; }
 
 // Live updates
 message WatchUpdatesRequest {}
@@ -120,6 +133,7 @@ service Itcmdr {
   rpc SaveException(SaveExceptionRequest) returns (SaveExceptionResponse);
   rpc ExpireException(ExpireExceptionRequest) returns (ExpireExceptionResponse);
   rpc SearchLogs(SearchLogsRequest) returns (SearchLogsResponse);
+  rpc ListAudit(ListAuditRequest) returns (ListAuditResponse);
   rpc WatchUpdates(WatchUpdatesRequest) returns (stream Update);
 }
 

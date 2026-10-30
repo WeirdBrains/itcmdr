@@ -6,7 +6,7 @@
 
 #define MyAppName "itcmdr"
 #ifndef MyAppVersion
-  #define MyAppVersion "0.1.1"
+  #define MyAppVersion "0.2.0"
 #endif
 #define InstallDirName "itcmdr"
 
@@ -40,6 +40,8 @@ Source: "..\agent\Poll-ItcmdrRequests.ps1"; DestDir: "{app}\agent"; Components: 
 Source: "..\agent\Report-BackupCoverage.ps1"; DestDir: "{app}\agent"; Components: server; Flags: ignoreversion
 Source: "..\agent\Push-Install-ItcmdrAgent.ps1"; DestDir: "{app}\agent"; Components: agent; Flags: ignoreversion
 Source: "..\agent\Rotate-ItcmdrLogs.ps1"; DestDir: "{app}\agent"; Components: server; Flags: ignoreversion
+; Server config template (never overwritten; edit logs_dir and admin_token_hash after install)
+Source: "server.windows.json"; DestDir: "{commonappdata}\itcmdr"; DestName: "server.json"; Components: server; Flags: onlyifdoesntexist uninsneveruninstall
 
 [Dirs]
 Name: "C:\maintenanceRuns"; Permissions: users-full; Components: agent
@@ -52,22 +54,27 @@ Name: "{commondesktop}\itcmdr"; Filename: "{app}\app\itcmdr.exe"; Components: ap
 Name: "desktopicon"; Description: "Create a &desktop icon"; Components: app
 
 [Run]
-; Register Windows service (idempotent)
-Filename: "sc.exe"; Parameters: "create itcmdr-server binPath=""{app}\server\itcmdr-server.exe"" start= auto DisplayName= ""itcmdr-server"""; Flags: runhidden; Components: server; StatusMsg: "Creating Windows service itcmdr-server..."; Check: not ServiceExists('itcmdr-server')
+; Register Windows service (idempotent). --service runs it under the SCM; config is
+; read from %ProgramData%\itcmdr\server.json; service log: %ProgramData%\itcmdr\server-logs\.
+Filename: "sc.exe"; Parameters: "create itcmdr-server binPath= ""\""{app}\server\itcmdr-server.exe\"" --service"" start= delayed-auto DisplayName= ""itcmdr-server"""; Flags: runhidden; Components: server; StatusMsg: "Creating Windows service itcmdr-server..."; Check: not ServiceExists('itcmdr-server')
+Filename: "sc.exe"; Parameters: "config itcmdr-server binPath= ""\""{app}\server\itcmdr-server.exe\"" --service"""; Flags: runhidden; Components: server; Check: ServiceExists('itcmdr-server')
+Filename: "sc.exe"; Parameters: "description itcmdr-server ""itcmdr log ingest, metrics and on-demand run server (gRPC)"""; Flags: runhidden; Components: server
+Filename: "sc.exe"; Parameters: "failure itcmdr-server reset= 86400 actions= restart/60000/restart/60000/restart/300000"; Flags: runhidden; Components: server
 Filename: "sc.exe"; Parameters: "start itcmdr-server"; Flags: runhidden; Components: server; StatusMsg: "Starting itcmdr-server..."
 
 ; Firewall rule restricted to example subnet; override at install time with /DAllowSubnet=198.51.100.0/24
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$s = '{code:GetAllowSubnet}'; if ($s) { netsh advfirewall firewall add rule name='itcmdr-server' dir=in action=allow enable=yes profile=any localport=50051 protocol=TCP remoteip=$s }"""; Flags: runhidden; Components: server; StatusMsg: "Adding firewall rule..."
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$s = '{code:GetAllowSubnet}'; if ($s) { netsh advfirewall firewall delete rule name='itcmdr-server' | Out-Null; netsh advfirewall firewall add rule name='itcmdr-server' dir=in action=allow enable=yes profile=any localport=50051 protocol=TCP remoteip=$s }"""; Flags: runhidden; Components: server; StatusMsg: "Adding firewall rule..."
 
 ; Install agent scheduled task
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\agent\Install-ItcmdrAgent.ps1"""; Flags: runhidden; Components: agent; StatusMsg: "Installing agent scheduled task..."
 ; Install log rotation scheduled task (daily, server only)
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$time = (Get-Content -Raw -Path (Join-Path $env:ProgramData 'itcmdr\\site.json') | ConvertFrom-Json).rotation.timeLocal; if (-not $time) { $time = '02:10' }; $a = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument '-NoProfile -ExecutionPolicy Bypass -File \"\"\"{app}\agent\Rotate-ItcmdrLogs.ps1\"\"\"'; $t = New-ScheduledTaskTrigger -Daily -At $time; $p = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -RunLevel Highest -LogonType ServiceAccount; $s = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable; Register-ScheduledTask -TaskName 'itcmdr Log Rotation' -Action $a -Trigger $t -Principal $p -Settings $s -Force"""; Flags: runhidden; Components: server; StatusMsg: "Installing log rotation task..."
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$time = '02:10'; try { $t2 = (Get-Content -Raw -Path (Join-Path $env:ProgramData 'itcmdr\site.json') | ConvertFrom-Json).rotation.timeLocal; if ($t2) { $time = $t2 } } catch { }; $a = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument '-NoProfile -ExecutionPolicy Bypass -File \"\"\"{app}\agent\Rotate-ItcmdrLogs.ps1\"\"\"'; $t = New-ScheduledTaskTrigger -Daily -At $time; $p = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -RunLevel Highest -LogonType ServiceAccount; $s = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable; Register-ScheduledTask -TaskName 'itcmdr Log Rotation' -Action $a -Trigger $t -Principal $p -Settings $s -Force"""; Flags: runhidden; Components: server; StatusMsg: "Installing log rotation task..."
 
 [UninstallRun]
 Filename: "sc.exe"; Parameters: "stop itcmdr-server"; Flags: runhidden; Components: server
 Filename: "sc.exe"; Parameters: "delete itcmdr-server"; Flags: runhidden; Components: server
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""Unregister-ScheduledTask -TaskName 'itcmdr Agent Nightly' -Confirm:$false -ErrorAction SilentlyContinue"""; Flags: runhidden; Components: agent
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""Unregister-ScheduledTask -TaskName 'itcmdr Agent Nightly' -Confirm:$false -ErrorAction SilentlyContinue; Unregister-ScheduledTask -TaskName 'itcmdr Agent Poller' -Confirm:$false -ErrorAction SilentlyContinue"""; Flags: runhidden; Components: agent
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""Unregister-ScheduledTask -TaskName 'itcmdr Log Rotation' -Confirm:$false -ErrorAction SilentlyContinue; netsh advfirewall firewall delete rule name='itcmdr-server'"""; Flags: runhidden; Components: server
 
 [Code]
 function ServiceExists(Name: string): Boolean;
