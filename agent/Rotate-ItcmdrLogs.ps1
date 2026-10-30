@@ -19,7 +19,7 @@
   run in <Root>. Compatible with Windows PowerShell 5.1 and PowerShell 7.
 
 .PARAMETER Root
-  maintenanceRuns folder. Default: site.json shares.maintenanceRuns, else C:\maintenanceRuns.
+  maintenanceRuns folder. Default: site.json shares.maintenanceRuns, else paths.localLogs, else C:\maintenanceRuns.
 
 .PARAMETER Today
   Override today's date (yyyy-MM-dd) for testing.
@@ -43,6 +43,14 @@ function Get-ItcmdrRotationSite {
     }
   }
   return $null
+}
+
+function Get-ItcmdrRotationRoot {
+  param($Site)
+  $r = Get-ItcmdrProp $Site @('shares', 'maintenanceRuns')
+  if (-not $r) { $r = Get-ItcmdrProp $Site @('paths', 'localLogs') }
+  if (-not $r) { $r = 'C:\maintenanceRuns' }
+  return [string]$r
 }
 
 function Get-ItcmdrProp {
@@ -244,8 +252,7 @@ function Invoke-ItcmdrRotation {
 if (-not $env:ITCMDR_IMPORT_ONLY) {
   $site = Get-ItcmdrRotationSite
   if (-not $Root -or $Root.Trim() -eq '') {
-    $Root = Get-ItcmdrProp $site @('shares', 'maintenanceRuns')
-    if (-not $Root) { $Root = 'C:\maintenanceRuns' }
+    $Root = Get-ItcmdrRotationRoot $site
   }
   $now = if ($Today) { [datetime]::ParseExact($Today, 'yyyy-MM-dd', [Globalization.CultureInfo]::InvariantCulture) } else { Get-Date }
   $keep = $true

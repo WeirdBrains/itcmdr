@@ -2,13 +2,20 @@
 ; Components:
 ;  - Server (register Windows service itcmdr-server; add firewall rule scoped to subnet)
 ;  - App (Flutter Windows desktop; Start Menu shortcut)
-;  - Agent (PowerShell scripts; scheduled task; local log folder C:\maintenanceRuns)
+;  - Agent (PowerShell scripts; scheduled task; local log folder, default C:\maintenanceRuns)
+;
+; Local log folder (decision 15): build with  ISCC /DLocalLogs="D:\itcmdr\logs" itcmdr.iss,
+; or override at install time with  itcmdr-Setup.exe /LocalLogs="D:\itcmdr\logs".
+; Set the same folder in site.json "paths": { "localLogs": ... } so the agent scripts use it.
 
 #define MyAppName "itcmdr"
 #ifndef MyAppVersion
-  #define MyAppVersion "0.8.0"
+  #define MyAppVersion "0.8.1"
 #endif
 #define InstallDirName "itcmdr"
+#ifndef LocalLogs
+  #define LocalLogs "C:\maintenanceRuns"
+#endif
 
 [Setup]
 AppName={#MyAppName}
@@ -45,7 +52,7 @@ Source: "..\agent\Rotate-ItcmdrLogs.ps1"; DestDir: "{app}\agent"; Components: se
 Source: "server.windows.json"; DestDir: "{commonappdata}\itcmdr"; DestName: "server.json"; Components: server; Flags: onlyifdoesntexist uninsneveruninstall
 
 [Dirs]
-Name: "C:\maintenanceRuns"; Permissions: users-full; Components: agent
+Name: "{param:LocalLogs|{#LocalLogs}}"; Permissions: users-full; Components: agent
 
 [Icons]
 Name: "{group}\itcmdr"; Filename: "{app}\app\itcmdr.exe"; Components: app

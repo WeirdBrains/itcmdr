@@ -4,7 +4,7 @@
 
 .DESCRIPTION
   Request files (<requestId>.json, written by the server) are read from:
-    - C:\maintenanceRuns\requests\
+    - <paths.localLogs>\requests\ (site.json, default C:\maintenanceRuns)
     - <shares.maintenanceRuns>\requests\ from site.json
   A request applies when its "machines" list is empty (all) or contains this computer.
   For each applicable request this computer:
@@ -41,9 +41,13 @@ function Get-ItcmdrPollSite {
 
 function Get-ItcmdrRequestDirectory {
   param($Site)
-  $dirs = @('C:\maintenanceRuns\requests')
+  $local = 'C:\maintenanceRuns'
+  if ($Site -and $Site.PSObject.Properties['paths'] -and $Site.paths.PSObject.Properties['localLogs'] -and $Site.paths.localLogs) {
+    $local = [string]$Site.paths.localLogs
+  }
+  $dirs = @([IO.Path]::Combine($local, 'requests'))
   if ($Site -and $Site.PSObject.Properties['shares'] -and $Site.shares.PSObject.Properties['maintenanceRuns'] -and $Site.shares.maintenanceRuns) {
-    $dirs += (Join-Path $Site.shares.maintenanceRuns 'requests')
+    $dirs += ([IO.Path]::Combine([string]$Site.shares.maintenanceRuns, 'requests'))
   }
   return $dirs
 }

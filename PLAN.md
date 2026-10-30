@@ -36,11 +36,12 @@ also covered by the Windows VM test pass below.
 | v0.6.1 | Docs: this roadmap | ✅ Done | `v0.6.1` / `a4b0eb6` | 2026-10-30 |
 | v0.6.2 | Storage follow-up: auto-delete the plaintext backup after a verified migration | ✅ Done | `v0.6.2` / `19c297c` | 2026-10-30 |
 | v0.7.0 | Keys & auth: BIP39 master, certified keys, signed requests, roles, db.key escrow | ✅ Done | `v0.7.0` (4afe6c7) | 2026-10-30 |
-| v0.8.0 | itcmdr-cli (init, register, users, keys) + backup & restore | ✅ Done | `v0.8.0` | 2026-10-30 |
-| v0.9.0 | Packages: format, validation, signatures, quarantine, install/list/enable/disable/remove; log standard + validator + metrics ingest | 📋 Planned | — | — |
-| v0.10.0 | Plugin runtime: PluginService gRPC, Rust crate, PowerShell module + host, stages, per-run log path + helpers | 📋 Planned | — | — |
-| v0.11.0 | Built-in checks as plugins (same behaviour, no gap in nightly coverage) | 📋 Planned | — | — |
-| v0.12.0 | Flutter: Service Plugins, registration, users/keys, plugin metric charts, Backup & Restore, signed requests | 📋 Planned | — | — |
+| v0.8.0 | itcmdr-cli (init, register, users, keys) + backup & restore | ✅ Done | `v0.8.0` (25e232f) | 2026-10-30 |
+| v0.8.1 | Configurable paths + backup settings, retention by 4-week blocks | ✅ Done | `v0.8.1` | 2026-10-30 |
+| v0.9.0 | Packages: format, validation, signature, quarantine, plugins install/list/enable/disable/remove, plugins in backups | 📋 Planned | — | — |
+| v0.10.0 | Plugin runtime, log standard, scheduled runs (server, gRPC, CLI) | 📋 Planned | — | — |
+| v0.11.0 | Built-in checks as plugins; nightly task + backup as built-in schedules | 📋 Planned | — | — |
+| v0.12.0 | Flutter: Service Plugins, registration, users/keys, plugin metric charts, Backup & Restore, Schedules, signed requests | 📋 Planned | — | — |
 | v0.13.0 | Installer: first-run master setup (words shown once); VM test items | 📋 Planned | — | — |
 
 ## Cross-cutting items
@@ -53,6 +54,9 @@ also covered by the Windows VM test pass below.
 | Delete the plaintext DB backup after the v0.6 migration | ✅ Done (decided) | Decision 12: deleted automatically after a verified read-back (v0.6.2); kept if verification fails |
 | DB key recovery (`keys/db.key`) | ✅ Done (v0.7.0) | Decision 12: `keys/db.key.escrow` sealed for the master key; `itcmdr-server recover-db-key` with the 24 words |
 | Backup & restore | 🔄 Core done (v0.8.0) | Decision 13: DB + escrow + config, CLI, RPCs, nightly + retention in v0.8.0; plugins join in v0.9.0/v0.10.0; app screen in v0.12.0 |
+| Configurable paths | ✅ Done (v0.8.1) | Decision 15: agent `paths.localLogs`/`agentData`, installer LocalLogs, backup settings in the DB via RPC + `itcmdr-cli config`; app screen in v0.12.0 |
+| Scheduled runs | 📋 Planned (decided) | Decision 14: server scheduler + RPCs + `itcmdr-cli schedule` in v0.10.0, built-in schedules with v0.11.0, app screen in v0.12.0 |
+| Backup retention by 4-week blocks | ✅ Done (v0.8.1) | 7 daily, 4 weekly, 13 four-week blocks (ISO weeks 4N-3..4N) instead of 12 months |
 | Signing canonical encoding | 🔄 Rust done (v0.8.0) | `docs/SIGNING.md`, `proto/signing_vectors.json`; the Dart test against the same vectors lands with app signing (v0.12.0) |
 | Retire the shared admin token | 📋 Planned | `auth_mode = signed` retires it today; the default moves from `both` to `signed` in v0.12.0 once the app signs requests |
 | `docs/LOG-STANDARD.md` | 📋 Planned | Written with v0.9.0/v0.10.0 (decision 11) |
@@ -133,11 +137,19 @@ also covered by the Windows VM test pass below.
 - [x] Tests: round trip on a fresh data dir with only the words, tampered/foreign archive rejected, consistent under writes, retention, RPC roles + audit, CLI end to end
 - [x] Signing: canonical encoding rules + pinned vectors (`docs/SIGNING.md`); Dart side in v0.12.0
 
+### v0.8.1 Configurable paths ✅
+- [x] site.json `paths.localLogs` / `paths.agentData` in every agent script (agent, poller, rotation fallback, backup report); Pester tests
+- [x] Installer `/DLocalLogs` (build) and `/LocalLogs` (install) for the local log folder
+- [x] `GetSettings` / `UpdateSettings` for backup dir, nightly, hour, retention (admin, audited, folder must exist + be writable); DB overrides beat server.json
+- [x] `itcmdr-cli config get|set|unset backup.*`
+- [x] Backup retention: 7 daily, 4 weekly, 13 four-week blocks (was 12 months)
+- [x] Plans: decisions 14 (scheduled runs, default schedules + cutover) and 15 (configurable paths)
+
 ### v0.9.0 Packages 📋
-- [ ] package.toml (`[[files]]`, `main = true`), exact file list, sha256, admin/owner signature
-- [ ] Safe unpack (no absolute paths, `..`, symlinks, hard links); failures → `quarantine/` + log, install denied
-- [ ] `plugins install --url|--path`, list, enable, disable, remove; install dir `{name}-{version}`
-- [ ] `itcmdr.log/v1` schema doc, validator, reject counts, generic metrics ingest, `GetPluginMetrics`
+- [ ] package.toml (`[[files]]`, `main = true`), exact file list, sha256, admin/owner signature (`package.sig`)
+- [ ] Safe unpack (no absolute paths, `..`, symlinks, hard links); failures → `quarantine/` + index + log + audit, install denied
+- [ ] `plugins install --url|--path`, list, enable, disable, remove; install dir `{name}-{version}`; `plugins pack` to build and sign
+- [ ] Plugin files and the quarantine index in backup archives
 
 ### v0.10.0 Plugin runtime 📋
 - [ ] `PluginService` proto (Describe, Verify, Execute, Log), child process + per-launch secret handshake
@@ -145,18 +157,27 @@ also covered by the Windows VM test pass below.
 - [ ] Verify then Execute; failed Verify skips Execute; Log on error; timeouts
 - [ ] Per-run log path (`ITCMDR_LOG_PATH`, `<data>/plugin-logs/<plugin>/<date>.jsonl`), log/metric helpers
 - [ ] Hooks into on-demand runs and the audit log
+- [ ] `itcmdr.log/v1` schema doc, validator, reject counts, generic metrics ingest, `GetPluginMetrics` (decision 11, moved from v0.9.0)
+- [ ] Scheduled runs (decision 14): schedules table, scheduler queueing via the on-demand path, cron/presets with timezone + DST, clinical guard, max concurrency, missed-run policy, history + next runs
+- [ ] Schedule RPCs (admin manage, user run-now, audited) and `itcmdr-cli schedule add|list|edit|rm|pause|resume|run-now|history`
 
 ### v0.11.0 Built-in checks as plugins 📋
 - [ ] Network, connectivity, scanner, DNS, drive maps, printers, Sirona drift, backup coverage as signed plugins
 - [ ] Existing Pester tests pass against the plugin versions
 - [ ] Clinical guard, exceptions, report-only rules unchanged; logging in `itcmdr.log/v1`
 - [ ] Side-by-side report-only run, switch-over, one clean week before retiring the old script
+- [ ] Default schedules seeded on every install/upgrade (idempotent): nightly agent run matching the current task, nightly backup; editable/pausable, delete needs owner/admin + confirm, reset-to-default (decision 14)
+- [ ] Safe cutover: task stays source of truth, default schedule report-only in parallel; switch after one matching week + Windows VM verification + agent sees schedules active
+- [ ] After switch: task kept disabled as fallback, one-command rollback; agent runs locally if the server is unreachable
+- [ ] Tests: idempotent seeding, defaults match task settings, cutover gating, server-down fallback, rollback
 
 ### v0.12.0 Flutter 📋
 - [ ] Service Plugins section (import, enable/disable, view)
 - [ ] App/service registration; user and key management
 - [ ] Plugin metric charts
 - [ ] Backup & Restore screen
+- [ ] Schedules screen (cron presets, next-run preview, toggle, run now, history)
+- [ ] Settings screen: backup folder, nightly time, retention (GetSettings/UpdateSettings), later schedule settings
 - [ ] App signs requests; default `auth_mode` → `signed`
 
 ### v0.13.0 Installer 📋

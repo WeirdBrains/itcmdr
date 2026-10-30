@@ -249,7 +249,7 @@ pub struct AuditEntry {
     pub ts: i64,
     #[prost(string, tag = "2")]
     pub actor: ::prost::alloc::string::String,
-    /// "trigger-runs", "exception-add", "exception-edit", "exception-expire", "backup-create", "backup-verify", "backup-list"
+    /// "trigger-runs", "exception-add", "exception-edit", "exception-expire", "backup-create", "backup-verify", "backup-list", "settings-update"
     #[prost(string, tag = "3")]
     pub action: ::prost::alloc::string::String,
     /// JSON
@@ -328,6 +328,42 @@ pub struct VerifyBackupResponse {
     pub ok: bool,
     #[prost(string, tag = "2")]
     pub message: ::prost::alloc::string::String,
+}
+/// Settings (decision 15). Admin/owner only, audit-logged. Stored in the DB, override server.json.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct BackupSettings {
+    /// empty = <data_dir>/backups; must exist and be writable
+    #[prost(string, tag = "1")]
+    pub dir: ::prost::alloc::string::String,
+    #[prost(bool, tag = "2")]
+    pub nightly: bool,
+    /// local hour 0-23
+    #[prost(uint32, tag = "3")]
+    pub hour: u32,
+    #[prost(uint32, tag = "4")]
+    pub keep_daily: u32,
+    #[prost(uint32, tag = "5")]
+    pub keep_weekly: u32,
+    /// 4-week blocks (ISO weeks 4N-3..4N)
+    #[prost(uint32, tag = "6")]
+    pub keep_blocks: u32,
+}
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct GetSettingsRequest {}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetSettingsResponse {
+    #[prost(message, optional, tag = "1")]
+    pub backup: ::core::option::Option<BackupSettings>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct UpdateSettingsRequest {
+    #[prost(message, optional, tag = "1")]
+    pub backup: ::core::option::Option<BackupSettings>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct UpdateSettingsResponse {
+    #[prost(message, optional, tag = "1")]
+    pub backup: ::core::option::Option<BackupSettings>,
 }
 /// Metrics and rollups
 /// Buckets are aligned to ISO weeks: weekly = ISO week (Mon-Sun);
@@ -733,6 +769,53 @@ pub mod itcmdr_client {
                 .insert(GrpcMethod::new("itcmdr.Itcmdr", "VerifyBackup"));
             self.inner.unary(req, path, codec).await
         }
+        pub async fn get_settings(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetSettingsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetSettingsResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/itcmdr.Itcmdr/GetSettings",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut().insert(GrpcMethod::new("itcmdr.Itcmdr", "GetSettings"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn update_settings(
+            &mut self,
+            request: impl tonic::IntoRequest<super::UpdateSettingsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::UpdateSettingsResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/itcmdr.Itcmdr/UpdateSettings",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("itcmdr.Itcmdr", "UpdateSettings"));
+            self.inner.unary(req, path, codec).await
+        }
         pub async fn watch_updates(
             &mut self,
             request: impl tonic::IntoRequest<super::WatchUpdatesRequest>,
@@ -854,6 +937,20 @@ pub mod itcmdr_server {
             request: tonic::Request<super::VerifyBackupRequest>,
         ) -> std::result::Result<
             tonic::Response<super::VerifyBackupResponse>,
+            tonic::Status,
+        >;
+        async fn get_settings(
+            &self,
+            request: tonic::Request<super::GetSettingsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetSettingsResponse>,
+            tonic::Status,
+        >;
+        async fn update_settings(
+            &self,
+            request: tonic::Request<super::UpdateSettingsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::UpdateSettingsResponse>,
             tonic::Status,
         >;
         /// Server streaming response type for the WatchUpdates method.
@@ -1465,6 +1562,96 @@ pub mod itcmdr_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = VerifyBackupSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/itcmdr.Itcmdr/GetSettings" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetSettingsSvc<T: Itcmdr>(pub Arc<T>);
+                    impl<
+                        T: Itcmdr,
+                    > tonic::server::UnaryService<super::GetSettingsRequest>
+                    for GetSettingsSvc<T> {
+                        type Response = super::GetSettingsResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetSettingsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Itcmdr>::get_settings(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetSettingsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/itcmdr.Itcmdr/UpdateSettings" => {
+                    #[allow(non_camel_case_types)]
+                    struct UpdateSettingsSvc<T: Itcmdr>(pub Arc<T>);
+                    impl<
+                        T: Itcmdr,
+                    > tonic::server::UnaryService<super::UpdateSettingsRequest>
+                    for UpdateSettingsSvc<T> {
+                        type Response = super::UpdateSettingsResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::UpdateSettingsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Itcmdr>::update_settings(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = UpdateSettingsSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

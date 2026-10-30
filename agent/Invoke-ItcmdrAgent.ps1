@@ -6,7 +6,7 @@
   Runs as SYSTEM via Scheduled Task. Detects role (Server, RCU, Workstation) heuristically,
   loads site config from C:\ProgramData\itcmdr\site.json or ./config/site.json, executes
   checks, optionally performs bounded, idempotent repairs, and writes JSON Lines to
-  C:\maintenanceRuns\<COMPUTER>_<yyyyMMdd-HHmmss>_<runId>.log.
+  <paths.localLogs>\<COMPUTER>_<yyyyMMdd-HHmmss>_<runId>.log (default C:\maintenanceRuns).
 
   Exceptions (allowlist) come from site.json "exceptions" plus the server-managed
   exceptions.json in the maintenanceRuns share (cached locally for offline runs).
@@ -36,7 +36,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-$script:AgentVersion = '0.5.0'
+$script:AgentVersion = '0.8.1'
 
 function ConvertTo-ItcmdrHashtable {
   param($InputObject)
@@ -98,6 +98,20 @@ function Get-ItcmdrSiteConfig {
   throw 'Site config not found. Provide config/site.json or C:\ProgramData\itcmdr\site.json.'
 }
 
+function Get-ItcmdrPath {
+  <#
+    Configurable local paths (decision 15), from site.json "paths":
+      localLogs  run logs and local requests\  (default C:\maintenanceRuns)
+      agentData  exceptions cache and spool\    (default C:\ProgramData\itcmdr)
+    site.json itself is always looked up in config\ and C:\ProgramData\itcmdr (bootstrap).
+  #>
+  param($Site, [ValidateSet('localLogs', 'agentData')][string]$Name)
+  $defaults = @{ localLogs = 'C:\maintenanceRuns'; agentData = 'C:\ProgramData\itcmdr' }
+  $v = Get-ItcmdrValue $Site @('paths', $Name)
+  if ($v -is [string] -and $v.Trim()) { return $v.Trim() }
+  return $defaults[$Name]
+}
+
 function Get-ItcmdrRole {
   $hostname = $env:COMPUTERNAME
   if ($hostname -match 'SERVER|DC|SRV') { return 'Server' }
@@ -110,7 +124,8 @@ function Get-ItcmdrException {
     Exceptions from site.json plus the server export (exceptions.json in the share).
     The share copy is cached to CacheDir so offline runs still honour it.
   #>
-  param([hashtable]$Site, [string]$CacheDir = 'C:\ProgramData\itcmdr')
+  param([hashtable]$Site, [string]$CacheDir)
+  if (-not $CacheDir) { $CacheDir = Get-ItcmdrPath -Site $Site -Name agentData }
   $rules = @()
   if ((Get-ItcmdrValue $Site @('exceptions'))) { $rules += @((Get-ItcmdrValue $Site @('exceptions'))) }
   $cache = Join-Path $CacheDir 'exceptions.json'
@@ -177,7 +192,7 @@ function New-ItcmdrRunContext {
   $runId = [guid]::NewGuid().ToString()
   $ts = Get-Date
   $computer = $env:COMPUTERNAME
-  $logRoot = 'C:\maintenanceRuns'
+  $logRoot = Get-ItcmdrPath -Site $Site -Name localLogs
   if (-not (Test-Path -LiteralPath $logRoot) -and $PSCmdlet.ShouldProcess($logRoot, 'Create log directory')) {
     New-Item -ItemType Directory -Path $logRoot -Force | Out-Null
   }
@@ -199,7 +214,7 @@ function Push-ItcmdrLog {
   param([hashtable]$Ctx)
   $share = (Get-ItcmdrValue $Ctx.Site @('shares','maintenanceRuns'))
   if (-not $share) { return }
-  $spool = 'C:\ProgramData\itcmdr\spool\outbox'
+  $spool = Join-Path (Join-Path (Get-ItcmdrPath -Site $Ctx.Site -Name agentData) 'spool') 'outbox'
   if (-not (Test-Path $spool)) { New-Item -ItemType Directory -Path $spool -Force | Out-Null }
   $toPush = @($Ctx.LogFile) + @(Get-ChildItem -LiteralPath $spool -Filter '*.log' -File -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })
   foreach ($f in $toPush) {
@@ -776,7 +791,7 @@ if (-not $env:ITCMDR_IMPORT_ONLY) {
   Invoke-ItcmdrServiceCheck -Ctx $ctx -ReportOnlyLocal:$reportOnlyEffective
 
   $retentionDays = if ((Get-ItcmdrValue $site @('retention')) -and (Get-ItcmdrValue $site @('retention','agentLocalDays'))) { [int](Get-ItcmdrValue $site @('retention','agentLocalDays')) } else { 400 }
-  Get-ChildItem -LiteralPath 'C:\maintenanceRuns' -File -Filter '*.log' -ErrorAction SilentlyContinue |
+  Get-ChildItem -LiteralPath (Split-Path -Parent $ctx.LogFile) -File -Filter '*.log' -ErrorAction SilentlyContinue |
     Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-$retentionDays) } |
     Remove-Item -Force -ErrorAction SilentlyContinue
 

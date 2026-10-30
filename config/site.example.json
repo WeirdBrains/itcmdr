@@ -1,6 +1,10 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "siteName": "Example Dental Office",
+  "paths": {
+    "localLogs": "C:\\maintenanceRuns",
+    "agentData": "C:\\ProgramData\\itcmdr"
+  },
   "network": {
     "lanCidr": "198.51.100.0/24",
     "serverHostname": "SERVER01",

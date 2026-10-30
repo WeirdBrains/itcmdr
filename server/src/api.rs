@@ -416,7 +416,12 @@ impl Itcmdr for ItcmdrService {
         let actor = self
             .authz(&req, "/itcmdr.Itcmdr/ListBackups", crate::auth::Role::Admin)
             .await?;
-        let list = crate::backup::list(&self.cfg.backup_dir()).map_err(internal_err)?;
+        let list = crate::backup::list(
+            &crate::settings::backup_dir(&self.pool, &self.cfg)
+                .await
+                .map_err(internal_err)?,
+        )
+        .map_err(internal_err)?;
         self.audit(
             &actor,
             "backup-list",
@@ -449,7 +454,13 @@ impl Itcmdr for ItcmdrService {
             .await
             .map_err(internal_err)?
             .ok_or_else(|| Status::failed_precondition("server is not initialized"))?;
-        let r = crate::backup::verify(&self.cfg.backup_dir().join(&name), Some(&master.ed25519));
+        let r = crate::backup::verify(
+            &crate::settings::backup_dir(&self.pool, &self.cfg)
+                .await
+                .map_err(internal_err)?
+                .join(&name),
+            Some(&master.ed25519),
+        );
         let (ok, message) = match r {
             Ok(_) => (true, "signature and contents hash are valid (decrypting needs the words: itcmdr-cli backup verify --deep)".to_string()),
             Err(e) => (false, format!("{e:#}")),
@@ -461,6 +472,53 @@ impl Itcmdr for ItcmdrService {
         )
         .await;
         Ok(Response::new(VerifyBackupResponse { ok, message }))
+    }
+
+    async fn get_settings(
+        &self,
+        req: Request<GetSettingsRequest>,
+    ) -> Result<Response<GetSettingsResponse>, Status> {
+        self.authz(&req, "/itcmdr.Itcmdr/GetSettings", crate::auth::Role::Admin)
+            .await?;
+        let b = crate::settings::effective_backup(&self.pool, &self.cfg)
+            .await
+            .map_err(internal_err)?;
+        Ok(Response::new(GetSettingsResponse {
+            backup: Some(to_proto_backup(&b)),
+        }))
+    }
+
+    async fn update_settings(
+        &self,
+        req: Request<UpdateSettingsRequest>,
+    ) -> Result<Response<UpdateSettingsResponse>, Status> {
+        let actor = self
+            .authz(
+                &req,
+                "/itcmdr.Itcmdr/UpdateSettings",
+                crate::auth::Role::Admin,
+            )
+            .await?;
+        let p = req
+            .into_inner()
+            .backup
+            .ok_or_else(|| Status::invalid_argument("backup settings missing"))?;
+        let b = crate::config::BackupConfig {
+            dir: (!p.dir.trim().is_empty()).then(|| p.dir.trim().into()),
+            nightly: p.nightly,
+            hour: p.hour,
+            keep_daily: p.keep_daily as usize,
+            keep_weekly: p.keep_weekly as usize,
+            keep_blocks: p.keep_blocks as usize,
+        };
+        crate::settings::set_backup(&self.pool, &b)
+            .await
+            .map_err(|e| Status::invalid_argument(format!("{e:#}")))?;
+        self.audit(&actor, "settings-update", &serde_json::json!({"backup": b}))
+            .await;
+        Ok(Response::new(UpdateSettingsResponse {
+            backup: Some(to_proto_backup(&b)),
+        }))
     }
 
     type WatchUpdatesStream =
@@ -484,6 +542,21 @@ impl Itcmdr for ItcmdrService {
 
 fn internal_err<E: std::fmt::Display>(e: E) -> Status {
     Status::internal(e.to_string())
+}
+
+fn to_proto_backup(b: &crate::config::BackupConfig) -> BackupSettings {
+    BackupSettings {
+        dir: b
+            .dir
+            .as_ref()
+            .map(|d| d.display().to_string())
+            .unwrap_or_default(),
+        nightly: b.nightly,
+        hour: b.hour,
+        keep_daily: b.keep_daily as u32,
+        keep_weekly: b.keep_weekly as u32,
+        keep_blocks: b.keep_blocks as u32,
+    }
 }
 
 #[cfg(test)]

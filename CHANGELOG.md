@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.8.1 (2026-10-30)
+- Backup retention now keeps 7 daily, 4 weekly and **13 four-week blocks** (ISO weeks 4N-3..4N, week 53 in block 13)
+  instead of 12 months. server.json key `backup.keep_blocks` (the old `keep_monthly` is still read).
+- Configurable paths (decision 15): site.json `paths.localLogs` (default `C:\maintenanceRuns`) and `paths.agentData`
+  (default `C:\ProgramData\itcmdr`) are used by the agent, poller, rotation fallback and backup report. Installer:
+  `/DLocalLogs=` (build) or `/LocalLogs=` (install).
+- Backup settings at runtime: gRPC `GetSettings` / `UpdateSettings` (admin/owner, audit-logged, folder must exist and be
+  writable) and `itcmdr-cli config get|set|unset backup.dir|nightly|hour|keep_daily|keep_weekly|keep_blocks`. Stored in the
+  DB; they override server.json.
+- Plan: decision 14 (scheduled runs; the nightly run and backup become default schedules after a safe cutover) and
+  decision 15 (configurable paths).
+
 ## v0.8.0 (2026-10-30)
 - `itcmdr-cli` (installed next to `itcmdr-server.exe`): `init`, `recover-db-key`, `keys certify|new|register|list|revoke|rotate`,
   `service register`, `user add`. Offline certification from the 24 words (stdin only).
