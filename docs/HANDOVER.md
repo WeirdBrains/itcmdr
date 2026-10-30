@@ -6,10 +6,19 @@ untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committ
 
 ## Current state (updated 2026-10-30)
 
-- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.5.3** (docs: plugin plan incl. built-in checks as plugins and plugin logging/log standard in `server/PLAN.md`; code = v0.5.0). See `CHANGELOG.md`.
+- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.6.0** (plugin plan release 1: storage). See `CHANGELOG.md` and `server/PLAN.md`.
 - Everything passes on the Linux dev box (Rust, Flutter, Pester, PSScriptAnalyzer, scanner).
 - **Nothing has run on Windows yet** (installer, service, scheduled tasks, agent on a real PC).
 - GitHub release builds are blocked by org billing (see Risks), so there is no installer artifact yet.
+
+## Done (v0.6.0, storage)
+
+- `server/src/storage.rs`: `resolve_data_dir` (flag > env > config > default), `Layout`, `write_secret`/`read_secret`
+  (DPAPI on Windows, 0600 hex elsewhere), `load_or_create_db_key`, `is_plaintext_sqlite`, `key_pragma`.
+- `server/src/db.rs`: `init_db` opens SQLCipher with `PRAGMA key` and errors clearly on a wrong key;
+  `migrate_plaintext` (sqlcipher_export + row-count check + `*.plaintext-backup`); roles/users/clients/server_meta; `role_id`.
+- `server/src/main.rs`: `--data-dir` in every mode. Tests: `server/tests/storage.rs` (5).
+- DPAPI code type-checked for Windows in a scratch crate (`cargo check --target x86_64-pc-windows-gnullvm`); not run on Windows.
 
 ## Done (v0.5.0)
 
@@ -62,7 +71,7 @@ untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committ
 
 ## In progress
 
-- **v0.6.0 storage (in progress)**: `server/src/storage.rs` (data dir precedence, layout, DB key with DPAPI/0600), `db.rs::init_db` on SQLCipher + in-place plaintext migration, roles/users/clients tables. Uncommitted Cargo changes add libsqlite3-sys bundled-sqlcipher-vendored-openssl, rand, hex. Next step if interrupted: run tests in server/tests/storage.rs, tag v0.6.0.
+- **Plugin workstream** (plan: `server/PLAN.md`, releases v0.6.0..v0.13.0). v0.6.0 done. Next: **v0.7.0 keys & auth** (BIP39 words, master init shown once, certified client/user keys, signed requests + roles; retire the shared token with a migration path). Nothing uncommitted.
 
 ## Backlog (in order)
 
@@ -130,7 +139,14 @@ python3 scripts/scan_repo.py        # leak scanner (also the pre-commit hook)
 - **Never commit real site values** (IPs, hostnames, domains, usernames, MACs).
   `config/site.local.json`, `config/site.json` and `config/banned.local.txt` are gitignored.
 - The scanner allows only `0.0.0.0`, `TCP-<port>` and `SCAN-NN` tokens beyond the placeholders; don't widen it further.
-- Mutating RPCs are refused until `admin_token_hash` is set. That's intended.
+- Mutating RPCs are refused until `admin_token_hash` is set. That's intended (until v0.7.0 signed auth).
+- **SQLCipher build** needs perl + a C compiler (vendored OpenSSL); GitHub Windows runners have Strawberry Perl.
+  The first build takes ~40 s on alien-blue.
+- **Losing `keys/db.key` means losing the database** (it is random, not derived from the words). Back up the
+  data dir's `keys/` with the server backup; on Windows the DPAPI blob only decrypts on the same machine.
+- After the first v0.6 start, a `*.plaintext-backup` of the old DB is left beside it. It is NOT encrypted; delete
+  it once the server has run fine.
+- Never put `;` inside the SQL comments in `db.rs::create_schema` (the schema is split on `;`).
 
 ## Where real config lives (not in git)
 

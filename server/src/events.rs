@@ -1,6 +1,6 @@
+use crate::generated::itcmdr::Update;
 use once_cell::sync::Lazy;
 use tokio::sync::broadcast;
-use crate::generated::itcmdr::Update;
 
 static BUS: Lazy<broadcast::Sender<Update>> = Lazy::new(|| {
     let (tx, _rx) = broadcast::channel(1024);
@@ -24,4 +24,3 @@ pub fn notify(kind: &str, entity: &str, id: &str) {
     };
     let _ = BUS.send(update);
 }
-

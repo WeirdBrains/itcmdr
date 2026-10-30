@@ -15,8 +15,16 @@ pub struct ServerConfig {
     pub bind_addr: String,
     /// Folder holding JSON Lines agent logs (the share's maintenanceRuns folder).
     pub logs_dir: PathBuf,
-    /// SQLite database file path.
-    pub database_path: PathBuf,
+    /// Data dir (service_plugins/, quarantine/, keys/, itcmdr.database). See `storage` for precedence.
+    #[serde(default)]
+    pub data_dir: Option<PathBuf>,
+    /// Set from the `--data-dir` command-line flag (highest precedence; never read from JSON).
+    #[serde(skip)]
+    pub data_dir_flag: Option<PathBuf>,
+    /// Override for the database file (default `<data_dir>/itcmdr.database`). A plaintext file here
+    /// (pre-0.6) is encrypted in place on first start.
+    #[serde(default)]
+    pub database_path: Option<PathBuf>,
     /// Optional folder for the on-demand request queue (defaults to logs_dir/requests).
     #[serde(default)]
     pub requests_dir: Option<PathBuf>,
@@ -71,7 +79,12 @@ fn default_request_timeout() -> u64 {
 }
 
 fn default_rollups() -> Vec<String> {
-    vec!["daily".into(), "weekly".into(), "block4".into(), "yearly".into()]
+    vec![
+        "daily".into(),
+        "weekly".into(),
+        "block4".into(),
+        "yearly".into(),
+    ]
 }
 
 fn default_retention_days() -> i64 {
@@ -89,7 +102,9 @@ impl Default for ServerConfig {
         Self {
             bind_addr: DEFAULT_BIND.to_string(),
             logs_dir: data_dir.join("maintenanceRuns"),
-            database_path: data_dir.join("itcmdr.sqlite"),
+            data_dir: None,
+            data_dir_flag: None,
+            database_path: None,
             requests_dir: None,
             admin_token_hash: None,
             allow_insecure_no_auth: false,
@@ -107,6 +122,23 @@ pub fn project_dirs() -> ProjectDirs {
 }
 
 impl ServerConfig {
+    /// Data dir after `--data-dir` / `ITCMDR_DATA_DIR` / config precedence (flag is applied by main
+    /// by setting `data_dir` before startup and wins because env is only consulted when the flag is absent).
+    pub fn layout(&self) -> crate::storage::Layout {
+        let env = std::env::var("ITCMDR_DATA_DIR").ok();
+        crate::storage::Layout::new(crate::storage::resolve_data_dir(
+            self.data_dir_flag.as_deref(),
+            env.as_deref(),
+            self.data_dir.as_deref(),
+        ))
+    }
+
+    pub fn database_path(&self) -> PathBuf {
+        self.database_path
+            .clone()
+            .unwrap_or_else(|| self.layout().database())
+    }
+
     pub fn request_timeout_ms(&self) -> i64 {
         (self.request_timeout_secs as i64).saturating_mul(1000)
     }
@@ -125,7 +157,10 @@ impl ServerConfig {
         if let Ok(pd) = std::env::var("ProgramData") {
             candidates.push(PathBuf::from(pd).join("itcmdr").join("server.json"));
         }
-        if let Some(dir) = std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.to_path_buf())) {
+        if let Some(dir) = std::env::current_exe()
+            .ok()
+            .and_then(|p| p.parent().map(|d| d.to_path_buf()))
+        {
             candidates.push(dir.join("server.json"));
         }
         for c in candidates {
@@ -138,7 +173,8 @@ impl ServerConfig {
 
     pub fn from_path(path: PathBuf) -> anyhow::Result<Self> {
         let s = fs::read_to_string(&path).with_context(|| format!("reading {:?}", path))?;
-        let mut cfg: ServerConfig = serde_json::from_str(&s).with_context(|| format!("parsing {:?}", path))?;
+        let mut cfg: ServerConfig =
+            serde_json::from_str(&s).with_context(|| format!("parsing {:?}", path))?;
         if cfg.bind_addr.trim().is_empty() {
             cfg.bind_addr = DEFAULT_BIND.to_string();
         }
@@ -146,17 +182,23 @@ impl ServerConfig {
     }
 
     pub fn requests_dir(&self) -> PathBuf {
-        self.requests_dir.clone().unwrap_or_else(|| self.logs_dir.join("requests"))
+        self.requests_dir
+            .clone()
+            .unwrap_or_else(|| self.logs_dir.join("requests"))
     }
 
     /// Pollers write `<request_id>.<COMPUTER>.json` into the sibling `responses` folder.
     pub fn responses_dir(&self) -> PathBuf {
         let req = self.requests_dir();
-        req.parent().map(|p| p.join("responses")).unwrap_or_else(|| self.logs_dir.join("responses"))
+        req.parent()
+            .map(|p| p.join("responses"))
+            .unwrap_or_else(|| self.logs_dir.join("responses"))
     }
 
     pub fn exceptions_export_path(&self) -> PathBuf {
-        self.exceptions_export_path.clone().unwrap_or_else(|| self.logs_dir.join("exceptions.json"))
+        self.exceptions_export_path
+            .clone()
+            .unwrap_or_else(|| self.logs_dir.join("exceptions.json"))
     }
 
     /// Token hash, trimmed and lowercased; None when unset/blank.
