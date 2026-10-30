@@ -34,13 +34,13 @@ also covered by the Windows VM test pass below.
 | v0.5.3 | Docs: plugin logging + structured log standard (decision 11) | ✅ Done | `v0.5.3` / `568b954` | 2026-10-30 |
 | v0.6.0 | Storage: data dir, SQLCipher DB, roles/users/clients, migration | ✅ Done | `v0.6.0` / `0ce70c0` | 2026-10-30 |
 | v0.6.1 | Docs: this roadmap | ✅ Done | `v0.6.1` / `a4b0eb6` | 2026-10-30 |
-| v0.6.2 | Storage follow-up: auto-delete the plaintext backup after a verified migration | ✅ Done | `v0.6.2` | 2026-10-30 |
-| v0.7.0 | Keys & auth: BIP39 master, certified keys, signed requests, roles | 📋 Planned | — | — |
-| v0.8.0 | itcmdr-cli: init, service register, user add, key rotate/revoke | 📋 Planned | — | — |
+| v0.6.2 | Storage follow-up: auto-delete the plaintext backup after a verified migration | ✅ Done | `v0.6.2` / `19c297c` | 2026-10-30 |
+| v0.7.0 | Keys & auth: BIP39 master, certified keys, signed requests, roles, db.key escrow | ✅ Done | `v0.7.0` | 2026-10-30 |
+| v0.8.0 | itcmdr-cli (init, register, users, keys) + backup & restore | 📋 Planned | — | — |
 | v0.9.0 | Packages: format, validation, signatures, quarantine, install/list/enable/disable/remove; log standard + validator + metrics ingest | 📋 Planned | — | — |
 | v0.10.0 | Plugin runtime: PluginService gRPC, Rust crate, PowerShell module + host, stages, per-run log path + helpers | 📋 Planned | — | — |
 | v0.11.0 | Built-in checks as plugins (same behaviour, no gap in nightly coverage) | 📋 Planned | — | — |
-| v0.12.0 | Flutter: Service Plugins, registration, users/keys, plugin metric charts | 📋 Planned | — | — |
+| v0.12.0 | Flutter: Service Plugins, registration, users/keys, plugin metric charts, Backup & Restore, signed requests | 📋 Planned | — | — |
 | v0.13.0 | Installer: first-run master setup (words shown once); VM test items | 📋 Planned | — | — |
 
 ## Cross-cutting items
@@ -51,7 +51,9 @@ also covered by the Windows VM test pass below.
 | GitHub Actions installer builds | ⛔ Blocked | Org billing ("payments failed / spending limit"). Alternative: build the installer on a Windows machine |
 | Real site values in site.json | 📋 Pending (on-site) | Scanners (incl. the 3D unit + exception), DNS records, drive maps, printer queues, Sirona config paths, stale patterns, backup tasks/destinations. See HANDOVER.local.md |
 | Delete the plaintext DB backup after the v0.6 migration | ✅ Done (decided) | Decision 12: deleted automatically after a verified read-back (v0.6.2); kept if verification fails |
-| DB key recovery (`keys/db.key`) | 📋 Planned (decided) | Decision 12: escrow db.key under the master key, recover from the 24 words, re-protect with DPAPI (v0.7.0) |
+| DB key recovery (`keys/db.key`) | ✅ Done (v0.7.0) | Decision 12: `keys/db.key.escrow` sealed for the master key; `itcmdr-server recover-db-key` with the 24 words |
+| Backup & restore | 📋 Planned (decided) | Decision 13: core + CLI + RPCs in v0.8.0, plugins join in v0.9.0/v0.10.0, app screen in v0.12.0 |
+| Retire the shared admin token | 📋 Planned | `auth_mode = signed` retires it today; the default moves from `both` to `signed` in v0.12.0 once the app signs requests |
 | `docs/LOG-STANDARD.md` | 📋 Planned | Written with v0.9.0/v0.10.0 (decision 11) |
 
 ## Phases
@@ -111,17 +113,20 @@ also covered by the Windows VM test pass below.
 - [x] Read the encrypted DB back after migration; matching row counts → plaintext backup overwritten, deleted, logged
 - [x] Backup kept (error logged) when the read-back fails or counts differ
 
-### v0.7.0 Keys & auth 📋
-- [ ] 24 BIP39 words → master Ed25519 key; only the master public key stored; words shown once
-- [ ] Root client keypair at init (`keys/root`, DPAPI / 0600)
-- [ ] Client/user keys certified by the master
-- [ ] Signed requests (key fingerprint, ts, nonce, signature), replay protection, role-based authorization
-- [ ] Retire the shared admin token with a documented migration path
-- [ ] db.key escrow under the master key (X25519 from the master seed + AEAD, `keys/db.key.escrow`); recovery from the 24 words on a replacement machine, re-protected with DPAPI / 0600 (decision 12)
+### v0.7.0 Keys & auth ✅
+- [x] 24 BIP39 words → master Ed25519 + X25519 (HKDF, pinned test vector); only the master public keys stored; words printed once by `itcmdr-server init`
+- [x] Root client keypair at init (role owner, `keys/root`, DPAPI / 0600)
+- [x] Client/user keys certified by the master; registration checks the certificate against key, kind, role, name
+- [x] Signed requests (fingerprint, ts, nonce, signature), ±5 min window, nonce replay cache, roles owner > admin > user > client
+- [x] Revocation (effective immediately)
+- [x] db.key escrow under the master key (`keys/db.key.escrow`, X25519 + HKDF + XChaCha20-Poly1305); `itcmdr-server recover-db-key` re-protects it with DPAPI / 0600 (decision 12)
+- [~] Retire the shared admin token: `auth_mode = signed` does it; default stays `both` until v0.12.0 (the app can't sign yet)
 
-### v0.8.0 itcmdr-cli 📋
+### v0.8.0 itcmdr-cli + backup & restore 📋
 - [ ] `init`, `service register [--name]`, `user add`, `key rotate`, `key revoke`
 - [ ] Offline master signing / recovery from the words
+- [ ] `backup create|list|verify`, `restore --from <archive> [--dry-run]`, owner/admin backup RPCs (audited), nightly backup to the share with retention (decision 13)
+- [ ] Tests: round trip on a fresh data dir with only the words, tampered archive rejected, consistent under writes, retention
 
 ### v0.9.0 Packages 📋
 - [ ] package.toml (`[[files]]`, `main = true`), exact file list, sha256, admin/owner signature
@@ -146,6 +151,8 @@ also covered by the Windows VM test pass below.
 - [ ] Service Plugins section (import, enable/disable, view)
 - [ ] App/service registration; user and key management
 - [ ] Plugin metric charts
+- [ ] Backup & Restore screen
+- [ ] App signs requests; default `auth_mode` → `signed`
 
 ### v0.13.0 Installer 📋
 - [ ] First-run master setup in the installer, words shown once

@@ -310,6 +310,41 @@ JSON. The rest sounds good to me").
       XChaCha20-Poly1305 into `keys/db.key.escrow`, which also goes into the backup. Recovery on a replacement
       machine: `itcmdr-cli master recover-db-key` takes the words, unwraps the key and protects it again with
       DPAPI (or 0600 on Linux). The exact scheme is documented and tested in v0.7.0.
+13. **Backup and restore** (Michael, Oct 30 2026: "we should have a backup and restore options").
+    - **Scope:** the server's whole state: the encrypted DB, `keys/db.key.escrow` (never the raw DPAPI-protected
+      `db.key`), server config, installed service plugins and their config, the quarantine index, and optionally
+      plugin logs and archives.
+    - **Backup:**
+      - A consistent snapshot, safe while the server runs (SQLCipher `VACUUM INTO` / online backup API).
+      - Packed into one archive with a manifest: itcmdr version, schema version, sha256 per file.
+      - Signed by the server's root key and encrypted for the master X25519 key (same scheme as the decision 12
+        escrow), so it's safe on the share.
+      - Nightly to the share with retention (same weekly / 4-week / yearly idea as the logs), plus on demand.
+    - **Restore:**
+      - Verify the manifest and signature first.
+      - Restore onto a fresh or replacement machine using the 24 words: they open the archive and the db.key
+        escrow, then the key is re-protected with DPAPI / 0600.
+      - Refuse incompatible schema versions, or run migrations.
+      - Always take a safety backup of the current state first.
+      - `--dry-run` / verify-only mode.
+    - **Interfaces:** `itcmdr-cli backup create|list|verify` and `itcmdr-cli restore --from <archive> [--dry-run]`;
+      gRPC RPCs gated to owner/admin and audit-logged; a Backup & Restore screen in the app.
+    - **Tests:** backup -> restore round trip on a fresh data dir with only the words; a tampered archive is
+      rejected; a backup taken during writes stays consistent; retention rules.
+    - **Releases:** core backup/restore (DB, escrow, config) plus CLI and RPCs in v0.8.0. Plugins, plugin config,
+      quarantine index and plugin logs join the archive as they appear (v0.9.0/v0.10.0). App screen in v0.12.0.
+      No version shift needed.
+
+### Auth notes from the v0.7.0 build
+
+- `auth_mode` in server.json: `token` (legacy only), `both` (default: signed requests, or the legacy token for
+  mutating calls) or `signed` (token retired; reads need a key too). The shared token is retired by switching to
+  `signed`. The default stays `both` until the app signs requests (v0.12.0), or the app would lock itself out.
+- The root client is created with role `owner` so it can administer the server locally (CLI in v0.8.0).
+- Request signature: Ed25519 over `itcmdr-req/v1\n{grpc path}\n{ts ms}\n{nonce}\n{sha256 hex of the protobuf body}`,
+  +/- 5 min clock window, per-key nonce cache.
+- Master derivation is pinned by a test vector (`keys.rs::known_vector_is_stable`). Changing it would break
+  words already written down.
 
 ### Release breakdown
 
@@ -318,9 +353,9 @@ JSON. The rest sounds good to me").
 | v0.6.0 | storage: data dir layout, SQLCipher DB, roles/users/clients tables, migration of the existing plaintext DB |
 | v0.6.2 | storage follow-up: verified migration deletes the plaintext backup (decision 12) |
 | v0.7.0 | keys & auth: BIP39 words, master init (shown once), certified client/user keys, signed requests + roles, db.key escrow under the master key + recovery (decision 12); the shared token is retired once the new auth works (migration path documented) |
-| v0.8.0 | itcmdr-cli: init, service register [--name], user add, key rotate/revoke |
+| v0.8.0 | itcmdr-cli: init, service register [--name], user add, key rotate/revoke; backup create/list/verify + restore [--dry-run], backup RPCs, nightly backup to the share (decision 13) |
 | v0.9.0 | packages: format, validation (exact file list, sha256, signature), quarantine, plugins install --url/--path, list/enable/disable/remove; log standard doc + validator + generic metrics ingest (decision 11) |
 | v0.10.0 | plugin runtime: PluginService gRPC, Rust crate, PowerShell module + host, Verify then Execute, Log on error, timeouts, on-demand + audit hooks; per-run log path + log/metric helpers |
 | v0.11.0 | built-in checks as plugins: the existing agent checks/repairs rebuilt as service plugins and run through the plugin system (decision 10), logging in itcmdr.log/v1 |
-| v0.12.0 | Flutter: Service Plugins section, app registration, user/key management, plugin metric charts |
+| v0.12.0 | Flutter: Service Plugins section, app registration, user/key management, plugin metric charts, Backup & Restore screen; app signs requests, default auth_mode -> signed |
 | v0.13.0 | installer: first-run master setup showing the words once; Windows VM test items in the handover |
