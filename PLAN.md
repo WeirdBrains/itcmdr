@@ -33,7 +33,8 @@ also covered by the Windows VM test pass below.
 | v0.5.2 | Docs: built-in checks as plugins (v0.11.0) | ✅ Done | `v0.5.2` / `b098ff6` | 2026-10-30 |
 | v0.5.3 | Docs: plugin logging + structured log standard (decision 11) | ✅ Done | `v0.5.3` / `568b954` | 2026-10-30 |
 | v0.6.0 | Storage: data dir, SQLCipher DB, roles/users/clients, migration | ✅ Done | `v0.6.0` / `0ce70c0` | 2026-10-30 |
-| v0.6.1 | Docs: this roadmap | ✅ Done | `v0.6.1` | 2026-10-30 |
+| v0.6.1 | Docs: this roadmap | ✅ Done | `v0.6.1` / `a4b0eb6` | 2026-10-30 |
+| v0.6.2 | Storage follow-up: auto-delete the plaintext backup after a verified migration | ✅ Done | `v0.6.2` | 2026-10-30 |
 | v0.7.0 | Keys & auth: BIP39 master, certified keys, signed requests, roles | 📋 Planned | — | — |
 | v0.8.0 | itcmdr-cli: init, service register, user add, key rotate/revoke | 📋 Planned | — | — |
 | v0.9.0 | Packages: format, validation, signatures, quarantine, install/list/enable/disable/remove; log standard + validator + metrics ingest | 📋 Planned | — | — |
@@ -49,8 +50,8 @@ also covered by the Windows VM test pass below.
 | Windows VM test pass | 🧪 Pending test | Waiting on Michael's VM. Plan in docs/HANDOVER.md → Windows VM test plan; covers every release above |
 | GitHub Actions installer builds | ⛔ Blocked | Org billing ("payments failed / spending limit"). Alternative: build the installer on a Windows machine |
 | Real site values in site.json | 📋 Pending (on-site) | Scanners (incl. the 3D unit + exception), DNS records, drive maps, printer queues, Sirona config paths, stale patterns, backup tasks/destinations. See HANDOVER.local.md |
-| Delete the plaintext DB backup after the v0.6 migration | 📋 Pending (on-site) | `*.plaintext-backup` is left unencrypted next to the database. Decision open: auto-delete or manual |
-| DB key recovery (`keys/db.key`) | 📋 Planned (decision open) | Random key, DPAPI machine-bound on Windows. Option: escrow it under the master key in v0.7.0 |
+| Delete the plaintext DB backup after the v0.6 migration | ✅ Done (decided) | Decision 12: deleted automatically after a verified read-back (v0.6.2); kept if verification fails |
+| DB key recovery (`keys/db.key`) | 📋 Planned (decided) | Decision 12: escrow db.key under the master key, recover from the 24 words, re-protect with DPAPI (v0.7.0) |
 | `docs/LOG-STANDARD.md` | 📋 Planned | Written with v0.9.0/v0.10.0 (decision 11) |
 
 ## Phases
@@ -103,12 +104,20 @@ also covered by the Windows VM test pass below.
 - [x] roles / users / clients / server_meta tables (UUID ids, public keys, unique fingerprints)
 - [x] Automatic migration of the plaintext DB with row-count verification
 
+### v0.6.1 Roadmap ✅
+- [x] This file
+
+### v0.6.2 Storage follow-up ✅
+- [x] Read the encrypted DB back after migration; matching row counts → plaintext backup overwritten, deleted, logged
+- [x] Backup kept (error logged) when the read-back fails or counts differ
+
 ### v0.7.0 Keys & auth 📋
 - [ ] 24 BIP39 words → master Ed25519 key; only the master public key stored; words shown once
 - [ ] Root client keypair at init (`keys/root`, DPAPI / 0600)
 - [ ] Client/user keys certified by the master
 - [ ] Signed requests (key fingerprint, ts, nonce, signature), replay protection, role-based authorization
 - [ ] Retire the shared admin token with a documented migration path
+- [ ] db.key escrow under the master key (X25519 from the master seed + AEAD, `keys/db.key.escrow`); recovery from the 24 words on a replacement machine, re-protected with DPAPI / 0600 (decision 12)
 
 ### v0.8.0 itcmdr-cli 📋
 - [ ] `init`, `service register [--name]`, `user add`, `key rotate`, `key revoke`

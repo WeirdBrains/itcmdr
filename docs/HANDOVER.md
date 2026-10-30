@@ -6,10 +6,14 @@ untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committ
 
 ## Current state (updated 2026-10-30)
 
-- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.6.1** (docs: root `PLAN.md` roadmap with statuses; code = v0.6.0). See `CHANGELOG.md`.
+- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.6.2** (verified migration deletes the plaintext backup). See `CHANGELOG.md`, root `PLAN.md`.
 - Everything passes on the Linux dev box (Rust, Flutter, Pester, PSScriptAnalyzer, scanner).
 - **Nothing has run on Windows yet** (installer, service, scheduled tasks, agent on a real PC).
 - GitHub release builds are blocked by org billing (see Risks), so there is no installer artifact yet.
+
+## Done (v0.6.2)
+
+- `db.rs::finish_migration` (read-back + count check, then `storage::shred_file`), `db::table_counts_of`. Tests: storage.rs (6), storage unit test for shred.
 
 ## Done (v0.6.0, storage)
 
@@ -71,7 +75,7 @@ untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committ
 
 ## In progress
 
-- **Plugin workstream** (plan: `server/PLAN.md`, releases v0.6.0..v0.13.0). v0.6.0 done. Next: **v0.7.0 keys & auth** (BIP39 words, master init shown once, certified client/user keys, signed requests + roles; retire the shared token with a migration path). Nothing uncommitted.
+- Nothing mid-way. Next: **v0.7.0 keys & auth** (BIP39 master shown once, certified client/user keys, signed requests + roles, retire shared token, db.key escrow under the master key + recovery). Statuses: root `PLAN.md`.
 
 ## Backlog (in order)
 
@@ -144,8 +148,9 @@ python3 scripts/scan_repo.py        # leak scanner (also the pre-commit hook)
   The first build takes ~40 s on alien-blue.
 - **Losing `keys/db.key` means losing the database** (it is random, not derived from the words). Back up the
   data dir's `keys/` with the server backup; on Windows the DPAPI blob only decrypts on the same machine.
-- After the first v0.6 start, a `*.plaintext-backup` of the old DB is left beside it. It is NOT encrypted; delete
-  it once the server has run fine.
+- Since v0.6.2 the `*.plaintext-backup` is overwritten and deleted automatically after a verified read-back
+  (`db.rs::finish_migration`). If verification fails it is KEPT (unencrypted) and an error is logged: check the
+  server log and delete it by hand once resolved.
 - Never put `;` inside the SQL comments in `db.rs::create_schema` (the schema is split on `;`).
 
 ## Where real config lives (not in git)
