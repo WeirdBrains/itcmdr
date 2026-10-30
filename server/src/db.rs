@@ -8,7 +8,7 @@ pub type DbPool = Pool<Sqlite>;
 
 /// Bumped whenever the schema changes. Stored as `PRAGMA user_version`; backups record it and
 /// restore refuses archives from a newer schema (older ones are migrated by `create_schema`).
-pub const SCHEMA_VERSION: i64 = 1;
+pub const SCHEMA_VERSION: i64 = 2;
 
 /// Open (creating if needed) the SQLCipher database. The data dir layout and DB key are created
 /// on first use. A pre-0.6 plaintext database at the target path, or `itcmdr.sqlite` next to it,
@@ -288,6 +288,17 @@ async fn create_schema(pool: &DbPool) -> anyhow::Result<()> {
         fingerprint TEXT NOT NULL UNIQUE,
         certificate TEXT,
         revoked_at TEXT
+    );
+    -- Service plugins (v0.9.0, schema 2). Files live in service_plugins/{name}-{version}
+    CREATE TABLE IF NOT EXISTS plugins (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        version TEXT NOT NULL,
+        enabled INTEGER NOT NULL DEFAULT 0,
+        installed_at TEXT NOT NULL,
+        signer TEXT NOT NULL,
+        package_sha256 TEXT NOT NULL,
+        UNIQUE(name, version)
     );
     CREATE TABLE IF NOT EXISTS server_meta (
         key TEXT PRIMARY KEY,

@@ -40,6 +40,9 @@ enum Cmd {
     /// Register a service plugin client key (certified with the words).
     #[command(subcommand)]
     Service(ServiceCmd),
+    /// Service plugin packages (also available as `service plugins ...`).
+    #[command(subcommand)]
+    Plugins(PluginsCmd),
     /// Users (people with app access).
     #[command(subcommand)]
     User(UserCmd),
@@ -109,7 +112,49 @@ enum KeysCmd {
 }
 
 #[derive(Subcommand)]
+enum PluginsCmd {
+    /// Validate and install a package (installed disabled unless --enable). Bad packages are
+    /// quarantined and the install is denied.
+    #[command(group(clap::ArgGroup::new("src").required(true).args(["url", "path"])))]
+    Install {
+        #[arg(long)]
+        url: Option<String>,
+        #[arg(long)]
+        path: Option<PathBuf>,
+        #[arg(long)]
+        enable: bool,
+    },
+    /// Installed plugins.
+    List,
+    /// Enable NAME or NAME@VERSION (other versions of it are disabled).
+    Enable { spec: String },
+    /// Disable every version of NAME.
+    Disable { name: String },
+    /// Remove NAME or NAME@VERSION (files and record).
+    Remove {
+        spec: String,
+        #[arg(long)]
+        force: bool,
+    },
+    /// Packages refused so far (quarantine/index.jsonl).
+    Quarantine,
+    /// Build and sign a package from DIR/package.toml (checksums are filled in).
+    Pack {
+        #[arg(long)]
+        dir: PathBuf,
+        /// Private key file of an admin/owner key (from `keys new` / `user add --out`).
+        #[arg(long)]
+        key: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+    },
+}
+
+#[derive(Subcommand)]
 enum ServiceCmd {
+    /// Same as `itcmdr-cli plugins ...`.
+    #[command(subcommand)]
+    Plugins(PluginsCmd),
     /// Generate, certify (words) and register a client key for a service plugin.
     Register {
         #[arg(long)]
@@ -405,6 +450,91 @@ fn main() -> Result<()> {
                 })
             }
         },
+        Cmd::Plugins(pc) | Cmd::Service(ServiceCmd::Plugins(pc)) => {
+            let json = cli.json;
+            if let PluginsCmd::Pack { dir, key, out } = pc {
+                let b: [u8; 32] = srv::storage::read_secret(key)?.try_into().map_err(|_| {
+                    anyhow::anyhow!("{} is not an itcmdr private key", key.display())
+                })?;
+                let k = ed25519_dalek::SigningKey::from_bytes(&b);
+                let m = srv::packages::pack(dir, &k, out)?;
+                println!(
+                    "packed {} {} -> {} (signed by {})",
+                    m.name,
+                    m.version,
+                    out.display(),
+                    keys::fingerprint(&k.verifying_key())
+                );
+                return Ok(());
+            }
+            let cfg = load()?;
+            let layout = cfg.layout();
+            rt.block_on(async {
+                let pool = srv::db::init_db(&cfg).await?;
+                match pc {
+                    PluginsCmd::Install { url, path, enable } => {
+                        let src = match (url, path) {
+                            (Some(u), None) => srv::packages::Source::Url(u),
+                            (None, Some(p)) => srv::packages::Source::Path(p),
+                            _ => bail!("pass exactly one of --url or --path"),
+                        };
+                        let p = srv::packages::install(&pool, &layout, src, *enable, "itcmdr-cli")
+                            .await?;
+                        println!(
+                            "installed {} {} into {} ({})",
+                            p.name,
+                            p.version,
+                            p.dir.display(),
+                            if p.enabled {
+                                "enabled"
+                            } else {
+                                "disabled: run `plugins enable` to use it"
+                            }
+                        );
+                    }
+                    PluginsCmd::List => {
+                        for p in srv::packages::list(&pool, &layout).await? {
+                            if json {
+                                println!("{}", serde_json::to_string(&p)?);
+                            } else {
+                                println!(
+                                    "{:<24} {:<12} {:<8} signed by {}",
+                                    p.name,
+                                    p.version,
+                                    if p.enabled { "enabled" } else { "disabled" },
+                                    p.signer
+                                );
+                            }
+                        }
+                    }
+                    PluginsCmd::Enable { spec } => {
+                        let (n, v) = srv::packages::enable(&pool, spec, "itcmdr-cli").await?;
+                        println!("enabled {n} {v}");
+                    }
+                    PluginsCmd::Disable { name } => {
+                        srv::packages::disable(&pool, name, "itcmdr-cli").await?;
+                        println!("disabled {name}");
+                    }
+                    PluginsCmd::Remove { spec, force } => {
+                        let (n, v) =
+                            srv::packages::remove(&pool, &layout, spec, *force, "itcmdr-cli")
+                                .await?;
+                        println!("removed {n} {v}");
+                    }
+                    PluginsCmd::Quarantine => {
+                        for q in srv::packages::list_quarantine(&layout)? {
+                            if json {
+                                println!("{}", serde_json::to_string(&q)?);
+                            } else {
+                                println!("{}  {}  {}", q.ts, q.file, q.reason);
+                            }
+                        }
+                    }
+                    PluginsCmd::Pack { .. } => unreachable!(),
+                }
+                Ok(())
+            })
+        }
         Cmd::Service(ServiceCmd::Register { name, out }) => {
             let cfg = load()?;
             let m = master()?;
