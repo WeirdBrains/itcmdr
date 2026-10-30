@@ -23,7 +23,18 @@ if (-not (Test-Path -LiteralPath $agentPath)) {
 
 # Nightly run: repairs on (SYSTEM default); the clinical-activity guard still applies.
 $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$agentPath`""
-$trigger = New-ScheduledTaskTrigger -Daily -At ((Get-Date).Date.AddHours(1).AddMinutes(30).AddSeconds($StaggerSeconds))
+# Time: setting agent.nightlyTime (site.json agent.nightlyTime, else central, else 01:30).
+$nightly = '01:30'
+try {
+  $env:ITCMDR_IMPORT_ONLY = '1'
+  . $agentPath
+  Remove-Item Env:ITCMDR_IMPORT_ONLY -ErrorAction SilentlyContinue
+  $site = $null
+  try { $site = Get-ItcmdrSiteConfig } catch { $site = @{} }
+  $nightly = [string](Get-ItcmdrSetting -Site $site -Key 'agent.nightlyTime')
+} catch { Write-Warning "Using the default nightly time 01:30: $_" }
+$at = ConvertTo-ItcmdrNightlyTime -Time $nightly
+$trigger = New-ScheduledTaskTrigger -Daily -At ($at.AddSeconds($StaggerSeconds))
 $principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -RunLevel Highest -LogonType ServiceAccount
 $task = New-ScheduledTask -Action $action -Trigger $trigger -Principal $principal -Settings (New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable)
 

@@ -19,6 +19,7 @@ use std::collections::BTreeMap;
 use std::io::Read;
 use std::path::{Component, Path, PathBuf};
 
+/// Default of the `plugins.max_package_mib` setting.
 pub const MAX_PACKAGE_BYTES: u64 = 256 * 1024 * 1024;
 pub const MANIFEST: &str = "package.toml";
 pub const SIGNATURE: &str = "package.sig";
@@ -171,10 +172,17 @@ pub fn parse_manifest(bytes: &[u8]) -> std::result::Result<Manifest, Reject> {
 
 /// Unpack a `.tar.gz` into memory. Only regular files and directories are allowed.
 pub fn read_tar_gz(bytes: &[u8]) -> std::result::Result<BTreeMap<String, Vec<u8>>, Reject> {
+    read_tar_gz_max(bytes, MAX_PACKAGE_BYTES)
+}
+
+pub fn read_tar_gz_max(
+    bytes: &[u8],
+    max: u64,
+) -> std::result::Result<BTreeMap<String, Vec<u8>>, Reject> {
     if !bytes.starts_with(&[0x1f, 0x8b]) {
         return rej("not a .tar.gz package (no gzip header)");
     }
-    let gz = flate2::read::GzDecoder::new(bytes).take(MAX_PACKAGE_BYTES + 1);
+    let gz = flate2::read::GzDecoder::new(bytes).take(max + 1);
     let mut ar = tar::Archive::new(gz);
     let mut out = BTreeMap::new();
     let mut total = 0u64;
@@ -206,7 +214,7 @@ pub fn read_tar_gz(bytes: &[u8]) -> std::result::Result<BTreeMap<String, Vec<u8>
         e.read_to_end(&mut b)
             .map_err(|e| Reject(format!("damaged package: {e}")))?;
         total += b.len() as u64;
-        if total > MAX_PACKAGE_BYTES {
+        if total > max {
             return rej("package is too large");
         }
         if out.insert(p.clone(), b).is_some() {
@@ -260,8 +268,9 @@ pub struct Validated {
 pub async fn validate(
     pool: &DbPool,
     bytes: &[u8],
+    max: u64,
 ) -> Result<std::result::Result<Validated, Reject>> {
-    let files = match read_tar_gz(bytes) {
+    let files = match read_tar_gz_max(bytes, max) {
         Ok(f) => f,
         Err(r) => return Ok(Err(r)),
     };
@@ -415,13 +424,13 @@ impl Source<'_> {
             Source::Url(u) => u.to_string(),
         }
     }
-    fn fetch(&self) -> Result<Vec<u8>> {
+    fn fetch(&self, max: u64) -> Result<Vec<u8>> {
         let mut b = Vec::new();
         match self {
             Source::Path(p) => {
                 std::fs::File::open(p)
                     .with_context(|| format!("opening {}", p.display()))?
-                    .take(MAX_PACKAGE_BYTES + 1)
+                    .take(max + 1)
                     .read_to_end(&mut b)?;
             }
             Source::Url(u) => {
@@ -433,14 +442,12 @@ impl Source<'_> {
                     .timeout(std::time::Duration::from_secs(120))
                     .call()
                     .map_err(|e| anyhow!("download failed: {e}"))?;
-                r.into_reader()
-                    .take(MAX_PACKAGE_BYTES + 1)
-                    .read_to_end(&mut b)?;
+                r.into_reader().take(max + 1).read_to_end(&mut b)?;
             }
         }
         ensure!(
-            b.len() as u64 <= MAX_PACKAGE_BYTES,
-            "package is larger than {MAX_PACKAGE_BYTES} bytes"
+            b.len() as u64 <= max,
+            "package is larger than {max} bytes (setting plugins.max_package_mib)"
         );
         Ok(b)
     }
@@ -469,29 +476,36 @@ pub enum InstallError {
     Other(#[from] anyhow::Error),
 }
 
-/// Fetch, validate, and install into `service_plugins/{name}-{version}` (disabled unless `enable`).
+/// Fetch, validate, and install into `service_plugins/{name}-{version}`. `enable`: None = the
+/// `plugins.enable_on_install` setting (default true); enabling disables other versions.
 pub async fn install(
     pool: &DbPool,
     layout: &Layout,
     src: Source<'_>,
-    enable: bool,
+    enable: Option<bool>,
     actor: &str,
 ) -> std::result::Result<InstalledPlugin, InstallError> {
+    let enable = match enable {
+        Some(e) => e,
+        None => crate::settings::get_bool(pool, None, "plugins.enable_on_install").await,
+    };
+    let max =
+        crate::settings::get_i64(pool, None, "plugins.max_package_mib").await as u64 * 1024 * 1024;
     let label = src.label();
     // Downloads and file reads block: keep them off the async runtime.
     let bytes = match &src {
         Source::Path(p) => {
             let p = p.to_path_buf();
-            tokio::task::spawn_blocking(move || Source::Path(&p).fetch())
+            tokio::task::spawn_blocking(move || Source::Path(&p).fetch(max))
         }
         Source::Url(u) => {
             let u = u.to_string();
-            tokio::task::spawn_blocking(move || Source::Url(&u).fetch())
+            tokio::task::spawn_blocking(move || Source::Url(&u).fetch(max))
         }
     }
     .await
     .map_err(|e| anyhow!("fetch task failed: {e}"))??;
-    let v = match validate(pool, &bytes).await? {
+    let v = match validate(pool, &bytes, max).await? {
         Ok(v) => v,
         Err(Reject(reason)) => {
             let q = quarantine(layout, &bytes, &label, &reason)?;

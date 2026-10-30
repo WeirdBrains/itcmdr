@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.9.1 (2026-10-30)
+- Settings everywhere (decision 15 widened): every tunable value is a typed setting with today's value as its default,
+  documented in `docs/SETTINGS.md` (29 keys: backup, ingest interval, request timeout, DB retention, metric thresholds,
+  clock-skew window, search limits, plugin package size, agent guard/thresholds/timeouts/paths/times).
+- gRPC `ListSettings` / `UpdateSetting` (admin/owner, validated, audit-logged as `settings-update`); per-machine values
+  for agent settings. The server applies changes without a restart.
+- `itcmdr-cli config list|get|set|unset [--machine PC]` for every key (audit-logged).
+- Agent settings are served centrally: the server writes `agent-settings.json` to the maintenanceRuns share (global +
+  per machine); the agent, poller and installer use it (cached for offline runs). site.json still wins locally.
+- App: Settings tab gains a basic *Server & agent settings* screen (server/agent tabs, per-machine view, edit with
+  validation, reset to default).
+- Plugins (Michael): a package that passes validation is **enabled on install** (other versions are disabled). New
+  `--disabled` flag; `--enable` is still accepted; setting `plugins.enable_on_install` (default true). Failed
+  validation still quarantines and denies the install.
+- Fix: `itcmdr-cli` closes its database pools before exiting; it could crash intermittently at exit ("double free")
+  while SQLCipher connection threads were still closing.
+- Plan: decision 13 adds the app-triggered restore (`StageRestore`, restore helper, status polling, health-check
+  rollback), server side in v0.10.0, app screen in v0.12.0. v0.9.0 hash recorded.
+
 ## v0.9.0 (2026-10-30)
 - Service plugin packages (decisions 7, 8): `.tar.gz` with `package.toml` (`[[files]]`, sha256 checksums, one `main`),
   `package.sig` (Ed25519 by an active admin/owner key over the package.toml hash) and exactly the listed files.

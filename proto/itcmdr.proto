@@ -131,7 +131,7 @@ message Update {
 }
 
 // Backups (decision 13). Owner/admin only, audit-logged. Restore is CLI-only (server stopped):
-// itcmdr-cli restore --from <archive> [--dry-run]
+// `itcmdr-cli restore --from ARCHIVE [--dry-run]`; app-triggered StageRestore is planned (decision 13).
 message BackupInfo {
   string name = 1;
   int64 size = 2;
@@ -161,6 +161,33 @@ message GetSettingsResponse { BackupSettings backup = 1; }
 message UpdateSettingsRequest { BackupSettings backup = 1; }
 message UpdateSettingsResponse { BackupSettings backup = 1; }
 
+// Every setting (decision 15, docs/SETTINGS.md). Admin/owner only; updates are validated and audited.
+message SettingItem {
+  string key = 1;
+  string scope = 2;          // "server" or "agent" (agent settings are served to PCs via agent-settings.json)
+  string type = 3;           // int, bool, time, path, text
+  string value = 4;          // effective value as text ("26", "true", "02:30", "C:\\x")
+  string default_value = 5;
+  string source = 6;         // default, server.json, db, or db:MACHINE
+  string description = 7;
+  int64 min = 8;             // int only
+  int64 max = 9;             // int only
+  bool read_only = 10;       // server.json only
+  string applies = 11;       // "next pass", "restart", "agent reinstall", ...
+}
+message ListSettingsRequest { string machine = 1; }   // optional: resolve that PC's agent overrides
+message ListSettingsResponse {
+  repeated SettingItem settings = 1;
+  repeated string machines_with_overrides = 2;
+}
+message UpdateSettingRequest {
+  string key = 1;
+  string value = 2;          // text form, validated server-side
+  string machine = 3;        // agent settings only: per-machine override
+  bool unset = 4;            // remove the override instead
+}
+message UpdateSettingResponse { SettingItem setting = 1; }
+
 service Itcmdr {
   rpc ListMachines(ListMachinesRequest) returns (ListMachinesResponse);
   rpc TriggerRuns(TriggerRunsRequest) returns (TriggerRunsResponse);
@@ -176,6 +203,8 @@ service Itcmdr {
   rpc VerifyBackup(VerifyBackupRequest) returns (VerifyBackupResponse);
   rpc GetSettings(GetSettingsRequest) returns (GetSettingsResponse);
   rpc UpdateSettings(UpdateSettingsRequest) returns (UpdateSettingsResponse);
+  rpc ListSettings(ListSettingsRequest) returns (ListSettingsResponse);
+  rpc UpdateSetting(UpdateSettingRequest) returns (UpdateSettingResponse);
   rpc WatchUpdates(WatchUpdatesRequest) returns (stream Update);
 }
 

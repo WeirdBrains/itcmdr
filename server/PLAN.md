@@ -334,6 +334,23 @@ JSON. The rest sounds good to me").
     - **Releases:** core backup/restore (DB, escrow, config) plus CLI and RPCs in v0.8.0. Plugins, plugin config,
       quarantine index and plugin logs join the archive as they appear (v0.9.0/v0.10.0). App screen in v0.12.0.
       No version shift needed.
+    - **App-triggered restore** (Michael, t382u: the app must back up AND restore; v0.8.0 restore was CLI-only).
+      A running server can't swap its own DB, so the restore runs out of process:
+      - **`StageRestore` RPC:** owner only, audit-logged (`restore-stage`). Takes a backup name (or an uploaded
+        archive), verifies header, signature and ciphertext hash first, and refuses incompatible schema versions.
+      - **Words:** preferred: the app opens the archive's sealed content key client-side with the 24 words and
+        sends only what the helper needs, re-sealed for the server's restore key; fallback: the words go over the
+        authenticated (signed, TLS) channel and are held in memory only. Never written to disk or logs.
+      - **Restore job:** `restore/job.json` (archive, actor, staged time, state) + sealed material; one job at a time.
+      - **Restore helper** (`itcmdr-restore`, separate process, started by the service or a one-shot task):
+        stops the service, takes the `pre-restore-<ts>` safety copy, restores (same code as `itcmdr-cli restore`,
+        so the live server.json is still not overwritten), starts the service again.
+      - **Status + rollback:** the helper writes `restore/status.json` (staged, stopping, safety-copy, restoring,
+        starting, health-check, done | rolled-back | failed); `GetRestoreStatus` lets the app poll it (also
+        readable after the restart). If the restarted server fails its health check (DB opens, schema ok, gRPC
+        answers within a timeout), the helper restores the safety copy, restarts and reports `rolled-back`.
+      - **Placement:** server pieces (RPCs, helper, rollback, tests incl. a forced failed health check) in
+        v0.10.0; the app's Backup & Restore screen in v0.12.0. v0.9.1 stays on settings.
 
 14. **Scheduled runs** (Michael, Oct 30 2026: "We should have a way to schedule runs in the app and cli").
     - **The server owns schedules**, stored in the encrypted DB: id, name, target (machines, groups or all),
@@ -406,6 +423,7 @@ JSON. The rest sounds good to me").
         agent, backup, schedules, paths, thresholds) with validation lands in v0.12.0.
       - **Tests:** defaults equal current behaviour, overrides apply, bad values rejected, RPC roles + audit,
         the agent picks up centrally served settings.
+      - **Built in v0.9.1:** see the notes below and `docs/SETTINGS.md`.
 
 ### Notes from the v0.9.0 build
 
@@ -415,7 +433,7 @@ JSON. The rest sounds good to me").
   Signers: active admin/owner keys (users or clients, so the root key works too).
 - `type` is one of bin, powershell, data, config; `features` of verify, execute, log; names are
   lowercase `a-z0-9-_`, versions start with a digit.
-- Installs land **disabled** unless `--enable` (enabling one version disables the others). Removing an
+- Installs landed **disabled** unless `--enable` (v0.9.1: enabled by default, see below; enabling one version disables the others). Removing an
   enabled version needs `--force`. State in the `plugins` table (schema 2) + `service_plugins/{name}-{version}`.
 - Quarantine: the original bytes go to `quarantine/<ts>-<sha12>-<name>`, a JSON line to
   `quarantine/index.jsonl`, a warning to the server log and `plugin-quarantine` to the audit log.
@@ -423,6 +441,24 @@ JSON. The rest sounds good to me").
 - `itcmdr-cli plugins pack` builds and signs a package; `plugins` is also reachable as `service plugins`.
 - Backups now carry `service_plugins/**` and `quarantine/index.jsonl`; restore copies the current ones
   aside first. Plugin logs join in v0.10.0. The log standard (decision 11) moved to v0.10.0.
+
+### Notes from the v0.9.1 build
+
+- Registry in `settings.rs`: 29 typed keys (int with range, bool, time `HH:mm`, path, text), scope server or
+  agent, read-only keys (`server.bind_addr`, `server.auth_mode`: server.json only, restart). Overrides are
+  stored in `server_meta` as `settings.v2` (global + per-machine); the v0.8.1 `settings.backup` map is
+  migrated on first save. Cross-checks: `search.default_limit <= search.max_limit`.
+- RPCs: `ListSettings(machine)` and `UpdateSetting(key, value, machine, unset)`, admin/owner, audit
+  `settings-update`. The v0.8.1 `GetSettings` / `UpdateSettings` stay for the backup block. Values travel
+  as text and are validated server-side; the app pre-checks ranges/types.
+- Runtime reads settings per use (ingest loop sleeps the current interval, request timeout, retention,
+  metrics thresholds, clock skew with nonce TTL = 2x skew, search limits, package size), so changes apply
+  without a restart. `agent.nightlyTime` and `rotation.timeLocal` apply when the task is (re)installed.
+- Agent: `agent-settings.json` (`itcmdr-agent-settings/v1`) exported to `logs_dir` (the share) at startup
+  and after agent-scope changes; the agent caches it in agentData. Precedence site.json > machine > global >
+  default (`Get-ItcmdrSetting`; the poller has a small copy, `Get-ItcmdrPollSetting`).
+- Plugins (Michael, t393u): a validated package is **enabled** on install (other versions disabled) unless
+  `--disabled` or `plugins.enable_on_install = false`; `--enable` is accepted as a no-op. Quarantine unchanged.
 
 ### Auth notes from the v0.7.0 build
 
@@ -457,8 +493,8 @@ JSON. The rest sounds good to me").
 | v0.8.0 | itcmdr-cli: init, service register [--name], user add, key rotate/revoke; backup create/list/verify + restore [--dry-run], backup RPCs, nightly backup to the share (decision 13) |
 | v0.8.1 | configurable paths (decision 15): agent `paths.localLogs`/`agentData`, installer LocalLogs, backup settings RPCs + `itcmdr-cli config`; backup retention by 4-week blocks; plans for decisions 14-15 |
 | v0.9.0 | packages: format, validation (exact file list, sha256, signature), quarantine + index, plugins install --url/--path, list/enable/disable/remove, plugin files in backups |
-| v0.9.1 | settings everywhere (decision 15 widened): typed Settings registry + `ListSettings`/`GetSettings`/`UpdateSettings`, `itcmdr-cli config list`, central agent settings (global + per machine) with site.json as local override, `docs/SETTINGS.md`, basic app Settings screen |
-| v0.10.0 | plugin runtime: PluginService gRPC, Rust crate, PowerShell module + host, Verify then Execute, Log on error, timeouts, on-demand + audit hooks; per-run log path + log/metric helpers; log standard doc + validator + generic metrics ingest (decision 11, moved from v0.9.0); scheduled runs: server scheduler, schedule RPCs, `itcmdr-cli schedule` (decision 14) |
+| v0.9.1 | settings everywhere (decision 15 widened): typed Settings registry + `ListSettings`/`UpdateSetting` (+ backup `GetSettings`/`UpdateSettings`), runtime wiring, plugins enabled on install, `itcmdr-cli config list`, central agent settings (global + per machine) with site.json as local override, `docs/SETTINGS.md`, basic app Settings screen |
+| v0.10.0 | app-triggered restore server side (decision 13: StageRestore, restore helper, status, health-check rollback); plugin runtime: PluginService gRPC, Rust crate, PowerShell module + host, Verify then Execute, Log on error, timeouts, on-demand + audit hooks; per-run log path + log/metric helpers; log standard doc + validator + generic metrics ingest (decision 11, moved from v0.9.0); scheduled runs: server scheduler, schedule RPCs, `itcmdr-cli schedule` (decision 14) |
 | v0.11.0 | built-in checks as plugins: the existing agent checks/repairs rebuilt as service plugins and run through the plugin system (decision 10), logging in itcmdr.log/v1; nightly agent task and nightly backup as built-in schedules (decision 14, no-gap rule) |
 | v0.12.0 | Flutter: Service Plugins section, app registration, user/key management, plugin metric charts, Backup & Restore screen, Schedules screen; app signs requests, default auth_mode -> signed |
 | v0.13.0 | installer: first-run master setup showing the words once; Windows VM test items in the handover |

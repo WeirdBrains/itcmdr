@@ -153,6 +153,15 @@ impl ItcmdrService {
         }
     }
 
+    /// Agent settings changed: rewrite agent-settings.json on the share.
+    async fn after_settings_change(&self, key: &str) {
+        if crate::settings::def(key).is_ok_and(|d| d.scope == crate::settings::Scope::Agent) {
+            if let Err(e) = crate::settings::export_agent(&self.pool, &self.cfg).await {
+                tracing::error!(error=%e, "agent settings export failed");
+            }
+        }
+    }
+
     async fn audit(&self, actor: &str, action: &str, detail: &serde_json::Value) {
         if let Err(e) =
             crate::db::insert_audit(&self.pool, actor, action, &detail.to_string()).await
@@ -237,7 +246,9 @@ impl Itcmdr for ItcmdrService {
         let _ = crate::requests::sync_requests(
             &self.pool,
             &self.cfg.responses_dir(),
-            self.cfg.request_timeout_ms(),
+            crate::settings::get_i64(&self.pool, Some(&self.cfg), "server.request_timeout_secs")
+                .await
+                * 1000,
         )
         .await;
         let (status, message) = crate::db::get_request_status(&self.pool, &id)
@@ -352,7 +363,9 @@ impl Itcmdr for ItcmdrService {
             .await?;
         let p = req.into_inner();
         let lines = crate::ingest::iter_log_lines(&self.cfg.logs_dir).map_err(internal_err)?;
-        let page = crate::search::search(lines, &p);
+        let dl = crate::settings::get_i64(&self.pool, None, "search.default_limit").await as usize;
+        let ml = crate::settings::get_i64(&self.pool, None, "search.max_limit").await as usize;
+        let page = crate::search::search_with(lines, &p, dl, ml.max(dl));
         Ok(Response::new(SearchLogsResponse {
             lines: page.lines,
             total: page.total as i32,
@@ -521,6 +534,65 @@ impl Itcmdr for ItcmdrService {
         }))
     }
 
+    async fn list_settings(
+        &self,
+        req: Request<ListSettingsRequest>,
+    ) -> Result<Response<ListSettingsResponse>, Status> {
+        self.authz(
+            &req,
+            "/itcmdr.Itcmdr/ListSettings",
+            crate::auth::Role::Admin,
+        )
+        .await?;
+        let m = req.into_inner().machine;
+        let m = (!m.trim().is_empty()).then(|| m.trim().to_string());
+        let all = crate::settings::resolve_all(&self.pool, Some(&self.cfg), m.as_deref())
+            .await
+            .map_err(internal_err)?;
+        let store = crate::settings::load(&self.pool)
+            .await
+            .map_err(internal_err)?;
+        Ok(Response::new(ListSettingsResponse {
+            settings: all.iter().map(to_setting_item).collect(),
+            machines_with_overrides: store.machines.keys().cloned().collect(),
+        }))
+    }
+
+    async fn update_setting(
+        &self,
+        req: Request<UpdateSettingRequest>,
+    ) -> Result<Response<UpdateSettingResponse>, Status> {
+        let actor = self
+            .authz(
+                &req,
+                "/itcmdr.Itcmdr/UpdateSetting",
+                crate::auth::Role::Admin,
+            )
+            .await?;
+        let r = req.into_inner();
+        let machine = (!r.machine.trim().is_empty()).then(|| r.machine.trim().to_string());
+        let res = if r.unset {
+            crate::settings::unset(&self.pool, &r.key, machine.as_deref()).await
+        } else {
+            crate::settings::set(&self.pool, &r.key, &r.value, machine.as_deref())
+                .await
+                .map(|_| ())
+        };
+        res.map_err(|e| Status::invalid_argument(format!("{e:#}")))?;
+        self.audit(
+            &actor,
+            "settings-update",
+            &serde_json::json!({"key": r.key, "value": if r.unset { serde_json::Value::Null } else { r.value.clone().into() }, "machine": machine, "unset": r.unset}),
+        )
+        .await;
+        self.after_settings_change(&r.key).await;
+        let all = crate::settings::resolve_all(&self.pool, Some(&self.cfg), machine.as_deref())
+            .await
+            .map_err(internal_err)?;
+        let item = all.iter().find(|x| x.def.key == r.key).map(to_setting_item);
+        Ok(Response::new(UpdateSettingResponse { setting: item }))
+    }
+
     type WatchUpdatesStream =
         Pin<Box<dyn tokio_stream::Stream<Item = Result<Update, Status>> + Send + 'static>>;
     async fn watch_updates(
@@ -542,6 +614,36 @@ impl Itcmdr for ItcmdrService {
 
 fn internal_err<E: std::fmt::Display>(e: E) -> Status {
     Status::internal(e.to_string())
+}
+
+fn value_text(v: &serde_json::Value) -> String {
+    match v {
+        serde_json::Value::String(s) => s.clone(),
+        other => other.to_string(),
+    }
+}
+
+fn to_setting_item(r: &crate::settings::Resolved) -> SettingItem {
+    let (min, max) = match r.def.kind {
+        crate::settings::Kind::Int { min, max } => (min, max),
+        _ => (0, 0),
+    };
+    SettingItem {
+        key: r.def.key.into(),
+        scope: match r.def.scope {
+            crate::settings::Scope::Server => "server".into(),
+            crate::settings::Scope::Agent => "agent".into(),
+        },
+        r#type: r.def.kind.name().into(),
+        value: value_text(&r.value),
+        default_value: value_text(&r.def.default),
+        source: r.source.clone(),
+        description: r.def.description.into(),
+        min,
+        max,
+        read_only: r.def.read_only,
+        applies: r.def.applies.into(),
+    }
 }
 
 fn to_proto_backup(b: &crate::config::BackupConfig) -> BackupSettings {

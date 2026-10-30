@@ -39,12 +39,42 @@ function Get-ItcmdrPollSite {
   return $null
 }
 
+function Get-ItcmdrPollSetting {
+  <#
+    Agent setting for the poller: site.json > central agent-settings.json (share, then the
+    <agentData> cache) per machine > global > Default. Same rules as Get-ItcmdrSetting.
+  #>
+  param($Site, [string]$Key, $Default, [string]$Computer = $env:COMPUTERNAME)
+  $parts = $Key -split '\.'
+  $cur = $Site
+  foreach ($n in $parts) { if ($cur -and $cur.PSObject.Properties[$n]) { $cur = $cur.$n } else { $cur = $null; break } }
+  if ($null -ne $cur -and "$cur".Trim()) { return $cur }
+  $data = 'C:\ProgramData\itcmdr'
+  if ($Site -and $Site.PSObject.Properties['paths'] -and $Site.paths.PSObject.Properties['agentData'] -and $Site.paths.agentData) { $data = [string]$Site.paths.agentData }
+  $files = @()
+  if ($Site -and $Site.PSObject.Properties['shares'] -and $Site.shares.PSObject.Properties['maintenanceRuns'] -and $Site.shares.maintenanceRuns) {
+    $files += [IO.Path]::Combine([string]$Site.shares.maintenanceRuns, 'agent-settings.json')
+  }
+  $files += [IO.Path]::Combine($data, 'agent-settings.json')
+  foreach ($f in $files) {
+    try {
+      if (-not (Test-Path -LiteralPath $f)) { continue }
+      $doc = (Get-Content -LiteralPath $f -Raw).TrimStart([char]0xFEFF) | ConvertFrom-Json
+      if ($Computer -and $doc.PSObject.Properties['machines']) {
+        foreach ($m in $doc.machines.PSObject.Properties) {
+          if ($m.Name -ieq $Computer -and $m.Value.PSObject.Properties[$Key]) { return $m.Value.$Key }
+        }
+      }
+      if ($doc.PSObject.Properties['global'] -and $doc.global.PSObject.Properties[$Key]) { return $doc.global.$Key }
+      return $Default
+    } catch { continue }
+  }
+  return $Default
+}
+
 function Get-ItcmdrRequestDirectory {
   param($Site)
-  $local = 'C:\maintenanceRuns'
-  if ($Site -and $Site.PSObject.Properties['paths'] -and $Site.paths.PSObject.Properties['localLogs'] -and $Site.paths.localLogs) {
-    $local = [string]$Site.paths.localLogs
-  }
+  $local = [string](Get-ItcmdrPollSetting -Site $Site -Key 'paths.localLogs' -Default 'C:\maintenanceRuns')
   $dirs = @([IO.Path]::Combine($local, 'requests'))
   if ($Site -and $Site.PSObject.Properties['shares'] -and $Site.shares.PSObject.Properties['maintenanceRuns'] -and $Site.shares.maintenanceRuns) {
     $dirs += ([IO.Path]::Combine([string]$Site.shares.maintenanceRuns, 'requests'))
@@ -121,5 +151,6 @@ function Invoke-ItcmdrPoll {
 if (-not $env:ITCMDR_IMPORT_ONLY) {
   $site = Get-ItcmdrPollSite
   $dirs = Get-ItcmdrRequestDirectory -Site $site
-  Invoke-ItcmdrPoll -RequestDirectory $dirs -Computer $env:COMPUTERNAME -AgentPath (Join-Path $PSScriptRoot 'Invoke-ItcmdrAgent.ps1') | Out-Null
+  $stale = [int](Get-ItcmdrPollSetting -Site $site -Key 'agent.staleLockMinutes' -Default 150)
+  Invoke-ItcmdrPoll -RequestDirectory $dirs -Computer $env:COMPUTERNAME -AgentPath (Join-Path $PSScriptRoot 'Invoke-ItcmdrAgent.ps1') -StaleLockMinutes $stale | Out-Null
 }

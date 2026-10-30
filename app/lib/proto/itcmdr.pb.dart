@@ -1862,6 +1862,1244 @@ class Update extends $pb.GeneratedMessage {
   void clearTs() => $_clearField(4);
 }
 
+/// Backups (decision 13). Owner/admin only, audit-logged. Restore is CLI-only (server stopped):
+/// `itcmdr-cli restore --from ARCHIVE [--dry-run]`; app-triggered StageRestore is planned (decision 13).
+class BackupInfo extends $pb.GeneratedMessage {
+  factory BackupInfo({
+    $core.String? name,
+    $fixnum.Int64? size,
+    $fixnum.Int64? createdTs,
+    $core.String? kind,
+    $core.String? itcmdrVersion,
+    $fixnum.Int64? schemaVersion,
+  }) {
+    final result = BackupInfo._();
+    if (name != null) result.name = name;
+    if (size != null) result.size = size;
+    if (createdTs != null) result.createdTs = createdTs;
+    if (kind != null) result.kind = kind;
+    if (itcmdrVersion != null) result.itcmdrVersion = itcmdrVersion;
+    if (schemaVersion != null) result.schemaVersion = schemaVersion;
+    return result;
+  }
+
+  BackupInfo._();
+
+  factory BackupInfo.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      BackupInfo()..mergeFromBuffer(data, registry);
+  factory BackupInfo.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      BackupInfo()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'BackupInfo',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: BackupInfo.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..aInt64(2, _omitFieldNames ? '' : 'size')
+    ..aInt64(3, _omitFieldNames ? '' : 'createdTs')
+    ..aOS(4, _omitFieldNames ? '' : 'kind')
+    ..aOS(5, _omitFieldNames ? '' : 'itcmdrVersion')
+    ..aInt64(6, _omitFieldNames ? '' : 'schemaVersion')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  BackupInfo clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  BackupInfo copyWith(void Function(BackupInfo) updates) =>
+      super.copyWith((message) => updates(message as BackupInfo)) as BackupInfo;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use BackupInfo() / BackupInfo.new instead')
+  static BackupInfo create() => BackupInfo._();
+  static $pb.GeneratedMessage $_createMessage() => BackupInfo._();
+  @$core.override
+  BackupInfo createEmptyInstance() => BackupInfo._();
+  @$core.pragma('dart2js:noInline')
+  static BackupInfo getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<BackupInfo>(BackupInfo.$_createMessage);
+  static BackupInfo? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get name => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set name($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearName() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get size => $_getI64(1);
+  @$pb.TagNumber(2)
+  set size($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSize() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSize() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get createdTs => $_getI64(2);
+  @$pb.TagNumber(3)
+  set createdTs($fixnum.Int64 value) => $_setInt64(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasCreatedTs() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearCreatedTs() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get kind => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set kind($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasKind() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearKind() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get itcmdrVersion => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set itcmdrVersion($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasItcmdrVersion() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearItcmdrVersion() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $fixnum.Int64 get schemaVersion => $_getI64(5);
+  @$pb.TagNumber(6)
+  set schemaVersion($fixnum.Int64 value) => $_setInt64(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasSchemaVersion() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearSchemaVersion() => $_clearField(6);
+}
+
+class CreateBackupRequest extends $pb.GeneratedMessage {
+  factory CreateBackupRequest() => CreateBackupRequest._();
+
+  CreateBackupRequest._();
+
+  factory CreateBackupRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      CreateBackupRequest()..mergeFromBuffer(data, registry);
+  factory CreateBackupRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      CreateBackupRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateBackupRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: CreateBackupRequest.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateBackupRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateBackupRequest copyWith(void Function(CreateBackupRequest) updates) =>
+      super.copyWith((message) => updates(message as CreateBackupRequest))
+          as CreateBackupRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core
+      .Deprecated('Use CreateBackupRequest() / CreateBackupRequest.new instead')
+  static CreateBackupRequest create() => CreateBackupRequest._();
+  static $pb.GeneratedMessage $_createMessage() => CreateBackupRequest._();
+  @$core.override
+  CreateBackupRequest createEmptyInstance() => CreateBackupRequest._();
+  @$core.pragma('dart2js:noInline')
+  static CreateBackupRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateBackupRequest>(
+          CreateBackupRequest.$_createMessage);
+  static CreateBackupRequest? _defaultInstance;
+}
+
+class CreateBackupResponse extends $pb.GeneratedMessage {
+  factory CreateBackupResponse({
+    BackupInfo? backup,
+  }) {
+    final result = CreateBackupResponse._();
+    if (backup != null) result.backup = backup;
+    return result;
+  }
+
+  CreateBackupResponse._();
+
+  factory CreateBackupResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      CreateBackupResponse()..mergeFromBuffer(data, registry);
+  factory CreateBackupResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      CreateBackupResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateBackupResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: CreateBackupResponse.$_createMessage)
+    ..aOM<BackupInfo>(1, _omitFieldNames ? '' : 'backup',
+        subBuilder: BackupInfo.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateBackupResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateBackupResponse copyWith(void Function(CreateBackupResponse) updates) =>
+      super.copyWith((message) => updates(message as CreateBackupResponse))
+          as CreateBackupResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use CreateBackupResponse() / CreateBackupResponse.new instead')
+  static CreateBackupResponse create() => CreateBackupResponse._();
+  static $pb.GeneratedMessage $_createMessage() => CreateBackupResponse._();
+  @$core.override
+  CreateBackupResponse createEmptyInstance() => CreateBackupResponse._();
+  @$core.pragma('dart2js:noInline')
+  static CreateBackupResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateBackupResponse>(
+          CreateBackupResponse.$_createMessage);
+  static CreateBackupResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  BackupInfo get backup => $_getN(0);
+  @$pb.TagNumber(1)
+  set backup(BackupInfo value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasBackup() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearBackup() => $_clearField(1);
+  @$pb.TagNumber(1)
+  BackupInfo ensureBackup() => $_ensure(0);
+}
+
+class ListBackupsRequest extends $pb.GeneratedMessage {
+  factory ListBackupsRequest() => ListBackupsRequest._();
+
+  ListBackupsRequest._();
+
+  factory ListBackupsRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListBackupsRequest()..mergeFromBuffer(data, registry);
+  factory ListBackupsRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListBackupsRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ListBackupsRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: ListBackupsRequest.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListBackupsRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListBackupsRequest copyWith(void Function(ListBackupsRequest) updates) =>
+      super.copyWith((message) => updates(message as ListBackupsRequest))
+          as ListBackupsRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ListBackupsRequest() / ListBackupsRequest.new instead')
+  static ListBackupsRequest create() => ListBackupsRequest._();
+  static $pb.GeneratedMessage $_createMessage() => ListBackupsRequest._();
+  @$core.override
+  ListBackupsRequest createEmptyInstance() => ListBackupsRequest._();
+  @$core.pragma('dart2js:noInline')
+  static ListBackupsRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ListBackupsRequest>(
+          ListBackupsRequest.$_createMessage);
+  static ListBackupsRequest? _defaultInstance;
+}
+
+class ListBackupsResponse extends $pb.GeneratedMessage {
+  factory ListBackupsResponse({
+    $core.Iterable<BackupInfo>? backups,
+  }) {
+    final result = ListBackupsResponse._();
+    if (backups != null) result.backups.addAll(backups);
+    return result;
+  }
+
+  ListBackupsResponse._();
+
+  factory ListBackupsResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListBackupsResponse()..mergeFromBuffer(data, registry);
+  factory ListBackupsResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListBackupsResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ListBackupsResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: ListBackupsResponse.$_createMessage)
+    ..pPM<BackupInfo>(1, _omitFieldNames ? '' : 'backups',
+        subBuilder: BackupInfo.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListBackupsResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListBackupsResponse copyWith(void Function(ListBackupsResponse) updates) =>
+      super.copyWith((message) => updates(message as ListBackupsResponse))
+          as ListBackupsResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core
+      .Deprecated('Use ListBackupsResponse() / ListBackupsResponse.new instead')
+  static ListBackupsResponse create() => ListBackupsResponse._();
+  static $pb.GeneratedMessage $_createMessage() => ListBackupsResponse._();
+  @$core.override
+  ListBackupsResponse createEmptyInstance() => ListBackupsResponse._();
+  @$core.pragma('dart2js:noInline')
+  static ListBackupsResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ListBackupsResponse>(
+          ListBackupsResponse.$_createMessage);
+  static ListBackupsResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<BackupInfo> get backups => $_getList(0);
+}
+
+class VerifyBackupRequest extends $pb.GeneratedMessage {
+  factory VerifyBackupRequest({
+    $core.String? name,
+  }) {
+    final result = VerifyBackupRequest._();
+    if (name != null) result.name = name;
+    return result;
+  }
+
+  VerifyBackupRequest._();
+
+  factory VerifyBackupRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      VerifyBackupRequest()..mergeFromBuffer(data, registry);
+  factory VerifyBackupRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      VerifyBackupRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'VerifyBackupRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: VerifyBackupRequest.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  VerifyBackupRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  VerifyBackupRequest copyWith(void Function(VerifyBackupRequest) updates) =>
+      super.copyWith((message) => updates(message as VerifyBackupRequest))
+          as VerifyBackupRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core
+      .Deprecated('Use VerifyBackupRequest() / VerifyBackupRequest.new instead')
+  static VerifyBackupRequest create() => VerifyBackupRequest._();
+  static $pb.GeneratedMessage $_createMessage() => VerifyBackupRequest._();
+  @$core.override
+  VerifyBackupRequest createEmptyInstance() => VerifyBackupRequest._();
+  @$core.pragma('dart2js:noInline')
+  static VerifyBackupRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<VerifyBackupRequest>(
+          VerifyBackupRequest.$_createMessage);
+  static VerifyBackupRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get name => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set name($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearName() => $_clearField(1);
+}
+
+class VerifyBackupResponse extends $pb.GeneratedMessage {
+  factory VerifyBackupResponse({
+    $core.bool? ok,
+    $core.String? message,
+  }) {
+    final result = VerifyBackupResponse._();
+    if (ok != null) result.ok = ok;
+    if (message != null) result.message = message;
+    return result;
+  }
+
+  VerifyBackupResponse._();
+
+  factory VerifyBackupResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      VerifyBackupResponse()..mergeFromBuffer(data, registry);
+  factory VerifyBackupResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      VerifyBackupResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'VerifyBackupResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: VerifyBackupResponse.$_createMessage)
+    ..aOB(1, _omitFieldNames ? '' : 'ok')
+    ..aOS(2, _omitFieldNames ? '' : 'message')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  VerifyBackupResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  VerifyBackupResponse copyWith(void Function(VerifyBackupResponse) updates) =>
+      super.copyWith((message) => updates(message as VerifyBackupResponse))
+          as VerifyBackupResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use VerifyBackupResponse() / VerifyBackupResponse.new instead')
+  static VerifyBackupResponse create() => VerifyBackupResponse._();
+  static $pb.GeneratedMessage $_createMessage() => VerifyBackupResponse._();
+  @$core.override
+  VerifyBackupResponse createEmptyInstance() => VerifyBackupResponse._();
+  @$core.pragma('dart2js:noInline')
+  static VerifyBackupResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<VerifyBackupResponse>(
+          VerifyBackupResponse.$_createMessage);
+  static VerifyBackupResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.bool get ok => $_getBF(0);
+  @$pb.TagNumber(1)
+  set ok($core.bool value) => $_setBool(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasOk() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearOk() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get message => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set message($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasMessage() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearMessage() => $_clearField(2);
+}
+
+/// Settings (decision 15). Admin/owner only, audit-logged. Stored in the DB, override server.json.
+class BackupSettings extends $pb.GeneratedMessage {
+  factory BackupSettings({
+    $core.String? dir,
+    $core.bool? nightly,
+    $core.int? hour,
+    $core.int? keepDaily,
+    $core.int? keepWeekly,
+    $core.int? keepBlocks,
+  }) {
+    final result = BackupSettings._();
+    if (dir != null) result.dir = dir;
+    if (nightly != null) result.nightly = nightly;
+    if (hour != null) result.hour = hour;
+    if (keepDaily != null) result.keepDaily = keepDaily;
+    if (keepWeekly != null) result.keepWeekly = keepWeekly;
+    if (keepBlocks != null) result.keepBlocks = keepBlocks;
+    return result;
+  }
+
+  BackupSettings._();
+
+  factory BackupSettings.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      BackupSettings()..mergeFromBuffer(data, registry);
+  factory BackupSettings.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      BackupSettings()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'BackupSettings',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: BackupSettings.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'dir')
+    ..aOB(2, _omitFieldNames ? '' : 'nightly')
+    ..aI(3, _omitFieldNames ? '' : 'hour', fieldType: $pb.PbFieldType.OU3)
+    ..aI(4, _omitFieldNames ? '' : 'keepDaily', fieldType: $pb.PbFieldType.OU3)
+    ..aI(5, _omitFieldNames ? '' : 'keepWeekly', fieldType: $pb.PbFieldType.OU3)
+    ..aI(6, _omitFieldNames ? '' : 'keepBlocks', fieldType: $pb.PbFieldType.OU3)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  BackupSettings clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  BackupSettings copyWith(void Function(BackupSettings) updates) =>
+      super.copyWith((message) => updates(message as BackupSettings))
+          as BackupSettings;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use BackupSettings() / BackupSettings.new instead')
+  static BackupSettings create() => BackupSettings._();
+  static $pb.GeneratedMessage $_createMessage() => BackupSettings._();
+  @$core.override
+  BackupSettings createEmptyInstance() => BackupSettings._();
+  @$core.pragma('dart2js:noInline')
+  static BackupSettings getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<BackupSettings>(
+          BackupSettings.$_createMessage);
+  static BackupSettings? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get dir => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set dir($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasDir() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearDir() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.bool get nightly => $_getBF(1);
+  @$pb.TagNumber(2)
+  set nightly($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasNightly() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearNightly() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get hour => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set hour($core.int value) => $_setUnsignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasHour() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearHour() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.int get keepDaily => $_getIZ(3);
+  @$pb.TagNumber(4)
+  set keepDaily($core.int value) => $_setUnsignedInt32(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasKeepDaily() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearKeepDaily() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get keepWeekly => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set keepWeekly($core.int value) => $_setUnsignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasKeepWeekly() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearKeepWeekly() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.int get keepBlocks => $_getIZ(5);
+  @$pb.TagNumber(6)
+  set keepBlocks($core.int value) => $_setUnsignedInt32(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasKeepBlocks() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearKeepBlocks() => $_clearField(6);
+}
+
+class GetSettingsRequest extends $pb.GeneratedMessage {
+  factory GetSettingsRequest() => GetSettingsRequest._();
+
+  GetSettingsRequest._();
+
+  factory GetSettingsRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetSettingsRequest()..mergeFromBuffer(data, registry);
+  factory GetSettingsRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetSettingsRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetSettingsRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: GetSettingsRequest.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetSettingsRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetSettingsRequest copyWith(void Function(GetSettingsRequest) updates) =>
+      super.copyWith((message) => updates(message as GetSettingsRequest))
+          as GetSettingsRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use GetSettingsRequest() / GetSettingsRequest.new instead')
+  static GetSettingsRequest create() => GetSettingsRequest._();
+  static $pb.GeneratedMessage $_createMessage() => GetSettingsRequest._();
+  @$core.override
+  GetSettingsRequest createEmptyInstance() => GetSettingsRequest._();
+  @$core.pragma('dart2js:noInline')
+  static GetSettingsRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetSettingsRequest>(
+          GetSettingsRequest.$_createMessage);
+  static GetSettingsRequest? _defaultInstance;
+}
+
+class GetSettingsResponse extends $pb.GeneratedMessage {
+  factory GetSettingsResponse({
+    BackupSettings? backup,
+  }) {
+    final result = GetSettingsResponse._();
+    if (backup != null) result.backup = backup;
+    return result;
+  }
+
+  GetSettingsResponse._();
+
+  factory GetSettingsResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetSettingsResponse()..mergeFromBuffer(data, registry);
+  factory GetSettingsResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetSettingsResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetSettingsResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: GetSettingsResponse.$_createMessage)
+    ..aOM<BackupSettings>(1, _omitFieldNames ? '' : 'backup',
+        subBuilder: BackupSettings.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetSettingsResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetSettingsResponse copyWith(void Function(GetSettingsResponse) updates) =>
+      super.copyWith((message) => updates(message as GetSettingsResponse))
+          as GetSettingsResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core
+      .Deprecated('Use GetSettingsResponse() / GetSettingsResponse.new instead')
+  static GetSettingsResponse create() => GetSettingsResponse._();
+  static $pb.GeneratedMessage $_createMessage() => GetSettingsResponse._();
+  @$core.override
+  GetSettingsResponse createEmptyInstance() => GetSettingsResponse._();
+  @$core.pragma('dart2js:noInline')
+  static GetSettingsResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetSettingsResponse>(
+          GetSettingsResponse.$_createMessage);
+  static GetSettingsResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  BackupSettings get backup => $_getN(0);
+  @$pb.TagNumber(1)
+  set backup(BackupSettings value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasBackup() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearBackup() => $_clearField(1);
+  @$pb.TagNumber(1)
+  BackupSettings ensureBackup() => $_ensure(0);
+}
+
+class UpdateSettingsRequest extends $pb.GeneratedMessage {
+  factory UpdateSettingsRequest({
+    BackupSettings? backup,
+  }) {
+    final result = UpdateSettingsRequest._();
+    if (backup != null) result.backup = backup;
+    return result;
+  }
+
+  UpdateSettingsRequest._();
+
+  factory UpdateSettingsRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      UpdateSettingsRequest()..mergeFromBuffer(data, registry);
+  factory UpdateSettingsRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      UpdateSettingsRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateSettingsRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: UpdateSettingsRequest.$_createMessage)
+    ..aOM<BackupSettings>(1, _omitFieldNames ? '' : 'backup',
+        subBuilder: BackupSettings.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateSettingsRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateSettingsRequest copyWith(
+          void Function(UpdateSettingsRequest) updates) =>
+      super.copyWith((message) => updates(message as UpdateSettingsRequest))
+          as UpdateSettingsRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use UpdateSettingsRequest() / UpdateSettingsRequest.new instead')
+  static UpdateSettingsRequest create() => UpdateSettingsRequest._();
+  static $pb.GeneratedMessage $_createMessage() => UpdateSettingsRequest._();
+  @$core.override
+  UpdateSettingsRequest createEmptyInstance() => UpdateSettingsRequest._();
+  @$core.pragma('dart2js:noInline')
+  static UpdateSettingsRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateSettingsRequest>(
+          UpdateSettingsRequest.$_createMessage);
+  static UpdateSettingsRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  BackupSettings get backup => $_getN(0);
+  @$pb.TagNumber(1)
+  set backup(BackupSettings value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasBackup() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearBackup() => $_clearField(1);
+  @$pb.TagNumber(1)
+  BackupSettings ensureBackup() => $_ensure(0);
+}
+
+class UpdateSettingsResponse extends $pb.GeneratedMessage {
+  factory UpdateSettingsResponse({
+    BackupSettings? backup,
+  }) {
+    final result = UpdateSettingsResponse._();
+    if (backup != null) result.backup = backup;
+    return result;
+  }
+
+  UpdateSettingsResponse._();
+
+  factory UpdateSettingsResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      UpdateSettingsResponse()..mergeFromBuffer(data, registry);
+  factory UpdateSettingsResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      UpdateSettingsResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateSettingsResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: UpdateSettingsResponse.$_createMessage)
+    ..aOM<BackupSettings>(1, _omitFieldNames ? '' : 'backup',
+        subBuilder: BackupSettings.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateSettingsResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateSettingsResponse copyWith(
+          void Function(UpdateSettingsResponse) updates) =>
+      super.copyWith((message) => updates(message as UpdateSettingsResponse))
+          as UpdateSettingsResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use UpdateSettingsResponse() / UpdateSettingsResponse.new instead')
+  static UpdateSettingsResponse create() => UpdateSettingsResponse._();
+  static $pb.GeneratedMessage $_createMessage() => UpdateSettingsResponse._();
+  @$core.override
+  UpdateSettingsResponse createEmptyInstance() => UpdateSettingsResponse._();
+  @$core.pragma('dart2js:noInline')
+  static UpdateSettingsResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateSettingsResponse>(
+          UpdateSettingsResponse.$_createMessage);
+  static UpdateSettingsResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  BackupSettings get backup => $_getN(0);
+  @$pb.TagNumber(1)
+  set backup(BackupSettings value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasBackup() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearBackup() => $_clearField(1);
+  @$pb.TagNumber(1)
+  BackupSettings ensureBackup() => $_ensure(0);
+}
+
+/// Every setting (decision 15, docs/SETTINGS.md). Admin/owner only; updates are validated and audited.
+class SettingItem extends $pb.GeneratedMessage {
+  factory SettingItem({
+    $core.String? key,
+    $core.String? scope,
+    $core.String? type,
+    $core.String? value,
+    $core.String? defaultValue,
+    $core.String? source,
+    $core.String? description,
+    $fixnum.Int64? min,
+    $fixnum.Int64? max,
+    $core.bool? readOnly,
+    $core.String? applies,
+  }) {
+    final result = SettingItem._();
+    if (key != null) result.key = key;
+    if (scope != null) result.scope = scope;
+    if (type != null) result.type = type;
+    if (value != null) result.value = value;
+    if (defaultValue != null) result.defaultValue = defaultValue;
+    if (source != null) result.source = source;
+    if (description != null) result.description = description;
+    if (min != null) result.min = min;
+    if (max != null) result.max = max;
+    if (readOnly != null) result.readOnly = readOnly;
+    if (applies != null) result.applies = applies;
+    return result;
+  }
+
+  SettingItem._();
+
+  factory SettingItem.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SettingItem()..mergeFromBuffer(data, registry);
+  factory SettingItem.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SettingItem()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SettingItem',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: SettingItem.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'key')
+    ..aOS(2, _omitFieldNames ? '' : 'scope')
+    ..aOS(3, _omitFieldNames ? '' : 'type')
+    ..aOS(4, _omitFieldNames ? '' : 'value')
+    ..aOS(5, _omitFieldNames ? '' : 'defaultValue')
+    ..aOS(6, _omitFieldNames ? '' : 'source')
+    ..aOS(7, _omitFieldNames ? '' : 'description')
+    ..aInt64(8, _omitFieldNames ? '' : 'min')
+    ..aInt64(9, _omitFieldNames ? '' : 'max')
+    ..aOB(10, _omitFieldNames ? '' : 'readOnly')
+    ..aOS(11, _omitFieldNames ? '' : 'applies')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SettingItem clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SettingItem copyWith(void Function(SettingItem) updates) =>
+      super.copyWith((message) => updates(message as SettingItem))
+          as SettingItem;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use SettingItem() / SettingItem.new instead')
+  static SettingItem create() => SettingItem._();
+  static $pb.GeneratedMessage $_createMessage() => SettingItem._();
+  @$core.override
+  SettingItem createEmptyInstance() => SettingItem._();
+  @$core.pragma('dart2js:noInline')
+  static SettingItem getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SettingItem>(
+          SettingItem.$_createMessage);
+  static SettingItem? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get key => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set key($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasKey() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearKey() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get scope => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set scope($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasScope() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearScope() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get type => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set type($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasType() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearType() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get value => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set value($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasValue() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearValue() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get defaultValue => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set defaultValue($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasDefaultValue() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearDefaultValue() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get source => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set source($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasSource() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearSource() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.String get description => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set description($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasDescription() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearDescription() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $fixnum.Int64 get min => $_getI64(7);
+  @$pb.TagNumber(8)
+  set min($fixnum.Int64 value) => $_setInt64(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasMin() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearMin() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $fixnum.Int64 get max => $_getI64(8);
+  @$pb.TagNumber(9)
+  set max($fixnum.Int64 value) => $_setInt64(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasMax() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearMax() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $core.bool get readOnly => $_getBF(9);
+  @$pb.TagNumber(10)
+  set readOnly($core.bool value) => $_setBool(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasReadOnly() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearReadOnly() => $_clearField(10);
+
+  @$pb.TagNumber(11)
+  $core.String get applies => $_getSZ(10);
+  @$pb.TagNumber(11)
+  set applies($core.String value) => $_setString(10, value);
+  @$pb.TagNumber(11)
+  $core.bool hasApplies() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearApplies() => $_clearField(11);
+}
+
+class ListSettingsRequest extends $pb.GeneratedMessage {
+  factory ListSettingsRequest({
+    $core.String? machine,
+  }) {
+    final result = ListSettingsRequest._();
+    if (machine != null) result.machine = machine;
+    return result;
+  }
+
+  ListSettingsRequest._();
+
+  factory ListSettingsRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListSettingsRequest()..mergeFromBuffer(data, registry);
+  factory ListSettingsRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListSettingsRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ListSettingsRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: ListSettingsRequest.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'machine')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListSettingsRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListSettingsRequest copyWith(void Function(ListSettingsRequest) updates) =>
+      super.copyWith((message) => updates(message as ListSettingsRequest))
+          as ListSettingsRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core
+      .Deprecated('Use ListSettingsRequest() / ListSettingsRequest.new instead')
+  static ListSettingsRequest create() => ListSettingsRequest._();
+  static $pb.GeneratedMessage $_createMessage() => ListSettingsRequest._();
+  @$core.override
+  ListSettingsRequest createEmptyInstance() => ListSettingsRequest._();
+  @$core.pragma('dart2js:noInline')
+  static ListSettingsRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ListSettingsRequest>(
+          ListSettingsRequest.$_createMessage);
+  static ListSettingsRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get machine => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set machine($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasMachine() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearMachine() => $_clearField(1);
+}
+
+class ListSettingsResponse extends $pb.GeneratedMessage {
+  factory ListSettingsResponse({
+    $core.Iterable<SettingItem>? settings,
+    $core.Iterable<$core.String>? machinesWithOverrides,
+  }) {
+    final result = ListSettingsResponse._();
+    if (settings != null) result.settings.addAll(settings);
+    if (machinesWithOverrides != null)
+      result.machinesWithOverrides.addAll(machinesWithOverrides);
+    return result;
+  }
+
+  ListSettingsResponse._();
+
+  factory ListSettingsResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListSettingsResponse()..mergeFromBuffer(data, registry);
+  factory ListSettingsResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListSettingsResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ListSettingsResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: ListSettingsResponse.$_createMessage)
+    ..pPM<SettingItem>(1, _omitFieldNames ? '' : 'settings',
+        subBuilder: SettingItem.$_createMessage)
+    ..pPS(2, _omitFieldNames ? '' : 'machinesWithOverrides')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListSettingsResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListSettingsResponse copyWith(void Function(ListSettingsResponse) updates) =>
+      super.copyWith((message) => updates(message as ListSettingsResponse))
+          as ListSettingsResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use ListSettingsResponse() / ListSettingsResponse.new instead')
+  static ListSettingsResponse create() => ListSettingsResponse._();
+  static $pb.GeneratedMessage $_createMessage() => ListSettingsResponse._();
+  @$core.override
+  ListSettingsResponse createEmptyInstance() => ListSettingsResponse._();
+  @$core.pragma('dart2js:noInline')
+  static ListSettingsResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ListSettingsResponse>(
+          ListSettingsResponse.$_createMessage);
+  static ListSettingsResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<SettingItem> get settings => $_getList(0);
+
+  @$pb.TagNumber(2)
+  $pb.PbList<$core.String> get machinesWithOverrides => $_getList(1);
+}
+
+class UpdateSettingRequest extends $pb.GeneratedMessage {
+  factory UpdateSettingRequest({
+    $core.String? key,
+    $core.String? value,
+    $core.String? machine,
+    $core.bool? unset,
+  }) {
+    final result = UpdateSettingRequest._();
+    if (key != null) result.key = key;
+    if (value != null) result.value = value;
+    if (machine != null) result.machine = machine;
+    if (unset != null) result.unset = unset;
+    return result;
+  }
+
+  UpdateSettingRequest._();
+
+  factory UpdateSettingRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      UpdateSettingRequest()..mergeFromBuffer(data, registry);
+  factory UpdateSettingRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      UpdateSettingRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateSettingRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: UpdateSettingRequest.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'key')
+    ..aOS(2, _omitFieldNames ? '' : 'value')
+    ..aOS(3, _omitFieldNames ? '' : 'machine')
+    ..aOB(4, _omitFieldNames ? '' : 'unset')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateSettingRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateSettingRequest copyWith(void Function(UpdateSettingRequest) updates) =>
+      super.copyWith((message) => updates(message as UpdateSettingRequest))
+          as UpdateSettingRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use UpdateSettingRequest() / UpdateSettingRequest.new instead')
+  static UpdateSettingRequest create() => UpdateSettingRequest._();
+  static $pb.GeneratedMessage $_createMessage() => UpdateSettingRequest._();
+  @$core.override
+  UpdateSettingRequest createEmptyInstance() => UpdateSettingRequest._();
+  @$core.pragma('dart2js:noInline')
+  static UpdateSettingRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateSettingRequest>(
+          UpdateSettingRequest.$_createMessage);
+  static UpdateSettingRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get key => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set key($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasKey() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearKey() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get value => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set value($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasValue() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearValue() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get machine => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set machine($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasMachine() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearMachine() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.bool get unset => $_getBF(3);
+  @$pb.TagNumber(4)
+  set unset($core.bool value) => $_setBool(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasUnset() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearUnset() => $_clearField(4);
+}
+
+class UpdateSettingResponse extends $pb.GeneratedMessage {
+  factory UpdateSettingResponse({
+    SettingItem? setting,
+  }) {
+    final result = UpdateSettingResponse._();
+    if (setting != null) result.setting = setting;
+    return result;
+  }
+
+  UpdateSettingResponse._();
+
+  factory UpdateSettingResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      UpdateSettingResponse()..mergeFromBuffer(data, registry);
+  factory UpdateSettingResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      UpdateSettingResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'UpdateSettingResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: UpdateSettingResponse.$_createMessage)
+    ..aOM<SettingItem>(1, _omitFieldNames ? '' : 'setting',
+        subBuilder: SettingItem.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateSettingResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  UpdateSettingResponse copyWith(
+          void Function(UpdateSettingResponse) updates) =>
+      super.copyWith((message) => updates(message as UpdateSettingResponse))
+          as UpdateSettingResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use UpdateSettingResponse() / UpdateSettingResponse.new instead')
+  static UpdateSettingResponse create() => UpdateSettingResponse._();
+  static $pb.GeneratedMessage $_createMessage() => UpdateSettingResponse._();
+  @$core.override
+  UpdateSettingResponse createEmptyInstance() => UpdateSettingResponse._();
+  @$core.pragma('dart2js:noInline')
+  static UpdateSettingResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<UpdateSettingResponse>(
+          UpdateSettingResponse.$_createMessage);
+  static UpdateSettingResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  SettingItem get setting => $_getN(0);
+  @$pb.TagNumber(1)
+  set setting(SettingItem value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSetting() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSetting() => $_clearField(1);
+  @$pb.TagNumber(1)
+  SettingItem ensureSetting() => $_ensure(0);
+}
+
 const $core.bool _omitFieldNames =
     $core.bool.fromEnvironment('protobuf.omit_field_names');
 const $core.bool _omitMessageNames =

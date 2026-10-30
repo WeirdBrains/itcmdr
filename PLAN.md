@@ -38,11 +38,11 @@ also covered by the Windows VM test pass below.
 | v0.7.0 | Keys & auth: BIP39 master, certified keys, signed requests, roles, db.key escrow | ✅ Done | `v0.7.0` (4afe6c7) | 2026-10-30 |
 | v0.8.0 | itcmdr-cli (init, register, users, keys) + backup & restore | ✅ Done | `v0.8.0` (25e232f) | 2026-10-30 |
 | v0.8.1 | Configurable paths + backup settings, retention by 4-week blocks | ✅ Done | `v0.8.1` (c1b4388) | 2026-10-30 |
-| v0.9.0 | Packages: format, validation, signature, quarantine, plugins install/list/enable/disable/remove, plugins in backups | ✅ Done | `v0.9.0` | 2026-10-30 |
-| v0.9.1 | Settings everywhere: typed Settings API, central agent settings, `docs/SETTINGS.md`, basic app Settings screen | 📋 Planned | — | — |
-| v0.10.0 | Plugin runtime, log standard, scheduled runs (server, gRPC, CLI) | 📋 Planned | — | — |
+| v0.9.0 | Packages: format, validation, signature, quarantine, plugins install/list/enable/disable/remove, plugins in backups | ✅ Done | `v0.9.0` (073671d) | 2026-10-30 |
+| v0.9.1 | Settings everywhere: typed Settings API, central agent settings, `docs/SETTINGS.md`, basic app Settings screen; validated plugins enabled on install | ✅ Done | `v0.9.1` | 2026-10-30 |
+| v0.10.0 | Plugin runtime, log standard, scheduled runs (server, gRPC, CLI), app-triggered restore (server side) | 📋 Planned | — | — |
 | v0.11.0 | Built-in checks as plugins; nightly task + backup as built-in schedules | 📋 Planned | — | — |
-| v0.12.0 | Flutter: Service Plugins, registration, users/keys, plugin metric charts, Backup & Restore, Schedules, signed requests | 📋 Planned | — | — |
+| v0.12.0 | Flutter: Service Plugins, registration, users/keys, plugin metric charts, Backup & Restore (incl. restore with the words), Schedules, signed requests | 📋 Planned | — | — |
 | v0.13.0 | Installer: first-run master setup (words shown once); VM test items | 📋 Planned | — | — |
 
 ## Cross-cutting items
@@ -54,11 +54,12 @@ also covered by the Windows VM test pass below.
 | Real site values in site.json | 📋 Pending (on-site) | Scanners (incl. the 3D unit + exception), DNS records, drive maps, printer queues, Sirona config paths, stale patterns, backup tasks/destinations. See HANDOVER.local.md |
 | Delete the plaintext DB backup after the v0.6 migration | ✅ Done (decided) | Decision 12: deleted automatically after a verified read-back (v0.6.2); kept if verification fails |
 | DB key recovery (`keys/db.key`) | ✅ Done (v0.7.0) | Decision 12: `keys/db.key.escrow` sealed for the master key; `itcmdr-server recover-db-key` with the 24 words |
-| Backup & restore | 🔄 Core done (v0.8.0) | Decision 13: DB + escrow + config, CLI, RPCs, nightly + retention in v0.8.0; plugins join in v0.9.0/v0.10.0; app screen in v0.12.0 |
-| All hard-coded values as settings | 📋 Planned (v0.9.1) | Decision 15 widened: typed Settings API for every value, agent settings served centrally, CLI + app; full app section in v0.12.0 |
+| Backup & restore | 🔄 Core done (v0.8.0) | Decision 13: DB + escrow + config, CLI, RPCs, nightly + retention in v0.8.0; plugins in v0.9.0; app-triggered restore (`StageRestore` + restore helper + health-check rollback) server side in v0.10.0; app Backup & Restore screen in v0.12.0 |
+| All hard-coded values as settings | ✅ Done (v0.9.1) | Decision 15 widened: 29 typed settings (`docs/SETTINGS.md`), `ListSettings`/`UpdateSetting`, `itcmdr-cli config`, central `agent-settings.json`, basic app screen; full app section in v0.12.0 |
 | Configurable paths | ✅ Done (v0.8.1) | Decision 15: agent `paths.localLogs`/`agentData`, installer LocalLogs, backup settings in the DB via RPC + `itcmdr-cli config` |
 | Scheduled runs | 📋 Planned (decided) | Decision 14: server scheduler + RPCs + `itcmdr-cli schedule` in v0.10.0, built-in schedules with v0.11.0, app screen in v0.12.0 |
 | Backup retention by 4-week blocks | ✅ Done (v0.8.1) | 7 daily, 4 weekly, 13 four-week blocks (ISO weeks 4N-3..4N) instead of 12 months |
+| Plugins enabled on install | ✅ Done (v0.9.1) | A validated package is enabled on install (other versions disabled); `--disabled` opts out; setting `plugins.enable_on_install` (default true); failures still quarantine |
 | Signing canonical encoding | 🔄 Rust done (v0.8.0) | `docs/SIGNING.md`, `proto/signing_vectors.json`; the Dart test against the same vectors lands with app signing (v0.12.0) |
 | Retire the shared admin token | 📋 Planned | `auth_mode = signed` retires it today; the default moves from `both` to `signed` in v0.12.0 once the app signs requests |
 | `docs/LOG-STANDARD.md` | 📋 Planned | Written with v0.9.0/v0.10.0 (decision 11) |
@@ -150,18 +151,21 @@ also covered by the Windows VM test pass below.
 ### v0.9.0 Packages ✅
 - [x] package.toml (`[[files]]`, `main = true`), exact file list, sha256, admin/owner signature (`package.sig`)
 - [x] Safe unpack (no absolute paths, `..`, symlinks, hard links); failures → `quarantine/` + index + log + audit, install denied
-- [x] `plugins install --url|--path [--enable]`, list, enable, disable, remove, quarantine; install dir `{name}-{version}`; `plugins pack` builds and signs
+- [x] `plugins install --url|--path [--enable]` (v0.9.1: enabled by default, `--disabled`), list, enable, disable, remove, quarantine; install dir `{name}-{version}`; `plugins pack` builds and signs
 - [x] Plugin files and the quarantine index in backup archives
 - [x] Tests: every rejection case quarantines, management + audit, URL install, backup round trip, CLI end to end
 
-### v0.9.1 Settings everywhere 📋
-- [ ] Audit every hard-coded value (agent, server, installer, app) → settings with today's defaults (list in `server/PLAN.md` decision 15)
-- [ ] Typed settings registry + `ListSettings` / `GetSettings` / `UpdateSettings` (validated, admin/owner, audited)
-- [ ] `itcmdr-cli config list|get|set|unset` for every key
-- [ ] Agent settings served centrally (`agent-settings.json` on the share: global + per machine), site.json as local override, cached offline
-- [ ] `docs/SETTINGS.md`: name, default, scope, who can change it
-- [ ] Basic app Settings screen on the API (full section in v0.12.0)
-- [ ] Tests: defaults = current behaviour, overrides, validation, RPC roles + audit, agent picks up central settings
+### v0.9.1 Settings everywhere ✅
+- [x] Audit every hard-coded value (agent, server, installer, app) → 29 settings with today's defaults (`docs/SETTINGS.md`)
+- [x] Typed settings registry (int with range, bool, time, path, text; read-only keys) + `ListSettings` / `UpdateSetting` (validated, admin/owner, audited); `GetSettings` / `UpdateSettings` (backup block) kept
+- [x] Runtime wired: ingest interval, request timeout, DB retention, flap/repeat thresholds, clock-skew window, search limits, package size limit
+- [x] `itcmdr-cli config list|get|set|unset [--machine]` for every key, audit-logged
+- [x] Agent settings served centrally (`agent-settings.json` on the share: global + per machine), site.json as local override, cached in agentData; agent, poller and installer read them
+- [x] `docs/SETTINGS.md`: name, default, scope, type/range, when it applies, who can change it
+- [x] Basic app Settings screen on the API (server/agent tabs, per-machine view, edit with validation, reset); full section in v0.12.0
+- [x] Plugins (Michael, t393u): validated packages enabled on install, `--disabled`, `--enable` kept as a no-op, setting `plugins.enable_on_install`
+- [x] Plan: decision 13 gets the app-triggered restore (StageRestore, restore helper, rollback), server side placed in v0.10.0
+- [x] Tests: defaults = current behaviour, overrides apply (search, metrics, plugins), validation, RPC roles + audit, agent picks up central settings (Pester)
 
 ### v0.10.0 Plugin runtime 📋
 - [ ] `PluginService` proto (Describe, Verify, Execute, Log), child process + per-launch secret handshake
@@ -172,6 +176,7 @@ also covered by the Windows VM test pass below.
 - [ ] `itcmdr.log/v1` schema doc, validator, reject counts, generic metrics ingest, `GetPluginMetrics` (decision 11, moved from v0.9.0)
 - [ ] Scheduled runs (decision 14): schedules table, scheduler queueing via the on-demand path, cron/presets with timezone + DST, clinical guard, max concurrency, missed-run policy, history + next runs
 - [ ] Schedule RPCs (admin manage, user run-now, audited) and `itcmdr-cli schedule add|list|edit|rm|pause|resume|run-now|history`
+- [ ] App-triggered restore (decision 13): `StageRestore` (owner, audited, archive verified, words confirmed client-side) writes a restore job; `itcmdr-restore` helper stops the service, takes the safety copy, restores, restarts; `GetRestoreStatus` polling; automatic rollback when the health check fails
 
 ### v0.11.0 Built-in checks as plugins 📋
 - [ ] Network, connectivity, scanner, DNS, drive maps, printers, Sirona drift, backup coverage as signed plugins

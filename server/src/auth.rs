@@ -2,7 +2,7 @@
 //!
 //! Signed request metadata (all required):
 //! - `x-itcmdr-key`: key fingerprint (sha256 of the Ed25519 public key, hex)
-//! - `x-itcmdr-ts`: unix millis, must be within +/- `MAX_SKEW_MS` of the server clock
+//! - `x-itcmdr-ts`: unix millis, must be within +/- `auth.max_skew_secs` (default 5 min) of the server clock
 //! - `x-itcmdr-nonce`: 16-128 chars of [A-Za-z0-9_-], never reused (replay protection)
 //! - `x-itcmdr-sig`: hex Ed25519 signature over `keys::request_message(method, ts, nonce, body)`,
 //!   where `method` is the gRPC path (e.g. `/itcmdr.Itcmdr/TriggerRuns`) and `body` is the protobuf
@@ -18,6 +18,7 @@ use std::collections::HashMap;
 use tonic::Status;
 use zeroize::Zeroizing;
 
+/// Default of the `auth.max_skew_secs` setting.
 pub const MAX_SKEW_MS: i64 = 5 * 60 * 1000;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -347,6 +348,11 @@ pub struct NonceCache {
 impl NonceCache {
     /// False when the (key, nonce) pair was already used.
     pub fn check_and_insert(&self, fp: &str, nonce: &str, now_ms: i64) -> bool {
+        self.check_and_insert_ttl(fp, nonce, now_ms, 2 * MAX_SKEW_MS)
+    }
+
+    /// Same, remembering the nonce for `ttl_ms` (twice the clock window).
+    pub fn check_and_insert_ttl(&self, fp: &str, nonce: &str, now_ms: i64, ttl_ms: i64) -> bool {
         let mut m = self.seen.lock();
         if m.len() > 10_000 {
             m.retain(|_, exp| *exp > now_ms);
@@ -355,7 +361,7 @@ impl NonceCache {
         if m.get(&k).is_some_and(|exp| *exp > now_ms) {
             return false;
         }
-        m.insert(k, now_ms + 2 * MAX_SKEW_MS);
+        m.insert(k, now_ms + ttl_ms);
         true
     }
 }
@@ -385,7 +391,8 @@ pub async fn verify(
         .map_err(|_| Status::unauthenticated("bad x-itcmdr-ts"))?;
     let nonce = meta_str(meta, "x-itcmdr-nonce")?;
     let sig_hex = meta_str(meta, "x-itcmdr-sig")?;
-    if (now_ms - ts).abs() > MAX_SKEW_MS {
+    let skew_ms = crate::settings::get_i64(pool, None, "auth.max_skew_secs").await * 1000;
+    if (now_ms - ts).abs() > skew_ms {
         return Err(Status::unauthenticated(
             "request timestamp outside the allowed window (check the clock)",
         ));
@@ -446,7 +453,7 @@ pub async fn verify(
         &Signature::from_bytes(&sig),
     )
     .map_err(|_| deny("bad signature"))?;
-    if !nonces.check_and_insert(fp, nonce, now_ms) {
+    if !nonces.check_and_insert_ttl(fp, nonce, now_ms, 2 * skew_ms) {
         return Err(deny("replayed request (nonce already used)"));
     }
     let role = Role::parse(&role_s).ok_or_else(|| deny("unknown role"))?;

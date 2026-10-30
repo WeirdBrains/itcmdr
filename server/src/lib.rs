@@ -37,9 +37,8 @@ pub async fn tick(pool: &db::DbPool, cfg: &ServerConfig) {
         Ok(_) => {}
         Err(e) => tracing::warn!(error=%e, "ingest failed"),
     }
-    if let Err(e) =
-        requests::sync_requests(pool, &cfg.responses_dir(), cfg.request_timeout_ms()).await
-    {
+    let timeout_ms = settings::get_i64(pool, Some(cfg), "server.request_timeout_secs").await * 1000;
+    if let Err(e) = requests::sync_requests(pool, &cfg.responses_dir(), timeout_ms).await {
         tracing::warn!(error=%e, "request sync failed");
     }
 }
@@ -51,7 +50,14 @@ pub async fn run(
 ) -> anyhow::Result<()> {
     events::init();
     let pool = db::init_db(&cfg).await?;
-    db::apply_retention(&pool, cfg.retention_days).await?;
+    db::apply_retention(
+        &pool,
+        settings::get_i64(&pool, Some(&cfg), "server.retention_days").await,
+    )
+    .await?;
+    if let Err(e) = settings::export_agent(&pool, &cfg).await {
+        tracing::warn!(error=%e, "agent settings export failed");
+    }
     if cfg.token_hash().is_none() {
         if cfg.allow_insecure_no_auth {
             tracing::warn!(
@@ -69,16 +75,23 @@ pub async fn run(
 
     let (bg_pool, bg_cfg) = (pool.clone(), cfg.clone());
     tokio::spawn(async move {
-        let mut every =
-            tokio::time::interval(Duration::from_secs(bg_cfg.ingest_interval_secs.max(5)));
         let mut last_retention = std::time::Instant::now();
+        let mut first = true;
         loop {
-            every.tick().await;
+            if !first {
+                // Re-read every pass so a changed interval applies without a restart.
+                let secs =
+                    settings::get_i64(&bg_pool, Some(&bg_cfg), "server.ingest_interval_secs").await;
+                tokio::time::sleep(Duration::from_secs(secs.max(5) as u64)).await;
+            }
+            first = false;
             tick(&bg_pool, &bg_cfg).await;
             backup::nightly(&bg_pool, &bg_cfg).await;
             if last_retention.elapsed() > Duration::from_secs(24 * 3600) {
                 last_retention = std::time::Instant::now();
-                if let Err(e) = db::apply_retention(&bg_pool, bg_cfg.retention_days).await {
+                let days =
+                    settings::get_i64(&bg_pool, Some(&bg_cfg), "server.retention_days").await;
+                if let Err(e) = db::apply_retention(&bg_pool, days).await {
                     tracing::warn!(error=%e, "retention failed");
                 }
             }
