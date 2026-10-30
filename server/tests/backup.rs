@@ -233,7 +233,7 @@ async fn a_backup_taken_during_writes_is_consistent() {
 }
 
 #[test]
-fn retention_keeps_daily_weekly_monthly_and_never_prunes_manual() {
+fn retention_keeps_daily_weekly_blocks_and_never_prunes_manual() {
     let day = 86_400_000i64;
     let now = chrono::Utc::now().timestamp_millis();
     let mut names: Vec<String> = (0..120)
@@ -241,7 +241,7 @@ fn retention_keeps_daily_weekly_monthly_and_never_prunes_manual() {
         .collect();
     names.push(srv::backup::archive_name(now - 400 * day, "manual"));
     names.push(srv::backup::archive_name(now - 401 * day, "pre-restore"));
-    let del = srv::backup::prune_plan(&names, 7, 4, 12);
+    let del = srv::backup::prune_plan(&names, 7, 4, 13);
     let kept: Vec<_> = names.iter().filter(|n| !del.contains(n)).collect();
     for n in &names[..7] {
         assert!(kept.contains(&n), "the last 7 days are kept");
@@ -249,17 +249,59 @@ fn retention_keeps_daily_weekly_monthly_and_never_prunes_manual() {
     assert!(
         kept.iter().any(|n| n.contains("manual")) && kept.iter().any(|n| n.contains("pre-restore"))
     );
-    // 7 daily + up to 4 weekly + up to 12 monthly (overlapping) out of 120 nightlies.
+    // 7 daily + up to 4 weekly + one per 4-week block (overlapping) out of 120 nightlies.
     let nightly_kept = kept.iter().filter(|n| n.contains("nightly")).count();
-    assert!((7..=23).contains(&nightly_kept), "{nightly_kept}");
-    assert!(
-        nightly_kept >= 10,
-        "older months keep one each: {nightly_kept}"
-    );
-    assert!(kept.contains(&&names[119]) || del.contains(&names[119]));
+    assert!((7..=24).contains(&nightly_kept), "{nightly_kept}");
+    // Every 4-week block present in the input keeps an archive.
+    let block = |n: &String| {
+        let ms = srv::backup::parse_name_ms(n).unwrap();
+        let t = chrono::TimeZone::timestamp_millis_opt(&chrono::Local, ms).unwrap();
+        srv::backup::block_key(t.date_naive())
+    };
+    let mut all: Vec<_> = names
+        .iter()
+        .filter(|n| n.contains("nightly"))
+        .map(block)
+        .collect();
+    all.sort();
+    all.dedup();
+    let mut kept_blocks: Vec<_> = kept
+        .iter()
+        .filter(|n| n.contains("nightly"))
+        .map(|n| block(n))
+        .collect();
+    kept_blocks.sort();
+    kept_blocks.dedup();
+    assert_eq!(kept_blocks, all, "one archive per 4-week block");
     // Applying it twice deletes nothing more.
     let kept_owned: Vec<String> = kept.into_iter().cloned().collect();
-    assert!(srv::backup::prune_plan(&kept_owned, 7, 4, 12).is_empty());
+    assert!(srv::backup::prune_plan(&kept_owned, 7, 4, 13).is_empty());
+}
+
+#[test]
+fn four_week_blocks_follow_iso_weeks() {
+    use chrono::NaiveDate as D;
+    let k = |y, m, d| srv::backup::block_key(D::from_ymd_opt(y, m, d).unwrap());
+    assert_eq!(k(2026, 1, 1), "2026-B01"); // ISO 2026-W01
+    assert_eq!(k(2026, 1, 25), "2026-B01"); // W04, last week of block 1
+    assert_eq!(k(2026, 1, 26), "2026-B02"); // W05
+    assert_eq!(k(2026, 12, 27), "2026-B13"); // W52
+    assert_eq!(k(2026, 12, 31), "2026-B13"); // W53 folds into block 13
+    assert_eq!(k(2027, 1, 3), "2026-B13"); // still ISO year 2026, week 53
+    assert_eq!(k(2027, 1, 4), "2027-B01");
+    // A full ISO year (2026 has 53 weeks) of nightlies keeps exactly 13 block archives.
+    let start = D::from_ymd_opt(2025, 12, 29)
+        .unwrap()
+        .and_hms_opt(12, 0, 0)
+        .unwrap();
+    let start = chrono::TimeZone::from_local_datetime(&chrono::Local, &start)
+        .unwrap()
+        .timestamp_millis();
+    let names: Vec<String> = (0..371)
+        .map(|d| srv::backup::archive_name(start + d * 86_400_000, "nightly"))
+        .collect();
+    let del = srv::backup::prune_plan(&names, 0, 0, 13);
+    assert_eq!(names.len() - del.len(), 13);
 }
 
 async fn start(c: ServerConfig) -> (ItcmdrClient<Channel>, tokio::sync::oneshot::Sender<()>) {
@@ -600,4 +642,204 @@ fn cli_init_certify_offline_register_backup_and_restore() {
         list.contains("xray-watch") && list.contains("Dr A"),
         "{list}"
     );
+}
+
+#[tokio::test]
+async fn backup_settings_are_admin_only_validated_and_audited() {
+    let a = tempfile::tempdir().unwrap();
+    let c = cfg(a.path());
+    let pool = srv::db::init_db(&c).await.unwrap();
+    let out = srv::auth::init(&pool, &c.layout()).await.unwrap();
+    let master = srv::keys::Master::from_words(&out.words).unwrap();
+    let user = srv::keys::new_keypair();
+    let cert = srv::keys::certify(
+        &master.signing,
+        "user",
+        "Front Desk",
+        "user",
+        &user.verifying_key(),
+    );
+    let upk = hex::encode(user.verifying_key().as_bytes());
+    srv::auth::register(
+        &pool,
+        srv::auth::NewKey {
+            kind: "user",
+            name: "Front Desk",
+            role: srv::auth::Role::User,
+            email: None,
+            phone: None,
+            public_key_hex: &upk,
+            certificate: &cert,
+        },
+    )
+    .await
+    .unwrap();
+    pool.close().await;
+    let root = srv::auth::load_root_key(&c.layout()).unwrap();
+    let (mut cl, stop) = start(c.clone()).await;
+    const GS: &str = "/itcmdr.Itcmdr/GetSettings";
+    const US: &str = "/itcmdr.Itcmdr/UpdateSettings";
+    const CB: &str = "/itcmdr.Itcmdr/CreateBackup";
+
+    let s = cl
+        .get_settings(signed(&root, GS, GetSettingsRequest {}))
+        .await
+        .unwrap()
+        .into_inner()
+        .backup
+        .unwrap();
+    assert_eq!(
+        (s.hour, s.keep_daily, s.keep_weekly, s.keep_blocks),
+        (2, 7, 4, 13)
+    );
+    assert!(s.dir.ends_with("backups"), "{}", s.dir);
+    assert_eq!(
+        cl.get_settings(signed(&user, GS, GetSettingsRequest {}))
+            .await
+            .unwrap_err()
+            .code(),
+        Code::PermissionDenied
+    );
+
+    let newdir = a.path().join("elsewhere");
+    let mut want = BackupSettings {
+        dir: newdir.display().to_string(),
+        nightly: true,
+        hour: 3,
+        keep_daily: 5,
+        keep_weekly: 2,
+        keep_blocks: 13,
+    };
+    let e = cl
+        .update_settings(signed(
+            &root,
+            US,
+            UpdateSettingsRequest {
+                backup: Some(want.clone()),
+            },
+        ))
+        .await
+        .unwrap_err();
+    assert_eq!(e.code(), Code::InvalidArgument, "missing folder refused");
+    assert!(e.message().contains("does not exist"), "{}", e.message());
+    std::fs::create_dir_all(&newdir).unwrap();
+    assert_eq!(
+        cl.update_settings(signed(
+            &user,
+            US,
+            UpdateSettingsRequest {
+                backup: Some(want.clone())
+            }
+        ))
+        .await
+        .unwrap_err()
+        .code(),
+        Code::PermissionDenied
+    );
+    let mut bad = want.clone();
+    bad.hour = 24;
+    assert_eq!(
+        cl.update_settings(signed(
+            &root,
+            US,
+            UpdateSettingsRequest { backup: Some(bad) }
+        ))
+        .await
+        .unwrap_err()
+        .code(),
+        Code::InvalidArgument
+    );
+    cl.update_settings(signed(
+        &root,
+        US,
+        UpdateSettingsRequest {
+            backup: Some(want.clone()),
+        },
+    ))
+    .await
+    .unwrap();
+    let got = cl
+        .get_settings(signed(&root, GS, GetSettingsRequest {}))
+        .await
+        .unwrap()
+        .into_inner()
+        .backup
+        .unwrap();
+    assert_eq!(got, want);
+    // Backups now go to the new folder.
+    cl.create_backup(signed(&root, CB, CreateBackupRequest {}))
+        .await
+        .unwrap();
+    assert_eq!(srv::backup::list(&newdir).unwrap().len(), 1);
+    // Empty dir = default again.
+    want.dir.clear();
+    cl.update_settings(signed(
+        &root,
+        US,
+        UpdateSettingsRequest { backup: Some(want) },
+    ))
+    .await
+    .unwrap();
+    let _ = stop.send(());
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    let pool = srv::db::init_db(&c).await.unwrap();
+    let n: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM audit_log WHERE action='settings-update'")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
+    assert_eq!(n, 2, "only successful updates are logged");
+}
+
+#[test]
+fn cli_config_get_set_unset() {
+    let a = tempfile::tempdir().unwrap();
+    let get = |root: &Path| {
+        String::from_utf8(
+            cli(root)
+                .args(["config", "get"])
+                .assert()
+                .success()
+                .get_output()
+                .stdout
+                .clone(),
+        )
+        .unwrap()
+    };
+    assert!(get(a.path()).contains("backup.hour = 2    [server.json/default]"));
+    cli(a.path())
+        .args(["config", "set", "backup.dir"])
+        .arg(a.path().join("nope"))
+        .assert()
+        .failure();
+    let d = a.path().join("bk");
+    std::fs::create_dir_all(&d).unwrap();
+    cli(a.path())
+        .args(["config", "set", "backup.dir"])
+        .arg(&d)
+        .assert()
+        .success();
+    cli(a.path())
+        .args(["config", "set", "backup.hour", "4"])
+        .assert()
+        .success();
+    cli(a.path())
+        .args(["config", "set", "backup.hour", "25"])
+        .assert()
+        .failure();
+    cli(a.path())
+        .args(["config", "set", "backup.color", "red"])
+        .assert()
+        .failure();
+    let g = get(a.path());
+    assert!(
+        g.contains("backup.hour = 4    [db]")
+            && g.contains(&format!("backup.dir = {}    [db]", d.display())),
+        "{g}"
+    );
+    cli(a.path())
+        .args(["config", "unset", "backup.hour"])
+        .assert()
+        .success();
+    assert!(get(a.path()).contains("backup.hour = 2    [server.json/default]"));
 }

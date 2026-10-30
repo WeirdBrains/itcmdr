@@ -11,6 +11,7 @@ pub mod keys;
 pub mod metrics;
 pub mod requests;
 pub mod search;
+pub mod settings;
 pub mod storage;
 pub mod generated {
     pub mod itcmdr {

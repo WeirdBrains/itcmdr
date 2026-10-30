@@ -17,8 +17,13 @@ master certificate. The signature covers the ciphertext hash.
 
 ## Nightly
 
+Settings can also be changed at runtime (stored in the DB, they win over server.json):
+`itcmdr-cli config get`, `itcmdr-cli config set backup.dir <folder>` (must exist and be writable),
+`config unset <key>`, or gRPC `GetSettings` / `UpdateSettings`.
+
+
 server.json `backup`: `dir` (default `<data_dir>/backups`; point it at the share), `nightly` (true),
-`hour` (2, local), `keep_daily` / `keep_weekly` / `keep_monthly` (7 / 4 / 12). Only `nightly`
+`hour` (2, local), `keep_daily` / `keep_weekly` / `keep_blocks` (7 / 4 / 13; a block is ISO weeks 4N-3..4N, 13 per year, week 53 in block 13; the old name `keep_monthly` is still read). Only `nightly`
 archives are pruned. Nothing runs until `init` has been done.
 
 ## Commands (run on the server, as an admin)

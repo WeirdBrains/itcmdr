@@ -100,6 +100,11 @@ pub fn archive_name(created_ms: i64, kind: &str) -> String {
     format!("itcmdr-{}-{kind}.{EXT}", t.format("%Y%m%d-%H%M%S%3f"))
 }
 
+/// Creation time (unix ms) from an archive name.
+pub fn parse_name_ms(name: &str) -> Option<i64> {
+    parse_name(name).map(|(ms, _)| ms)
+}
+
 fn parse_name(name: &str) -> Option<(i64, String)> {
     let rest = name
         .strip_prefix("itcmdr-")?
@@ -185,9 +190,10 @@ pub async fn create(
     if !auth::escrow_path(&layout).exists() {
         auth::escrow_db_key(&layout, &master)?;
     }
-    let dir = out_dir
-        .map(Path::to_path_buf)
-        .unwrap_or_else(|| cfg.backup_dir());
+    let dir = match out_dir {
+        Some(d) => d.to_path_buf(),
+        None => crate::settings::backup_dir(pool, cfg).await?,
+    };
     std::fs::create_dir_all(&dir).with_context(|| format!("creating {}", dir.display()))?;
     let created_ms = chrono::Utc::now().timestamp_millis();
     let name = archive_name(created_ms, kind);
@@ -384,9 +390,19 @@ pub fn list(dir: &Path) -> Result<Vec<BackupInfo>> {
     Ok(out)
 }
 
+/// 4-week block of a date: ISO weeks 4N-3..4N, 13 per ISO year, week 53 in block 13.
+pub fn block_key(d: chrono::NaiveDate) -> String {
+    let w = d.iso_week();
+    format!(
+        "{}-B{:02}",
+        w.year(),
+        crate::metrics::block_of_week(w.week())
+    )
+}
+
 /// Which nightly archives to delete: keep the newest per day for `daily` days, per ISO week for
-/// `weekly` weeks and per month for `monthly` months (local time). Other kinds are never pruned.
-pub fn prune_plan(names: &[String], daily: usize, weekly: usize, monthly: usize) -> Vec<String> {
+/// `weekly` weeks and per 4-week block for `blocks` blocks (local time). Other kinds are never pruned.
+pub fn prune_plan(names: &[String], daily: usize, weekly: usize, blocks: usize) -> Vec<String> {
     let mut nightly: Vec<(i64, &String)> = names
         .iter()
         .filter_map(|n| match parse_name(n) {
@@ -402,7 +418,7 @@ pub fn prune_plan(names: &[String], daily: usize, weekly: usize, monthly: usize)
             let w = t.iso_week();
             format!("{}-W{}", w.year(), w.week())
         }),
-        (monthly, |t| t.format("%Y-%m").to_string()),
+        (blocks, |t| block_key(t.date_naive())),
     ];
     for (n, key) in buckets {
         let mut seen = Vec::new();
@@ -434,7 +450,7 @@ pub fn prune(dir: &Path, cfg: &crate::config::BackupConfig) -> Result<Vec<String
         .flatten()
         .map(|e| e.file_name().to_string_lossy().to_string())
         .collect();
-    let del = prune_plan(&names, cfg.keep_daily, cfg.keep_weekly, cfg.keep_monthly);
+    let del = prune_plan(&names, cfg.keep_daily, cfg.keep_weekly, cfg.keep_blocks);
     for n in &del {
         std::fs::remove_file(dir.join(n))?;
     }
@@ -443,14 +459,17 @@ pub fn prune(dir: &Path, cfg: &crate::config::BackupConfig) -> Result<Vec<String
 
 /// Background loop hook: take tonight's backup when due, then prune. Errors are logged.
 pub async fn nightly(pool: &DbPool, cfg: &ServerConfig) {
-    if !cfg.backup.nightly {
+    let Ok(bc) = crate::settings::effective_backup(pool, cfg).await else {
+        return;
+    };
+    if !bc.nightly {
         return;
     }
     let now = chrono::Local::now();
-    if now.hour_() < cfg.backup.hour {
+    if now.hour_() < bc.hour {
         return;
     }
-    let dir = cfg.backup_dir();
+    let dir = bc.dir.clone().unwrap_or_else(|| cfg.layout().backups());
     let today = now.format("%Y-%m-%d").to_string();
     let done = std::fs::read_dir(&dir)
         .map(|rd| {
@@ -471,7 +490,7 @@ pub async fn nightly(pool: &DbPool, cfg: &ServerConfig) {
     match create(pool, cfg, "nightly", None).await {
         Ok(b) => {
             tracing::info!(archive=%b.path.display(), size=b.size, "nightly backup written");
-            match prune(&dir, &cfg.backup) {
+            match prune(&dir, &bc) {
                 Ok(d) if !d.is_empty() => tracing::info!(deleted=?d, "old backups pruned"),
                 Ok(_) => {}
                 Err(e) => tracing::warn!(error=%e, "backup retention failed"),

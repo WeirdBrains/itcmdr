@@ -70,13 +70,14 @@ pub struct BackupConfig {
     /// Local hour (0-23) from which the nightly backup is due (default 2).
     #[serde(default = "default_backup_hour")]
     pub hour: u32,
-    /// Nightly retention: newest per day / ISO week / month (defaults 7 / 4 / 12).
+    /// Nightly retention: newest per day / ISO week / 4-week block (ISO weeks 4N-3..4N, 13 per
+    /// year, week 53 in block 13). Defaults 7 / 4 / 13.
     #[serde(default = "default_keep_daily")]
     pub keep_daily: usize,
     #[serde(default = "default_keep_weekly")]
     pub keep_weekly: usize,
-    #[serde(default = "default_keep_monthly")]
-    pub keep_monthly: usize,
+    #[serde(default = "default_keep_blocks", alias = "keep_monthly")]
+    pub keep_blocks: usize,
 }
 
 impl Default for BackupConfig {
@@ -87,7 +88,7 @@ impl Default for BackupConfig {
             hour: default_backup_hour(),
             keep_daily: default_keep_daily(),
             keep_weekly: default_keep_weekly(),
-            keep_monthly: default_keep_monthly(),
+            keep_blocks: default_keep_blocks(),
         }
     }
 }
@@ -104,8 +105,8 @@ fn default_keep_daily() -> usize {
 fn default_keep_weekly() -> usize {
     4
 }
-fn default_keep_monthly() -> usize {
-    12
+fn default_keep_blocks() -> usize {
+    13
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

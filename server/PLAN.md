@@ -335,6 +335,56 @@ JSON. The rest sounds good to me").
       quarantine index and plugin logs join the archive as they appear (v0.9.0/v0.10.0). App screen in v0.12.0.
       No version shift needed.
 
+14. **Scheduled runs** (Michael, Oct 30 2026: "We should have a way to schedule runs in the app and cli").
+    - **The server owns schedules**, stored in the encrypted DB: id, name, target (machines, groups or all),
+      what to run (categories or specific plugins; report-only or repair), a cron expression or a preset
+      (daily, weekly, every N hours), timezone (default: the server's local zone), enabled, clinical-hours
+      guard (respect office hours, or block disruptive repairs during them), max concurrency, and a
+      missed-run policy (`skip`, or `catch-up` = run once after downtime).
+    - **One queue path.** The scheduler queues runs through the existing on-demand request path, so the
+      agent poller and locks are reused. Run history is stored with the schedule id; next-run times are exposed.
+      A schedule never has two queued/running requests at once (no double-queueing).
+    - **gRPC:** `CreateSchedule`, `UpdateSchedule`, `DeleteSchedule`, `ListSchedules` (with next runs),
+      `PauseSchedule`, `ResumeSchedule`, `RunScheduleNow`, `ListScheduleRuns`. Admin to manage, user for
+      run-now; all audit-logged.
+    - **CLI:** `itcmdr-cli schedule add|list|edit|rm|pause|resume|run-now|history`.
+    - **App (v0.12.0):** Schedules screen: create/edit with cron presets and a next-run preview, toggle,
+      run now, history.
+    - **Default schedules replace the current nightly run** (Michael, Oct 30 2026: "change the current one to
+      use schedules when it's safe to do so. The current one would be a default schedule on all installs"). v0.11.0:
+      - Every install (fresh or upgrade) seeds built-in default schedules, idempotently: the nightly agent run
+        (same time, all machines, same categories, same repair/report-only behaviour, clinical guard on) and the
+        nightly backup (02:00, replacing the hard-wired loop). Editable and pausable, but not accidentally
+        deletable: delete needs owner/admin plus an explicit confirm; `reset-to-default` restores them.
+      - Safe cutover: until the switch, the SYSTEM scheduled task stays the source of truth and the default
+        agent schedule runs report-only in parallel (or stays disabled). Switch only when (a) a report-only
+        comparison matches the task's results for at least one full week (decision 10 rule), (b) the plugin
+        runtime and poller are verified on the Windows VM, and (c) the agent can tell schedules are active.
+      - After the switch the scheduled task stays as a disabled fallback with a documented one-command rollback.
+        If the server is unreachable the agent falls back to its local nightly run, so coverage never gaps.
+      - Tests: seeding idempotent on upgrade, defaults match the current task settings, cutover gating,
+        fallback when the server is down, rollback.
+    - **Tests:** cron parsing and next-run calculation including DST changes (spring-forward gaps run once at
+      the next valid time, fall-back repeats run once), missed-run policy, no double-queueing, clinical
+      guard, RPC roles and audit.
+    - **Release:** server, gRPC and CLI in v0.10.0 (next to the plugin runtime, so "specific plugins" can be
+      targeted); app screen in v0.12.0. No version shift.
+
+15. **Configurable paths** (Michael, Oct 30 2026: backup paths must be preferences he can set, not hard-coded).
+    - **Agent:** site.json `paths.localLogs` (default `C:\maintenanceRuns`: run logs, local `requests\`) and
+      `paths.agentData` (default `C:\ProgramData\itcmdr`: exceptions cache, spool), used by every agent script.
+      `shares.maintenanceRuns` is unchanged. Installer: `/DLocalLogs=...` at build time or `/LocalLogs=...` at
+      install time for the folder it creates.
+    - **Server:** server.json `backup` (dir, nightly, hour, retention) stays the base; runtime overrides are
+      stored in the encrypted DB and win. gRPC `GetSettings` / `UpdateSettings` (admin/owner, audit-logged;
+      the folder must exist and be writable before it is saved) and `itcmdr-cli config get|set|unset backup.*`.
+      Schedule settings join this when decision 14 lands. App settings screen in v0.12.0.
+    - **Still fixed, on purpose (bootstrap):** where site.json and server.json are looked up
+      (`config\`, `%ProgramData%\itcmdr`, next to the exe, or `ITCMDR_SERVER_CONFIG`), the service log
+      `%ProgramData%\itcmdr\server-logs` (written before the config loads) and the push-install staging
+      folder `C:\Windows\itcmdr\agent` on remote PCs.
+    - **Release:** v0.8.1.
+
 ### Auth notes from the v0.7.0 build
 
 - `auth_mode` in server.json: `token` (legacy only), `both` (default: signed requests, or the legacy token for
@@ -366,8 +416,9 @@ JSON. The rest sounds good to me").
 | v0.6.2 | storage follow-up: verified migration deletes the plaintext backup (decision 12) |
 | v0.7.0 | keys & auth: BIP39 words, master init (shown once), certified client/user keys, signed requests + roles, db.key escrow under the master key + recovery (decision 12); the shared token is retired once the new auth works (migration path documented) |
 | v0.8.0 | itcmdr-cli: init, service register [--name], user add, key rotate/revoke; backup create/list/verify + restore [--dry-run], backup RPCs, nightly backup to the share (decision 13) |
-| v0.9.0 | packages: format, validation (exact file list, sha256, signature), quarantine, plugins install --url/--path, list/enable/disable/remove; log standard doc + validator + generic metrics ingest (decision 11) |
-| v0.10.0 | plugin runtime: PluginService gRPC, Rust crate, PowerShell module + host, Verify then Execute, Log on error, timeouts, on-demand + audit hooks; per-run log path + log/metric helpers |
-| v0.11.0 | built-in checks as plugins: the existing agent checks/repairs rebuilt as service plugins and run through the plugin system (decision 10), logging in itcmdr.log/v1 |
-| v0.12.0 | Flutter: Service Plugins section, app registration, user/key management, plugin metric charts, Backup & Restore screen; app signs requests, default auth_mode -> signed |
+| v0.8.1 | configurable paths (decision 15): agent `paths.localLogs`/`agentData`, installer LocalLogs, backup settings RPCs + `itcmdr-cli config`; backup retention by 4-week blocks; plans for decisions 14-15 |
+| v0.9.0 | packages: format, validation (exact file list, sha256, signature), quarantine + index, plugins install --url/--path, list/enable/disable/remove, plugin files in backups |
+| v0.10.0 | plugin runtime: PluginService gRPC, Rust crate, PowerShell module + host, Verify then Execute, Log on error, timeouts, on-demand + audit hooks; per-run log path + log/metric helpers; log standard doc + validator + generic metrics ingest (decision 11, moved from v0.9.0); scheduled runs: server scheduler, schedule RPCs, `itcmdr-cli schedule` (decision 14) |
+| v0.11.0 | built-in checks as plugins: the existing agent checks/repairs rebuilt as service plugins and run through the plugin system (decision 10), logging in itcmdr.log/v1; nightly agent task and nightly backup as built-in schedules (decision 14, no-gap rule) |
+| v0.12.0 | Flutter: Service Plugins section, app registration, user/key management, plugin metric charts, Backup & Restore screen, Schedules screen; app signs requests, default auth_mode -> signed |
 | v0.13.0 | installer: first-run master setup showing the words once; Windows VM test items in the handover |
