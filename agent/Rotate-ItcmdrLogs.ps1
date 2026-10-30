@@ -110,13 +110,14 @@ function Get-ItcmdrArchiveName {
 
 function New-ItcmdrZipWithManifest {
   [CmdletBinding(SupportsShouldProcess)]
-  param([string]$ZipPath, [string[]]$Files, [hashtable]$Meta)
+  param([string]$ZipPath, [string[]]$Files, [hashtable]$Meta, [string[]]$EntryNames)
+  if (-not $EntryNames) { $EntryNames = @($Files | ForEach-Object { [IO.Path]::GetFileName($_) }) }
   if (-not $PSCmdlet.ShouldProcess($ZipPath, 'Create archive')) { return $false }
   Add-Type -AssemblyName System.IO.Compression
   Add-Type -AssemblyName System.IO.Compression.FileSystem
   $entries = @()
-  foreach ($f in $Files) {
-    $entries += [pscustomobject]@{ path = [IO.Path]::GetFileName($f); sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $f).Hash }
+  for ($i = 0; $i -lt $Files.Count; $i++) {
+    $entries += [pscustomobject]@{ path = $EntryNames[$i]; sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $Files[$i]).Hash }
   }
   $manifest = [ordered]@{}
   foreach ($k in $Meta.Keys) { $manifest[$k] = $Meta[$k] }
@@ -127,8 +128,8 @@ function New-ItcmdrZipWithManifest {
   if (Test-Path -LiteralPath $tmp) { Remove-Item -LiteralPath $tmp -Force }
   $zip = [IO.Compression.ZipFile]::Open($tmp, [IO.Compression.ZipArchiveMode]::Create)
   try {
-    foreach ($f in $Files) {
-      [void][IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $f, [IO.Path]::GetFileName($f), [IO.Compression.CompressionLevel]::Optimal)
+    for ($i = 0; $i -lt $Files.Count; $i++) {
+      [void][IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $Files[$i], $EntryNames[$i], [IO.Compression.CompressionLevel]::Optimal)
     }
     $e = $zip.CreateEntry('manifest.json')
     $w = New-Object IO.StreamWriter($e.Open())
@@ -184,15 +185,30 @@ function Invoke-ItcmdrRotation {
       if ($d -ge $thisMonday) { continue }
       $iw = Get-ItcmdrIsoWeek $d
       $key = '{0}-W{1:D2}' -f $iw.Year, $iw.Week
-      if (-not $groups.ContainsKey($key)) { $groups[$key] = [pscustomobject]@{ Year = $iw.Year; Week = $iw.Week; Files = @() } }
+      if (-not $groups.ContainsKey($key)) { $groups[$key] = [pscustomobject]@{ Year = $iw.Year; Week = $iw.Week; Files = @(); Names = @() } }
       $groups[$key].Files += $f.FullName
+      $groups[$key].Names += $f.Name
+    }
+    # Plugin logs mirrored by the server: <Root>\plugin-logs\<plugin>\<yyyy-MM-dd>.jsonl (decision 11).
+    $pl = Join-Path $Root 'plugin-logs'
+    if (Test-Path -LiteralPath $pl) {
+      foreach ($f in @(Get-ChildItem -LiteralPath $pl -Recurse -Filter '*.jsonl' -File -ErrorAction SilentlyContinue)) {
+        if ($f.BaseName -notmatch '^\d{4}-\d{2}-\d{2}$') { continue }
+        $d = [datetime]::ParseExact($f.BaseName, 'yyyy-MM-dd', [Globalization.CultureInfo]::InvariantCulture)
+        if ($d -ge $thisMonday) { continue }
+        $iw = Get-ItcmdrIsoWeek $d
+        $key = '{0}-W{1:D2}' -f $iw.Year, $iw.Week
+        if (-not $groups.ContainsKey($key)) { $groups[$key] = [pscustomobject]@{ Year = $iw.Year; Week = $iw.Week; Files = @(); Names = @() } }
+        $groups[$key].Files += $f.FullName
+        $groups[$key].Names += ('plugin-logs/{0}/{1}' -f $f.Directory.Name, $f.Name)
+      }
     }
     foreach ($key in @($groups.Keys | Sort-Object)) {
       $g = $groups[$key]
       $mon = Get-ItcmdrIsoMonday $g.Year $g.Week
       $zipPath = Get-ItcmdrArchiveName $weeklyDir "itcmdr-$key"
       $meta = @{ kind = 'weekly'; isoYear = $g.Year; isoWeek = $g.Week; start = $mon.ToString('yyyy-MM-dd'); end = $mon.AddDays(6).ToString('yyyy-MM-dd') }
-      if (New-ItcmdrZipWithManifest -ZipPath $zipPath -Files $g.Files -Meta $meta) {
+      if (New-ItcmdrZipWithManifest -ZipPath $zipPath -Files $g.Files -Meta $meta -EntryNames $g.Names) {
         $g.Files | Remove-Item -Force
         $events += [pscustomobject]@{ type = 'rotation'; scope = 'weekly'; period = $key; archive = [IO.Path]::GetFileName($zipPath); files = $g.Files.Count }
       }

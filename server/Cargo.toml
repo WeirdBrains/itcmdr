@@ -1,6 +1,6 @@
 [package]
 name = "itcmdr-server"
-version = "0.9.1"
+version = "0.10.0"
 edition = "2021"
 description = "itcmdr gRPC server and background ingest"
 
@@ -12,8 +12,16 @@ path = "src/main.rs"
 name = "itcmdr-cli"
 path = "src/bin/itcmdr-cli.rs"
 
+[[bin]]
+name = "itcmdr-plugin-ps"
+path = "src/bin/itcmdr-plugin-ps.rs"
+
+[[bin]]
+name = "itcmdr-restore"
+path = "src/bin/itcmdr-restore.rs"
+
 [dependencies]
-tokio = { version = "1.40", features = ["rt-multi-thread", "macros", "signal", "time"] }
+tokio = { version = "1.40", features = ["rt-multi-thread", "macros", "signal", "time", "process", "io-util"] }
 tonic = { version = "0.12", features = ["transport"] }
 tonic-web = "0.12"
 prost = "0.13"
@@ -50,6 +58,9 @@ tar = { version = "0.4", default-features = false }
 flate2 = "1"
 toml = "0.8"
 ureq = "2"
+itcmdr-plugin = { path = "../plugin" }
+cron = "0.15"
+chrono-tz = "0.10"
 
 
 [target.'cfg(windows)'.dependencies]

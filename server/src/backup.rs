@@ -33,6 +33,7 @@ const F_DB: &str = "itcmdr.database";
 const F_ESCROW: &str = "keys/db.key.escrow";
 const F_CONFIG: &str = "server.json";
 const D_PLUGINS: &str = "service_plugins/";
+const D_PLUGIN_LOGS: &str = "plugin-logs/";
 const F_QINDEX: &str = "quarantine/index.jsonl";
 
 /// Installed plugin files as (`service_plugins/<rel>`, bytes), plus the quarantine index.
@@ -59,6 +60,21 @@ fn plugin_files(layout: &crate::storage::Layout) -> Result<Files> {
     let q = crate::packages::quarantine_index(layout);
     if q.exists() {
         out.push((F_QINDEX.to_string(), std::fs::read(q)?));
+    }
+    // Plugin run logs (decision 11).
+    let logs = layout.plugin_logs();
+    if logs.is_dir() {
+        for e in walkdir::WalkDir::new(&logs).sort_by_file_name() {
+            let e = e?;
+            if e.file_type().is_file() {
+                let r = e
+                    .path()
+                    .strip_prefix(&logs)?
+                    .to_string_lossy()
+                    .replace('\\', "/");
+                out.push((format!("{D_PLUGIN_LOGS}{r}"), std::fs::read(e.path())?));
+            }
+        }
     }
     Ok(out)
 }
@@ -614,10 +630,15 @@ pub async fn restore(
     .collect();
     // Archived plugin paths must be safe before anything is touched.
     let mut plugin_out = Vec::new();
+    let mut log_out = Vec::new();
     for (n, b) in &files {
         if let Some(rel) = n.strip_prefix(D_PLUGINS) {
             let rel = crate::packages::safe_rel_path(rel).map_err(|r| anyhow!("archive: {r}"))?;
             plugin_out.push((layout.service_plugins().join(rel), b));
+        }
+        if let Some(rel) = n.strip_prefix(D_PLUGIN_LOGS) {
+            let rel = crate::packages::safe_rel_path(rel).map_err(|r| anyhow!("archive: {r}"))?;
+            log_out.push((layout.plugin_logs().join(rel), b));
         }
     }
     let plugins_dir = layout.service_plugins();
@@ -663,6 +684,13 @@ pub async fn restore(
         std::fs::remove_dir_all(&plugins_dir)?;
     }
     std::fs::create_dir_all(&plugins_dir)?;
+    // Plugin logs are merged: files that exist locally (newer lines) are kept.
+    for (p, b) in log_out {
+        if !p.exists() {
+            std::fs::create_dir_all(p.parent().unwrap())?;
+            std::fs::write(p, b)?;
+        }
+    }
     for (p, b) in plugin_out {
         std::fs::create_dir_all(p.parent().unwrap())?;
         std::fs::write(p, b)?;

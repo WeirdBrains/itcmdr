@@ -89,6 +89,7 @@ const TriggerRunsRequest$json = {
     {'1': 'repair', '3': 3, '4': 1, '5': 8, '10': 'repair'},
     {'1': 'force', '3': 4, '4': 1, '5': 8, '10': 'force'},
     {'1': 'categories', '3': 5, '4': 3, '5': 9, '10': 'categories'},
+    {'1': 'plugins', '3': 6, '4': 3, '5': 9, '10': 'plugins'},
   ],
 };
 
@@ -96,7 +97,8 @@ const TriggerRunsRequest$json = {
 final $typed_data.Uint8List triggerRunsRequestDescriptor = $convert.base64Decode(
     'ChJUcmlnZ2VyUnVuc1JlcXVlc3QSGgoIbWFjaGluZXMYASADKAlSCG1hY2hpbmVzEh8KC3JlcG'
     '9ydF9vbmx5GAIgASgIUgpyZXBvcnRPbmx5EhYKBnJlcGFpchgDIAEoCFIGcmVwYWlyEhQKBWZv'
-    'cmNlGAQgASgIUgVmb3JjZRIeCgpjYXRlZ29yaWVzGAUgAygJUgpjYXRlZ29yaWVz');
+    'cmNlGAQgASgIUgVmb3JjZRIeCgpjYXRlZ29yaWVzGAUgAygJUgpjYXRlZ29yaWVzEhgKB3BsdW'
+    'dpbnMYBiADKAlSB3BsdWdpbnM=');
 
 @$core.Deprecated('Use triggerRunsResponseDescriptor instead')
 const TriggerRunsResponse$json = {
@@ -785,3 +787,528 @@ const UpdateSettingResponse$json = {
 final $typed_data.Uint8List updateSettingResponseDescriptor = $convert.base64Decode(
     'ChVVcGRhdGVTZXR0aW5nUmVzcG9uc2USLQoHc2V0dGluZxgBIAEoCzITLml0Y21kci5TZXR0aW'
     '5nSXRlbVIHc2V0dGluZw==');
+
+@$core.Deprecated('Use runPluginRequestDescriptor instead')
+const RunPluginRequest$json = {
+  '1': 'RunPluginRequest',
+  '2': [
+    {'1': 'plugin', '3': 1, '4': 1, '5': 9, '10': 'plugin'},
+    {'1': 'report_only', '3': 2, '4': 1, '5': 8, '10': 'reportOnly'},
+    {
+      '1': 'args',
+      '3': 3,
+      '4': 3,
+      '5': 11,
+      '6': '.itcmdr.RunPluginRequest.ArgsEntry',
+      '10': 'args'
+    },
+    {'1': 'machine', '3': 4, '4': 1, '5': 9, '10': 'machine'},
+  ],
+  '3': [RunPluginRequest_ArgsEntry$json],
+};
+
+@$core.Deprecated('Use runPluginRequestDescriptor instead')
+const RunPluginRequest_ArgsEntry$json = {
+  '1': 'ArgsEntry',
+  '2': [
+    {'1': 'key', '3': 1, '4': 1, '5': 9, '10': 'key'},
+    {'1': 'value', '3': 2, '4': 1, '5': 9, '10': 'value'},
+  ],
+  '7': {'7': true},
+};
+
+/// Descriptor for `RunPluginRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List runPluginRequestDescriptor = $convert.base64Decode(
+    'ChBSdW5QbHVnaW5SZXF1ZXN0EhYKBnBsdWdpbhgBIAEoCVIGcGx1Z2luEh8KC3JlcG9ydF9vbm'
+    'x5GAIgASgIUgpyZXBvcnRPbmx5EjYKBGFyZ3MYAyADKAsyIi5pdGNtZHIuUnVuUGx1Z2luUmVx'
+    'dWVzdC5BcmdzRW50cnlSBGFyZ3MSGAoHbWFjaGluZRgEIAEoCVIHbWFjaGluZRo3CglBcmdzRW'
+    '50cnkSEAoDa2V5GAEgASgJUgNrZXkSFAoFdmFsdWUYAiABKAlSBXZhbHVlOgI4AQ==');
+
+@$core.Deprecated('Use pluginStageDescriptor instead')
+const PluginStage$json = {
+  '1': 'PluginStage',
+  '2': [
+    {'1': 'stage', '3': 1, '4': 1, '5': 9, '10': 'stage'},
+    {'1': 'ok', '3': 2, '4': 1, '5': 8, '10': 'ok'},
+    {'1': 'message', '3': 3, '4': 1, '5': 9, '10': 'message'},
+  ],
+};
+
+/// Descriptor for `PluginStage`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List pluginStageDescriptor = $convert.base64Decode(
+    'CgtQbHVnaW5TdGFnZRIUCgVzdGFnZRgBIAEoCVIFc3RhZ2USDgoCb2sYAiABKAhSAm9rEhgKB2'
+    '1lc3NhZ2UYAyABKAlSB21lc3NhZ2U=');
+
+@$core.Deprecated('Use pluginCheckResultDescriptor instead')
+const PluginCheckResult$json = {
+  '1': 'PluginCheckResult',
+  '2': [
+    {'1': 'check_id', '3': 1, '4': 1, '5': 9, '10': 'checkId'},
+    {'1': 'status', '3': 2, '4': 1, '5': 9, '10': 'status'},
+    {'1': 'message', '3': 3, '4': 1, '5': 9, '10': 'message'},
+  ],
+};
+
+/// Descriptor for `PluginCheckResult`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List pluginCheckResultDescriptor = $convert.base64Decode(
+    'ChFQbHVnaW5DaGVja1Jlc3VsdBIZCghjaGVja19pZBgBIAEoCVIHY2hlY2tJZBIWCgZzdGF0dX'
+    'MYAiABKAlSBnN0YXR1cxIYCgdtZXNzYWdlGAMgASgJUgdtZXNzYWdl');
+
+@$core.Deprecated('Use runPluginResponseDescriptor instead')
+const RunPluginResponse$json = {
+  '1': 'RunPluginResponse',
+  '2': [
+    {'1': 'run_id', '3': 1, '4': 1, '5': 9, '10': 'runId'},
+    {'1': 'status', '3': 2, '4': 1, '5': 9, '10': 'status'},
+    {'1': 'message', '3': 3, '4': 1, '5': 9, '10': 'message'},
+    {
+      '1': 'stages',
+      '3': 4,
+      '4': 3,
+      '5': 11,
+      '6': '.itcmdr.PluginStage',
+      '10': 'stages'
+    },
+    {
+      '1': 'results',
+      '3': 5,
+      '4': 3,
+      '5': 11,
+      '6': '.itcmdr.PluginCheckResult',
+      '10': 'results'
+    },
+  ],
+};
+
+/// Descriptor for `RunPluginResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List runPluginResponseDescriptor = $convert.base64Decode(
+    'ChFSdW5QbHVnaW5SZXNwb25zZRIVCgZydW5faWQYASABKAlSBXJ1bklkEhYKBnN0YXR1cxgCIA'
+    'EoCVIGc3RhdHVzEhgKB21lc3NhZ2UYAyABKAlSB21lc3NhZ2USKwoGc3RhZ2VzGAQgAygLMhMu'
+    'aXRjbWRyLlBsdWdpblN0YWdlUgZzdGFnZXMSMwoHcmVzdWx0cxgFIAMoCzIZLml0Y21kci5QbH'
+    'VnaW5DaGVja1Jlc3VsdFIHcmVzdWx0cw==');
+
+@$core.Deprecated('Use listPluginRunsRequestDescriptor instead')
+const ListPluginRunsRequest$json = {
+  '1': 'ListPluginRunsRequest',
+  '2': [
+    {'1': 'plugin', '3': 1, '4': 1, '5': 9, '10': 'plugin'},
+    {'1': 'limit', '3': 2, '4': 1, '5': 5, '10': 'limit'},
+  ],
+};
+
+/// Descriptor for `ListPluginRunsRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List listPluginRunsRequestDescriptor = $convert.base64Decode(
+    'ChVMaXN0UGx1Z2luUnVuc1JlcXVlc3QSFgoGcGx1Z2luGAEgASgJUgZwbHVnaW4SFAoFbGltaX'
+    'QYAiABKAVSBWxpbWl0');
+
+@$core.Deprecated('Use pluginRunDescriptor instead')
+const PluginRun$json = {
+  '1': 'PluginRun',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
+    {'1': 'plugin', '3': 2, '4': 1, '5': 9, '10': 'plugin'},
+    {'1': 'version', '3': 3, '4': 1, '5': 9, '10': 'version'},
+    {'1': 'machine', '3': 4, '4': 1, '5': 9, '10': 'machine'},
+    {'1': 'started', '3': 5, '4': 1, '5': 3, '10': 'started'},
+    {'1': 'finished', '3': 6, '4': 1, '5': 3, '10': 'finished'},
+    {'1': 'status', '3': 7, '4': 1, '5': 9, '10': 'status'},
+    {'1': 'message', '3': 8, '4': 1, '5': 9, '10': 'message'},
+    {'1': 'request_id', '3': 9, '4': 1, '5': 9, '10': 'requestId'},
+  ],
+};
+
+/// Descriptor for `PluginRun`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List pluginRunDescriptor = $convert.base64Decode(
+    'CglQbHVnaW5SdW4SDgoCaWQYASABKAlSAmlkEhYKBnBsdWdpbhgCIAEoCVIGcGx1Z2luEhgKB3'
+    'ZlcnNpb24YAyABKAlSB3ZlcnNpb24SGAoHbWFjaGluZRgEIAEoCVIHbWFjaGluZRIYCgdzdGFy'
+    'dGVkGAUgASgDUgdzdGFydGVkEhoKCGZpbmlzaGVkGAYgASgDUghmaW5pc2hlZBIWCgZzdGF0dX'
+    'MYByABKAlSBnN0YXR1cxIYCgdtZXNzYWdlGAggASgJUgdtZXNzYWdlEh0KCnJlcXVlc3RfaWQY'
+    'CSABKAlSCXJlcXVlc3RJZA==');
+
+@$core.Deprecated('Use listPluginRunsResponseDescriptor instead')
+const ListPluginRunsResponse$json = {
+  '1': 'ListPluginRunsResponse',
+  '2': [
+    {
+      '1': 'runs',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.itcmdr.PluginRun',
+      '10': 'runs'
+    },
+  ],
+};
+
+/// Descriptor for `ListPluginRunsResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List listPluginRunsResponseDescriptor =
+    $convert.base64Decode(
+        'ChZMaXN0UGx1Z2luUnVuc1Jlc3BvbnNlEiUKBHJ1bnMYASADKAsyES5pdGNtZHIuUGx1Z2luUn'
+        'VuUgRydW5z');
+
+@$core.Deprecated('Use getPluginMetricsRequestDescriptor instead')
+const GetPluginMetricsRequest$json = {
+  '1': 'GetPluginMetricsRequest',
+  '2': [
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
+    {
+      '1': 'labels',
+      '3': 2,
+      '4': 3,
+      '5': 11,
+      '6': '.itcmdr.GetPluginMetricsRequest.LabelsEntry',
+      '10': 'labels'
+    },
+    {'1': 'window_days', '3': 3, '4': 1, '5': 5, '10': 'windowDays'},
+    {'1': 'daily', '3': 4, '4': 1, '5': 8, '10': 'daily'},
+  ],
+  '3': [GetPluginMetricsRequest_LabelsEntry$json],
+};
+
+@$core.Deprecated('Use getPluginMetricsRequestDescriptor instead')
+const GetPluginMetricsRequest_LabelsEntry$json = {
+  '1': 'LabelsEntry',
+  '2': [
+    {'1': 'key', '3': 1, '4': 1, '5': 9, '10': 'key'},
+    {'1': 'value', '3': 2, '4': 1, '5': 9, '10': 'value'},
+  ],
+  '7': {'7': true},
+};
+
+/// Descriptor for `GetPluginMetricsRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getPluginMetricsRequestDescriptor = $convert.base64Decode(
+    'ChdHZXRQbHVnaW5NZXRyaWNzUmVxdWVzdBISCgRuYW1lGAEgASgJUgRuYW1lEkMKBmxhYmVscx'
+    'gCIAMoCzIrLml0Y21kci5HZXRQbHVnaW5NZXRyaWNzUmVxdWVzdC5MYWJlbHNFbnRyeVIGbGFi'
+    'ZWxzEh8KC3dpbmRvd19kYXlzGAMgASgFUgp3aW5kb3dEYXlzEhQKBWRhaWx5GAQgASgIUgVkYW'
+    'lseRo5CgtMYWJlbHNFbnRyeRIQCgNrZXkYASABKAlSA2tleRIUCgV2YWx1ZRgCIAEoCVIFdmFs'
+    'dWU6AjgB');
+
+@$core.Deprecated('Use pluginMetricPointDescriptor instead')
+const PluginMetricPoint$json = {
+  '1': 'PluginMetricPoint',
+  '2': [
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'labels', '3': 2, '4': 1, '5': 9, '10': 'labels'},
+    {'1': 'ts', '3': 3, '4': 1, '5': 3, '10': 'ts'},
+    {'1': 'value', '3': 4, '4': 1, '5': 1, '10': 'value'},
+  ],
+};
+
+/// Descriptor for `PluginMetricPoint`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List pluginMetricPointDescriptor = $convert.base64Decode(
+    'ChFQbHVnaW5NZXRyaWNQb2ludBISCgRuYW1lGAEgASgJUgRuYW1lEhYKBmxhYmVscxgCIAEoCV'
+    'IGbGFiZWxzEg4KAnRzGAMgASgDUgJ0cxIUCgV2YWx1ZRgEIAEoAVIFdmFsdWU=');
+
+@$core.Deprecated('Use logRejectsDescriptor instead')
+const LogRejects$json = {
+  '1': 'LogRejects',
+  '2': [
+    {'1': 'file', '3': 1, '4': 1, '5': 9, '10': 'file'},
+    {'1': 'count', '3': 2, '4': 1, '5': 3, '10': 'count'},
+  ],
+};
+
+/// Descriptor for `LogRejects`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List logRejectsDescriptor = $convert.base64Decode(
+    'CgpMb2dSZWplY3RzEhIKBGZpbGUYASABKAlSBGZpbGUSFAoFY291bnQYAiABKANSBWNvdW50');
+
+@$core.Deprecated('Use getPluginMetricsResponseDescriptor instead')
+const GetPluginMetricsResponse$json = {
+  '1': 'GetPluginMetricsResponse',
+  '2': [
+    {
+      '1': 'points',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.itcmdr.PluginMetricPoint',
+      '10': 'points'
+    },
+    {
+      '1': 'rejects',
+      '3': 2,
+      '4': 3,
+      '5': 11,
+      '6': '.itcmdr.LogRejects',
+      '10': 'rejects'
+    },
+  ],
+};
+
+/// Descriptor for `GetPluginMetricsResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getPluginMetricsResponseDescriptor = $convert.base64Decode(
+    'ChhHZXRQbHVnaW5NZXRyaWNzUmVzcG9uc2USMQoGcG9pbnRzGAEgAygLMhkuaXRjbWRyLlBsdW'
+    'dpbk1ldHJpY1BvaW50UgZwb2ludHMSLAoHcmVqZWN0cxgCIAMoCzISLml0Y21kci5Mb2dSZWpl'
+    'Y3RzUgdyZWplY3Rz');
+
+@$core.Deprecated('Use scheduleDescriptor instead')
+const Schedule$json = {
+  '1': 'Schedule',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
+    {'1': 'name', '3': 2, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'enabled', '3': 3, '4': 1, '5': 8, '10': 'enabled'},
+    {'1': 'all_machines', '3': 4, '4': 1, '5': 8, '10': 'allMachines'},
+    {'1': 'machines', '3': 5, '4': 3, '5': 9, '10': 'machines'},
+    {'1': 'groups', '3': 6, '4': 3, '5': 9, '10': 'groups'},
+    {'1': 'categories', '3': 7, '4': 3, '5': 9, '10': 'categories'},
+    {'1': 'plugins', '3': 8, '4': 3, '5': 9, '10': 'plugins'},
+    {'1': 'repair', '3': 9, '4': 1, '5': 8, '10': 'repair'},
+    {'1': 'when', '3': 10, '4': 1, '5': 9, '10': 'when'},
+    {'1': 'timezone', '3': 11, '4': 1, '5': 9, '10': 'timezone'},
+    {'1': 'guard', '3': 12, '4': 1, '5': 9, '10': 'guard'},
+    {'1': 'missed', '3': 13, '4': 1, '5': 9, '10': 'missed'},
+    {'1': 'builtin', '3': 14, '4': 1, '5': 8, '10': 'builtin'},
+    {'1': 'next_runs', '3': 15, '4': 3, '5': 3, '10': 'nextRuns'},
+    {'1': 'last_fire', '3': 16, '4': 1, '5': 3, '10': 'lastFire'},
+  ],
+};
+
+/// Descriptor for `Schedule`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List scheduleDescriptor = $convert.base64Decode(
+    'CghTY2hlZHVsZRIOCgJpZBgBIAEoCVICaWQSEgoEbmFtZRgCIAEoCVIEbmFtZRIYCgdlbmFibG'
+    'VkGAMgASgIUgdlbmFibGVkEiEKDGFsbF9tYWNoaW5lcxgEIAEoCFILYWxsTWFjaGluZXMSGgoI'
+    'bWFjaGluZXMYBSADKAlSCG1hY2hpbmVzEhYKBmdyb3VwcxgGIAMoCVIGZ3JvdXBzEh4KCmNhdG'
+    'Vnb3JpZXMYByADKAlSCmNhdGVnb3JpZXMSGAoHcGx1Z2lucxgIIAMoCVIHcGx1Z2lucxIWCgZy'
+    'ZXBhaXIYCSABKAhSBnJlcGFpchISCgR3aGVuGAogASgJUgR3aGVuEhoKCHRpbWV6b25lGAsgAS'
+    'gJUgh0aW1lem9uZRIUCgVndWFyZBgMIAEoCVIFZ3VhcmQSFgoGbWlzc2VkGA0gASgJUgZtaXNz'
+    'ZWQSGAoHYnVpbHRpbhgOIAEoCFIHYnVpbHRpbhIbCgluZXh0X3J1bnMYDyADKANSCG5leHRSdW'
+    '5zEhsKCWxhc3RfZmlyZRgQIAEoA1IIbGFzdEZpcmU=');
+
+@$core.Deprecated('Use saveScheduleRequestDescriptor instead')
+const SaveScheduleRequest$json = {
+  '1': 'SaveScheduleRequest',
+  '2': [
+    {
+      '1': 'schedule',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.itcmdr.Schedule',
+      '10': 'schedule'
+    },
+  ],
+};
+
+/// Descriptor for `SaveScheduleRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List saveScheduleRequestDescriptor = $convert.base64Decode(
+    'ChNTYXZlU2NoZWR1bGVSZXF1ZXN0EiwKCHNjaGVkdWxlGAEgASgLMhAuaXRjbWRyLlNjaGVkdW'
+    'xlUghzY2hlZHVsZQ==');
+
+@$core.Deprecated('Use scheduleResponseDescriptor instead')
+const ScheduleResponse$json = {
+  '1': 'ScheduleResponse',
+  '2': [
+    {
+      '1': 'schedule',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.itcmdr.Schedule',
+      '10': 'schedule'
+    },
+  ],
+};
+
+/// Descriptor for `ScheduleResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List scheduleResponseDescriptor = $convert.base64Decode(
+    'ChBTY2hlZHVsZVJlc3BvbnNlEiwKCHNjaGVkdWxlGAEgASgLMhAuaXRjbWRyLlNjaGVkdWxlUg'
+    'hzY2hlZHVsZQ==');
+
+@$core.Deprecated('Use scheduleRefDescriptor instead')
+const ScheduleRef$json = {
+  '1': 'ScheduleRef',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
+    {'1': 'force', '3': 2, '4': 1, '5': 8, '10': 'force'},
+  ],
+};
+
+/// Descriptor for `ScheduleRef`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List scheduleRefDescriptor = $convert.base64Decode(
+    'CgtTY2hlZHVsZVJlZhIOCgJpZBgBIAEoCVICaWQSFAoFZm9yY2UYAiABKAhSBWZvcmNl');
+
+@$core.Deprecated('Use listSchedulesRequestDescriptor instead')
+const ListSchedulesRequest$json = {
+  '1': 'ListSchedulesRequest',
+};
+
+/// Descriptor for `ListSchedulesRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List listSchedulesRequestDescriptor =
+    $convert.base64Decode('ChRMaXN0U2NoZWR1bGVzUmVxdWVzdA==');
+
+@$core.Deprecated('Use listSchedulesResponseDescriptor instead')
+const ListSchedulesResponse$json = {
+  '1': 'ListSchedulesResponse',
+  '2': [
+    {
+      '1': 'schedules',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.itcmdr.Schedule',
+      '10': 'schedules'
+    },
+  ],
+};
+
+/// Descriptor for `ListSchedulesResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List listSchedulesResponseDescriptor = $convert.base64Decode(
+    'ChVMaXN0U2NoZWR1bGVzUmVzcG9uc2USLgoJc2NoZWR1bGVzGAEgAygLMhAuaXRjbWRyLlNjaG'
+    'VkdWxlUglzY2hlZHVsZXM=');
+
+@$core.Deprecated('Use runScheduleNowResponseDescriptor instead')
+const RunScheduleNowResponse$json = {
+  '1': 'RunScheduleNowResponse',
+  '2': [
+    {'1': 'outcome', '3': 1, '4': 1, '5': 9, '10': 'outcome'},
+    {'1': 'request_id', '3': 2, '4': 1, '5': 9, '10': 'requestId'},
+    {'1': 'note', '3': 3, '4': 1, '5': 9, '10': 'note'},
+  ],
+};
+
+/// Descriptor for `RunScheduleNowResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List runScheduleNowResponseDescriptor =
+    $convert.base64Decode(
+        'ChZSdW5TY2hlZHVsZU5vd1Jlc3BvbnNlEhgKB291dGNvbWUYASABKAlSB291dGNvbWUSHQoKcm'
+        'VxdWVzdF9pZBgCIAEoCVIJcmVxdWVzdElkEhIKBG5vdGUYAyABKAlSBG5vdGU=');
+
+@$core.Deprecated('Use listScheduleRunsRequestDescriptor instead')
+const ListScheduleRunsRequest$json = {
+  '1': 'ListScheduleRunsRequest',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
+    {'1': 'limit', '3': 2, '4': 1, '5': 5, '10': 'limit'},
+  ],
+};
+
+/// Descriptor for `ListScheduleRunsRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List listScheduleRunsRequestDescriptor =
+    $convert.base64Decode(
+        'ChdMaXN0U2NoZWR1bGVSdW5zUmVxdWVzdBIOCgJpZBgBIAEoCVICaWQSFAoFbGltaXQYAiABKA'
+        'VSBWxpbWl0');
+
+@$core.Deprecated('Use scheduleRunDescriptor instead')
+const ScheduleRun$json = {
+  '1': 'ScheduleRun',
+  '2': [
+    {'1': 'schedule_id', '3': 1, '4': 1, '5': 9, '10': 'scheduleId'},
+    {'1': 'ts', '3': 2, '4': 1, '5': 3, '10': 'ts'},
+    {'1': 'due', '3': 3, '4': 1, '5': 3, '10': 'due'},
+    {'1': 'request_id', '3': 4, '4': 1, '5': 9, '10': 'requestId'},
+    {'1': 'outcome', '3': 5, '4': 1, '5': 9, '10': 'outcome'},
+    {'1': 'note', '3': 6, '4': 1, '5': 9, '10': 'note'},
+  ],
+};
+
+/// Descriptor for `ScheduleRun`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List scheduleRunDescriptor = $convert.base64Decode(
+    'CgtTY2hlZHVsZVJ1bhIfCgtzY2hlZHVsZV9pZBgBIAEoCVIKc2NoZWR1bGVJZBIOCgJ0cxgCIA'
+    'EoA1ICdHMSEAoDZHVlGAMgASgDUgNkdWUSHQoKcmVxdWVzdF9pZBgEIAEoCVIJcmVxdWVzdElk'
+    'EhgKB291dGNvbWUYBSABKAlSB291dGNvbWUSEgoEbm90ZRgGIAEoCVIEbm90ZQ==');
+
+@$core.Deprecated('Use listScheduleRunsResponseDescriptor instead')
+const ListScheduleRunsResponse$json = {
+  '1': 'ListScheduleRunsResponse',
+  '2': [
+    {
+      '1': 'runs',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.itcmdr.ScheduleRun',
+      '10': 'runs'
+    },
+  ],
+};
+
+/// Descriptor for `ListScheduleRunsResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List listScheduleRunsResponseDescriptor =
+    $convert.base64Decode(
+        'ChhMaXN0U2NoZWR1bGVSdW5zUmVzcG9uc2USJwoEcnVucxgBIAMoCzITLml0Y21kci5TY2hlZH'
+        'VsZVJ1blIEcnVucw==');
+
+@$core.Deprecated('Use stageRestoreRequestDescriptor instead')
+const StageRestoreRequest$json = {
+  '1': 'StageRestoreRequest',
+  '2': [
+    {'1': 'backup', '3': 1, '4': 1, '5': 9, '10': 'backup'},
+    {'1': 'words', '3': 2, '4': 1, '5': 9, '10': 'words'},
+  ],
+};
+
+/// Descriptor for `StageRestoreRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List stageRestoreRequestDescriptor = $convert.base64Decode(
+    'ChNTdGFnZVJlc3RvcmVSZXF1ZXN0EhYKBmJhY2t1cBgBIAEoCVIGYmFja3VwEhQKBXdvcmRzGA'
+    'IgASgJUgV3b3Jkcw==');
+
+@$core.Deprecated('Use restoreStatusDescriptor instead')
+const RestoreStatus$json = {
+  '1': 'RestoreStatus',
+  '2': [
+    {'1': 'state', '3': 1, '4': 1, '5': 9, '10': 'state'},
+    {'1': 'message', '3': 2, '4': 1, '5': 9, '10': 'message'},
+    {'1': 'backup', '3': 3, '4': 1, '5': 9, '10': 'backup'},
+    {'1': 'actor', '3': 4, '4': 1, '5': 9, '10': 'actor'},
+    {'1': 'started', '3': 5, '4': 1, '5': 3, '10': 'started'},
+    {'1': 'updated', '3': 6, '4': 1, '5': 3, '10': 'updated'},
+    {'1': 'safety_copy', '3': 7, '4': 1, '5': 9, '10': 'safetyCopy'},
+  ],
+};
+
+/// Descriptor for `RestoreStatus`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List restoreStatusDescriptor = $convert.base64Decode(
+    'Cg1SZXN0b3JlU3RhdHVzEhQKBXN0YXRlGAEgASgJUgVzdGF0ZRIYCgdtZXNzYWdlGAIgASgJUg'
+    'dtZXNzYWdlEhYKBmJhY2t1cBgDIAEoCVIGYmFja3VwEhQKBWFjdG9yGAQgASgJUgVhY3RvchIY'
+    'CgdzdGFydGVkGAUgASgDUgdzdGFydGVkEhgKB3VwZGF0ZWQYBiABKANSB3VwZGF0ZWQSHwoLc2'
+    'FmZXR5X2NvcHkYByABKAlSCnNhZmV0eUNvcHk=');
+
+@$core.Deprecated('Use stageRestoreResponseDescriptor instead')
+const StageRestoreResponse$json = {
+  '1': 'StageRestoreResponse',
+  '2': [
+    {
+      '1': 'status',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.itcmdr.RestoreStatus',
+      '10': 'status'
+    },
+  ],
+};
+
+/// Descriptor for `StageRestoreResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List stageRestoreResponseDescriptor = $convert.base64Decode(
+    'ChRTdGFnZVJlc3RvcmVSZXNwb25zZRItCgZzdGF0dXMYASABKAsyFS5pdGNtZHIuUmVzdG9yZV'
+    'N0YXR1c1IGc3RhdHVz');
+
+@$core.Deprecated('Use getRestoreStatusRequestDescriptor instead')
+const GetRestoreStatusRequest$json = {
+  '1': 'GetRestoreStatusRequest',
+};
+
+/// Descriptor for `GetRestoreStatusRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getRestoreStatusRequestDescriptor =
+    $convert.base64Decode('ChdHZXRSZXN0b3JlU3RhdHVzUmVxdWVzdA==');
+
+@$core.Deprecated('Use getRestoreStatusResponseDescriptor instead')
+const GetRestoreStatusResponse$json = {
+  '1': 'GetRestoreStatusResponse',
+  '2': [
+    {
+      '1': 'status',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.itcmdr.RestoreStatus',
+      '10': 'status'
+    },
+  ],
+};
+
+/// Descriptor for `GetRestoreStatusResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getRestoreStatusResponseDescriptor =
+    $convert.base64Decode(
+        'ChhHZXRSZXN0b3JlU3RhdHVzUmVzcG9uc2USLQoGc3RhdHVzGAEgASgLMhUuaXRjbWRyLlJlc3'
+        'RvcmVTdGF0dXNSBnN0YXR1cw==');

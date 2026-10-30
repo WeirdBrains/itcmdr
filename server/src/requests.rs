@@ -98,6 +98,15 @@ pub async fn sync_requests(
             .and_then(|v| v.get("machines").cloned())
             .and_then(|m| serde_json::from_value(m).ok())
             .unwrap_or_default();
+        let v: serde_json::Value = serde_json::from_str(&options).unwrap_or_default();
+        let none = |k: &str| {
+            v.get(k)
+                .and_then(|x| x.as_array())
+                .is_none_or(|a| a.is_empty())
+        };
+        if !none("plugins") && none("categories") {
+            continue; // plugin-only: the server's plugin runtime sets the status
+        }
         let (status, msg) = aggregate(&expected, &read_responses(responses_dir, &id));
         let (status, msg) = apply_timeout(status, msg, now - created, timeout_ms);
         if crate::db::set_request_status(pool, &id, &status, &msg).await? {

@@ -57,6 +57,43 @@ pub struct ServerConfig {
     /// Backups (decision 13).
     #[serde(default)]
     pub backup: BackupConfig,
+    /// App-triggered restore (decision 13): how the restore helper stops/starts the service.
+    #[serde(default)]
+    pub restore: RestoreConfig,
+}
+
+/// server.json only (these run as the service account; never editable over the API).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RestoreConfig {
+    /// Command (argv) that stops the server. Windows default `sc.exe stop itcmdr-server`; empty = none.
+    #[serde(default = "default_stop")]
+    pub stop_command: Vec<String>,
+    /// Command (argv) that starts it again. Windows default `sc.exe start itcmdr-server`.
+    #[serde(default = "default_start")]
+    pub start_command: Vec<String>,
+}
+
+impl Default for RestoreConfig {
+    fn default() -> Self {
+        Self {
+            stop_command: default_stop(),
+            start_command: default_start(),
+        }
+    }
+}
+
+fn svc_cmd(verb: &str) -> Vec<String> {
+    if cfg!(windows) {
+        vec!["sc.exe".into(), verb.into(), "itcmdr-server".into()]
+    } else {
+        vec![]
+    }
+}
+fn default_stop() -> Vec<String> {
+    svc_cmd("stop")
+}
+fn default_start() -> Vec<String> {
+    svc_cmd("start")
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -176,6 +213,7 @@ impl Default for ServerConfig {
             exceptions_export_path: None,
             metrics: MetricsConfig::default(),
             backup: BackupConfig::default(),
+            restore: RestoreConfig::default(),
         }
     }
 }
