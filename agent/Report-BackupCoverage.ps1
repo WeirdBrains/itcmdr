@@ -15,12 +15,13 @@ $ErrorActionPreference = 'Stop'
 
 function Get-ItcmdrSite {
   $candidates = @('config/site.json','C:\ProgramData\itcmdr\site.json')
-  foreach ($p in $candidates) { if (Test-Path $p) { return Get-Content $p -Raw | ConvertFrom-Json -AsHashtable } }
+  foreach ($p in $candidates) { if (Test-Path $p) { return ((Get-Content $p -Raw).TrimStart([char]0xFEFF) | ConvertFrom-Json) } }
   return @{} 
 }
 
 $site = Get-ItcmdrSite
-$expected = @($site.backup.expectedBackupSources)
+$expected = @()
+if ($site -and $site.PSObject.Properties['backup'] -and $site.backup.PSObject.Properties['expectedBackupSources']) { $expected = @($site.backup.expectedBackupSources) }
 
 $tasks = @('Sidexis SQL Backup','EndoVision DB Backup')
 $found = @()

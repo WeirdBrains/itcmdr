@@ -1,26 +1,63 @@
-## Install guide (admin PowerShell)
+# Install guide (admin PowerShell)
 
-This repository contains placeholders only. Provide site values via `config/site.json` or `C:\ProgramData\itcmdr\site.json` (see `config/site.example.json`). Do not commit real values.
+This repository contains placeholders only. Real values go in `C:\ProgramData\itcmdr\site.json` (start from `config/site.example.json`) and `C:\ProgramData\itcmdr\server.json`. Never commit real values.
 
-### Server (Windows)
-1. Create `C:\ProgramData\itcmdr\site.json` from the example.
-2. Install the Windows release installer (see Releases page).
-3. Confirm service `itcmdr-server` is running and firewall rule exists (subnet is configurable via installer parameter `/DAllowSubnet=`).
+## Server (Windows)
 
-Silent Agent-only install:
+1. Create `C:\ProgramData\itcmdr\site.json` from `config/site.example.json`.
+2. Run the installer from the Releases page. It installs:
+   - the `itcmdr-server` service (`itcmdr-server.exe --service`, delayed auto-start, restart on failure)
+   - a template `C:\ProgramData\itcmdr\server.json`, which is never overwritten
+   - an inbound firewall rule for TCP 50051, limited to `/DAllowSubnet=<lan cidr>`
+   - the `itcmdr Log Rotation` scheduled task (daily, SYSTEM, `rotation.timeLocal`, default 02:10)
+   - with the Agent component, the agent and poller tasks
+3. Edit `C:\ProgramData\itcmdr\server.json`:
+   - `logs_dir`: the local path of the maintenanceRuns share folder on the server.
+   - `admin_token_hash`: choose a long random token, then run `& 'C:\Program Files\itcmdr\server\itcmdr-server.exe' hash-token <token>` and paste the output. Without a hash, on-demand runs and exception changes are refused.
+   - Then run `Restart-Service itcmdr-server`.
+4. Check that it's working:
+   - `Get-Service itcmdr-server` shows Running.
+   - Errors, if any, are in `C:\ProgramData\itcmdr\server-logs\itcmdr-server.txt`.
+
+Console mode, for troubleshooting: stop the service, then run `itcmdr-server.exe --console`. It reads the same config, from `ITCMDR_SERVER_CONFIG`, `.\config\server.json`, `%ProgramData%\itcmdr\server.json`, or `server.json` next to the exe.
+
+## Agents
+
+Silent agent-only install on a PC:
+
 ```
-itcmdr-Setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /COMPONENTS=\"agent\"
+itcmdr-Setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /COMPONENTS="agent"
 ```
 
-### Agent (manual)
-1. Copy `agent\\Invoke-ItcmdrAgent.ps1` and `agent\\Install-ItcmdrAgent.ps1` to target machine.
-2. In elevated PowerShell:
+This registers two tasks, both running as SYSTEM:
+- `itcmdr Agent Nightly` at 01:30
+- `itcmdr Agent Poller` every minute; a run that's still going makes the next one skip
+
+Each PC also needs `C:\ProgramData\itcmdr\site.json`.
+
+Manual install, or push to several PCs with `agent\Push-Install-ItcmdrAgent.ps1` (uses ADMIN$ and schtasks, no WinRM):
+
 ```
 Set-ExecutionPolicy Bypass -Scope Process -Force
 .\Install-ItcmdrAgent.ps1
 ```
 
-### App
-- Windows: installed by the Windows installer (Start Menu shortcut).
-- Web: run locally with `flutter build web` and host behind an internal web server; configure the server address in the app settings (to be implemented).
+To do a one-off test run (report-only when not SYSTEM), run `.\Invoke-ItcmdrAgent.ps1 -ReportOnly`. Then look at the newest file in `C:\maintenanceRuns`.
 
+## App
+
+- Windows: installed by the installer (Start Menu shortcut).
+- Web: `flutter build web`, then host it on an internal web server. The server speaks gRPC-Web on the same port.
+- Open **Settings** and enter:
+  - the server host and port (default 50051)
+  - the admin token, which the app stores locally with shared_preferences
+  - your name for the audit log
+
+## Local demo (Linux or Windows dev box)
+
+```
+cargo run -p itcmdr-sample-data-gen -- --out-dir ./sample-maintenanceRuns --days 90
+cp config/server.example.json config/server.json   # set allow_insecure_no_auth or a token hash
+cargo run -p itcmdr-server
+cd app && flutter run -d linux   # Settings: localhost : 50051
+```

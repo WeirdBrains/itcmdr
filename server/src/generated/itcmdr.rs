@@ -171,7 +171,10 @@ pub struct ExceptionRule {
     pub active: bool,
 }
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
-pub struct ListExceptionsRequest {}
+pub struct ListExceptionsRequest {
+    #[prost(bool, tag = "1")]
+    pub include_inactive: bool,
+}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ListExceptionsResponse {
     #[prost(message, repeated, tag = "1")]
@@ -218,6 +221,31 @@ pub struct SearchLogsResponse {
     #[prost(string, repeated, tag = "1")]
     pub lines: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
+/// Audit log of mutating actions (on-demand runs, exception changes)
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AuditEntry {
+    /// unix millis
+    #[prost(int64, tag = "1")]
+    pub ts: i64,
+    #[prost(string, tag = "2")]
+    pub actor: ::prost::alloc::string::String,
+    /// "trigger-runs", "exception-save", "exception-expire"
+    #[prost(string, tag = "3")]
+    pub action: ::prost::alloc::string::String,
+    /// JSON
+    #[prost(string, tag = "4")]
+    pub detail: ::prost::alloc::string::String,
+}
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct ListAuditRequest {
+    #[prost(int32, tag = "1")]
+    pub limit: i32,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListAuditResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub entries: ::prost::alloc::vec::Vec<AuditEntry>,
+}
 /// Live updates
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct WatchUpdatesRequest {}
@@ -237,13 +265,15 @@ pub struct Update {
     pub ts: i64,
 }
 /// Metrics and rollups
+/// Buckets are aligned to ISO weeks: weekly = ISO week (Mon-Sun);
+/// block4 = 4-ISO-week block N covering weeks 4N-3..4N (13 per ISO year,
+/// week 53 folds into block 13); yearly = ISO year.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum Rollup {
     Daily = 0,
     Weekly = 1,
-    Monthly = 2,
-    Quarterly = 3,
+    Block4 = 2,
     Yearly = 4,
 }
 impl Rollup {
@@ -255,8 +285,7 @@ impl Rollup {
         match self {
             Self::Daily => "ROLLUP_DAILY",
             Self::Weekly => "ROLLUP_WEEKLY",
-            Self::Monthly => "ROLLUP_MONTHLY",
-            Self::Quarterly => "ROLLUP_QUARTERLY",
+            Self::Block4 => "ROLLUP_BLOCK4",
             Self::Yearly => "ROLLUP_YEARLY",
         }
     }
@@ -265,8 +294,7 @@ impl Rollup {
         match value {
             "ROLLUP_DAILY" => Some(Self::Daily),
             "ROLLUP_WEEKLY" => Some(Self::Weekly),
-            "ROLLUP_MONTHLY" => Some(Self::Monthly),
-            "ROLLUP_QUARTERLY" => Some(Self::Quarterly),
+            "ROLLUP_BLOCK4" => Some(Self::Block4),
             "ROLLUP_YEARLY" => Some(Self::Yearly),
             _ => None,
         }
@@ -339,6 +367,13 @@ pub mod itcmdr_server {
             request: tonic::Request<super::SearchLogsRequest>,
         ) -> std::result::Result<
             tonic::Response<super::SearchLogsResponse>,
+            tonic::Status,
+        >;
+        async fn list_audit(
+            &self,
+            request: tonic::Request<super::ListAuditRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListAuditResponse>,
             tonic::Status,
         >;
         /// Server streaming response type for the WatchUpdates method.
@@ -772,6 +807,49 @@ pub mod itcmdr_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = SearchLogsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/itcmdr.Itcmdr/ListAudit" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListAuditSvc<T: Itcmdr>(pub Arc<T>);
+                    impl<T: Itcmdr> tonic::server::UnaryService<super::ListAuditRequest>
+                    for ListAuditSvc<T> {
+                        type Response = super::ListAuditResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListAuditRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Itcmdr>::list_audit(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListAuditSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(
