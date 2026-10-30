@@ -229,6 +229,29 @@ pub fn load_or_create_db_key(layout: &Layout) -> Result<[u8; 32]> {
     Ok(k)
 }
 
+/// Overwrite a file with zeros (synced), then delete it. Best effort against recovery: on SSDs and
+/// copy-on-write or journaling filesystems the old blocks may survive, so full-disk encryption
+/// is still recommended.
+pub fn shred_file(p: &Path) -> Result<()> {
+    use std::io::Write;
+    let len = std::fs::metadata(p)
+        .with_context(|| format!("stat {}", p.display()))?
+        .len();
+    {
+        let mut f = std::fs::OpenOptions::new().write(true).open(p)?;
+        let zeros = vec![0u8; 64 * 1024];
+        let mut left = len;
+        while left > 0 {
+            let n = left.min(zeros.len() as u64) as usize;
+            f.write_all(&zeros[..n])?;
+            left -= n as u64;
+        }
+        f.sync_all()?;
+    }
+    std::fs::remove_file(p)?;
+    Ok(())
+}
+
 /// True when the file starts with the plaintext SQLite header (SQLCipher files look random).
 pub fn is_plaintext_sqlite(p: &Path) -> bool {
     use std::io::Read;
@@ -247,6 +270,16 @@ pub fn key_pragma(key: &[u8; 32]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shred_overwrites_then_deletes() {
+        let t = tempfile::tempdir().unwrap();
+        let p = t.path().join("x");
+        std::fs::write(&p, vec![b'A'; 200_000]).unwrap();
+        shred_file(&p).unwrap();
+        assert!(!p.exists());
+        assert!(shred_file(&p).is_err());
+    }
 
     #[test]
     fn data_dir_precedence() {

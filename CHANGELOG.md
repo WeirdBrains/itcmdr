@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.6.2 (2026-10-30)
+- After a plaintext->encrypted migration the encrypted DB is read back at its final path; when row counts match, the `*.plaintext-backup` is overwritten with zeros, deleted and logged; otherwise it is kept (decision 12).
+- Plan: decision 12 (backup auto-delete; db.key escrow under the master key planned for v0.7.0).
+
 ## v0.6.1 (2026-10-30)
 - Docs only: root `PLAN.md` roadmap: status legend, every release with status/tag/date, cross-cutting items, per-phase checklists.
 
