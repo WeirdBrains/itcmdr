@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.8.0 (2026-10-30)
+- `itcmdr-cli` (installed next to `itcmdr-server.exe`): `init`, `recover-db-key`, `keys certify|new|register|list|revoke|rotate`,
+  `service register`, `user add`. Offline certification from the 24 words (stdin only).
+- Backup & restore (decision 13): signed + encrypted `.itcb` archives (consistent DB snapshot, db.key escrow, config,
+  manifest with versions/schema/sha256). `backup create|list|verify [--deep]|prune`, `restore --from ... [--dry-run]`.
+  Restore takes a safety copy, refuses newer schemas, rebuilds db.key from the words and issues a new root key.
+- Nightly backup to `backup.dir` (e.g. the share) with daily/weekly/monthly retention (server.json `backup`).
+- gRPC `CreateBackup`, `ListBackups`, `VerifyBackup` (admin/owner, audit-logged).
+- Schema version recorded as `PRAGMA user_version` (1).
+- `docs/SIGNING.md` + `proto/signing_vectors.json`: canonical protobuf encoding for signed requests, pinned vectors.
+
 ## v0.7.0 (2026-10-30)
 - Keys: 24 BIP39 recovery words → master Ed25519/X25519 keys (HKDF (SHA-256), pinned test vector). The server stores
   only the master public keys. `itcmdr-server init` prints the words once and creates the root client (role owner,

@@ -151,7 +151,7 @@ pub fn verify_certificate(master: &VerifyingKey, c: &Certificate) -> Result<()> 
         .map_err(|_| anyhow!("certificate is not signed by this server's master key"))
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Escrow {
     pub v: u32,
     pub eph: String,

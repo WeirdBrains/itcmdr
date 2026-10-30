@@ -1,8 +1,16 @@
 [package]
 name = "itcmdr-server"
-version = "0.7.0"
+version = "0.8.0"
 edition = "2021"
 description = "itcmdr gRPC server and background ingest"
+
+[[bin]]
+name = "itcmdr-server"
+path = "src/main.rs"
+
+[[bin]]
+name = "itcmdr-cli"
+path = "src/bin/itcmdr-cli.rs"
 
 [dependencies]
 tokio = { version = "1.40", features = ["rt-multi-thread", "macros", "signal", "time"] }
@@ -37,6 +45,7 @@ hkdf = "0.12"
 chacha20poly1305 = "0.10"
 zeroize = "1.8"
 hex = "0.4"
+clap = { version = "4.5", features = ["derive"] }
 
 
 [target.'cfg(windows)'.dependencies]

@@ -1,6 +1,7 @@
 #![allow(clippy::result_large_err, clippy::field_reassign_with_default)]
 pub mod api;
 pub mod auth;
+pub mod backup;
 pub mod config;
 pub mod db;
 pub mod events;
@@ -72,6 +73,7 @@ pub async fn run(
         loop {
             every.tick().await;
             tick(&bg_pool, &bg_cfg).await;
+            backup::nightly(&bg_pool, &bg_cfg).await;
             if last_retention.elapsed() > Duration::from_secs(24 * 3600) {
                 last_retention = std::time::Instant::now();
                 if let Err(e) = db::apply_retention(&bg_pool, bg_cfg.retention_days).await {
