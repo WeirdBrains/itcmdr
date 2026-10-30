@@ -32,6 +32,10 @@ pub struct ServerConfig {
     /// `allow_insecure_no_auth` is true.
     #[serde(default)]
     pub admin_token_hash: Option<String>,
+    /// "token" (legacy shared token only), "both" (signed requests, or the token for mutating calls:
+    /// the migration mode, default) or "signed" (signed requests only, token retired; reads need a key too).
+    #[serde(default = "default_auth_mode")]
+    pub auth_mode: String,
     /// Explicit opt-out: allow mutating RPCs without any token (lab/demo only).
     #[serde(default)]
     pub allow_insecure_no_auth: bool,
@@ -78,6 +82,10 @@ fn default_request_timeout() -> u64 {
     DEFAULT_REQUEST_TIMEOUT_SECS
 }
 
+fn default_auth_mode() -> String {
+    "both".into()
+}
+
 fn default_rollups() -> Vec<String> {
     vec![
         "daily".into(),
@@ -107,6 +115,7 @@ impl Default for ServerConfig {
             database_path: None,
             requests_dir: None,
             admin_token_hash: None,
+            auth_mode: default_auth_mode(),
             allow_insecure_no_auth: false,
             retention_days: DEFAULT_RETENTION_DAYS,
             ingest_interval_secs: DEFAULT_INGEST_INTERVAL_SECS,

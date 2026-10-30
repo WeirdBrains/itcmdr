@@ -4,6 +4,8 @@
 //!   itcmdr-server                  run in the console (Ctrl+C stops)
 //!   itcmdr-server --service        run under the Windows Service Control Manager
 //!   itcmdr-server hash-token <t>   print the SHA-256 hex to put in admin_token_hash
+//!   itcmdr-server init             first-run setup: prints the 24 recovery words ONCE
+//!   itcmdr-server recover-db-key [--force]   read the words from stdin, restore keys/db.key from the escrow
 //!   --data-dir <dir>               (any mode) data dir override; beats ITCMDR_DATA_DIR and server.json
 use itcmdr_server::config::ServerConfig;
 
@@ -72,6 +74,34 @@ fn main() -> anyhow::Result<()> {
             println!("{}", itcmdr_server::api::sha256_hex(t));
             Ok(())
         }
+        Some("init") => {
+            let cfg = load_config()?;
+            tokio::runtime::Runtime::new()?.block_on(async {
+                let pool = itcmdr_server::db::init_db(&cfg).await?;
+                let out = itcmdr_server::auth::init(&pool, &cfg.layout()).await?;
+                println!("itcmdr is initialized.");
+                println!();
+                println!("RECOVERY WORDS (shown once, never stored on this server). Write them down and keep them offline:");
+                println!();
+                for (i, w) in out.words.split(' ').enumerate() {
+                    println!("  {:>2}. {w}", i + 1);
+                }
+                println!();
+                println!("master key fingerprint: {}", out.master_fingerprint);
+                println!("root client fingerprint: {}", out.root_fingerprint);
+                Ok(())
+            })
+        }
+        Some("recover-db-key") => {
+            let force = args.iter().any(|a| a == "--force");
+            let cfg = load_config()?;
+            eprintln!("Enter the 24 recovery words, then press Enter:");
+            let mut words = zeroize::Zeroizing::new(String::new());
+            std::io::stdin().read_line(&mut words)?;
+            itcmdr_server::auth::recover_db_key(&cfg.layout(), &words, force)?;
+            println!("keys/db.key restored and protected for this machine.");
+            Ok(())
+        }
         Some("--service") => service::run(),
         Some("--console") | None => {
             init_tracing(None);
@@ -81,7 +111,7 @@ fn main() -> anyhow::Result<()> {
             }))
         }
         Some(other) => anyhow::bail!(
-            "unknown argument {other:?}; use --console, --service or hash-token <token>"
+            "unknown argument {other:?}; use --console, --service, init, recover-db-key or hash-token <token>"
         ),
     }
 }

@@ -6,10 +6,17 @@ untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committ
 
 ## Current state (updated 2026-10-30)
 
-- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.6.2** (verified migration deletes the plaintext backup). See `CHANGELOG.md`, root `PLAN.md`.
+- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.7.0** (keys & signed auth). See `CHANGELOG.md`, root `PLAN.md`.
 - Everything passes on the Linux dev box (Rust, Flutter, Pester, PSScriptAnalyzer, scanner).
 - **Nothing has run on Windows yet** (installer, service, scheduled tasks, agent on a real PC).
 - GitHub release builds are blocked by org billing (see Risks), so there is no installer artifact yet.
+
+## Done (v0.7.0, keys & auth)
+
+- `server/src/keys.rs`: words, `Master::from_words`, `fingerprint`, `certify`/`verify_certificate`, `seal`/`unseal`, `request_message`.
+- `server/src/auth.rs`: `init`, `register`, `revoke`, `escrow_db_key`, `recover_db_key`, `load_root_key`, `sign_request`, `verify`, `require`, `NonceCache`, `Role`.
+- `server/src/api.rs`: `authz` (mutating) / `read_guard` (reads), `AuthMode`; config `auth_mode` (default `both`).
+- `server/src/main.rs`: `init`, `recover-db-key [--force]`. Tests: `server/tests/auth.rs` (4), unit tests in keys.rs/auth.rs.
 
 ## Done (v0.6.2)
 
@@ -75,7 +82,7 @@ untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committ
 
 ## In progress
 
-- Nothing mid-way. Next: **v0.7.0 keys & auth** (BIP39 master shown once, certified client/user keys, signed requests + roles, retire shared token, db.key escrow under the master key + recovery). Statuses: root `PLAN.md`.
+- Nothing mid-way. Next: **v0.8.0 itcmdr-cli + backup & restore** (decision 13). Statuses: root `PLAN.md`.
 
 ## Backlog (in order)
 
@@ -143,7 +150,10 @@ python3 scripts/scan_repo.py        # leak scanner (also the pre-commit hook)
 - **Never commit real site values** (IPs, hostnames, domains, usernames, MACs).
   `config/site.local.json`, `config/site.json` and `config/banned.local.txt` are gitignored.
 - The scanner allows only `0.0.0.0`, `TCP-<port>` and `SCAN-NN` tokens beyond the placeholders; don't widen it further.
-- Mutating RPCs are refused until `admin_token_hash` is set. That's intended (until v0.7.0 signed auth).
+- Mutating RPCs need the token or (v0.7.0+) a signed request. Run `itcmdr-server init` once per server; the 24 words are
+  printed ONCE and are the only way to certify new keys and recover `db.key`. Don't set `auth_mode = signed` until
+  the app can sign (v0.12.0), or the app loses access.
+- Never change the master derivation (`keys.rs`); the pinned test vector guards it.
 - **SQLCipher build** needs perl + a C compiler (vendored OpenSSL); GitHub Windows runners have Strawberry Perl.
   The first build takes ~40 s on alien-blue.
 - **Losing `keys/db.key` means losing the database** (it is random, not derived from the words). Back up the

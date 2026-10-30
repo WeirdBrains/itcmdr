@@ -1,6 +1,6 @@
 [package]
 name = "itcmdr-server"
-version = "0.6.2"
+version = "0.7.0"
 edition = "2021"
 description = "itcmdr gRPC server and background ingest"
 
@@ -30,6 +30,12 @@ sha2 = "0.10"
 # SQLCipher, bundled + vendored OpenSSL: no system library needed (build needs perl + a C compiler).
 libsqlite3-sys = { version = "0.30", features = ["bundled-sqlcipher-vendored-openssl"] }
 rand = "0.8"
+ed25519-dalek = { version = "2.1", features = ["rand_core"] }
+x25519-dalek = { version = "2.0", features = ["static_secrets"] }
+bip39 = { version = "2.1", features = ["rand"] }
+hkdf = "0.12"
+chacha20poly1305 = "0.10"
+zeroize = "1.8"
 hex = "0.4"
 
 
@@ -43,6 +49,9 @@ prost-build = "0.13"
 protoc-bin-vendored = "3.0"
 
 [dev-dependencies]
+ed25519-dalek = "2.1"
+hex = "0.4"
+prost = "0.13"
 itcmdr-sample-data-gen = { path = "../tools/sample-data-gen" }
 tempfile = "3.10"
 assert_cmd = "2.0"
