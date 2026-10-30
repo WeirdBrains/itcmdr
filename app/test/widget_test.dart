@@ -5,9 +5,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:app/charts.dart';
 import 'package:app/exceptions_form.dart';
 import 'package:app/logs_page.dart';
-import 'package:app/proto/itcmdr.pb.dart';
+import 'package:app/proto/itcmdr.pbgrpc.dart';
 import 'package:fixnum/fixnum.dart';
 import 'package:app/main.dart';
+import 'package:app/server_settings.dart';
 import 'package:app/settings.dart';
 
 void main() {
@@ -176,5 +177,46 @@ void main() {
     );
     expect(find.text('A'), findsOneWidget);
     expect(find.text('No data'), findsOneWidget);
+  });
+
+  test('server settings are validated client-side', () {
+    SettingItem it(String type, {int min = 0, int max = 0, bool ro = false}) =>
+        SettingItem(
+          key: 'k',
+          type: type,
+          min: Int64(min),
+          max: Int64(max),
+          readOnly: ro,
+        );
+    expect(validateSettingValue(it('int', min: 1, max: 24), '3'), isNull);
+    expect(validateSettingValue(it('int', min: 1, max: 24), '25'), isNotNull);
+    expect(validateSettingValue(it('int', min: 1, max: 24), 'x'), isNotNull);
+    expect(validateSettingValue(it('bool'), 'true'), isNull);
+    expect(validateSettingValue(it('bool'), 'yes'), isNotNull);
+    expect(validateSettingValue(it('time'), '01:30'), isNull);
+    expect(validateSettingValue(it('time'), '24:00'), isNotNull);
+    expect(validateSettingValue(it('text', ro: true), 'x'), isNotNull);
+  });
+
+  testWidgets('settings page shows the server settings section', (
+    tester,
+  ) async {
+    final ch = const ServerSettings(host: '127.0.0.1', port: 1).channel();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SettingsPage(
+            settings: const ServerSettings(),
+            client: ItcmdrClient(ch),
+            onSave: (_) async {},
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('Server & agent settings'), findsOneWidget);
+    expect(find.text('Agents'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await ch.shutdown();
   });
 }

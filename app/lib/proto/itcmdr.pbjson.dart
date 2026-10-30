@@ -487,3 +487,301 @@ const Update$json = {
 final $typed_data.Uint8List updateDescriptor = $convert.base64Decode(
     'CgZVcGRhdGUSEgoEa2luZBgBIAEoCVIEa2luZBIWCgZlbnRpdHkYAiABKAlSBmVudGl0eRIOCg'
     'JpZBgDIAEoCVICaWQSDgoCdHMYBCABKANSAnRz');
+
+@$core.Deprecated('Use backupInfoDescriptor instead')
+const BackupInfo$json = {
+  '1': 'BackupInfo',
+  '2': [
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'size', '3': 2, '4': 1, '5': 3, '10': 'size'},
+    {'1': 'created_ts', '3': 3, '4': 1, '5': 3, '10': 'createdTs'},
+    {'1': 'kind', '3': 4, '4': 1, '5': 9, '10': 'kind'},
+    {'1': 'itcmdr_version', '3': 5, '4': 1, '5': 9, '10': 'itcmdrVersion'},
+    {'1': 'schema_version', '3': 6, '4': 1, '5': 3, '10': 'schemaVersion'},
+  ],
+};
+
+/// Descriptor for `BackupInfo`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List backupInfoDescriptor = $convert.base64Decode(
+    'CgpCYWNrdXBJbmZvEhIKBG5hbWUYASABKAlSBG5hbWUSEgoEc2l6ZRgCIAEoA1IEc2l6ZRIdCg'
+    'pjcmVhdGVkX3RzGAMgASgDUgljcmVhdGVkVHMSEgoEa2luZBgEIAEoCVIEa2luZBIlCg5pdGNt'
+    'ZHJfdmVyc2lvbhgFIAEoCVINaXRjbWRyVmVyc2lvbhIlCg5zY2hlbWFfdmVyc2lvbhgGIAEoA1'
+    'INc2NoZW1hVmVyc2lvbg==');
+
+@$core.Deprecated('Use createBackupRequestDescriptor instead')
+const CreateBackupRequest$json = {
+  '1': 'CreateBackupRequest',
+};
+
+/// Descriptor for `CreateBackupRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List createBackupRequestDescriptor =
+    $convert.base64Decode('ChNDcmVhdGVCYWNrdXBSZXF1ZXN0');
+
+@$core.Deprecated('Use createBackupResponseDescriptor instead')
+const CreateBackupResponse$json = {
+  '1': 'CreateBackupResponse',
+  '2': [
+    {
+      '1': 'backup',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.itcmdr.BackupInfo',
+      '10': 'backup'
+    },
+  ],
+};
+
+/// Descriptor for `CreateBackupResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List createBackupResponseDescriptor = $convert.base64Decode(
+    'ChRDcmVhdGVCYWNrdXBSZXNwb25zZRIqCgZiYWNrdXAYASABKAsyEi5pdGNtZHIuQmFja3VwSW'
+    '5mb1IGYmFja3Vw');
+
+@$core.Deprecated('Use listBackupsRequestDescriptor instead')
+const ListBackupsRequest$json = {
+  '1': 'ListBackupsRequest',
+};
+
+/// Descriptor for `ListBackupsRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List listBackupsRequestDescriptor =
+    $convert.base64Decode('ChJMaXN0QmFja3Vwc1JlcXVlc3Q=');
+
+@$core.Deprecated('Use listBackupsResponseDescriptor instead')
+const ListBackupsResponse$json = {
+  '1': 'ListBackupsResponse',
+  '2': [
+    {
+      '1': 'backups',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.itcmdr.BackupInfo',
+      '10': 'backups'
+    },
+  ],
+};
+
+/// Descriptor for `ListBackupsResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List listBackupsResponseDescriptor = $convert.base64Decode(
+    'ChNMaXN0QmFja3Vwc1Jlc3BvbnNlEiwKB2JhY2t1cHMYASADKAsyEi5pdGNtZHIuQmFja3VwSW'
+    '5mb1IHYmFja3Vwcw==');
+
+@$core.Deprecated('Use verifyBackupRequestDescriptor instead')
+const VerifyBackupRequest$json = {
+  '1': 'VerifyBackupRequest',
+  '2': [
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
+  ],
+};
+
+/// Descriptor for `VerifyBackupRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List verifyBackupRequestDescriptor = $convert
+    .base64Decode('ChNWZXJpZnlCYWNrdXBSZXF1ZXN0EhIKBG5hbWUYASABKAlSBG5hbWU=');
+
+@$core.Deprecated('Use verifyBackupResponseDescriptor instead')
+const VerifyBackupResponse$json = {
+  '1': 'VerifyBackupResponse',
+  '2': [
+    {'1': 'ok', '3': 1, '4': 1, '5': 8, '10': 'ok'},
+    {'1': 'message', '3': 2, '4': 1, '5': 9, '10': 'message'},
+  ],
+};
+
+/// Descriptor for `VerifyBackupResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List verifyBackupResponseDescriptor = $convert.base64Decode(
+    'ChRWZXJpZnlCYWNrdXBSZXNwb25zZRIOCgJvaxgBIAEoCFICb2sSGAoHbWVzc2FnZRgCIAEoCV'
+    'IHbWVzc2FnZQ==');
+
+@$core.Deprecated('Use backupSettingsDescriptor instead')
+const BackupSettings$json = {
+  '1': 'BackupSettings',
+  '2': [
+    {'1': 'dir', '3': 1, '4': 1, '5': 9, '10': 'dir'},
+    {'1': 'nightly', '3': 2, '4': 1, '5': 8, '10': 'nightly'},
+    {'1': 'hour', '3': 3, '4': 1, '5': 13, '10': 'hour'},
+    {'1': 'keep_daily', '3': 4, '4': 1, '5': 13, '10': 'keepDaily'},
+    {'1': 'keep_weekly', '3': 5, '4': 1, '5': 13, '10': 'keepWeekly'},
+    {'1': 'keep_blocks', '3': 6, '4': 1, '5': 13, '10': 'keepBlocks'},
+  ],
+};
+
+/// Descriptor for `BackupSettings`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List backupSettingsDescriptor = $convert.base64Decode(
+    'Cg5CYWNrdXBTZXR0aW5ncxIQCgNkaXIYASABKAlSA2RpchIYCgduaWdodGx5GAIgASgIUgduaW'
+    'dodGx5EhIKBGhvdXIYAyABKA1SBGhvdXISHQoKa2VlcF9kYWlseRgEIAEoDVIJa2VlcERhaWx5'
+    'Eh8KC2tlZXBfd2Vla2x5GAUgASgNUgprZWVwV2Vla2x5Eh8KC2tlZXBfYmxvY2tzGAYgASgNUg'
+    'prZWVwQmxvY2tz');
+
+@$core.Deprecated('Use getSettingsRequestDescriptor instead')
+const GetSettingsRequest$json = {
+  '1': 'GetSettingsRequest',
+};
+
+/// Descriptor for `GetSettingsRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getSettingsRequestDescriptor =
+    $convert.base64Decode('ChJHZXRTZXR0aW5nc1JlcXVlc3Q=');
+
+@$core.Deprecated('Use getSettingsResponseDescriptor instead')
+const GetSettingsResponse$json = {
+  '1': 'GetSettingsResponse',
+  '2': [
+    {
+      '1': 'backup',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.itcmdr.BackupSettings',
+      '10': 'backup'
+    },
+  ],
+};
+
+/// Descriptor for `GetSettingsResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getSettingsResponseDescriptor = $convert.base64Decode(
+    'ChNHZXRTZXR0aW5nc1Jlc3BvbnNlEi4KBmJhY2t1cBgBIAEoCzIWLml0Y21kci5CYWNrdXBTZX'
+    'R0aW5nc1IGYmFja3Vw');
+
+@$core.Deprecated('Use updateSettingsRequestDescriptor instead')
+const UpdateSettingsRequest$json = {
+  '1': 'UpdateSettingsRequest',
+  '2': [
+    {
+      '1': 'backup',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.itcmdr.BackupSettings',
+      '10': 'backup'
+    },
+  ],
+};
+
+/// Descriptor for `UpdateSettingsRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List updateSettingsRequestDescriptor = $convert.base64Decode(
+    'ChVVcGRhdGVTZXR0aW5nc1JlcXVlc3QSLgoGYmFja3VwGAEgASgLMhYuaXRjbWRyLkJhY2t1cF'
+    'NldHRpbmdzUgZiYWNrdXA=');
+
+@$core.Deprecated('Use updateSettingsResponseDescriptor instead')
+const UpdateSettingsResponse$json = {
+  '1': 'UpdateSettingsResponse',
+  '2': [
+    {
+      '1': 'backup',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.itcmdr.BackupSettings',
+      '10': 'backup'
+    },
+  ],
+};
+
+/// Descriptor for `UpdateSettingsResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List updateSettingsResponseDescriptor =
+    $convert.base64Decode(
+        'ChZVcGRhdGVTZXR0aW5nc1Jlc3BvbnNlEi4KBmJhY2t1cBgBIAEoCzIWLml0Y21kci5CYWNrdX'
+        'BTZXR0aW5nc1IGYmFja3Vw');
+
+@$core.Deprecated('Use settingItemDescriptor instead')
+const SettingItem$json = {
+  '1': 'SettingItem',
+  '2': [
+    {'1': 'key', '3': 1, '4': 1, '5': 9, '10': 'key'},
+    {'1': 'scope', '3': 2, '4': 1, '5': 9, '10': 'scope'},
+    {'1': 'type', '3': 3, '4': 1, '5': 9, '10': 'type'},
+    {'1': 'value', '3': 4, '4': 1, '5': 9, '10': 'value'},
+    {'1': 'default_value', '3': 5, '4': 1, '5': 9, '10': 'defaultValue'},
+    {'1': 'source', '3': 6, '4': 1, '5': 9, '10': 'source'},
+    {'1': 'description', '3': 7, '4': 1, '5': 9, '10': 'description'},
+    {'1': 'min', '3': 8, '4': 1, '5': 3, '10': 'min'},
+    {'1': 'max', '3': 9, '4': 1, '5': 3, '10': 'max'},
+    {'1': 'read_only', '3': 10, '4': 1, '5': 8, '10': 'readOnly'},
+    {'1': 'applies', '3': 11, '4': 1, '5': 9, '10': 'applies'},
+  ],
+};
+
+/// Descriptor for `SettingItem`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List settingItemDescriptor = $convert.base64Decode(
+    'CgtTZXR0aW5nSXRlbRIQCgNrZXkYASABKAlSA2tleRIUCgVzY29wZRgCIAEoCVIFc2NvcGUSEg'
+    'oEdHlwZRgDIAEoCVIEdHlwZRIUCgV2YWx1ZRgEIAEoCVIFdmFsdWUSIwoNZGVmYXVsdF92YWx1'
+    'ZRgFIAEoCVIMZGVmYXVsdFZhbHVlEhYKBnNvdXJjZRgGIAEoCVIGc291cmNlEiAKC2Rlc2NyaX'
+    'B0aW9uGAcgASgJUgtkZXNjcmlwdGlvbhIQCgNtaW4YCCABKANSA21pbhIQCgNtYXgYCSABKANS'
+    'A21heBIbCglyZWFkX29ubHkYCiABKAhSCHJlYWRPbmx5EhgKB2FwcGxpZXMYCyABKAlSB2FwcG'
+    'xpZXM=');
+
+@$core.Deprecated('Use listSettingsRequestDescriptor instead')
+const ListSettingsRequest$json = {
+  '1': 'ListSettingsRequest',
+  '2': [
+    {'1': 'machine', '3': 1, '4': 1, '5': 9, '10': 'machine'},
+  ],
+};
+
+/// Descriptor for `ListSettingsRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List listSettingsRequestDescriptor =
+    $convert.base64Decode(
+        'ChNMaXN0U2V0dGluZ3NSZXF1ZXN0EhgKB21hY2hpbmUYASABKAlSB21hY2hpbmU=');
+
+@$core.Deprecated('Use listSettingsResponseDescriptor instead')
+const ListSettingsResponse$json = {
+  '1': 'ListSettingsResponse',
+  '2': [
+    {
+      '1': 'settings',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.itcmdr.SettingItem',
+      '10': 'settings'
+    },
+    {
+      '1': 'machines_with_overrides',
+      '3': 2,
+      '4': 3,
+      '5': 9,
+      '10': 'machinesWithOverrides'
+    },
+  ],
+};
+
+/// Descriptor for `ListSettingsResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List listSettingsResponseDescriptor = $convert.base64Decode(
+    'ChRMaXN0U2V0dGluZ3NSZXNwb25zZRIvCghzZXR0aW5ncxgBIAMoCzITLml0Y21kci5TZXR0aW'
+    '5nSXRlbVIIc2V0dGluZ3MSNgoXbWFjaGluZXNfd2l0aF9vdmVycmlkZXMYAiADKAlSFW1hY2hp'
+    'bmVzV2l0aE92ZXJyaWRlcw==');
+
+@$core.Deprecated('Use updateSettingRequestDescriptor instead')
+const UpdateSettingRequest$json = {
+  '1': 'UpdateSettingRequest',
+  '2': [
+    {'1': 'key', '3': 1, '4': 1, '5': 9, '10': 'key'},
+    {'1': 'value', '3': 2, '4': 1, '5': 9, '10': 'value'},
+    {'1': 'machine', '3': 3, '4': 1, '5': 9, '10': 'machine'},
+    {'1': 'unset', '3': 4, '4': 1, '5': 8, '10': 'unset'},
+  ],
+};
+
+/// Descriptor for `UpdateSettingRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List updateSettingRequestDescriptor = $convert.base64Decode(
+    'ChRVcGRhdGVTZXR0aW5nUmVxdWVzdBIQCgNrZXkYASABKAlSA2tleRIUCgV2YWx1ZRgCIAEoCV'
+    'IFdmFsdWUSGAoHbWFjaGluZRgDIAEoCVIHbWFjaGluZRIUCgV1bnNldBgEIAEoCFIFdW5zZXQ=');
+
+@$core.Deprecated('Use updateSettingResponseDescriptor instead')
+const UpdateSettingResponse$json = {
+  '1': 'UpdateSettingResponse',
+  '2': [
+    {
+      '1': 'setting',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.itcmdr.SettingItem',
+      '10': 'setting'
+    },
+  ],
+};
+
+/// Descriptor for `UpdateSettingResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List updateSettingResponseDescriptor = $convert.base64Decode(
+    'ChVVcGRhdGVTZXR0aW5nUmVzcG9uc2USLQoHc2V0dGluZxgBIAEoCzITLml0Y21kci5TZXR0aW'
+    '5nSXRlbVIHc2V0dGluZw==');

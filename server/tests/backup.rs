@@ -806,7 +806,7 @@ fn cli_config_get_set_unset() {
         )
         .unwrap()
     };
-    assert!(get(a.path()).contains("backup.hour = 2    [server.json/default]"));
+    assert!(get(a.path()).contains("backup.hour = 2    [default]"));
     cli(a.path())
         .args(["config", "set", "backup.dir"])
         .arg(a.path().join("nope"))
@@ -841,5 +841,55 @@ fn cli_config_get_set_unset() {
         .args(["config", "unset", "backup.hour"])
         .assert()
         .success();
-    assert!(get(a.path()).contains("backup.hour = 2    [server.json/default]"));
+    assert!(get(a.path()).contains("backup.hour = 2    [default]"));
+    // every key, agent ones per machine
+    let all = get(a.path());
+    for k in [
+        "server.retention_days = 400",
+        "agent.quietMinutes = 10",
+        "plugins.enable_on_install = true",
+        "auth.max_skew_secs = 300",
+    ] {
+        assert!(all.contains(k), "{k} in {all}");
+    }
+    cli(a.path())
+        .args([
+            "config",
+            "set",
+            "agent.quietMinutes",
+            "20",
+            "--machine",
+            "WS-01",
+        ])
+        .assert()
+        .success();
+    cli(a.path())
+        .args([
+            "config",
+            "set",
+            "server.retention_days",
+            "30",
+            "--machine",
+            "WS-01",
+        ])
+        .assert()
+        .failure();
+    cli(a.path())
+        .args(["config", "set", "server.bind_addr", "198.51.100.1:1"])
+        .assert()
+        .failure();
+    let out = cli(a.path())
+        .args(["config", "get", "agent.quietMinutes", "--machine", "WS-01"])
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    assert!(String::from_utf8(out)
+        .unwrap()
+        .contains("agent.quietMinutes = 20    [db:WS-01]"));
+    assert!(
+        get(a.path()).contains("agent.quietMinutes = 10    [default]"),
+        "global unaffected"
+    );
 }
