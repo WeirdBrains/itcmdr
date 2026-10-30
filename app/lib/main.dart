@@ -611,7 +611,7 @@ class OnDemandPage extends StatefulWidget {
   State<OnDemandPage> createState() => _OnDemandPageState();
 }
 
-const runCategories = ['network', 'connectivity', 'services'];
+const runCategories = ['network', 'connectivity', 'configuration', 'services'];
 
 class _OnDemandPageState extends State<OnDemandPage> with LiveRefresh {
   List<Machine> _machines = [];
