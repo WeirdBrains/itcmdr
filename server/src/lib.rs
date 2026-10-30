@@ -9,6 +9,7 @@ pub mod exceptions;
 pub mod ingest;
 pub mod keys;
 pub mod metrics;
+pub mod packages;
 pub mod requests;
 pub mod search;
 pub mod settings;

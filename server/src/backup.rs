@@ -2,7 +2,8 @@
 //!
 //! Archive (`*.itcb`): `ITCMDRB1` | u32 LE header length | header JSON | ciphertext.
 //! - The ciphertext is a zip of the server state (consistent SQLCipher snapshot, `keys/db.key.escrow`,
-//!   `server.json`), encrypted with XChaCha20-Poly1305 under a random content key.
+//!   `server.json`, installed `service_plugins/**`, `quarantine/index.jsonl`), encrypted with
+//!   XChaCha20-Poly1305 under a random content key.
 //! - The content key is sealed for the master X25519 key (only the 24 words open it).
 //! - The header (manifest: versions, schema version, sha256 per file) is signed by the server's
 //!   root key, whose master certificate is included. The signature covers the ciphertext hash.
@@ -31,6 +32,49 @@ const AAD: &[u8] = b"itcmdr-backup/v1";
 const F_DB: &str = "itcmdr.database";
 const F_ESCROW: &str = "keys/db.key.escrow";
 const F_CONFIG: &str = "server.json";
+const D_PLUGINS: &str = "service_plugins/";
+const F_QINDEX: &str = "quarantine/index.jsonl";
+
+/// Installed plugin files as (`service_plugins/<rel>`, bytes), plus the quarantine index.
+fn plugin_files(layout: &crate::storage::Layout) -> Result<Files> {
+    let mut out = Vec::new();
+    let root = layout.service_plugins();
+    if root.is_dir() {
+        for e in walkdir::WalkDir::new(&root).sort_by_file_name() {
+            let e = e?;
+            let rel = e.path().strip_prefix(&root)?;
+            if rel
+                .components()
+                .next()
+                .is_some_and(|c| c.as_os_str().to_string_lossy().starts_with('.'))
+            {
+                continue; // .installing-* temp dirs
+            }
+            if e.file_type().is_file() {
+                let r = rel.to_string_lossy().replace('\\', "/");
+                out.push((format!("{D_PLUGINS}{r}"), std::fs::read(e.path())?));
+            }
+        }
+    }
+    let q = crate::packages::quarantine_index(layout);
+    if q.exists() {
+        out.push((F_QINDEX.to_string(), std::fs::read(q)?));
+    }
+    Ok(out)
+}
+
+fn copy_tree(src: &Path, dst: &Path) -> Result<()> {
+    for e in walkdir::WalkDir::new(src) {
+        let e = e?;
+        let t = dst.join(e.path().strip_prefix(src)?);
+        if e.file_type().is_dir() {
+            std::fs::create_dir_all(&t)?;
+        } else if e.file_type().is_file() {
+            std::fs::copy(e.path(), &t)?;
+        }
+    }
+    Ok(())
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct FileEntry {
@@ -203,7 +247,7 @@ pub async fn create(
     snapshot_db(pool, &key, &snap).await?;
     let db_bytes = std::fs::read(&snap);
     let _ = std::fs::remove_file(&snap);
-    let files = vec![
+    let mut files = vec![
         (F_DB.to_string(), db_bytes?),
         (
             F_ESCROW.to_string(),
@@ -211,6 +255,7 @@ pub async fn create(
         ),
         (F_CONFIG.to_string(), serde_json::to_vec_pretty(cfg)?),
     ];
+    files.extend(plugin_files(&layout)?);
     let manifest = Manifest {
         format: FORMAT.into(),
         itcmdr_version: env!("CARGO_PKG_VERSION").into(),
@@ -567,13 +612,30 @@ pub async fn restore(
     .into_iter()
     .filter(|p| p.exists())
     .collect();
-    if !current.is_empty() {
+    // Archived plugin paths must be safe before anything is touched.
+    let mut plugin_out = Vec::new();
+    for (n, b) in &files {
+        if let Some(rel) = n.strip_prefix(D_PLUGINS) {
+            let rel = crate::packages::safe_rel_path(rel).map_err(|r| anyhow!("archive: {r}"))?;
+            plugin_out.push((layout.service_plugins().join(rel), b));
+        }
+    }
+    let plugins_dir = layout.service_plugins();
+    let qindex = crate::packages::quarantine_index(&layout);
+    let has_plugins = plugins_dir.is_dir() && std::fs::read_dir(&plugins_dir)?.next().is_some();
+    if !current.is_empty() || has_plugins || qindex.exists() {
         let ts = chrono::Utc::now().format("%Y%m%d-%H%M%S");
         let dst = layout.root.join(format!("pre-restore-{ts}"));
         std::fs::create_dir_all(&dst)?;
         for p in &current {
             std::fs::copy(p, dst.join(p.file_name().unwrap()))
                 .with_context(|| format!("safety copy of {}", p.display()))?;
+        }
+        if has_plugins {
+            copy_tree(&plugins_dir, &dst.join("service_plugins"))?;
+        }
+        if qindex.exists() {
+            std::fs::copy(&qindex, dst.join("quarantine-index.jsonl"))?;
         }
         rep.safety_copy = Some(dst);
     }
@@ -597,6 +659,17 @@ pub async fn restore(
         get(F_ESCROW).ok_or_else(|| anyhow!("archive has no db.key escrow"))?,
     )?;
     auth::recover_db_key(&layout, words, true)?;
+    if plugins_dir.exists() {
+        std::fs::remove_dir_all(&plugins_dir)?;
+    }
+    std::fs::create_dir_all(&plugins_dir)?;
+    for (p, b) in plugin_out {
+        std::fs::create_dir_all(p.parent().unwrap())?;
+        std::fs::write(p, b)?;
+    }
+    if let Some(q) = get(F_QINDEX) {
+        std::fs::write(&qindex, q)?;
+    }
     if let Some(c) = get(F_CONFIG) {
         let p = layout.root.join("restored-server.json");
         std::fs::write(&p, c)?;
