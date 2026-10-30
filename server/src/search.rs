@@ -23,6 +23,16 @@ pub struct Page {
 }
 
 pub fn search(lines: Vec<String>, p: &SearchLogsRequest) -> Page {
+    search_with(lines, p, DEFAULT_LIMIT, MAX_LIMIT)
+}
+
+/// `default_limit` / `max_limit` come from the `search.*` settings.
+pub fn search_with(
+    lines: Vec<String>,
+    p: &SearchLogsRequest,
+    default_limit: usize,
+    max_limit: usize,
+) -> Page {
     let q = p.query.to_lowercase();
     let eq = |a: Option<&str>, want: &str| {
         want.is_empty() || a.is_some_and(|a| a.eq_ignore_ascii_case(want))
@@ -54,9 +64,9 @@ pub fn search(lines: Vec<String>, p: &SearchLogsRequest) -> Page {
     hits.sort_by(|a, b| b.0.unwrap_or(i64::MIN).cmp(&a.0.unwrap_or(i64::MIN)));
     let total = hits.len();
     let limit = if p.limit <= 0 {
-        DEFAULT_LIMIT
+        default_limit
     } else {
-        (p.limit as usize).min(MAX_LIMIT)
+        (p.limit as usize).min(max_limit)
     };
     let offset = p.offset.max(0) as usize;
     let lines: Vec<String> = hits

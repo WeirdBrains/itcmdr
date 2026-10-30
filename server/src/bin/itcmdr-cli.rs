@@ -113,14 +113,19 @@ enum KeysCmd {
 
 #[derive(Subcommand)]
 enum PluginsCmd {
-    /// Validate and install a package (installed disabled unless --enable). Bad packages are
-    /// quarantined and the install is denied.
+    /// Validate and install a package. Valid packages are enabled (setting
+    /// plugins.enable_on_install, default true) unless --disabled. Bad packages are quarantined
+    /// and the install is denied.
     #[command(group(clap::ArgGroup::new("src").required(true).args(["url", "path"])))]
     Install {
         #[arg(long)]
         url: Option<String>,
         #[arg(long)]
         path: Option<PathBuf>,
+        /// Install without enabling.
+        #[arg(long, conflicts_with = "enable")]
+        disabled: bool,
+        /// Accepted for compatibility (enabling is the default).
         #[arg(long)]
         enable: bool,
     },
@@ -213,12 +218,32 @@ enum BackupCmd {
 
 #[derive(Subcommand)]
 enum ConfigCmd {
-    /// Show the effective settings (and which come from the DB).
-    Get { key: Option<String> },
-    /// Set one key, e.g. `config set backup.hour 3`. Folders must exist and be writable.
-    Set { key: String, value: String },
+    /// Every setting with its effective value and source (docs/SETTINGS.md).
+    List {
+        /// Resolve this PC's agent overrides.
+        #[arg(long)]
+        machine: Option<String>,
+    },
+    /// One setting (or all, like `list`).
+    Get {
+        key: Option<String>,
+        #[arg(long)]
+        machine: Option<String>,
+    },
+    /// Set one key, e.g. `config set backup.hour 3`. Validated; folders must exist and be writable.
+    Set {
+        key: String,
+        value: String,
+        /// Agent settings only: override for one PC.
+        #[arg(long)]
+        machine: Option<String>,
+    },
     /// Remove an override (back to server.json / default).
-    Unset { key: String },
+    Unset {
+        key: String,
+        #[arg(long)]
+        machine: Option<String>,
+    },
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -228,6 +253,44 @@ struct Bundle {
     role: String,
     public_key: String,
     certificate: Certificate,
+}
+
+async fn print_settings(
+    pool: &srv::db::DbPool,
+    cfg: &srv::config::ServerConfig,
+    key: Option<&str>,
+    machine: Option<&str>,
+    json: bool,
+) -> Result<()> {
+    let all = srv::settings::resolve_all(pool, Some(cfg), machine).await?;
+    let rows: Vec<_> = all
+        .iter()
+        .filter(|r| key.is_none_or(|k| k == r.def.key))
+        .collect();
+    if json {
+        let v: Vec<_> = rows
+            .iter()
+            .map(|r| serde_json::json!({"key": r.def.key, "value": r.value, "source": r.source, "default": r.def.default, "scope": format!("{:?}", r.def.scope).to_lowercase()}))
+            .collect();
+        println!("{}", serde_json::to_string_pretty(&v)?);
+    } else {
+        for r in rows {
+            let v = match &r.value {
+                serde_json::Value::String(t) => t.clone(),
+                x => x.to_string(),
+            };
+            println!("{} = {}    [{}]", r.def.key, v, r.source);
+        }
+    }
+    Ok(())
+}
+
+async fn export_if_agent(pool: &srv::db::DbPool, cfg: &srv::config::ServerConfig, key: &str) {
+    if srv::settings::def(key).is_ok_and(|d| d.scope == srv::settings::Scope::Agent) {
+        if let Err(e) = srv::settings::export_agent(pool, cfg).await {
+            eprintln!("warning: agent-settings.json export failed: {e:#}");
+        }
+    }
 }
 
 fn read_words() -> Result<Zeroizing<String>> {
@@ -327,13 +390,20 @@ fn print_backup(json: bool, b: &srv::backup::BackupInfo) -> Result<()> {
 }
 
 fn main() -> Result<()> {
+    srv::db::track_pools();
+    let rt = tokio::runtime::Runtime::new()?;
+    let r = run(&rt);
+    rt.block_on(srv::db::close_tracked());
+    r
+}
+
+fn run(rt: &tokio::runtime::Runtime) -> Result<()> {
     let cli = Cli::parse();
     let load = || -> Result<ServerConfig> {
         let mut c = ServerConfig::load()?;
         c.data_dir_flag = cli.data_dir.clone();
         Ok(c)
     };
-    let rt = tokio::runtime::Runtime::new()?;
     match &cli.cmd {
         Cmd::Init => {
             let cfg = load()?;
@@ -472,14 +542,31 @@ fn main() -> Result<()> {
             rt.block_on(async {
                 let pool = srv::db::init_db(&cfg).await?;
                 match pc {
-                    PluginsCmd::Install { url, path, enable } => {
+                    PluginsCmd::Install {
+                        url,
+                        path,
+                        disabled,
+                        enable,
+                    } => {
                         let src = match (url, path) {
                             (Some(u), None) => srv::packages::Source::Url(u),
                             (None, Some(p)) => srv::packages::Source::Path(p),
                             _ => bail!("pass exactly one of --url or --path"),
                         };
-                        let p = srv::packages::install(&pool, &layout, src, *enable, "itcmdr-cli")
-                            .await?;
+                        let p = srv::packages::install(
+                            &pool,
+                            &layout,
+                            src,
+                            if *disabled {
+                                Some(false)
+                            } else if *enable {
+                                Some(true)
+                            } else {
+                                None
+                            },
+                            "itcmdr-cli",
+                        )
+                        .await?;
                         println!(
                             "installed {} {} into {} ({})",
                             p.name,
@@ -646,51 +733,51 @@ fn main() -> Result<()> {
             rt.block_on(async {
                 let pool = srv::db::init_db(&cfg).await?;
                 match c {
-                    ConfigCmd::Get { key } => {
-                        let b = srv::settings::effective_backup(&pool, &cfg).await?;
-                        let over = srv::settings::overridden(&pool).await?;
-                        let v = serde_json::to_value(&b)?;
-                        for k in srv::settings::BACKUP_KEYS {
-                            if key.as_deref().is_some_and(|q| q != k) {
-                                continue;
-                            }
-                            let field = &k["backup.".len()..];
-                            let val = match &v[field] {
-                                serde_json::Value::Null if field == "dir" => {
-                                    format!("(default) {}", cfg.layout().backups().display())
-                                }
-                                x => x.to_string().trim_matches('"').to_string(),
-                            };
-                            let src = if over.iter().any(|o| o == k) {
-                                "db"
-                            } else {
-                                "server.json/default"
-                            };
-                            println!("{k} = {val}    [{src}]");
-                        }
-                        Ok(())
+                    ConfigCmd::List { machine } | ConfigCmd::Get { key: None, machine } => {
+                        print_settings(&pool, &cfg, None, machine.as_deref(), cli.json).await
                     }
-                    ConfigCmd::Set { key, value } => {
-                        srv::settings::set_key(&pool, &cfg, key, value).await?;
+                    ConfigCmd::Get {
+                        key: Some(k),
+                        machine,
+                    } => {
+                        srv::settings::def(k)?;
+                        print_settings(&pool, &cfg, Some(k), machine.as_deref(), cli.json).await
+                    }
+                    ConfigCmd::Set {
+                        key,
+                        value,
+                        machine,
+                    } => {
+                        let v = srv::settings::set(&pool, key, value, machine.as_deref()).await?;
                         srv::db::insert_audit(
                             &pool,
                             "itcmdr-cli",
                             "settings-update",
-                            &serde_json::json!({"key": key, "value": value}).to_string(),
+                            &serde_json::json!({"key": key, "value": value, "machine": machine})
+                                .to_string(),
                         )
                         .await?;
-                        println!("{key} = {value}");
+                        export_if_agent(&pool, &cfg, key).await;
+                        println!(
+                            "{key} = {v}{}",
+                            machine
+                                .as_deref()
+                                .map(|m| format!("  [{m}]"))
+                                .unwrap_or_default()
+                        );
                         Ok(())
                     }
-                    ConfigCmd::Unset { key } => {
-                        srv::settings::unset_key(&pool, key).await?;
+                    ConfigCmd::Unset { key, machine } => {
+                        srv::settings::unset(&pool, key, machine.as_deref()).await?;
                         srv::db::insert_audit(
                             &pool,
                             "itcmdr-cli",
                             "settings-update",
-                            &serde_json::json!({"key": key, "unset": true}).to_string(),
+                            &serde_json::json!({"key": key, "unset": true, "machine": machine})
+                                .to_string(),
                         )
                         .await?;
+                        export_if_agent(&pool, &cfg, key).await;
                         println!("{key} reverted to server.json/default");
                         Ok(())
                     }

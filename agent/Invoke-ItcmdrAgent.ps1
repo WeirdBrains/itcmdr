@@ -36,7 +36,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-$script:AgentVersion = '0.8.1'
+$script:AgentVersion = '0.9.1'
 
 function ConvertTo-ItcmdrHashtable {
   param($InputObject)
@@ -98,18 +98,99 @@ function Get-ItcmdrSiteConfig {
   throw 'Site config not found. Provide config/site.json or C:\ProgramData\itcmdr\site.json.'
 }
 
+# Agent settings (decision 15, docs/SETTINGS.md): name -> default. Same names as the server's
+# agent-scope settings and as the site.json paths ("agent.quietMinutes" = site.agent.quietMinutes).
+$script:ItcmdrSettingDefaults = @{
+  'paths.localLogs'           = 'C:\maintenanceRuns'
+  'paths.agentData'           = 'C:\ProgramData\itcmdr'
+  'retention.agentLocalDays'  = 400
+  'agent.quietMinutes'        = 10
+  'agent.printerStuckMinutes' = 60
+  'agent.backupMaxAgeHours'   = 26
+  'agent.backupMinBytes'      = 1
+  'agent.tcpTimeoutMs'        = 3000
+  'agent.staleLockMinutes'    = 150
+  'agent.nightlyTime'         = '01:30'
+  'rotation.timeLocal'        = '02:10'
+}
+$script:ItcmdrCentral = $null
+$script:ItcmdrSite = $null
+
+function Get-ItcmdrCentralSetting {
+  <#
+    Central agent settings: agent-settings.json in the maintenanceRuns share, written by the
+    server (global values + per-machine overrides). Cached to <agentData> for offline runs.
+    agentData for the cache comes from site.json/default only (bootstrap).
+  #>
+  param($Site, [switch]$Refresh)
+  if ($script:ItcmdrCentral -and -not $Refresh) { return $script:ItcmdrCentral }
+  $data = Get-ItcmdrValue $Site @('paths', 'agentData')
+  if (-not ($data -is [string] -and $data.Trim())) { $data = $script:ItcmdrSettingDefaults['paths.agentData'] }
+  $cache = [IO.Path]::Combine($data.Trim(), 'agent-settings.json')
+  $share = Get-ItcmdrValue $Site @('shares', 'maintenanceRuns')
+  $text = $null
+  if ($share) {
+    $remote = [IO.Path]::Combine([string]$share, 'agent-settings.json')
+    try {
+      if (Test-Path -LiteralPath $remote) {
+        $text = Get-Content -LiteralPath $remote -Raw
+        if (-not (Test-Path -LiteralPath $data)) { New-Item -ItemType Directory -Path $data -Force | Out-Null }
+        Set-Content -LiteralPath $cache -Value $text -Encoding UTF8
+      }
+    } catch { $text = $null }
+  }
+  if (-not $text -and (Test-Path -LiteralPath $cache)) { $text = Get-Content -LiteralPath $cache -Raw }
+  $doc = @{}
+  if ($text) {
+    try { $doc = ConvertFrom-ItcmdrJson $text } catch { Write-Warning "Ignoring unreadable agent-settings.json: $_"; $doc = @{} }
+  }
+  $script:ItcmdrCentral = $doc
+  return $doc
+}
+
+function Get-ItcmdrSetting {
+  <#
+    One agent setting. Precedence: local site.json > central per-machine > central global > default.
+  #>
+  param($Site, [Parameter(Mandatory)][string]$Key, [string]$Computer = $env:COMPUTERNAME, $Central)
+  if (-not $script:ItcmdrSettingDefaults.ContainsKey($Key)) { throw "Unknown agent setting $Key" }
+  $local = Get-ItcmdrValue $Site ($Key -split '\.')
+  if ($null -ne $local -and -not ($local -is [string] -and -not $local.Trim())) { return $local }
+  if ($null -eq $Central) { $Central = Get-ItcmdrCentralSetting -Site $Site }
+  if ($Computer) {
+    $machines = Get-ItcmdrValue $Central @('machines')
+    if ($machines -is [System.Collections.IDictionary]) {
+      foreach ($m in @($machines.Keys)) {
+        if ($m -ieq $Computer) {
+          $v = Get-ItcmdrValue $machines[$m] @($Key)
+          if ($null -ne $v) { return $v }
+        }
+      }
+    }
+  }
+  $g = Get-ItcmdrValue $Central @('global', $Key)
+  if ($null -ne $g) { return $g }
+  return $script:ItcmdrSettingDefaults[$Key]
+}
+
 function Get-ItcmdrPath {
   <#
-    Configurable local paths (decision 15), from site.json "paths":
+    Configurable local paths (decision 15), setting paths.<Name> (site.json "paths" or central):
       localLogs  run logs and local requests\  (default C:\maintenanceRuns)
       agentData  exceptions cache and spool\    (default C:\ProgramData\itcmdr)
     site.json itself is always looked up in config\ and C:\ProgramData\itcmdr (bootstrap).
   #>
   param($Site, [ValidateSet('localLogs', 'agentData')][string]$Name)
-  $defaults = @{ localLogs = 'C:\maintenanceRuns'; agentData = 'C:\ProgramData\itcmdr' }
-  $v = Get-ItcmdrValue $Site @('paths', $Name)
+  $v = Get-ItcmdrSetting -Site $Site -Key "paths.$Name"
   if ($v -is [string] -and $v.Trim()) { return $v.Trim() }
-  return $defaults[$Name]
+  return $script:ItcmdrSettingDefaults["paths.$Name"]
+}
+
+function ConvertTo-ItcmdrNightlyTime {
+  <# "HH:mm" (24h) -> today's date at that time. Throws on anything else. #>
+  param([string]$Time, [datetime]$Today = (Get-Date).Date)
+  if ($Time -notmatch '^([01]\d|2[0-3]):([0-5]\d)$') { throw "Invalid time '$Time' (expected HH:mm)" }
+  return $Today.AddHours([int]$Matches[1]).AddMinutes([int]$Matches[2])
 }
 
 function Get-ItcmdrRole {
@@ -438,7 +519,7 @@ function Test-ItcmdrTcp {
   <# TCP connect with a timeout (cross-platform; replaces Test-NetConnection). #>
   param([string]$Address, [int]$Port, [int]$TimeoutMs = 0)
   if (-not $Address) { return $false }
-  if ($TimeoutMs -le 0) { $TimeoutMs = if ($env:ITCMDR_TCP_TIMEOUT_MS) { [int]$env:ITCMDR_TCP_TIMEOUT_MS } else { 3000 } }
+  if ($TimeoutMs -le 0) { $TimeoutMs = if ($env:ITCMDR_TCP_TIMEOUT_MS) { [int]$env:ITCMDR_TCP_TIMEOUT_MS } else { [int](Get-ItcmdrSetting -Site $script:ItcmdrSite -Key 'agent.tcpTimeoutMs') } }
   $client = New-Object System.Net.Sockets.TcpClient
   try {
     $ar = $client.BeginConnect($Address, $Port, $null, $null)
@@ -662,13 +743,13 @@ function Invoke-ItcmdrConfigCheck {
       Invoke-ItcmdrCheck -Id "PRNQ-$(Get-ItcmdrSafeId $qn)" -Category 'configuration' -Test {
         $pr = Get-Printer -Name $qn -ErrorAction SilentlyContinue
         $jobs = if ($pr) { @(Get-PrintJob -PrinterName $qn -ErrorAction SilentlyContinue) } else { @() }
-        Test-ItcmdrPrintQueueHealth -Printer $pr -Job $jobs -ExpectShared ([bool]$shared)
+        Test-ItcmdrPrintQueueHealth -Printer $pr -Job $jobs -ExpectShared ([bool]$shared) -StuckMinutes ([int](Get-ItcmdrSetting -Site $Ctx.Site -Key 'agent.printerStuckMinutes'))
       } -Repair {
         # Only clears jobs that are in an error state; never touches drivers, ports or sharing.
         try {
           Get-PrintJob -PrinterName $qn -ErrorAction SilentlyContinue | Where-Object { [string]$_.JobStatus -match 'Error' } | Remove-PrintJob -ErrorAction SilentlyContinue
           $pr = Get-Printer -Name $qn -ErrorAction SilentlyContinue
-          (Test-ItcmdrPrintQueueHealth -Printer $pr -Job @(Get-PrintJob -PrinterName $qn -ErrorAction SilentlyContinue) -ExpectShared ([bool]$shared)).ok
+          (Test-ItcmdrPrintQueueHealth -Printer $pr -Job @(Get-PrintJob -PrinterName $qn -ErrorAction SilentlyContinue) -ExpectShared ([bool]$shared) -StuckMinutes ([int](Get-ItcmdrSetting -Site $Ctx.Site -Key 'agent.printerStuckMinutes'))).ok
         } catch { $false }
       } -ReportOnlyLocal:$ReportOnlyLocal -Ctx $Ctx
     } elseif ($qs) {
@@ -749,7 +830,7 @@ function Invoke-ItcmdrBackupCheck {
   foreach ($t in @(Get-ItcmdrValue $b @('tasks') | Where-Object { $_ })) {
     if (-not (Test-ItcmdrRoleMatch $t $Ctx.Role) -or ($null -eq (Get-ItcmdrValue $t @('roles')) -and $Ctx.Role -ne 'Server')) { continue }
     $tn = [string](Get-ItcmdrValue $t @('name'))
-    $tmax = Get-ItcmdrValue $t @('maxAgeHours'); if (-not $tmax) { $tmax = 26 }
+    $tmax = Get-ItcmdrValue $t @('maxAgeHours'); if (-not $tmax) { $tmax = [double](Get-ItcmdrSetting -Site $Ctx.Site -Key 'agent.backupMaxAgeHours') }
     Invoke-ItcmdrCheck -Id "BACKUP-TASK-$(Get-ItcmdrSafeId $tn)" -Category 'backup' -Test {
       Test-ItcmdrBackupTask -Info (& $getInfo $tn) -MaxAgeHours $tmax
     } -ReportOnlyLocal:$ReportOnlyLocal -Ctx $Ctx
@@ -758,8 +839,8 @@ function Invoke-ItcmdrBackupCheck {
     if (-not (Test-ItcmdrRoleMatch $d $Ctx.Role) -or ($null -eq (Get-ItcmdrValue $d @('roles')) -and $Ctx.Role -ne 'Server')) { continue }
     $dn = [string](Get-ItcmdrValue $d @('name')); $dp = [string](Get-ItcmdrValue $d @('path'))
     $pat = Get-ItcmdrValue $d @('pattern'); if (-not $pat) { $pat = '*' }
-    $dmax = Get-ItcmdrValue $d @('maxAgeHours'); if (-not $dmax) { $dmax = 26 }
-    $dmin = Get-ItcmdrValue $d @('minBytes'); if (-not $dmin) { $dmin = 1 }
+    $dmax = Get-ItcmdrValue $d @('maxAgeHours'); if (-not $dmax) { $dmax = [double](Get-ItcmdrSetting -Site $Ctx.Site -Key 'agent.backupMaxAgeHours') }
+    $dmin = Get-ItcmdrValue $d @('minBytes'); if (-not $dmin) { $dmin = [int64](Get-ItcmdrSetting -Site $Ctx.Site -Key 'agent.backupMinBytes') }
     Invoke-ItcmdrCheck -Id "BACKUP-DEST-$(Get-ItcmdrSafeId $dn)" -Category 'backup' -Test {
       Test-ItcmdrBackupDestination -Path $dp -Pattern $pat -MaxAgeHours $dmax -MinBytes $dmin
     } -ReportOnlyLocal:$ReportOnlyLocal -Ctx $Ctx
@@ -768,9 +849,10 @@ function Invoke-ItcmdrBackupCheck {
 
 if (-not $env:ITCMDR_IMPORT_ONLY) {
   $site = Get-ItcmdrSiteConfig
+  $script:ItcmdrSite = $site
   $ctx = New-ItcmdrRunContext -Site $site -Categories $Categories
   $isSystem = [bool]([Security.Principal.WindowsIdentity]::GetCurrent().IsSystem)
-  $quietOk = Test-ItcmdrClinicalQuiet -Site $site -QuietMinutes 10
+  $quietOk = Test-ItcmdrClinicalQuiet -Site $site -QuietMinutes ([int](Get-ItcmdrSetting -Site $site -Key 'agent.quietMinutes'))
   $reportOnlyEffective = Resolve-ItcmdrRepairMode -ReportOnlyGiven:$PSBoundParameters.ContainsKey('ReportOnly') -ReportOnly:$ReportOnly -Repair:$Repair -IsSystem:$isSystem -Quiet:$quietOk -Force:$Force
 
   Write-ItcmdrJsonLine -Path $ctx.LogFile -Record ([pscustomobject]@{
@@ -790,7 +872,7 @@ if (-not $env:ITCMDR_IMPORT_ONLY) {
   Invoke-ItcmdrBackupCheck -Ctx $ctx -ReportOnlyLocal:$reportOnlyEffective
   Invoke-ItcmdrServiceCheck -Ctx $ctx -ReportOnlyLocal:$reportOnlyEffective
 
-  $retentionDays = if ((Get-ItcmdrValue $site @('retention')) -and (Get-ItcmdrValue $site @('retention','agentLocalDays'))) { [int](Get-ItcmdrValue $site @('retention','agentLocalDays')) } else { 400 }
+  $retentionDays = [int](Get-ItcmdrSetting -Site $site -Key 'retention.agentLocalDays')
   Get-ChildItem -LiteralPath (Split-Path -Parent $ctx.LogFile) -File -Filter '*.log' -ErrorAction SilentlyContinue |
     Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-$retentionDays) } |
     Remove-Item -Force -ErrorAction SilentlyContinue

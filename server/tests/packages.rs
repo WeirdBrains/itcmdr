@@ -146,7 +146,7 @@ async fn expect_quarantined(e: &Env, bytes: Vec<u8>, why: &str) {
     let p = e.root.join(format!("bad-{}.tar.gz", uuid::Uuid::new_v4()));
     std::fs::write(&p, &bytes).unwrap();
     let before = packages::list_quarantine(&e.c.layout()).unwrap().len();
-    match packages::install(&e.pool, &e.c.layout(), Source::Path(&p), true, "test").await {
+    match packages::install(&e.pool, &e.c.layout(), Source::Path(&p), Some(true), "test").await {
         Err(InstallError::Quarantined { reason, file }) => {
             assert!(reason.contains(why), "expected {why:?}, got {reason:?}");
             assert!(e.c.layout().quarantine().join(&file).exists());
@@ -213,7 +213,7 @@ fn raw_tgz(ents: &[(String, Vec<u8>)], extra: (&str, tar::EntryType, Option<&str
 async fn a_signed_package_installs_and_can_be_managed() {
     let e = env().await;
     let p = good(&e, "xray-watch", "1.0.6");
-    let i = packages::install(&e.pool, &e.c.layout(), Source::Path(&p), false, "test")
+    let i = packages::install(&e.pool, &e.c.layout(), Source::Path(&p), None, "test")
         .await
         .unwrap();
     assert_eq!(
@@ -223,17 +223,33 @@ async fn a_signed_package_installs_and_can_be_managed() {
     for f in ["package.toml", "package.sig", "run.ps1", "lib/helper.psm1"] {
         assert!(i.dir.join(f).exists(), "{f}");
     }
-    assert!(!i.enabled, "installed disabled by default");
+    assert!(
+        i.enabled,
+        "a validated package is enabled on install by default"
+    );
     assert!(i.signer.starts_with("Dr A"));
     // same version again: refused, not quarantined
-    let again = packages::install(&e.pool, &e.c.layout(), Source::Path(&p), false, "test").await;
+    let again = packages::install(
+        &e.pool,
+        &e.c.layout(),
+        Source::Path(&p),
+        Some(false),
+        "test",
+    )
+    .await;
     assert!(matches!(again, Err(InstallError::Other(_))));
     assert!(packages::list_quarantine(&e.c.layout()).unwrap().is_empty());
     // second version; enabling one disables the other
     let p2 = good(&e, "xray-watch", "1.1.0");
-    packages::install(&e.pool, &e.c.layout(), Source::Path(&p2), true, "test")
-        .await
-        .unwrap();
+    packages::install(
+        &e.pool,
+        &e.c.layout(),
+        Source::Path(&p2),
+        Some(true),
+        "test",
+    )
+    .await
+    .unwrap();
     assert!(
         packages::enable(&e.pool, "xray-watch", "t").await.is_err(),
         "ambiguous without @version"
@@ -397,9 +413,15 @@ async fn invalid_packages_are_quarantined_and_denied() {
     // ...and the root-signed original installs fine
     let p = e.root.join("root-signed.tar.gz");
     std::fs::write(&p, tgz(&e, &good_root)).unwrap();
-    packages::install(&e.pool, &e.c.layout(), Source::Path(&p), false, "test")
-        .await
-        .unwrap();
+    packages::install(
+        &e.pool,
+        &e.c.layout(),
+        Source::Path(&p),
+        Some(false),
+        "test",
+    )
+    .await
+    .unwrap();
     let n: i64 =
         sqlx::query_scalar("SELECT count(*) FROM audit_log WHERE action = 'plugin-quarantine'")
             .fetch_one(&e.pool)
@@ -442,10 +464,24 @@ async fn install_from_url() {
         }
     });
     let url = format!("http://127.0.0.1:{port}/pkg.tar.gz");
-    let i = packages::install(&e.pool, &e.c.layout(), Source::Url(&url), false, "test").await;
+    let i = packages::install(
+        &e.pool,
+        &e.c.layout(),
+        Source::Url(&url),
+        Some(false),
+        "test",
+    )
+    .await;
     assert_eq!(i.unwrap().name, "net-probe");
     let missing = format!("http://127.0.0.1:{port}/nope");
-    let r = packages::install(&e.pool, &e.c.layout(), Source::Url(&missing), false, "test").await;
+    let r = packages::install(
+        &e.pool,
+        &e.c.layout(),
+        Source::Url(&missing),
+        Some(false),
+        "test",
+    )
+    .await;
     assert!(
         matches!(r, Err(InstallError::Other(_))),
         "a failed download is not a quarantine"
@@ -454,7 +490,7 @@ async fn install_from_url() {
         &e.pool,
         &e.c.layout(),
         Source::Url("ftp://example.local/x"),
-        false,
+        Some(false),
         "test",
     )
     .await;
@@ -465,12 +501,19 @@ async fn install_from_url() {
 async fn plugins_and_the_quarantine_index_are_in_backups() {
     let e = env().await;
     let p = good(&e, "xray-watch", "1.0.6");
-    packages::install(&e.pool, &e.c.layout(), Source::Path(&p), true, "test")
+    packages::install(&e.pool, &e.c.layout(), Source::Path(&p), Some(true), "test")
         .await
         .unwrap();
     let bad = e.root.join("bad.tar.gz");
     std::fs::write(&bad, b"junk").unwrap();
-    let _ = packages::install(&e.pool, &e.c.layout(), Source::Path(&bad), false, "test").await;
+    let _ = packages::install(
+        &e.pool,
+        &e.c.layout(),
+        Source::Path(&bad),
+        Some(false),
+        "test",
+    )
+    .await;
     let b = srv::backup::create(&e.pool, &e.c, "manual", None)
         .await
         .unwrap();
@@ -561,7 +604,19 @@ fn cli_pack_install_list_enable_remove() {
             .clone(),
     )
     .unwrap();
-    assert!(l.contains("xray-watch") && l.contains("disabled"), "{l}");
+    assert!(
+        l.contains("xray-watch") && l.contains(" enabled "),
+        "enabled on install: {l}"
+    );
+    cli()
+        .args(["plugins", "install", "--disabled", "--enable", "--path"])
+        .arg(&pkg)
+        .assert()
+        .failure();
+    cli()
+        .args(["plugins", "disable", "xray-watch"])
+        .assert()
+        .success();
     cli()
         .args(["plugins", "enable", "xray-watch"])
         .assert()
@@ -591,4 +646,71 @@ fn cli_pack_install_list_enable_remove() {
     )
     .unwrap();
     assert!(q.contains("not a .tar.gz"), "{q}");
+}
+
+#[tokio::test]
+async fn enable_on_install_follows_the_setting_and_disabled_flag() {
+    let e = env().await;
+    // default: enabled, and it disables the other version
+    let a = packages::install(
+        &e.pool,
+        &e.c.layout(),
+        Source::Path(&good(&e, "ceph-check", "1.0.0")),
+        None,
+        "test",
+    )
+    .await
+    .unwrap();
+    assert!(a.enabled);
+    let b = packages::install(
+        &e.pool,
+        &e.c.layout(),
+        Source::Path(&good(&e, "ceph-check", "1.1.0")),
+        None,
+        "test",
+    )
+    .await
+    .unwrap();
+    assert!(b.enabled);
+    let l = packages::list(&e.pool, &e.c.layout()).await.unwrap();
+    assert_eq!(
+        l.iter().filter(|p| p.enabled).count(),
+        1,
+        "only the newest install is enabled"
+    );
+    // --disabled
+    let c = packages::install(
+        &e.pool,
+        &e.c.layout(),
+        Source::Path(&good(&e, "ceph-check", "1.2.0")),
+        Some(false),
+        "test",
+    )
+    .await
+    .unwrap();
+    assert!(!c.enabled);
+    // setting off: installs disabled unless asked
+    itcmdr_server::settings::set(&e.pool, "plugins.enable_on_install", "false", None)
+        .await
+        .unwrap();
+    let d = packages::install(
+        &e.pool,
+        &e.c.layout(),
+        Source::Path(&good(&e, "other", "1.0.0")),
+        None,
+        "test",
+    )
+    .await
+    .unwrap();
+    assert!(!d.enabled);
+    // size limit setting is honoured
+    itcmdr_server::settings::set(&e.pool, "plugins.max_package_mib", "0", None)
+        .await
+        .ok();
+    assert!(
+        itcmdr_server::settings::set(&e.pool, "plugins.max_package_mib", "0", None)
+            .await
+            .is_err(),
+        "0 MiB is out of range"
+    );
 }

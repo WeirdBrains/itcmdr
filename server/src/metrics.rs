@@ -10,8 +10,8 @@ use std::collections::BTreeMap;
 /// - `incidents_total:<machine>`: incidents in the window (sorted high to low = ranking)
 /// - `open_incidents:<machine>`, `mttr:<machine>` (ms), `repair_failures:<machine>:<check>`,
 ///   `missed_runs:<machine>`
-/// - `flaps:<machine>:<check>`: ok<->failed transitions in the window (only when >= FLAP_MIN)
-/// - `repeat_offender:<machine>:<check>`: incidents opened in the window (only when >= REPEAT_MIN)
+/// - `flaps:<machine>:<check>`: ok<->failed transitions in the window (only when >= setting metrics.flap_min)
+/// - `repeat_offender:<machine>:<check>`: incidents opened in the window (only when >= setting metrics.repeat_min)
 pub async fn get_metrics(
     pool: &DbPool,
     window_days: i64,
@@ -128,13 +128,19 @@ pub async fn get_metrics(
             value: (window_days - present).max(0) as f64,
         });
     }
-    points.extend(flapping(pool, start.timestamp_millis(), now_ms).await?);
+    let flap_min = crate::settings::get_i64(pool, None, "metrics.flap_min")
+        .await
+        .max(1) as usize;
+    let repeat_min = crate::settings::get_i64(pool, None, "metrics.repeat_min")
+        .await
+        .max(1);
+    points.extend(flapping(pool, start.timestamp_millis(), now_ms, flap_min).await?);
     let rows = sqlx::query(
         "SELECT computer, check_id, COUNT(*) AS n FROM incidents WHERE opened_ts_ms >= ? \
          GROUP BY computer, check_id HAVING COUNT(*) >= ? ORDER BY n DESC",
     )
     .bind(start.timestamp_millis())
-    .bind(REPEAT_MIN)
+    .bind(repeat_min)
     .fetch_all(pool)
     .await?;
     for r in rows {
@@ -171,9 +177,8 @@ pub fn rank_by_incidents(rows: &[DailyRow]) -> Vec<(String, i64)> {
     v
 }
 
-/// A check flaps when it changes between ok and failed at least this many times in the window.
+/// Defaults of the `metrics.flap_min` / `metrics.repeat_min` settings.
 pub const FLAP_MIN: usize = 3;
-/// A machine/check is a repeat offender with at least this many incidents in the window.
 pub const REPEAT_MIN: i64 = 3;
 
 /// Number of ok<->failed transitions in a time-ordered status sequence (true = failed).
@@ -181,7 +186,12 @@ pub fn count_flaps(failed: &[bool]) -> usize {
     failed.windows(2).filter(|w| w[0] != w[1]).count()
 }
 
-async fn flapping(pool: &DbPool, start_ms: i64, now_ms: i64) -> Result<Vec<MetricPoint>> {
+async fn flapping(
+    pool: &DbPool,
+    start_ms: i64,
+    now_ms: i64,
+    flap_min: usize,
+) -> Result<Vec<MetricPoint>> {
     let rows = sqlx::query(
         "SELECT computer, check_id, status FROM checks WHERE ts_ms >= ? AND status IN ('ok','failed') \
          ORDER BY computer, check_id, ts_ms",
@@ -200,7 +210,7 @@ async fn flapping(pool: &DbPool, start_ms: i64, now_ms: i64) -> Result<Vec<Metri
         .into_iter()
         .filter_map(|((c, k), v)| {
             let n = count_flaps(&v);
-            (n >= FLAP_MIN).then(|| MetricPoint {
+            (n >= flap_min).then(|| MetricPoint {
                 key: format!("flaps:{c}:{k}"),
                 ts: now_ms,
                 value: n as f64,

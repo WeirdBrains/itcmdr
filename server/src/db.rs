@@ -13,6 +13,26 @@ pub const SCHEMA_VERSION: i64 = 2;
 /// Open (creating if needed) the SQLCipher database. The data dir layout and DB key are created
 /// on first use. A pre-0.6 plaintext database at the target path, or `itcmdr.sqlite` next to it,
 /// is encrypted first (see `migrate_plaintext`).
+static TRACKED: std::sync::OnceLock<std::sync::Mutex<Vec<DbPool>>> = std::sync::OnceLock::new();
+
+/// Short-lived processes (itcmdr-cli): remember every pool so `close_tracked` can close them before
+/// exit. Without it, SQLCipher connection threads can still be closing while the process tears down
+/// OpenSSL, which crashes intermittently ("double free").
+pub fn track_pools() {
+    let _ = TRACKED.set(std::sync::Mutex::new(Vec::new()));
+}
+
+/// Close every tracked pool (waits for the connection threads).
+pub async fn close_tracked() {
+    let pools: Vec<DbPool> = match TRACKED.get() {
+        Some(t) => std::mem::take(&mut *t.lock().unwrap_or_else(|e| e.into_inner())),
+        None => return,
+    };
+    for p in pools {
+        p.close().await;
+    }
+}
+
 pub async fn init_db(cfg: &ServerConfig) -> anyhow::Result<DbPool> {
     let layout = cfg.layout();
     layout.ensure()?;
@@ -41,6 +61,11 @@ pub async fn init_db(cfg: &ServerConfig) -> anyhow::Result<DbPool> {
         .await
         .ok();
     create_schema(&pool).await?;
+    if let Some(t) = TRACKED.get() {
+        t.lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .push(pool.clone());
+    }
     Ok(pool)
 }
 

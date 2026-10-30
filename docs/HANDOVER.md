@@ -6,10 +6,21 @@ untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committ
 
 ## Current state (updated 2026-10-30)
 
-- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.9.0** (service plugin packages). See `CHANGELOG.md`, root `PLAN.md`.
+- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.9.1** (settings everywhere). See `CHANGELOG.md`, root `PLAN.md`.
 - Everything passes on the Linux dev box (Rust, Flutter, Pester, PSScriptAnalyzer, scanner).
 - **Nothing has run on Windows yet** (installer, service, scheduled tasks, agent on a real PC).
 - GitHub release builds are blocked by org billing (see Risks), so there is no installer artifact yet.
+
+## Done (v0.9.1, settings everywhere)
+
+- `server/src/settings.rs`: typed registry (29 keys), `resolve_all`, `set`/`unset` (global or per machine), `export_agent` → `<logs_dir>/agent-settings.json`. Reference: `docs/SETTINGS.md`.
+- RPCs `ListSettings` / `UpdateSetting` (admin/owner, audited); CLI `itcmdr-cli config list|get|set|unset [--machine]`.
+- Runtime reads settings per use (ingest interval, request timeout, retention, metrics, skew, search, package size).
+- Agent `Get-ItcmdrSetting` (site.json > central machine > central global > default), poller `Get-ItcmdrPollSetting`, installer reads `agent.nightlyTime`.
+- App: `lib/server_settings.dart` (basic screen in the Settings tab).
+- Plugins enabled on install by default (`--disabled`, setting `plugins.enable_on_install`).
+- Plan: decision 13 app-triggered restore (StageRestore + helper + rollback) in v0.10.0.
+- Tests: `server/tests/settings.rs` (2), CLI config test extended, packages test for enable-on-install, `agent/tests/Settings.Tests.ps1` (6), 2 Flutter tests.
 
 ## Done (v0.9.0, packages)
 
@@ -101,7 +112,7 @@ untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committ
 
 ## In progress
 
-- Nothing mid-way. Next: **v0.9.1 settings everywhere** (decision 15 widened; audit list in `server/PLAN.md`), then v0.10.0. Statuses: root `PLAN.md`.
+None: v0.9.1 is tagged. Next: v0.10.0 (plugin runtime, log standard, scheduled runs, app-triggered restore server side).
 
 ## Backlog (in order)
 
@@ -153,6 +164,8 @@ python3 scripts/scan_repo.py        # leak scanner (also the pre-commit hook)
 4. Start the nightly and poller tasks manually as SYSTEM; the poller repeats every minute and skips overlaps.
 5. On-demand: one machine, then all machines; status moves queued -> running -> done.
 6. An exception added in the app appears in `<share>\exceptions.json` and is honoured on the next run.
+6a. v0.9.1: change `agent.quietMinutes` for one PC in the app; `<share>\agent-settings.json` updates, the PC uses it on the
+   next run (and from the agentData cache with the share offline); `itcmdr-cli config list --machine <PC>` agrees.
 7. Rotation with `-Root <copy> -Today 2027-01-04`: the zips open in Explorer, and the server ingests the archive.
 8. Uninstall removes the service, the tasks and the firewall rule.
 

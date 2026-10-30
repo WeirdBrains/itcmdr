@@ -95,6 +95,55 @@ class ItcmdrClient extends $grpc.Client {
     return $createUnaryCall(_$listAudit, request, options: options);
   }
 
+  $grpc.ResponseFuture<$0.CreateBackupResponse> createBackup(
+    $0.CreateBackupRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$createBackup, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.ListBackupsResponse> listBackups(
+    $0.ListBackupsRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$listBackups, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.VerifyBackupResponse> verifyBackup(
+    $0.VerifyBackupRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$verifyBackup, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.GetSettingsResponse> getSettings(
+    $0.GetSettingsRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$getSettings, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.UpdateSettingsResponse> updateSettings(
+    $0.UpdateSettingsRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$updateSettings, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.ListSettingsResponse> listSettings(
+    $0.ListSettingsRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$listSettings, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.UpdateSettingResponse> updateSetting(
+    $0.UpdateSettingRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$updateSetting, request, options: options);
+  }
+
   $grpc.ResponseStream<$0.Update> watchUpdates(
     $0.WatchUpdatesRequest request, {
     $grpc.CallOptions? options,
@@ -151,6 +200,41 @@ class ItcmdrClient extends $grpc.Client {
           '/itcmdr.Itcmdr/ListAudit',
           ($0.ListAuditRequest value) => value.writeToBuffer(),
           $0.ListAuditResponse.fromBuffer);
+  static final _$createBackup =
+      $grpc.ClientMethod<$0.CreateBackupRequest, $0.CreateBackupResponse>(
+          '/itcmdr.Itcmdr/CreateBackup',
+          ($0.CreateBackupRequest value) => value.writeToBuffer(),
+          $0.CreateBackupResponse.fromBuffer);
+  static final _$listBackups =
+      $grpc.ClientMethod<$0.ListBackupsRequest, $0.ListBackupsResponse>(
+          '/itcmdr.Itcmdr/ListBackups',
+          ($0.ListBackupsRequest value) => value.writeToBuffer(),
+          $0.ListBackupsResponse.fromBuffer);
+  static final _$verifyBackup =
+      $grpc.ClientMethod<$0.VerifyBackupRequest, $0.VerifyBackupResponse>(
+          '/itcmdr.Itcmdr/VerifyBackup',
+          ($0.VerifyBackupRequest value) => value.writeToBuffer(),
+          $0.VerifyBackupResponse.fromBuffer);
+  static final _$getSettings =
+      $grpc.ClientMethod<$0.GetSettingsRequest, $0.GetSettingsResponse>(
+          '/itcmdr.Itcmdr/GetSettings',
+          ($0.GetSettingsRequest value) => value.writeToBuffer(),
+          $0.GetSettingsResponse.fromBuffer);
+  static final _$updateSettings =
+      $grpc.ClientMethod<$0.UpdateSettingsRequest, $0.UpdateSettingsResponse>(
+          '/itcmdr.Itcmdr/UpdateSettings',
+          ($0.UpdateSettingsRequest value) => value.writeToBuffer(),
+          $0.UpdateSettingsResponse.fromBuffer);
+  static final _$listSettings =
+      $grpc.ClientMethod<$0.ListSettingsRequest, $0.ListSettingsResponse>(
+          '/itcmdr.Itcmdr/ListSettings',
+          ($0.ListSettingsRequest value) => value.writeToBuffer(),
+          $0.ListSettingsResponse.fromBuffer);
+  static final _$updateSetting =
+      $grpc.ClientMethod<$0.UpdateSettingRequest, $0.UpdateSettingResponse>(
+          '/itcmdr.Itcmdr/UpdateSetting',
+          ($0.UpdateSettingRequest value) => value.writeToBuffer(),
+          $0.UpdateSettingResponse.fromBuffer);
   static final _$watchUpdates =
       $grpc.ClientMethod<$0.WatchUpdatesRequest, $0.Update>(
           '/itcmdr.Itcmdr/WatchUpdates',
@@ -238,6 +322,69 @@ abstract class ItcmdrServiceBase extends $grpc.Service {
         false,
         ($core.List<$core.int> value) => $0.ListAuditRequest.fromBuffer(value),
         ($0.ListAuditResponse value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.CreateBackupRequest, $0.CreateBackupResponse>(
+            'CreateBackup',
+            createBackup_Pre,
+            false,
+            false,
+            ($core.List<$core.int> value) =>
+                $0.CreateBackupRequest.fromBuffer(value),
+            ($0.CreateBackupResponse value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.ListBackupsRequest, $0.ListBackupsResponse>(
+            'ListBackups',
+            listBackups_Pre,
+            false,
+            false,
+            ($core.List<$core.int> value) =>
+                $0.ListBackupsRequest.fromBuffer(value),
+            ($0.ListBackupsResponse value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.VerifyBackupRequest, $0.VerifyBackupResponse>(
+            'VerifyBackup',
+            verifyBackup_Pre,
+            false,
+            false,
+            ($core.List<$core.int> value) =>
+                $0.VerifyBackupRequest.fromBuffer(value),
+            ($0.VerifyBackupResponse value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.GetSettingsRequest, $0.GetSettingsResponse>(
+            'GetSettings',
+            getSettings_Pre,
+            false,
+            false,
+            ($core.List<$core.int> value) =>
+                $0.GetSettingsRequest.fromBuffer(value),
+            ($0.GetSettingsResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.UpdateSettingsRequest,
+            $0.UpdateSettingsResponse>(
+        'UpdateSettings',
+        updateSettings_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) =>
+            $0.UpdateSettingsRequest.fromBuffer(value),
+        ($0.UpdateSettingsResponse value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.ListSettingsRequest, $0.ListSettingsResponse>(
+            'ListSettings',
+            listSettings_Pre,
+            false,
+            false,
+            ($core.List<$core.int> value) =>
+                $0.ListSettingsRequest.fromBuffer(value),
+            ($0.ListSettingsResponse value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.UpdateSettingRequest, $0.UpdateSettingResponse>(
+            'UpdateSetting',
+            updateSetting_Pre,
+            false,
+            false,
+            ($core.List<$core.int> value) =>
+                $0.UpdateSettingRequest.fromBuffer(value),
+            ($0.UpdateSettingResponse value) => value.writeToBuffer()));
     $addMethod($grpc.ServiceMethod<$0.WatchUpdatesRequest, $0.Update>(
         'WatchUpdates',
         watchUpdates_Pre,
@@ -324,6 +471,67 @@ abstract class ItcmdrServiceBase extends $grpc.Service {
 
   $async.Future<$0.ListAuditResponse> listAudit(
       $grpc.ServiceCall call, $0.ListAuditRequest request);
+
+  $async.Future<$0.CreateBackupResponse> createBackup_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.CreateBackupRequest> $request) async {
+    return createBackup($call, await $request);
+  }
+
+  $async.Future<$0.CreateBackupResponse> createBackup(
+      $grpc.ServiceCall call, $0.CreateBackupRequest request);
+
+  $async.Future<$0.ListBackupsResponse> listBackups_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.ListBackupsRequest> $request) async {
+    return listBackups($call, await $request);
+  }
+
+  $async.Future<$0.ListBackupsResponse> listBackups(
+      $grpc.ServiceCall call, $0.ListBackupsRequest request);
+
+  $async.Future<$0.VerifyBackupResponse> verifyBackup_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.VerifyBackupRequest> $request) async {
+    return verifyBackup($call, await $request);
+  }
+
+  $async.Future<$0.VerifyBackupResponse> verifyBackup(
+      $grpc.ServiceCall call, $0.VerifyBackupRequest request);
+
+  $async.Future<$0.GetSettingsResponse> getSettings_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.GetSettingsRequest> $request) async {
+    return getSettings($call, await $request);
+  }
+
+  $async.Future<$0.GetSettingsResponse> getSettings(
+      $grpc.ServiceCall call, $0.GetSettingsRequest request);
+
+  $async.Future<$0.UpdateSettingsResponse> updateSettings_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.UpdateSettingsRequest> $request) async {
+    return updateSettings($call, await $request);
+  }
+
+  $async.Future<$0.UpdateSettingsResponse> updateSettings(
+      $grpc.ServiceCall call, $0.UpdateSettingsRequest request);
+
+  $async.Future<$0.ListSettingsResponse> listSettings_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.ListSettingsRequest> $request) async {
+    return listSettings($call, await $request);
+  }
+
+  $async.Future<$0.ListSettingsResponse> listSettings(
+      $grpc.ServiceCall call, $0.ListSettingsRequest request);
+
+  $async.Future<$0.UpdateSettingResponse> updateSetting_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.UpdateSettingRequest> $request) async {
+    return updateSetting($call, await $request);
+  }
+
+  $async.Future<$0.UpdateSettingResponse> updateSetting(
+      $grpc.ServiceCall call, $0.UpdateSettingRequest request);
 
   $async.Stream<$0.Update> watchUpdates_Pre($grpc.ServiceCall $call,
       $async.Future<$0.WatchUpdatesRequest> $request) async* {

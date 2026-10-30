@@ -8,6 +8,7 @@ import 'charts.dart';
 import 'exceptions_form.dart';
 import 'logs_page.dart';
 import 'proto/itcmdr.pbgrpc.dart';
+import 'server_settings.dart';
 import 'settings.dart';
 
 void main() {
@@ -122,6 +123,7 @@ class _HomeShellState extends State<HomeShell> {
       SettingsPage(
         key: key,
         settings: s,
+        client: c,
         onSave: (n) async {
           await n.save();
           await _apply(n);
@@ -600,7 +602,13 @@ class OnDemandPage extends StatefulWidget {
   State<OnDemandPage> createState() => _OnDemandPageState();
 }
 
-const runCategories = ['network', 'connectivity', 'configuration', 'backup', 'services'];
+const runCategories = [
+  'network',
+  'connectivity',
+  'configuration',
+  'backup',
+  'services',
+];
 
 class _OnDemandPageState extends State<OnDemandPage> with LiveRefresh {
   List<Machine> _machines = [];
@@ -818,8 +826,14 @@ class _AuditPageState extends State<AuditPage> with LiveRefresh {
 
 class SettingsPage extends StatefulWidget {
   final ServerSettings settings;
+  final ItcmdrClient? client;
   final Future<void> Function(ServerSettings) onSave;
-  const SettingsPage({super.key, required this.settings, required this.onSave});
+  const SettingsPage({
+    super.key,
+    required this.settings,
+    required this.onSave,
+    this.client,
+  });
   @override
   State<SettingsPage> createState() => _SettingsPageState();
 }
@@ -914,6 +928,13 @@ class _SettingsPageState extends State<SettingsPage> {
             if (_msg != null) Text(_msg!),
           ],
         ),
+        if (widget.client != null) ...[
+          const Divider(height: 32),
+          ServerSettingsSection(
+            client: widget.client!,
+            settings: widget.settings,
+          ),
+        ],
       ],
     );
   }
