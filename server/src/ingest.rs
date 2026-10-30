@@ -133,7 +133,7 @@ pub fn log_files(root: &Path) -> Vec<PathBuf> {
         .into_iter()
         .filter_entry(|e| {
             let n = e.file_name().to_string_lossy().to_ascii_lowercase();
-            !(e.file_type().is_dir() && (n == "requests" || n == "responses"))
+            !(e.file_type().is_dir() && (n == "requests" || n == "responses" || n == "plugin-logs"))
         })
         .filter_map(Result::ok)
         .filter(|e| e.file_type().is_file())

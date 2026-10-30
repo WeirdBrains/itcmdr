@@ -65,6 +65,25 @@ Describe 'Invoke-ItcmdrRotation' {
     $m.end | Should -Be '2026-10-25'
   }
 
+  It 'archives finished-week plugin logs (plugin-logs/NAME/DAY.jsonl) into the weekly zip' {
+    Add-FakeLog $root ([datetime]'2026-10-21') | Out-Null
+    $pd = Join-Path (Join-Path $root 'plugin-logs') 'disk-free'
+    New-Item -ItemType Directory -Path $pd -Force | Out-Null
+    $old = Join-Path $pd '2026-10-22.jsonl'; Set-Content -LiteralPath $old -Value '{"schema":"itcmdr.log/v1"}'
+    $cur = Join-Path $pd '2026-10-28.jsonl'; Set-Content -LiteralPath $cur -Value '{"schema":"itcmdr.log/v1"}'
+    $odd = Join-Path $pd 'notes.txt'; Set-Content -LiteralPath $odd -Value 'x'
+    Invoke-ItcmdrRotation -Root $root -Today ([datetime]'2026-10-29') | Out-Null
+    $wz = Join-Path $root 'archive/weekly/itcmdr-2026-W43.zip'
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $z = [IO.Compression.ZipFile]::OpenRead($wz)
+    try { $names = @($z.Entries | ForEach-Object FullName) } finally { $z.Dispose() }
+    $names | Should -Contain 'plugin-logs/disk-free/2026-10-22.jsonl'
+    Test-Path $old | Should -BeFalse
+    Test-Path $cur | Should -BeTrue
+    Test-Path $odd | Should -BeTrue
+    (Test-ItcmdrZipManifest -ZipPath $wz).kind | Should -Be 'weekly'
+  }
+
   It 'builds a block only after all 4 weeks finished, including every weekly' {
     # Block 11 of 2026 = W41..W44 = 2026-10-05 .. 2026-11-01
     foreach ($d in '2026-10-06', '2026-10-14', '2026-10-21', '2026-10-28', '2026-10-30') { Add-FakeLog $root ([datetime]$d) | Out-Null }

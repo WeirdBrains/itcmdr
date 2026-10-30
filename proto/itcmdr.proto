@@ -22,6 +22,7 @@ message TriggerRunsRequest {
   bool repair = 3;
   bool force = 4;               // Override clinical guardrails
   repeated string categories = 5;
+  repeated string plugins = 6;  // service plugins run on the server (name or name@version)
 }
 message TriggerRunsResponse {
   string request_id = 1;
@@ -188,6 +189,92 @@ message UpdateSettingRequest {
 }
 message UpdateSettingResponse { SettingItem setting = 1; }
 
+// ---- v0.10.0: plugin runtime (decisions 6, 11)
+message RunPluginRequest {
+  string plugin = 1;               // name or name@version (installed + enabled)
+  bool report_only = 2;
+  map<string, string> args = 3;
+  string machine = 4;              // optional, default the server
+}
+message PluginStage { string stage = 1; bool ok = 2; string message = 3; }
+message PluginCheckResult { string check_id = 1; string status = 2; string message = 3; }
+message RunPluginResponse {
+  string run_id = 1;
+  string status = 2;               // ok | verify-failed | failed | error
+  string message = 3;
+  repeated PluginStage stages = 4;
+  repeated PluginCheckResult results = 5;
+}
+message ListPluginRunsRequest { string plugin = 1; int32 limit = 2; }
+message PluginRun {
+  string id = 1; string plugin = 2; string version = 3; string machine = 4;
+  int64 started = 5; int64 finished = 6; string status = 7; string message = 8; string request_id = 9;
+}
+message ListPluginRunsResponse { repeated PluginRun runs = 1; }
+message GetPluginMetricsRequest {
+  string name = 1;                 // empty = all
+  map<string, string> labels = 2;  // all must match
+  int32 window_days = 3;           // default 7
+  bool daily = 4;                  // daily rollup (counters summed, others averaged)
+}
+message PluginMetricPoint { string name = 1; string labels = 2; int64 ts = 3; double value = 4; }
+message LogRejects { string file = 1; int64 count = 2; }
+message GetPluginMetricsResponse {
+  repeated PluginMetricPoint points = 1;
+  repeated LogRejects rejects = 2; // malformed itcmdr.log/v1 lines per file
+}
+
+// ---- v0.10.0: schedules (decision 14). Admin manages; user may run now. All audited.
+message Schedule {
+  string id = 1;
+  string name = 2;
+  bool enabled = 3;
+  bool all_machines = 4;
+  repeated string machines = 5;
+  repeated string groups = 6;      // agent roles: Server, Workstation, RCU
+  repeated string categories = 7;
+  repeated string plugins = 8;
+  bool repair = 9;                 // false = report-only
+  string when = 10;                // hourly | every Nh | daily HH:mm | weekdays HH:mm | weekly <day> HH:mm | cron <5 fields>
+  string timezone = 11;            // IANA name or "local"
+  string guard = 12;               // report-only-in-hours | skip-in-hours | none
+  string missed = 13;              // skip | catch-up
+  bool builtin = 14;
+  repeated int64 next_runs = 15;   // ms, next 3
+  int64 last_fire = 16;
+}
+message SaveScheduleRequest { Schedule schedule = 1; }
+message ScheduleResponse { Schedule schedule = 1; }
+message ScheduleRef { string id = 1; bool force = 2; }   // id or name; force deletes a built-in
+message ListSchedulesRequest {}
+message ListSchedulesResponse { repeated Schedule schedules = 1; }
+message RunScheduleNowResponse { string outcome = 1; string request_id = 2; string note = 3; }
+message ListScheduleRunsRequest { string id = 1; int32 limit = 2; }
+message ScheduleRun {
+  string schedule_id = 1; int64 ts = 2; int64 due = 3; string request_id = 4;
+  string outcome = 5;              // queued | skipped | missed | failed
+  string note = 6;
+}
+message ListScheduleRunsResponse { repeated ScheduleRun runs = 1; }
+
+// ---- v0.10.0: app-triggered restore (decision 13). Owner only, audited.
+message StageRestoreRequest {
+  string backup = 1;               // a name from ListBackups
+  string words = 2;                // the 24 words; memory only, passed to the helper on stdin
+}
+message RestoreStatus {
+  string state = 1;                // staged, stopping, restoring, starting, health-check, rolling-back, done, rolled-back, failed
+  string message = 2;
+  string backup = 3;
+  string actor = 4;
+  int64 started = 5;
+  int64 updated = 6;
+  string safety_copy = 7;
+}
+message StageRestoreResponse { RestoreStatus status = 1; }
+message GetRestoreStatusRequest {}
+message GetRestoreStatusResponse { RestoreStatus status = 1; }   // unset when no restore ever ran
+
 service Itcmdr {
   rpc ListMachines(ListMachinesRequest) returns (ListMachinesResponse);
   rpc TriggerRuns(TriggerRunsRequest) returns (TriggerRunsResponse);
@@ -205,6 +292,19 @@ service Itcmdr {
   rpc UpdateSettings(UpdateSettingsRequest) returns (UpdateSettingsResponse);
   rpc ListSettings(ListSettingsRequest) returns (ListSettingsResponse);
   rpc UpdateSetting(UpdateSettingRequest) returns (UpdateSettingResponse);
+  rpc RunPlugin(RunPluginRequest) returns (RunPluginResponse);
+  rpc ListPluginRuns(ListPluginRunsRequest) returns (ListPluginRunsResponse);
+  rpc GetPluginMetrics(GetPluginMetricsRequest) returns (GetPluginMetricsResponse);
+  rpc CreateSchedule(SaveScheduleRequest) returns (ScheduleResponse);
+  rpc UpdateSchedule(SaveScheduleRequest) returns (ScheduleResponse);
+  rpc DeleteSchedule(ScheduleRef) returns (ScheduleResponse);
+  rpc ListSchedules(ListSchedulesRequest) returns (ListSchedulesResponse);
+  rpc PauseSchedule(ScheduleRef) returns (ScheduleResponse);
+  rpc ResumeSchedule(ScheduleRef) returns (ScheduleResponse);
+  rpc RunScheduleNow(ScheduleRef) returns (RunScheduleNowResponse);
+  rpc ListScheduleRuns(ListScheduleRunsRequest) returns (ListScheduleRunsResponse);
+  rpc StageRestore(StageRestoreRequest) returns (StageRestoreResponse);
+  rpc GetRestoreStatus(GetRestoreStatusRequest) returns (GetRestoreStatusResponse);
   rpc WatchUpdates(WatchUpdatesRequest) returns (stream Update);
 }
 

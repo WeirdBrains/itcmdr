@@ -144,6 +144,97 @@ class ItcmdrClient extends $grpc.Client {
     return $createUnaryCall(_$updateSetting, request, options: options);
   }
 
+  $grpc.ResponseFuture<$0.RunPluginResponse> runPlugin(
+    $0.RunPluginRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$runPlugin, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.ListPluginRunsResponse> listPluginRuns(
+    $0.ListPluginRunsRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$listPluginRuns, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.GetPluginMetricsResponse> getPluginMetrics(
+    $0.GetPluginMetricsRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$getPluginMetrics, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.ScheduleResponse> createSchedule(
+    $0.SaveScheduleRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$createSchedule, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.ScheduleResponse> updateSchedule(
+    $0.SaveScheduleRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$updateSchedule, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.ScheduleResponse> deleteSchedule(
+    $0.ScheduleRef request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$deleteSchedule, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.ListSchedulesResponse> listSchedules(
+    $0.ListSchedulesRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$listSchedules, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.ScheduleResponse> pauseSchedule(
+    $0.ScheduleRef request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$pauseSchedule, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.ScheduleResponse> resumeSchedule(
+    $0.ScheduleRef request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$resumeSchedule, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.RunScheduleNowResponse> runScheduleNow(
+    $0.ScheduleRef request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$runScheduleNow, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.ListScheduleRunsResponse> listScheduleRuns(
+    $0.ListScheduleRunsRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$listScheduleRuns, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.StageRestoreResponse> stageRestore(
+    $0.StageRestoreRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$stageRestore, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.GetRestoreStatusResponse> getRestoreStatus(
+    $0.GetRestoreStatusRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$getRestoreStatus, request, options: options);
+  }
+
   $grpc.ResponseStream<$0.Update> watchUpdates(
     $0.WatchUpdatesRequest request, {
     $grpc.CallOptions? options,
@@ -235,6 +326,71 @@ class ItcmdrClient extends $grpc.Client {
           '/itcmdr.Itcmdr/UpdateSetting',
           ($0.UpdateSettingRequest value) => value.writeToBuffer(),
           $0.UpdateSettingResponse.fromBuffer);
+  static final _$runPlugin =
+      $grpc.ClientMethod<$0.RunPluginRequest, $0.RunPluginResponse>(
+          '/itcmdr.Itcmdr/RunPlugin',
+          ($0.RunPluginRequest value) => value.writeToBuffer(),
+          $0.RunPluginResponse.fromBuffer);
+  static final _$listPluginRuns =
+      $grpc.ClientMethod<$0.ListPluginRunsRequest, $0.ListPluginRunsResponse>(
+          '/itcmdr.Itcmdr/ListPluginRuns',
+          ($0.ListPluginRunsRequest value) => value.writeToBuffer(),
+          $0.ListPluginRunsResponse.fromBuffer);
+  static final _$getPluginMetrics = $grpc.ClientMethod<
+          $0.GetPluginMetricsRequest, $0.GetPluginMetricsResponse>(
+      '/itcmdr.Itcmdr/GetPluginMetrics',
+      ($0.GetPluginMetricsRequest value) => value.writeToBuffer(),
+      $0.GetPluginMetricsResponse.fromBuffer);
+  static final _$createSchedule =
+      $grpc.ClientMethod<$0.SaveScheduleRequest, $0.ScheduleResponse>(
+          '/itcmdr.Itcmdr/CreateSchedule',
+          ($0.SaveScheduleRequest value) => value.writeToBuffer(),
+          $0.ScheduleResponse.fromBuffer);
+  static final _$updateSchedule =
+      $grpc.ClientMethod<$0.SaveScheduleRequest, $0.ScheduleResponse>(
+          '/itcmdr.Itcmdr/UpdateSchedule',
+          ($0.SaveScheduleRequest value) => value.writeToBuffer(),
+          $0.ScheduleResponse.fromBuffer);
+  static final _$deleteSchedule =
+      $grpc.ClientMethod<$0.ScheduleRef, $0.ScheduleResponse>(
+          '/itcmdr.Itcmdr/DeleteSchedule',
+          ($0.ScheduleRef value) => value.writeToBuffer(),
+          $0.ScheduleResponse.fromBuffer);
+  static final _$listSchedules =
+      $grpc.ClientMethod<$0.ListSchedulesRequest, $0.ListSchedulesResponse>(
+          '/itcmdr.Itcmdr/ListSchedules',
+          ($0.ListSchedulesRequest value) => value.writeToBuffer(),
+          $0.ListSchedulesResponse.fromBuffer);
+  static final _$pauseSchedule =
+      $grpc.ClientMethod<$0.ScheduleRef, $0.ScheduleResponse>(
+          '/itcmdr.Itcmdr/PauseSchedule',
+          ($0.ScheduleRef value) => value.writeToBuffer(),
+          $0.ScheduleResponse.fromBuffer);
+  static final _$resumeSchedule =
+      $grpc.ClientMethod<$0.ScheduleRef, $0.ScheduleResponse>(
+          '/itcmdr.Itcmdr/ResumeSchedule',
+          ($0.ScheduleRef value) => value.writeToBuffer(),
+          $0.ScheduleResponse.fromBuffer);
+  static final _$runScheduleNow =
+      $grpc.ClientMethod<$0.ScheduleRef, $0.RunScheduleNowResponse>(
+          '/itcmdr.Itcmdr/RunScheduleNow',
+          ($0.ScheduleRef value) => value.writeToBuffer(),
+          $0.RunScheduleNowResponse.fromBuffer);
+  static final _$listScheduleRuns = $grpc.ClientMethod<
+          $0.ListScheduleRunsRequest, $0.ListScheduleRunsResponse>(
+      '/itcmdr.Itcmdr/ListScheduleRuns',
+      ($0.ListScheduleRunsRequest value) => value.writeToBuffer(),
+      $0.ListScheduleRunsResponse.fromBuffer);
+  static final _$stageRestore =
+      $grpc.ClientMethod<$0.StageRestoreRequest, $0.StageRestoreResponse>(
+          '/itcmdr.Itcmdr/StageRestore',
+          ($0.StageRestoreRequest value) => value.writeToBuffer(),
+          $0.StageRestoreResponse.fromBuffer);
+  static final _$getRestoreStatus = $grpc.ClientMethod<
+          $0.GetRestoreStatusRequest, $0.GetRestoreStatusResponse>(
+      '/itcmdr.Itcmdr/GetRestoreStatus',
+      ($0.GetRestoreStatusRequest value) => value.writeToBuffer(),
+      $0.GetRestoreStatusResponse.fromBuffer);
   static final _$watchUpdates =
       $grpc.ClientMethod<$0.WatchUpdatesRequest, $0.Update>(
           '/itcmdr.Itcmdr/WatchUpdates',
@@ -385,6 +541,111 @@ abstract class ItcmdrServiceBase extends $grpc.Service {
             ($core.List<$core.int> value) =>
                 $0.UpdateSettingRequest.fromBuffer(value),
             ($0.UpdateSettingResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.RunPluginRequest, $0.RunPluginResponse>(
+        'RunPlugin',
+        runPlugin_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.RunPluginRequest.fromBuffer(value),
+        ($0.RunPluginResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.ListPluginRunsRequest,
+            $0.ListPluginRunsResponse>(
+        'ListPluginRuns',
+        listPluginRuns_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) =>
+            $0.ListPluginRunsRequest.fromBuffer(value),
+        ($0.ListPluginRunsResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.GetPluginMetricsRequest,
+            $0.GetPluginMetricsResponse>(
+        'GetPluginMetrics',
+        getPluginMetrics_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) =>
+            $0.GetPluginMetricsRequest.fromBuffer(value),
+        ($0.GetPluginMetricsResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.SaveScheduleRequest, $0.ScheduleResponse>(
+        'CreateSchedule',
+        createSchedule_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) =>
+            $0.SaveScheduleRequest.fromBuffer(value),
+        ($0.ScheduleResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.SaveScheduleRequest, $0.ScheduleResponse>(
+        'UpdateSchedule',
+        updateSchedule_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) =>
+            $0.SaveScheduleRequest.fromBuffer(value),
+        ($0.ScheduleResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.ScheduleRef, $0.ScheduleResponse>(
+        'DeleteSchedule',
+        deleteSchedule_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.ScheduleRef.fromBuffer(value),
+        ($0.ScheduleResponse value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.ListSchedulesRequest, $0.ListSchedulesResponse>(
+            'ListSchedules',
+            listSchedules_Pre,
+            false,
+            false,
+            ($core.List<$core.int> value) =>
+                $0.ListSchedulesRequest.fromBuffer(value),
+            ($0.ListSchedulesResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.ScheduleRef, $0.ScheduleResponse>(
+        'PauseSchedule',
+        pauseSchedule_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.ScheduleRef.fromBuffer(value),
+        ($0.ScheduleResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.ScheduleRef, $0.ScheduleResponse>(
+        'ResumeSchedule',
+        resumeSchedule_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.ScheduleRef.fromBuffer(value),
+        ($0.ScheduleResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.ScheduleRef, $0.RunScheduleNowResponse>(
+        'RunScheduleNow',
+        runScheduleNow_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.ScheduleRef.fromBuffer(value),
+        ($0.RunScheduleNowResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.ListScheduleRunsRequest,
+            $0.ListScheduleRunsResponse>(
+        'ListScheduleRuns',
+        listScheduleRuns_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) =>
+            $0.ListScheduleRunsRequest.fromBuffer(value),
+        ($0.ListScheduleRunsResponse value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.StageRestoreRequest, $0.StageRestoreResponse>(
+            'StageRestore',
+            stageRestore_Pre,
+            false,
+            false,
+            ($core.List<$core.int> value) =>
+                $0.StageRestoreRequest.fromBuffer(value),
+            ($0.StageRestoreResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.GetRestoreStatusRequest,
+            $0.GetRestoreStatusResponse>(
+        'GetRestoreStatus',
+        getRestoreStatus_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) =>
+            $0.GetRestoreStatusRequest.fromBuffer(value),
+        ($0.GetRestoreStatusResponse value) => value.writeToBuffer()));
     $addMethod($grpc.ServiceMethod<$0.WatchUpdatesRequest, $0.Update>(
         'WatchUpdates',
         watchUpdates_Pre,
@@ -532,6 +793,116 @@ abstract class ItcmdrServiceBase extends $grpc.Service {
 
   $async.Future<$0.UpdateSettingResponse> updateSetting(
       $grpc.ServiceCall call, $0.UpdateSettingRequest request);
+
+  $async.Future<$0.RunPluginResponse> runPlugin_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.RunPluginRequest> $request) async {
+    return runPlugin($call, await $request);
+  }
+
+  $async.Future<$0.RunPluginResponse> runPlugin(
+      $grpc.ServiceCall call, $0.RunPluginRequest request);
+
+  $async.Future<$0.ListPluginRunsResponse> listPluginRuns_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.ListPluginRunsRequest> $request) async {
+    return listPluginRuns($call, await $request);
+  }
+
+  $async.Future<$0.ListPluginRunsResponse> listPluginRuns(
+      $grpc.ServiceCall call, $0.ListPluginRunsRequest request);
+
+  $async.Future<$0.GetPluginMetricsResponse> getPluginMetrics_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.GetPluginMetricsRequest> $request) async {
+    return getPluginMetrics($call, await $request);
+  }
+
+  $async.Future<$0.GetPluginMetricsResponse> getPluginMetrics(
+      $grpc.ServiceCall call, $0.GetPluginMetricsRequest request);
+
+  $async.Future<$0.ScheduleResponse> createSchedule_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.SaveScheduleRequest> $request) async {
+    return createSchedule($call, await $request);
+  }
+
+  $async.Future<$0.ScheduleResponse> createSchedule(
+      $grpc.ServiceCall call, $0.SaveScheduleRequest request);
+
+  $async.Future<$0.ScheduleResponse> updateSchedule_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.SaveScheduleRequest> $request) async {
+    return updateSchedule($call, await $request);
+  }
+
+  $async.Future<$0.ScheduleResponse> updateSchedule(
+      $grpc.ServiceCall call, $0.SaveScheduleRequest request);
+
+  $async.Future<$0.ScheduleResponse> deleteSchedule_Pre(
+      $grpc.ServiceCall $call, $async.Future<$0.ScheduleRef> $request) async {
+    return deleteSchedule($call, await $request);
+  }
+
+  $async.Future<$0.ScheduleResponse> deleteSchedule(
+      $grpc.ServiceCall call, $0.ScheduleRef request);
+
+  $async.Future<$0.ListSchedulesResponse> listSchedules_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.ListSchedulesRequest> $request) async {
+    return listSchedules($call, await $request);
+  }
+
+  $async.Future<$0.ListSchedulesResponse> listSchedules(
+      $grpc.ServiceCall call, $0.ListSchedulesRequest request);
+
+  $async.Future<$0.ScheduleResponse> pauseSchedule_Pre(
+      $grpc.ServiceCall $call, $async.Future<$0.ScheduleRef> $request) async {
+    return pauseSchedule($call, await $request);
+  }
+
+  $async.Future<$0.ScheduleResponse> pauseSchedule(
+      $grpc.ServiceCall call, $0.ScheduleRef request);
+
+  $async.Future<$0.ScheduleResponse> resumeSchedule_Pre(
+      $grpc.ServiceCall $call, $async.Future<$0.ScheduleRef> $request) async {
+    return resumeSchedule($call, await $request);
+  }
+
+  $async.Future<$0.ScheduleResponse> resumeSchedule(
+      $grpc.ServiceCall call, $0.ScheduleRef request);
+
+  $async.Future<$0.RunScheduleNowResponse> runScheduleNow_Pre(
+      $grpc.ServiceCall $call, $async.Future<$0.ScheduleRef> $request) async {
+    return runScheduleNow($call, await $request);
+  }
+
+  $async.Future<$0.RunScheduleNowResponse> runScheduleNow(
+      $grpc.ServiceCall call, $0.ScheduleRef request);
+
+  $async.Future<$0.ListScheduleRunsResponse> listScheduleRuns_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.ListScheduleRunsRequest> $request) async {
+    return listScheduleRuns($call, await $request);
+  }
+
+  $async.Future<$0.ListScheduleRunsResponse> listScheduleRuns(
+      $grpc.ServiceCall call, $0.ListScheduleRunsRequest request);
+
+  $async.Future<$0.StageRestoreResponse> stageRestore_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.StageRestoreRequest> $request) async {
+    return stageRestore($call, await $request);
+  }
+
+  $async.Future<$0.StageRestoreResponse> stageRestore(
+      $grpc.ServiceCall call, $0.StageRestoreRequest request);
+
+  $async.Future<$0.GetRestoreStatusResponse> getRestoreStatus_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.GetRestoreStatusRequest> $request) async {
+    return getRestoreStatus($call, await $request);
+  }
+
+  $async.Future<$0.GetRestoreStatusResponse> getRestoreStatus(
+      $grpc.ServiceCall call, $0.GetRestoreStatusRequest request);
 
   $async.Stream<$0.Update> watchUpdates_Pre($grpc.ServiceCall $call,
       $async.Future<$0.WatchUpdatesRequest> $request) async* {

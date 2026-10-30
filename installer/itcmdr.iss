@@ -10,7 +10,7 @@
 
 #define MyAppName "itcmdr"
 #ifndef MyAppVersion
-  #define MyAppVersion "0.9.1"
+  #define MyAppVersion "0.10.0"
 #endif
 #define InstallDirName "itcmdr"
 #ifndef LocalLogs
@@ -39,6 +39,8 @@ Name: "agent"; Description: "Agent (PowerShell + scheduled tasks)"; Types: full 
 ; Server binary (built by CI)
 Source: "..\server\target\release\itcmdr-server.exe"; DestDir: "{app}\server"; Components: server; Flags: ignoreversion
 Source: "..\server\target\release\itcmdr-cli.exe"; DestDir: "{app}\server"; Components: server; Flags: ignoreversion
+Source: "..\server\target\release\itcmdr-plugin-ps.exe"; DestDir: "{app}\server"; Components: server; Flags: ignoreversion
+Source: "..\server\target\release\itcmdr-restore.exe"; DestDir: "{app}\server"; Components: server; Flags: ignoreversion
 ; App build
 Source: "..\app\build\windows\x64\runner\Release\*"; DestDir: "{app}\app"; Components: app; Flags: recursesubdirs ignoreversion
 ; Agent scripts
@@ -48,6 +50,8 @@ Source: "..\agent\Poll-ItcmdrRequests.ps1"; DestDir: "{app}\agent"; Components: 
 Source: "..\agent\Report-BackupCoverage.ps1"; DestDir: "{app}\agent"; Components: server; Flags: ignoreversion
 Source: "..\agent\Push-Install-ItcmdrAgent.ps1"; DestDir: "{app}\agent"; Components: agent; Flags: ignoreversion
 Source: "..\agent\Rotate-ItcmdrLogs.ps1"; DestDir: "{app}\agent"; Components: server; Flags: ignoreversion
+; PowerShell plugin module (itcmdr-plugin-ps finds it in ..\agent)
+Source: "..\agent\Itcmdr.Plugin.psm1"; DestDir: "{app}\agent"; Components: server agent; Flags: ignoreversion
 ; Server config template (never overwritten; edit logs_dir and admin_token_hash after install)
 Source: "server.windows.json"; DestDir: "{commonappdata}\itcmdr"; DestName: "server.json"; Components: server; Flags: onlyifdoesntexist uninsneveruninstall
 

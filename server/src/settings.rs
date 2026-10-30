@@ -117,6 +117,11 @@ pub fn registry() -> Vec<Def> {
         d("search.max_limit", Server, int(100, 10000), json!(1000), "Largest log search page."),
         d("plugins.max_package_mib", Server, int(1, 2048), json!(256), "Largest plugin package accepted (MiB)."),
         d("plugins.enable_on_install", Server, Kind::Bool, json!(true), "Enable a package that passed validation when it is installed (other versions are disabled)."),
+        d("plugins.timeout_secs", Server, int(10, 86400), json!(600), "Per-stage timeout of a plugin run (seconds)."),
+        d("plugins.powershell", Server, Kind::Text, json!(if cfg!(windows) { "powershell.exe" } else { "pwsh" }), "PowerShell used by itcmdr-plugin-ps (Windows PowerShell 5.1 by default)."),
+        d("schedule.office_hours", Server, Kind::Text, json!("Mon-Fri 07:00-18:00"), "Office hours for the schedule guard, in each schedule's timezone."),
+        d("schedule.grace_secs", Server, int(30, 86400), json!(300), "A run due longer ago than this counts as missed (server was down)."),
+        d("restore.health_timeout_secs", Server, int(5, 3600), json!(120), "How long the restore helper waits for the restarted server before rolling back."),
         // ---- agent (served centrally, site.json names)
         d("paths.localLogs", Agent, path(false, false), json!("C:\\maintenanceRuns"), "Local run logs and requests\\ folder on each PC."),
         d("paths.agentData", Agent, path(false, false), json!("C:\\ProgramData\\itcmdr"), "Agent cache (exceptions, settings) and spool folder."),
@@ -402,6 +407,17 @@ pub async fn set(pool: &DbPool, key: &str, text: &str, machine: Option<&str>) ->
         None => {
             s.global.insert(key.into(), v.clone());
         }
+    }
+    if key == "schedule.office_hours" {
+        if let Some(t) = v.as_str() {
+            crate::schedule::parse_hours(t)?;
+        }
+    }
+    if key == "plugins.powershell" {
+        ensure!(
+            v.as_str().is_some_and(|t| !t.trim().is_empty()),
+            "plugins.powershell cannot be empty"
+        );
     }
     if key.starts_with("search.") {
         let get = |k: &str, dflt: i64| s.global.get(k).and_then(|v| v.as_i64()).unwrap_or(dflt);

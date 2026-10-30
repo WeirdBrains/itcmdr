@@ -216,6 +216,7 @@ class TriggerRunsRequest extends $pb.GeneratedMessage {
     $core.bool? repair,
     $core.bool? force,
     $core.Iterable<$core.String>? categories,
+    $core.Iterable<$core.String>? plugins,
   }) {
     final result = TriggerRunsRequest._();
     if (machines != null) result.machines.addAll(machines);
@@ -223,6 +224,7 @@ class TriggerRunsRequest extends $pb.GeneratedMessage {
     if (repair != null) result.repair = repair;
     if (force != null) result.force = force;
     if (categories != null) result.categories.addAll(categories);
+    if (plugins != null) result.plugins.addAll(plugins);
     return result;
   }
 
@@ -244,6 +246,7 @@ class TriggerRunsRequest extends $pb.GeneratedMessage {
     ..aOB(3, _omitFieldNames ? '' : 'repair')
     ..aOB(4, _omitFieldNames ? '' : 'force')
     ..pPS(5, _omitFieldNames ? '' : 'categories')
+    ..pPS(6, _omitFieldNames ? '' : 'plugins')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -300,6 +303,9 @@ class TriggerRunsRequest extends $pb.GeneratedMessage {
 
   @$pb.TagNumber(5)
   $pb.PbList<$core.String> get categories => $_getList(4);
+
+  @$pb.TagNumber(6)
+  $pb.PbList<$core.String> get plugins => $_getList(5);
 }
 
 class TriggerRunsResponse extends $pb.GeneratedMessage {
@@ -3098,6 +3104,2132 @@ class UpdateSettingResponse extends $pb.GeneratedMessage {
   void clearSetting() => $_clearField(1);
   @$pb.TagNumber(1)
   SettingItem ensureSetting() => $_ensure(0);
+}
+
+/// ---- v0.10.0: plugin runtime (decisions 6, 11)
+class RunPluginRequest extends $pb.GeneratedMessage {
+  factory RunPluginRequest({
+    $core.String? plugin,
+    $core.bool? reportOnly,
+    $core.Iterable<$core.MapEntry<$core.String, $core.String>>? args,
+    $core.String? machine,
+  }) {
+    final result = RunPluginRequest._();
+    if (plugin != null) result.plugin = plugin;
+    if (reportOnly != null) result.reportOnly = reportOnly;
+    if (args != null) result.args.addEntries(args);
+    if (machine != null) result.machine = machine;
+    return result;
+  }
+
+  RunPluginRequest._();
+
+  factory RunPluginRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RunPluginRequest()..mergeFromBuffer(data, registry);
+  factory RunPluginRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RunPluginRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'RunPluginRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: RunPluginRequest.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'plugin')
+    ..aOB(2, _omitFieldNames ? '' : 'reportOnly')
+    ..m<$core.String, $core.String>(3, _omitFieldNames ? '' : 'args',
+        entryClassName: 'RunPluginRequest.ArgsEntry',
+        keyFieldType: $pb.PbFieldType.OS,
+        valueFieldType: $pb.PbFieldType.OS,
+        packageName: const $pb.PackageName('itcmdr'))
+    ..aOS(4, _omitFieldNames ? '' : 'machine')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RunPluginRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RunPluginRequest copyWith(void Function(RunPluginRequest) updates) =>
+      super.copyWith((message) => updates(message as RunPluginRequest))
+          as RunPluginRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use RunPluginRequest() / RunPluginRequest.new instead')
+  static RunPluginRequest create() => RunPluginRequest._();
+  static $pb.GeneratedMessage $_createMessage() => RunPluginRequest._();
+  @$core.override
+  RunPluginRequest createEmptyInstance() => RunPluginRequest._();
+  @$core.pragma('dart2js:noInline')
+  static RunPluginRequest getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<RunPluginRequest>(
+          RunPluginRequest.$_createMessage);
+  static RunPluginRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get plugin => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set plugin($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasPlugin() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearPlugin() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.bool get reportOnly => $_getBF(1);
+  @$pb.TagNumber(2)
+  set reportOnly($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasReportOnly() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearReportOnly() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $pb.PbMap<$core.String, $core.String> get args => $_getMap(2);
+
+  @$pb.TagNumber(4)
+  $core.String get machine => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set machine($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasMachine() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearMachine() => $_clearField(4);
+}
+
+class PluginStage extends $pb.GeneratedMessage {
+  factory PluginStage({
+    $core.String? stage,
+    $core.bool? ok,
+    $core.String? message,
+  }) {
+    final result = PluginStage._();
+    if (stage != null) result.stage = stage;
+    if (ok != null) result.ok = ok;
+    if (message != null) result.message = message;
+    return result;
+  }
+
+  PluginStage._();
+
+  factory PluginStage.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      PluginStage()..mergeFromBuffer(data, registry);
+  factory PluginStage.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      PluginStage()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PluginStage',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: PluginStage.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'stage')
+    ..aOB(2, _omitFieldNames ? '' : 'ok')
+    ..aOS(3, _omitFieldNames ? '' : 'message')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PluginStage clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PluginStage copyWith(void Function(PluginStage) updates) =>
+      super.copyWith((message) => updates(message as PluginStage))
+          as PluginStage;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use PluginStage() / PluginStage.new instead')
+  static PluginStage create() => PluginStage._();
+  static $pb.GeneratedMessage $_createMessage() => PluginStage._();
+  @$core.override
+  PluginStage createEmptyInstance() => PluginStage._();
+  @$core.pragma('dart2js:noInline')
+  static PluginStage getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<PluginStage>(
+          PluginStage.$_createMessage);
+  static PluginStage? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get stage => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set stage($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasStage() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearStage() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.bool get ok => $_getBF(1);
+  @$pb.TagNumber(2)
+  set ok($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasOk() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearOk() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get message => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set message($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasMessage() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearMessage() => $_clearField(3);
+}
+
+class PluginCheckResult extends $pb.GeneratedMessage {
+  factory PluginCheckResult({
+    $core.String? checkId,
+    $core.String? status,
+    $core.String? message,
+  }) {
+    final result = PluginCheckResult._();
+    if (checkId != null) result.checkId = checkId;
+    if (status != null) result.status = status;
+    if (message != null) result.message = message;
+    return result;
+  }
+
+  PluginCheckResult._();
+
+  factory PluginCheckResult.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      PluginCheckResult()..mergeFromBuffer(data, registry);
+  factory PluginCheckResult.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      PluginCheckResult()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PluginCheckResult',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: PluginCheckResult.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'checkId')
+    ..aOS(2, _omitFieldNames ? '' : 'status')
+    ..aOS(3, _omitFieldNames ? '' : 'message')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PluginCheckResult clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PluginCheckResult copyWith(void Function(PluginCheckResult) updates) =>
+      super.copyWith((message) => updates(message as PluginCheckResult))
+          as PluginCheckResult;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use PluginCheckResult() / PluginCheckResult.new instead')
+  static PluginCheckResult create() => PluginCheckResult._();
+  static $pb.GeneratedMessage $_createMessage() => PluginCheckResult._();
+  @$core.override
+  PluginCheckResult createEmptyInstance() => PluginCheckResult._();
+  @$core.pragma('dart2js:noInline')
+  static PluginCheckResult getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<PluginCheckResult>(
+          PluginCheckResult.$_createMessage);
+  static PluginCheckResult? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get checkId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set checkId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasCheckId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearCheckId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get status => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set status($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasStatus() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearStatus() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get message => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set message($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasMessage() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearMessage() => $_clearField(3);
+}
+
+class RunPluginResponse extends $pb.GeneratedMessage {
+  factory RunPluginResponse({
+    $core.String? runId,
+    $core.String? status,
+    $core.String? message,
+    $core.Iterable<PluginStage>? stages,
+    $core.Iterable<PluginCheckResult>? results,
+  }) {
+    final result = RunPluginResponse._();
+    if (runId != null) result.runId = runId;
+    if (status != null) result.status = status;
+    if (message != null) result.message = message;
+    if (stages != null) result.stages.addAll(stages);
+    if (results != null) result.results.addAll(results);
+    return result;
+  }
+
+  RunPluginResponse._();
+
+  factory RunPluginResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RunPluginResponse()..mergeFromBuffer(data, registry);
+  factory RunPluginResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RunPluginResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'RunPluginResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: RunPluginResponse.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'runId')
+    ..aOS(2, _omitFieldNames ? '' : 'status')
+    ..aOS(3, _omitFieldNames ? '' : 'message')
+    ..pPM<PluginStage>(4, _omitFieldNames ? '' : 'stages',
+        subBuilder: PluginStage.$_createMessage)
+    ..pPM<PluginCheckResult>(5, _omitFieldNames ? '' : 'results',
+        subBuilder: PluginCheckResult.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RunPluginResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RunPluginResponse copyWith(void Function(RunPluginResponse) updates) =>
+      super.copyWith((message) => updates(message as RunPluginResponse))
+          as RunPluginResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use RunPluginResponse() / RunPluginResponse.new instead')
+  static RunPluginResponse create() => RunPluginResponse._();
+  static $pb.GeneratedMessage $_createMessage() => RunPluginResponse._();
+  @$core.override
+  RunPluginResponse createEmptyInstance() => RunPluginResponse._();
+  @$core.pragma('dart2js:noInline')
+  static RunPluginResponse getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<RunPluginResponse>(
+          RunPluginResponse.$_createMessage);
+  static RunPluginResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get runId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set runId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRunId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRunId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get status => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set status($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasStatus() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearStatus() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get message => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set message($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasMessage() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearMessage() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $pb.PbList<PluginStage> get stages => $_getList(3);
+
+  @$pb.TagNumber(5)
+  $pb.PbList<PluginCheckResult> get results => $_getList(4);
+}
+
+class ListPluginRunsRequest extends $pb.GeneratedMessage {
+  factory ListPluginRunsRequest({
+    $core.String? plugin,
+    $core.int? limit,
+  }) {
+    final result = ListPluginRunsRequest._();
+    if (plugin != null) result.plugin = plugin;
+    if (limit != null) result.limit = limit;
+    return result;
+  }
+
+  ListPluginRunsRequest._();
+
+  factory ListPluginRunsRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListPluginRunsRequest()..mergeFromBuffer(data, registry);
+  factory ListPluginRunsRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListPluginRunsRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ListPluginRunsRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: ListPluginRunsRequest.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'plugin')
+    ..aI(2, _omitFieldNames ? '' : 'limit')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListPluginRunsRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListPluginRunsRequest copyWith(
+          void Function(ListPluginRunsRequest) updates) =>
+      super.copyWith((message) => updates(message as ListPluginRunsRequest))
+          as ListPluginRunsRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use ListPluginRunsRequest() / ListPluginRunsRequest.new instead')
+  static ListPluginRunsRequest create() => ListPluginRunsRequest._();
+  static $pb.GeneratedMessage $_createMessage() => ListPluginRunsRequest._();
+  @$core.override
+  ListPluginRunsRequest createEmptyInstance() => ListPluginRunsRequest._();
+  @$core.pragma('dart2js:noInline')
+  static ListPluginRunsRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ListPluginRunsRequest>(
+          ListPluginRunsRequest.$_createMessage);
+  static ListPluginRunsRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get plugin => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set plugin($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasPlugin() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearPlugin() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get limit => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set limit($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasLimit() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearLimit() => $_clearField(2);
+}
+
+class PluginRun extends $pb.GeneratedMessage {
+  factory PluginRun({
+    $core.String? id,
+    $core.String? plugin,
+    $core.String? version,
+    $core.String? machine,
+    $fixnum.Int64? started,
+    $fixnum.Int64? finished,
+    $core.String? status,
+    $core.String? message,
+    $core.String? requestId,
+  }) {
+    final result = PluginRun._();
+    if (id != null) result.id = id;
+    if (plugin != null) result.plugin = plugin;
+    if (version != null) result.version = version;
+    if (machine != null) result.machine = machine;
+    if (started != null) result.started = started;
+    if (finished != null) result.finished = finished;
+    if (status != null) result.status = status;
+    if (message != null) result.message = message;
+    if (requestId != null) result.requestId = requestId;
+    return result;
+  }
+
+  PluginRun._();
+
+  factory PluginRun.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      PluginRun()..mergeFromBuffer(data, registry);
+  factory PluginRun.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      PluginRun()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PluginRun',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: PluginRun.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'plugin')
+    ..aOS(3, _omitFieldNames ? '' : 'version')
+    ..aOS(4, _omitFieldNames ? '' : 'machine')
+    ..aInt64(5, _omitFieldNames ? '' : 'started')
+    ..aInt64(6, _omitFieldNames ? '' : 'finished')
+    ..aOS(7, _omitFieldNames ? '' : 'status')
+    ..aOS(8, _omitFieldNames ? '' : 'message')
+    ..aOS(9, _omitFieldNames ? '' : 'requestId')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PluginRun clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PluginRun copyWith(void Function(PluginRun) updates) =>
+      super.copyWith((message) => updates(message as PluginRun)) as PluginRun;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use PluginRun() / PluginRun.new instead')
+  static PluginRun create() => PluginRun._();
+  static $pb.GeneratedMessage $_createMessage() => PluginRun._();
+  @$core.override
+  PluginRun createEmptyInstance() => PluginRun._();
+  @$core.pragma('dart2js:noInline')
+  static PluginRun getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PluginRun>(PluginRun.$_createMessage);
+  static PluginRun? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get plugin => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set plugin($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasPlugin() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearPlugin() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get version => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set version($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasVersion() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearVersion() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get machine => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set machine($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasMachine() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearMachine() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $fixnum.Int64 get started => $_getI64(4);
+  @$pb.TagNumber(5)
+  set started($fixnum.Int64 value) => $_setInt64(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasStarted() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearStarted() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $fixnum.Int64 get finished => $_getI64(5);
+  @$pb.TagNumber(6)
+  set finished($fixnum.Int64 value) => $_setInt64(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasFinished() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearFinished() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.String get status => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set status($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasStatus() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearStatus() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.String get message => $_getSZ(7);
+  @$pb.TagNumber(8)
+  set message($core.String value) => $_setString(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasMessage() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearMessage() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.String get requestId => $_getSZ(8);
+  @$pb.TagNumber(9)
+  set requestId($core.String value) => $_setString(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasRequestId() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearRequestId() => $_clearField(9);
+}
+
+class ListPluginRunsResponse extends $pb.GeneratedMessage {
+  factory ListPluginRunsResponse({
+    $core.Iterable<PluginRun>? runs,
+  }) {
+    final result = ListPluginRunsResponse._();
+    if (runs != null) result.runs.addAll(runs);
+    return result;
+  }
+
+  ListPluginRunsResponse._();
+
+  factory ListPluginRunsResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListPluginRunsResponse()..mergeFromBuffer(data, registry);
+  factory ListPluginRunsResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListPluginRunsResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ListPluginRunsResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: ListPluginRunsResponse.$_createMessage)
+    ..pPM<PluginRun>(1, _omitFieldNames ? '' : 'runs',
+        subBuilder: PluginRun.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListPluginRunsResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListPluginRunsResponse copyWith(
+          void Function(ListPluginRunsResponse) updates) =>
+      super.copyWith((message) => updates(message as ListPluginRunsResponse))
+          as ListPluginRunsResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use ListPluginRunsResponse() / ListPluginRunsResponse.new instead')
+  static ListPluginRunsResponse create() => ListPluginRunsResponse._();
+  static $pb.GeneratedMessage $_createMessage() => ListPluginRunsResponse._();
+  @$core.override
+  ListPluginRunsResponse createEmptyInstance() => ListPluginRunsResponse._();
+  @$core.pragma('dart2js:noInline')
+  static ListPluginRunsResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ListPluginRunsResponse>(
+          ListPluginRunsResponse.$_createMessage);
+  static ListPluginRunsResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<PluginRun> get runs => $_getList(0);
+}
+
+class GetPluginMetricsRequest extends $pb.GeneratedMessage {
+  factory GetPluginMetricsRequest({
+    $core.String? name,
+    $core.Iterable<$core.MapEntry<$core.String, $core.String>>? labels,
+    $core.int? windowDays,
+    $core.bool? daily,
+  }) {
+    final result = GetPluginMetricsRequest._();
+    if (name != null) result.name = name;
+    if (labels != null) result.labels.addEntries(labels);
+    if (windowDays != null) result.windowDays = windowDays;
+    if (daily != null) result.daily = daily;
+    return result;
+  }
+
+  GetPluginMetricsRequest._();
+
+  factory GetPluginMetricsRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetPluginMetricsRequest()..mergeFromBuffer(data, registry);
+  factory GetPluginMetricsRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetPluginMetricsRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetPluginMetricsRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: GetPluginMetricsRequest.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..m<$core.String, $core.String>(2, _omitFieldNames ? '' : 'labels',
+        entryClassName: 'GetPluginMetricsRequest.LabelsEntry',
+        keyFieldType: $pb.PbFieldType.OS,
+        valueFieldType: $pb.PbFieldType.OS,
+        packageName: const $pb.PackageName('itcmdr'))
+    ..aI(3, _omitFieldNames ? '' : 'windowDays')
+    ..aOB(4, _omitFieldNames ? '' : 'daily')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetPluginMetricsRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetPluginMetricsRequest copyWith(
+          void Function(GetPluginMetricsRequest) updates) =>
+      super.copyWith((message) => updates(message as GetPluginMetricsRequest))
+          as GetPluginMetricsRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use GetPluginMetricsRequest() / GetPluginMetricsRequest.new instead')
+  static GetPluginMetricsRequest create() => GetPluginMetricsRequest._();
+  static $pb.GeneratedMessage $_createMessage() => GetPluginMetricsRequest._();
+  @$core.override
+  GetPluginMetricsRequest createEmptyInstance() => GetPluginMetricsRequest._();
+  @$core.pragma('dart2js:noInline')
+  static GetPluginMetricsRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetPluginMetricsRequest>(
+          GetPluginMetricsRequest.$_createMessage);
+  static GetPluginMetricsRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get name => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set name($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearName() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $pb.PbMap<$core.String, $core.String> get labels => $_getMap(1);
+
+  @$pb.TagNumber(3)
+  $core.int get windowDays => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set windowDays($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasWindowDays() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearWindowDays() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.bool get daily => $_getBF(3);
+  @$pb.TagNumber(4)
+  set daily($core.bool value) => $_setBool(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasDaily() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearDaily() => $_clearField(4);
+}
+
+class PluginMetricPoint extends $pb.GeneratedMessage {
+  factory PluginMetricPoint({
+    $core.String? name,
+    $core.String? labels,
+    $fixnum.Int64? ts,
+    $core.double? value,
+  }) {
+    final result = PluginMetricPoint._();
+    if (name != null) result.name = name;
+    if (labels != null) result.labels = labels;
+    if (ts != null) result.ts = ts;
+    if (value != null) result.value = value;
+    return result;
+  }
+
+  PluginMetricPoint._();
+
+  factory PluginMetricPoint.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      PluginMetricPoint()..mergeFromBuffer(data, registry);
+  factory PluginMetricPoint.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      PluginMetricPoint()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PluginMetricPoint',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: PluginMetricPoint.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..aOS(2, _omitFieldNames ? '' : 'labels')
+    ..aInt64(3, _omitFieldNames ? '' : 'ts')
+    ..aD(4, _omitFieldNames ? '' : 'value')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PluginMetricPoint clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PluginMetricPoint copyWith(void Function(PluginMetricPoint) updates) =>
+      super.copyWith((message) => updates(message as PluginMetricPoint))
+          as PluginMetricPoint;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use PluginMetricPoint() / PluginMetricPoint.new instead')
+  static PluginMetricPoint create() => PluginMetricPoint._();
+  static $pb.GeneratedMessage $_createMessage() => PluginMetricPoint._();
+  @$core.override
+  PluginMetricPoint createEmptyInstance() => PluginMetricPoint._();
+  @$core.pragma('dart2js:noInline')
+  static PluginMetricPoint getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<PluginMetricPoint>(
+          PluginMetricPoint.$_createMessage);
+  static PluginMetricPoint? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get name => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set name($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearName() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get labels => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set labels($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasLabels() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearLabels() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get ts => $_getI64(2);
+  @$pb.TagNumber(3)
+  set ts($fixnum.Int64 value) => $_setInt64(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasTs() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearTs() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.double get value => $_getN(3);
+  @$pb.TagNumber(4)
+  set value($core.double value) => $_setDouble(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasValue() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearValue() => $_clearField(4);
+}
+
+class LogRejects extends $pb.GeneratedMessage {
+  factory LogRejects({
+    $core.String? file,
+    $fixnum.Int64? count,
+  }) {
+    final result = LogRejects._();
+    if (file != null) result.file = file;
+    if (count != null) result.count = count;
+    return result;
+  }
+
+  LogRejects._();
+
+  factory LogRejects.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      LogRejects()..mergeFromBuffer(data, registry);
+  factory LogRejects.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      LogRejects()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'LogRejects',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: LogRejects.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'file')
+    ..aInt64(2, _omitFieldNames ? '' : 'count')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  LogRejects clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  LogRejects copyWith(void Function(LogRejects) updates) =>
+      super.copyWith((message) => updates(message as LogRejects)) as LogRejects;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use LogRejects() / LogRejects.new instead')
+  static LogRejects create() => LogRejects._();
+  static $pb.GeneratedMessage $_createMessage() => LogRejects._();
+  @$core.override
+  LogRejects createEmptyInstance() => LogRejects._();
+  @$core.pragma('dart2js:noInline')
+  static LogRejects getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<LogRejects>(LogRejects.$_createMessage);
+  static LogRejects? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get file => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set file($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasFile() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearFile() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get count => $_getI64(1);
+  @$pb.TagNumber(2)
+  set count($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasCount() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearCount() => $_clearField(2);
+}
+
+class GetPluginMetricsResponse extends $pb.GeneratedMessage {
+  factory GetPluginMetricsResponse({
+    $core.Iterable<PluginMetricPoint>? points,
+    $core.Iterable<LogRejects>? rejects,
+  }) {
+    final result = GetPluginMetricsResponse._();
+    if (points != null) result.points.addAll(points);
+    if (rejects != null) result.rejects.addAll(rejects);
+    return result;
+  }
+
+  GetPluginMetricsResponse._();
+
+  factory GetPluginMetricsResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetPluginMetricsResponse()..mergeFromBuffer(data, registry);
+  factory GetPluginMetricsResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetPluginMetricsResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetPluginMetricsResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: GetPluginMetricsResponse.$_createMessage)
+    ..pPM<PluginMetricPoint>(1, _omitFieldNames ? '' : 'points',
+        subBuilder: PluginMetricPoint.$_createMessage)
+    ..pPM<LogRejects>(2, _omitFieldNames ? '' : 'rejects',
+        subBuilder: LogRejects.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetPluginMetricsResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetPluginMetricsResponse copyWith(
+          void Function(GetPluginMetricsResponse) updates) =>
+      super.copyWith((message) => updates(message as GetPluginMetricsResponse))
+          as GetPluginMetricsResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use GetPluginMetricsResponse() / GetPluginMetricsResponse.new instead')
+  static GetPluginMetricsResponse create() => GetPluginMetricsResponse._();
+  static $pb.GeneratedMessage $_createMessage() => GetPluginMetricsResponse._();
+  @$core.override
+  GetPluginMetricsResponse createEmptyInstance() =>
+      GetPluginMetricsResponse._();
+  @$core.pragma('dart2js:noInline')
+  static GetPluginMetricsResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetPluginMetricsResponse>(
+          GetPluginMetricsResponse.$_createMessage);
+  static GetPluginMetricsResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<PluginMetricPoint> get points => $_getList(0);
+
+  @$pb.TagNumber(2)
+  $pb.PbList<LogRejects> get rejects => $_getList(1);
+}
+
+/// ---- v0.10.0: schedules (decision 14). Admin manages; user may run now. All audited.
+class Schedule extends $pb.GeneratedMessage {
+  factory Schedule({
+    $core.String? id,
+    $core.String? name,
+    $core.bool? enabled,
+    $core.bool? allMachines,
+    $core.Iterable<$core.String>? machines,
+    $core.Iterable<$core.String>? groups,
+    $core.Iterable<$core.String>? categories,
+    $core.Iterable<$core.String>? plugins,
+    $core.bool? repair,
+    $core.String? when,
+    $core.String? timezone,
+    $core.String? guard,
+    $core.String? missed,
+    $core.bool? builtin,
+    $core.Iterable<$fixnum.Int64>? nextRuns,
+    $fixnum.Int64? lastFire,
+  }) {
+    final result = Schedule._();
+    if (id != null) result.id = id;
+    if (name != null) result.name = name;
+    if (enabled != null) result.enabled = enabled;
+    if (allMachines != null) result.allMachines = allMachines;
+    if (machines != null) result.machines.addAll(machines);
+    if (groups != null) result.groups.addAll(groups);
+    if (categories != null) result.categories.addAll(categories);
+    if (plugins != null) result.plugins.addAll(plugins);
+    if (repair != null) result.repair = repair;
+    if (when != null) result.when = when;
+    if (timezone != null) result.timezone = timezone;
+    if (guard != null) result.guard = guard;
+    if (missed != null) result.missed = missed;
+    if (builtin != null) result.builtin = builtin;
+    if (nextRuns != null) result.nextRuns.addAll(nextRuns);
+    if (lastFire != null) result.lastFire = lastFire;
+    return result;
+  }
+
+  Schedule._();
+
+  factory Schedule.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      Schedule()..mergeFromBuffer(data, registry);
+  factory Schedule.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      Schedule()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'Schedule',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: Schedule.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'name')
+    ..aOB(3, _omitFieldNames ? '' : 'enabled')
+    ..aOB(4, _omitFieldNames ? '' : 'allMachines')
+    ..pPS(5, _omitFieldNames ? '' : 'machines')
+    ..pPS(6, _omitFieldNames ? '' : 'groups')
+    ..pPS(7, _omitFieldNames ? '' : 'categories')
+    ..pPS(8, _omitFieldNames ? '' : 'plugins')
+    ..aOB(9, _omitFieldNames ? '' : 'repair')
+    ..aOS(10, _omitFieldNames ? '' : 'when')
+    ..aOS(11, _omitFieldNames ? '' : 'timezone')
+    ..aOS(12, _omitFieldNames ? '' : 'guard')
+    ..aOS(13, _omitFieldNames ? '' : 'missed')
+    ..aOB(14, _omitFieldNames ? '' : 'builtin')
+    ..p<$fixnum.Int64>(
+        15, _omitFieldNames ? '' : 'nextRuns', $pb.PbFieldType.K6)
+    ..aInt64(16, _omitFieldNames ? '' : 'lastFire')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  Schedule clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  Schedule copyWith(void Function(Schedule) updates) =>
+      super.copyWith((message) => updates(message as Schedule)) as Schedule;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use Schedule() / Schedule.new instead')
+  static Schedule create() => Schedule._();
+  static $pb.GeneratedMessage $_createMessage() => Schedule._();
+  @$core.override
+  Schedule createEmptyInstance() => Schedule._();
+  @$core.pragma('dart2js:noInline')
+  static Schedule getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<Schedule>(Schedule.$_createMessage);
+  static Schedule? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get name => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set name($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearName() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.bool get enabled => $_getBF(2);
+  @$pb.TagNumber(3)
+  set enabled($core.bool value) => $_setBool(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasEnabled() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearEnabled() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.bool get allMachines => $_getBF(3);
+  @$pb.TagNumber(4)
+  set allMachines($core.bool value) => $_setBool(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasAllMachines() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearAllMachines() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $pb.PbList<$core.String> get machines => $_getList(4);
+
+  @$pb.TagNumber(6)
+  $pb.PbList<$core.String> get groups => $_getList(5);
+
+  @$pb.TagNumber(7)
+  $pb.PbList<$core.String> get categories => $_getList(6);
+
+  @$pb.TagNumber(8)
+  $pb.PbList<$core.String> get plugins => $_getList(7);
+
+  @$pb.TagNumber(9)
+  $core.bool get repair => $_getBF(8);
+  @$pb.TagNumber(9)
+  set repair($core.bool value) => $_setBool(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasRepair() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearRepair() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $core.String get when => $_getSZ(9);
+  @$pb.TagNumber(10)
+  set when($core.String value) => $_setString(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasWhen() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearWhen() => $_clearField(10);
+
+  @$pb.TagNumber(11)
+  $core.String get timezone => $_getSZ(10);
+  @$pb.TagNumber(11)
+  set timezone($core.String value) => $_setString(10, value);
+  @$pb.TagNumber(11)
+  $core.bool hasTimezone() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearTimezone() => $_clearField(11);
+
+  @$pb.TagNumber(12)
+  $core.String get guard => $_getSZ(11);
+  @$pb.TagNumber(12)
+  set guard($core.String value) => $_setString(11, value);
+  @$pb.TagNumber(12)
+  $core.bool hasGuard() => $_has(11);
+  @$pb.TagNumber(12)
+  void clearGuard() => $_clearField(12);
+
+  @$pb.TagNumber(13)
+  $core.String get missed => $_getSZ(12);
+  @$pb.TagNumber(13)
+  set missed($core.String value) => $_setString(12, value);
+  @$pb.TagNumber(13)
+  $core.bool hasMissed() => $_has(12);
+  @$pb.TagNumber(13)
+  void clearMissed() => $_clearField(13);
+
+  @$pb.TagNumber(14)
+  $core.bool get builtin => $_getBF(13);
+  @$pb.TagNumber(14)
+  set builtin($core.bool value) => $_setBool(13, value);
+  @$pb.TagNumber(14)
+  $core.bool hasBuiltin() => $_has(13);
+  @$pb.TagNumber(14)
+  void clearBuiltin() => $_clearField(14);
+
+  @$pb.TagNumber(15)
+  $pb.PbList<$fixnum.Int64> get nextRuns => $_getList(14);
+
+  @$pb.TagNumber(16)
+  $fixnum.Int64 get lastFire => $_getI64(15);
+  @$pb.TagNumber(16)
+  set lastFire($fixnum.Int64 value) => $_setInt64(15, value);
+  @$pb.TagNumber(16)
+  $core.bool hasLastFire() => $_has(15);
+  @$pb.TagNumber(16)
+  void clearLastFire() => $_clearField(16);
+}
+
+class SaveScheduleRequest extends $pb.GeneratedMessage {
+  factory SaveScheduleRequest({
+    Schedule? schedule,
+  }) {
+    final result = SaveScheduleRequest._();
+    if (schedule != null) result.schedule = schedule;
+    return result;
+  }
+
+  SaveScheduleRequest._();
+
+  factory SaveScheduleRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SaveScheduleRequest()..mergeFromBuffer(data, registry);
+  factory SaveScheduleRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SaveScheduleRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SaveScheduleRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: SaveScheduleRequest.$_createMessage)
+    ..aOM<Schedule>(1, _omitFieldNames ? '' : 'schedule',
+        subBuilder: Schedule.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SaveScheduleRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SaveScheduleRequest copyWith(void Function(SaveScheduleRequest) updates) =>
+      super.copyWith((message) => updates(message as SaveScheduleRequest))
+          as SaveScheduleRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core
+      .Deprecated('Use SaveScheduleRequest() / SaveScheduleRequest.new instead')
+  static SaveScheduleRequest create() => SaveScheduleRequest._();
+  static $pb.GeneratedMessage $_createMessage() => SaveScheduleRequest._();
+  @$core.override
+  SaveScheduleRequest createEmptyInstance() => SaveScheduleRequest._();
+  @$core.pragma('dart2js:noInline')
+  static SaveScheduleRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SaveScheduleRequest>(
+          SaveScheduleRequest.$_createMessage);
+  static SaveScheduleRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  Schedule get schedule => $_getN(0);
+  @$pb.TagNumber(1)
+  set schedule(Schedule value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchedule() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchedule() => $_clearField(1);
+  @$pb.TagNumber(1)
+  Schedule ensureSchedule() => $_ensure(0);
+}
+
+class ScheduleResponse extends $pb.GeneratedMessage {
+  factory ScheduleResponse({
+    Schedule? schedule,
+  }) {
+    final result = ScheduleResponse._();
+    if (schedule != null) result.schedule = schedule;
+    return result;
+  }
+
+  ScheduleResponse._();
+
+  factory ScheduleResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ScheduleResponse()..mergeFromBuffer(data, registry);
+  factory ScheduleResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ScheduleResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ScheduleResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: ScheduleResponse.$_createMessage)
+    ..aOM<Schedule>(1, _omitFieldNames ? '' : 'schedule',
+        subBuilder: Schedule.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ScheduleResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ScheduleResponse copyWith(void Function(ScheduleResponse) updates) =>
+      super.copyWith((message) => updates(message as ScheduleResponse))
+          as ScheduleResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ScheduleResponse() / ScheduleResponse.new instead')
+  static ScheduleResponse create() => ScheduleResponse._();
+  static $pb.GeneratedMessage $_createMessage() => ScheduleResponse._();
+  @$core.override
+  ScheduleResponse createEmptyInstance() => ScheduleResponse._();
+  @$core.pragma('dart2js:noInline')
+  static ScheduleResponse getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ScheduleResponse>(
+          ScheduleResponse.$_createMessage);
+  static ScheduleResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  Schedule get schedule => $_getN(0);
+  @$pb.TagNumber(1)
+  set schedule(Schedule value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSchedule() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSchedule() => $_clearField(1);
+  @$pb.TagNumber(1)
+  Schedule ensureSchedule() => $_ensure(0);
+}
+
+class ScheduleRef extends $pb.GeneratedMessage {
+  factory ScheduleRef({
+    $core.String? id,
+    $core.bool? force,
+  }) {
+    final result = ScheduleRef._();
+    if (id != null) result.id = id;
+    if (force != null) result.force = force;
+    return result;
+  }
+
+  ScheduleRef._();
+
+  factory ScheduleRef.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ScheduleRef()..mergeFromBuffer(data, registry);
+  factory ScheduleRef.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ScheduleRef()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ScheduleRef',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: ScheduleRef.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aOB(2, _omitFieldNames ? '' : 'force')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ScheduleRef clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ScheduleRef copyWith(void Function(ScheduleRef) updates) =>
+      super.copyWith((message) => updates(message as ScheduleRef))
+          as ScheduleRef;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ScheduleRef() / ScheduleRef.new instead')
+  static ScheduleRef create() => ScheduleRef._();
+  static $pb.GeneratedMessage $_createMessage() => ScheduleRef._();
+  @$core.override
+  ScheduleRef createEmptyInstance() => ScheduleRef._();
+  @$core.pragma('dart2js:noInline')
+  static ScheduleRef getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ScheduleRef>(
+          ScheduleRef.$_createMessage);
+  static ScheduleRef? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.bool get force => $_getBF(1);
+  @$pb.TagNumber(2)
+  set force($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasForce() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearForce() => $_clearField(2);
+}
+
+class ListSchedulesRequest extends $pb.GeneratedMessage {
+  factory ListSchedulesRequest() => ListSchedulesRequest._();
+
+  ListSchedulesRequest._();
+
+  factory ListSchedulesRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListSchedulesRequest()..mergeFromBuffer(data, registry);
+  factory ListSchedulesRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListSchedulesRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ListSchedulesRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: ListSchedulesRequest.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListSchedulesRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListSchedulesRequest copyWith(void Function(ListSchedulesRequest) updates) =>
+      super.copyWith((message) => updates(message as ListSchedulesRequest))
+          as ListSchedulesRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use ListSchedulesRequest() / ListSchedulesRequest.new instead')
+  static ListSchedulesRequest create() => ListSchedulesRequest._();
+  static $pb.GeneratedMessage $_createMessage() => ListSchedulesRequest._();
+  @$core.override
+  ListSchedulesRequest createEmptyInstance() => ListSchedulesRequest._();
+  @$core.pragma('dart2js:noInline')
+  static ListSchedulesRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ListSchedulesRequest>(
+          ListSchedulesRequest.$_createMessage);
+  static ListSchedulesRequest? _defaultInstance;
+}
+
+class ListSchedulesResponse extends $pb.GeneratedMessage {
+  factory ListSchedulesResponse({
+    $core.Iterable<Schedule>? schedules,
+  }) {
+    final result = ListSchedulesResponse._();
+    if (schedules != null) result.schedules.addAll(schedules);
+    return result;
+  }
+
+  ListSchedulesResponse._();
+
+  factory ListSchedulesResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListSchedulesResponse()..mergeFromBuffer(data, registry);
+  factory ListSchedulesResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListSchedulesResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ListSchedulesResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: ListSchedulesResponse.$_createMessage)
+    ..pPM<Schedule>(1, _omitFieldNames ? '' : 'schedules',
+        subBuilder: Schedule.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListSchedulesResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListSchedulesResponse copyWith(
+          void Function(ListSchedulesResponse) updates) =>
+      super.copyWith((message) => updates(message as ListSchedulesResponse))
+          as ListSchedulesResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use ListSchedulesResponse() / ListSchedulesResponse.new instead')
+  static ListSchedulesResponse create() => ListSchedulesResponse._();
+  static $pb.GeneratedMessage $_createMessage() => ListSchedulesResponse._();
+  @$core.override
+  ListSchedulesResponse createEmptyInstance() => ListSchedulesResponse._();
+  @$core.pragma('dart2js:noInline')
+  static ListSchedulesResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ListSchedulesResponse>(
+          ListSchedulesResponse.$_createMessage);
+  static ListSchedulesResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<Schedule> get schedules => $_getList(0);
+}
+
+class RunScheduleNowResponse extends $pb.GeneratedMessage {
+  factory RunScheduleNowResponse({
+    $core.String? outcome,
+    $core.String? requestId,
+    $core.String? note,
+  }) {
+    final result = RunScheduleNowResponse._();
+    if (outcome != null) result.outcome = outcome;
+    if (requestId != null) result.requestId = requestId;
+    if (note != null) result.note = note;
+    return result;
+  }
+
+  RunScheduleNowResponse._();
+
+  factory RunScheduleNowResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RunScheduleNowResponse()..mergeFromBuffer(data, registry);
+  factory RunScheduleNowResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RunScheduleNowResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'RunScheduleNowResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: RunScheduleNowResponse.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'outcome')
+    ..aOS(2, _omitFieldNames ? '' : 'requestId')
+    ..aOS(3, _omitFieldNames ? '' : 'note')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RunScheduleNowResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RunScheduleNowResponse copyWith(
+          void Function(RunScheduleNowResponse) updates) =>
+      super.copyWith((message) => updates(message as RunScheduleNowResponse))
+          as RunScheduleNowResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use RunScheduleNowResponse() / RunScheduleNowResponse.new instead')
+  static RunScheduleNowResponse create() => RunScheduleNowResponse._();
+  static $pb.GeneratedMessage $_createMessage() => RunScheduleNowResponse._();
+  @$core.override
+  RunScheduleNowResponse createEmptyInstance() => RunScheduleNowResponse._();
+  @$core.pragma('dart2js:noInline')
+  static RunScheduleNowResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<RunScheduleNowResponse>(
+          RunScheduleNowResponse.$_createMessage);
+  static RunScheduleNowResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get outcome => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set outcome($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasOutcome() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearOutcome() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get requestId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set requestId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasRequestId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearRequestId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get note => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set note($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasNote() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearNote() => $_clearField(3);
+}
+
+class ListScheduleRunsRequest extends $pb.GeneratedMessage {
+  factory ListScheduleRunsRequest({
+    $core.String? id,
+    $core.int? limit,
+  }) {
+    final result = ListScheduleRunsRequest._();
+    if (id != null) result.id = id;
+    if (limit != null) result.limit = limit;
+    return result;
+  }
+
+  ListScheduleRunsRequest._();
+
+  factory ListScheduleRunsRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListScheduleRunsRequest()..mergeFromBuffer(data, registry);
+  factory ListScheduleRunsRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListScheduleRunsRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ListScheduleRunsRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: ListScheduleRunsRequest.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aI(2, _omitFieldNames ? '' : 'limit')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListScheduleRunsRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListScheduleRunsRequest copyWith(
+          void Function(ListScheduleRunsRequest) updates) =>
+      super.copyWith((message) => updates(message as ListScheduleRunsRequest))
+          as ListScheduleRunsRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use ListScheduleRunsRequest() / ListScheduleRunsRequest.new instead')
+  static ListScheduleRunsRequest create() => ListScheduleRunsRequest._();
+  static $pb.GeneratedMessage $_createMessage() => ListScheduleRunsRequest._();
+  @$core.override
+  ListScheduleRunsRequest createEmptyInstance() => ListScheduleRunsRequest._();
+  @$core.pragma('dart2js:noInline')
+  static ListScheduleRunsRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ListScheduleRunsRequest>(
+          ListScheduleRunsRequest.$_createMessage);
+  static ListScheduleRunsRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get limit => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set limit($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasLimit() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearLimit() => $_clearField(2);
+}
+
+class ScheduleRun extends $pb.GeneratedMessage {
+  factory ScheduleRun({
+    $core.String? scheduleId,
+    $fixnum.Int64? ts,
+    $fixnum.Int64? due,
+    $core.String? requestId,
+    $core.String? outcome,
+    $core.String? note,
+  }) {
+    final result = ScheduleRun._();
+    if (scheduleId != null) result.scheduleId = scheduleId;
+    if (ts != null) result.ts = ts;
+    if (due != null) result.due = due;
+    if (requestId != null) result.requestId = requestId;
+    if (outcome != null) result.outcome = outcome;
+    if (note != null) result.note = note;
+    return result;
+  }
+
+  ScheduleRun._();
+
+  factory ScheduleRun.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ScheduleRun()..mergeFromBuffer(data, registry);
+  factory ScheduleRun.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ScheduleRun()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ScheduleRun',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: ScheduleRun.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'scheduleId')
+    ..aInt64(2, _omitFieldNames ? '' : 'ts')
+    ..aInt64(3, _omitFieldNames ? '' : 'due')
+    ..aOS(4, _omitFieldNames ? '' : 'requestId')
+    ..aOS(5, _omitFieldNames ? '' : 'outcome')
+    ..aOS(6, _omitFieldNames ? '' : 'note')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ScheduleRun clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ScheduleRun copyWith(void Function(ScheduleRun) updates) =>
+      super.copyWith((message) => updates(message as ScheduleRun))
+          as ScheduleRun;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ScheduleRun() / ScheduleRun.new instead')
+  static ScheduleRun create() => ScheduleRun._();
+  static $pb.GeneratedMessage $_createMessage() => ScheduleRun._();
+  @$core.override
+  ScheduleRun createEmptyInstance() => ScheduleRun._();
+  @$core.pragma('dart2js:noInline')
+  static ScheduleRun getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ScheduleRun>(
+          ScheduleRun.$_createMessage);
+  static ScheduleRun? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get scheduleId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set scheduleId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasScheduleId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearScheduleId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get ts => $_getI64(1);
+  @$pb.TagNumber(2)
+  set ts($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasTs() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearTs() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get due => $_getI64(2);
+  @$pb.TagNumber(3)
+  set due($fixnum.Int64 value) => $_setInt64(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasDue() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearDue() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get requestId => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set requestId($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasRequestId() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearRequestId() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get outcome => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set outcome($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasOutcome() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearOutcome() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get note => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set note($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasNote() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearNote() => $_clearField(6);
+}
+
+class ListScheduleRunsResponse extends $pb.GeneratedMessage {
+  factory ListScheduleRunsResponse({
+    $core.Iterable<ScheduleRun>? runs,
+  }) {
+    final result = ListScheduleRunsResponse._();
+    if (runs != null) result.runs.addAll(runs);
+    return result;
+  }
+
+  ListScheduleRunsResponse._();
+
+  factory ListScheduleRunsResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListScheduleRunsResponse()..mergeFromBuffer(data, registry);
+  factory ListScheduleRunsResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListScheduleRunsResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ListScheduleRunsResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: ListScheduleRunsResponse.$_createMessage)
+    ..pPM<ScheduleRun>(1, _omitFieldNames ? '' : 'runs',
+        subBuilder: ScheduleRun.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListScheduleRunsResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListScheduleRunsResponse copyWith(
+          void Function(ListScheduleRunsResponse) updates) =>
+      super.copyWith((message) => updates(message as ListScheduleRunsResponse))
+          as ListScheduleRunsResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use ListScheduleRunsResponse() / ListScheduleRunsResponse.new instead')
+  static ListScheduleRunsResponse create() => ListScheduleRunsResponse._();
+  static $pb.GeneratedMessage $_createMessage() => ListScheduleRunsResponse._();
+  @$core.override
+  ListScheduleRunsResponse createEmptyInstance() =>
+      ListScheduleRunsResponse._();
+  @$core.pragma('dart2js:noInline')
+  static ListScheduleRunsResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ListScheduleRunsResponse>(
+          ListScheduleRunsResponse.$_createMessage);
+  static ListScheduleRunsResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<ScheduleRun> get runs => $_getList(0);
+}
+
+/// ---- v0.10.0: app-triggered restore (decision 13). Owner only, audited.
+class StageRestoreRequest extends $pb.GeneratedMessage {
+  factory StageRestoreRequest({
+    $core.String? backup,
+    $core.String? words,
+  }) {
+    final result = StageRestoreRequest._();
+    if (backup != null) result.backup = backup;
+    if (words != null) result.words = words;
+    return result;
+  }
+
+  StageRestoreRequest._();
+
+  factory StageRestoreRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      StageRestoreRequest()..mergeFromBuffer(data, registry);
+  factory StageRestoreRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      StageRestoreRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'StageRestoreRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: StageRestoreRequest.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'backup')
+    ..aOS(2, _omitFieldNames ? '' : 'words')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  StageRestoreRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  StageRestoreRequest copyWith(void Function(StageRestoreRequest) updates) =>
+      super.copyWith((message) => updates(message as StageRestoreRequest))
+          as StageRestoreRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core
+      .Deprecated('Use StageRestoreRequest() / StageRestoreRequest.new instead')
+  static StageRestoreRequest create() => StageRestoreRequest._();
+  static $pb.GeneratedMessage $_createMessage() => StageRestoreRequest._();
+  @$core.override
+  StageRestoreRequest createEmptyInstance() => StageRestoreRequest._();
+  @$core.pragma('dart2js:noInline')
+  static StageRestoreRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<StageRestoreRequest>(
+          StageRestoreRequest.$_createMessage);
+  static StageRestoreRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get backup => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set backup($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasBackup() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearBackup() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get words => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set words($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasWords() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearWords() => $_clearField(2);
+}
+
+class RestoreStatus extends $pb.GeneratedMessage {
+  factory RestoreStatus({
+    $core.String? state,
+    $core.String? message,
+    $core.String? backup,
+    $core.String? actor,
+    $fixnum.Int64? started,
+    $fixnum.Int64? updated,
+    $core.String? safetyCopy,
+  }) {
+    final result = RestoreStatus._();
+    if (state != null) result.state = state;
+    if (message != null) result.message = message;
+    if (backup != null) result.backup = backup;
+    if (actor != null) result.actor = actor;
+    if (started != null) result.started = started;
+    if (updated != null) result.updated = updated;
+    if (safetyCopy != null) result.safetyCopy = safetyCopy;
+    return result;
+  }
+
+  RestoreStatus._();
+
+  factory RestoreStatus.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RestoreStatus()..mergeFromBuffer(data, registry);
+  factory RestoreStatus.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RestoreStatus()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'RestoreStatus',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: RestoreStatus.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'state')
+    ..aOS(2, _omitFieldNames ? '' : 'message')
+    ..aOS(3, _omitFieldNames ? '' : 'backup')
+    ..aOS(4, _omitFieldNames ? '' : 'actor')
+    ..aInt64(5, _omitFieldNames ? '' : 'started')
+    ..aInt64(6, _omitFieldNames ? '' : 'updated')
+    ..aOS(7, _omitFieldNames ? '' : 'safetyCopy')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RestoreStatus clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RestoreStatus copyWith(void Function(RestoreStatus) updates) =>
+      super.copyWith((message) => updates(message as RestoreStatus))
+          as RestoreStatus;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use RestoreStatus() / RestoreStatus.new instead')
+  static RestoreStatus create() => RestoreStatus._();
+  static $pb.GeneratedMessage $_createMessage() => RestoreStatus._();
+  @$core.override
+  RestoreStatus createEmptyInstance() => RestoreStatus._();
+  @$core.pragma('dart2js:noInline')
+  static RestoreStatus getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<RestoreStatus>(
+          RestoreStatus.$_createMessage);
+  static RestoreStatus? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get state => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set state($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasState() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearState() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get message => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set message($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasMessage() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearMessage() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get backup => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set backup($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasBackup() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearBackup() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get actor => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set actor($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasActor() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearActor() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $fixnum.Int64 get started => $_getI64(4);
+  @$pb.TagNumber(5)
+  set started($fixnum.Int64 value) => $_setInt64(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasStarted() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearStarted() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $fixnum.Int64 get updated => $_getI64(5);
+  @$pb.TagNumber(6)
+  set updated($fixnum.Int64 value) => $_setInt64(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasUpdated() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearUpdated() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.String get safetyCopy => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set safetyCopy($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasSafetyCopy() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearSafetyCopy() => $_clearField(7);
+}
+
+class StageRestoreResponse extends $pb.GeneratedMessage {
+  factory StageRestoreResponse({
+    RestoreStatus? status,
+  }) {
+    final result = StageRestoreResponse._();
+    if (status != null) result.status = status;
+    return result;
+  }
+
+  StageRestoreResponse._();
+
+  factory StageRestoreResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      StageRestoreResponse()..mergeFromBuffer(data, registry);
+  factory StageRestoreResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      StageRestoreResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'StageRestoreResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: StageRestoreResponse.$_createMessage)
+    ..aOM<RestoreStatus>(1, _omitFieldNames ? '' : 'status',
+        subBuilder: RestoreStatus.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  StageRestoreResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  StageRestoreResponse copyWith(void Function(StageRestoreResponse) updates) =>
+      super.copyWith((message) => updates(message as StageRestoreResponse))
+          as StageRestoreResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use StageRestoreResponse() / StageRestoreResponse.new instead')
+  static StageRestoreResponse create() => StageRestoreResponse._();
+  static $pb.GeneratedMessage $_createMessage() => StageRestoreResponse._();
+  @$core.override
+  StageRestoreResponse createEmptyInstance() => StageRestoreResponse._();
+  @$core.pragma('dart2js:noInline')
+  static StageRestoreResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<StageRestoreResponse>(
+          StageRestoreResponse.$_createMessage);
+  static StageRestoreResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  RestoreStatus get status => $_getN(0);
+  @$pb.TagNumber(1)
+  set status(RestoreStatus value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasStatus() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearStatus() => $_clearField(1);
+  @$pb.TagNumber(1)
+  RestoreStatus ensureStatus() => $_ensure(0);
+}
+
+class GetRestoreStatusRequest extends $pb.GeneratedMessage {
+  factory GetRestoreStatusRequest() => GetRestoreStatusRequest._();
+
+  GetRestoreStatusRequest._();
+
+  factory GetRestoreStatusRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetRestoreStatusRequest()..mergeFromBuffer(data, registry);
+  factory GetRestoreStatusRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetRestoreStatusRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetRestoreStatusRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: GetRestoreStatusRequest.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetRestoreStatusRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetRestoreStatusRequest copyWith(
+          void Function(GetRestoreStatusRequest) updates) =>
+      super.copyWith((message) => updates(message as GetRestoreStatusRequest))
+          as GetRestoreStatusRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use GetRestoreStatusRequest() / GetRestoreStatusRequest.new instead')
+  static GetRestoreStatusRequest create() => GetRestoreStatusRequest._();
+  static $pb.GeneratedMessage $_createMessage() => GetRestoreStatusRequest._();
+  @$core.override
+  GetRestoreStatusRequest createEmptyInstance() => GetRestoreStatusRequest._();
+  @$core.pragma('dart2js:noInline')
+  static GetRestoreStatusRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetRestoreStatusRequest>(
+          GetRestoreStatusRequest.$_createMessage);
+  static GetRestoreStatusRequest? _defaultInstance;
+}
+
+class GetRestoreStatusResponse extends $pb.GeneratedMessage {
+  factory GetRestoreStatusResponse({
+    RestoreStatus? status,
+  }) {
+    final result = GetRestoreStatusResponse._();
+    if (status != null) result.status = status;
+    return result;
+  }
+
+  GetRestoreStatusResponse._();
+
+  factory GetRestoreStatusResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetRestoreStatusResponse()..mergeFromBuffer(data, registry);
+  factory GetRestoreStatusResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetRestoreStatusResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetRestoreStatusResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: GetRestoreStatusResponse.$_createMessage)
+    ..aOM<RestoreStatus>(1, _omitFieldNames ? '' : 'status',
+        subBuilder: RestoreStatus.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetRestoreStatusResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetRestoreStatusResponse copyWith(
+          void Function(GetRestoreStatusResponse) updates) =>
+      super.copyWith((message) => updates(message as GetRestoreStatusResponse))
+          as GetRestoreStatusResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use GetRestoreStatusResponse() / GetRestoreStatusResponse.new instead')
+  static GetRestoreStatusResponse create() => GetRestoreStatusResponse._();
+  static $pb.GeneratedMessage $_createMessage() => GetRestoreStatusResponse._();
+  @$core.override
+  GetRestoreStatusResponse createEmptyInstance() =>
+      GetRestoreStatusResponse._();
+  @$core.pragma('dart2js:noInline')
+  static GetRestoreStatusResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetRestoreStatusResponse>(
+          GetRestoreStatusResponse.$_createMessage);
+  static GetRestoreStatusResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  RestoreStatus get status => $_getN(0);
+  @$pb.TagNumber(1)
+  set status(RestoreStatus value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasStatus() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearStatus() => $_clearField(1);
+  @$pb.TagNumber(1)
+  RestoreStatus ensureStatus() => $_ensure(0);
 }
 
 const $core.bool _omitFieldNames =

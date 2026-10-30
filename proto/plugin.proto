@@ -1,0 +1,50 @@
+// itcmdr service plugin contract (decision 6). The server starts a plugin as a child process with a
+// per-launch secret in ITCMDR_PLUGIN_SECRET; the plugin binds 127.0.0.1:0 and prints one line,
+// `ITCMDR-PLUGIN|1|tcp|127.0.0.1:<port>`, to stdout. Every call carries the secret in the
+// `x-itcmdr-plugin-secret` metadata header.
+syntax = "proto3";
+package itcmdr.plugin;
+
+message DescribeRequest {}
+message DescribeResponse {
+  string name = 1;
+  string version = 2;
+  repeated string features = 3;   // verify, execute, log
+  string description = 4;
+}
+
+// Context of one stage call.
+message RunContext {
+  string run_id = 1;
+  string log_path = 2;            // itcmdr.log/v1 JSONL file for this run (also ITCMDR_LOG_PATH)
+  string machine = 3;
+  bool report_only = 4;
+  map<string, string> args = 5;
+  string stage = 6;               // verify | execute | log
+}
+
+message CheckResult {
+  string check_id = 1;
+  string status = 2;              // ok | fail | repaired | skipped | excepted
+  string message = 3;
+}
+
+message StageResponse {
+  bool ok = 1;
+  string message = 2;
+  repeated CheckResult results = 3;
+}
+
+message LogRequest {
+  RunContext ctx = 1;
+  string failed_stage = 2;
+  string error = 3;
+}
+message LogResponse {}
+
+service PluginService {
+  rpc Describe(DescribeRequest) returns (DescribeResponse);
+  rpc Verify(RunContext) returns (StageResponse);
+  rpc Execute(RunContext) returns (StageResponse);
+  rpc Log(LogRequest) returns (LogResponse);
+}

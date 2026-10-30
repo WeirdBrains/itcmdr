@@ -6,10 +6,22 @@ untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committ
 
 ## Current state (updated 2026-10-30)
 
-- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.9.1** (settings everywhere). See `CHANGELOG.md`, root `PLAN.md`.
+- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.10.0** (plugin runtime, log standard, scheduler, restore server side). See `CHANGELOG.md`, root `PLAN.md`.
 - Everything passes on the Linux dev box (Rust, Flutter, Pester, PSScriptAnalyzer, scanner).
 - **Nothing has run on Windows yet** (installer, service, scheduled tasks, agent on a real PC).
 - GitHub release builds are blocked by org billing (see Risks), so there is no installer artifact yet.
+
+## Done (v0.10.0, plugin runtime + scheduler + restore server side)
+
+- `proto/plugin.proto` + `plugin/` crate `itcmdr-plugin` (SDK, host launch/handshake, `log` helpers + validator).
+- `server/src/runtime.rs` (run a plugin: Describe/Verify/Execute/Log, timeouts, plugin_runs, audit, share mirror),
+  `jobs.rs` (on-demand queue incl. plugins), `plugin_logs.rs` (ingest, rejects, metrics query), `schedule.rs`,
+  `restore.rs`; bins `itcmdr-plugin-ps` (PS host) and `itcmdr-restore` (helper). Schema 3.
+- `agent/Itcmdr.Plugin.psm1`; rotation zips `plugin-logs/` from finished weeks. Docs: `docs/LOG-STANDARD.md`,
+  `docs/BACKUP.md` (app restore), `docs/SETTINGS.md` (34 keys + server.json-only restore commands).
+- CLI: `schedule add|list|edit|rm|pause|resume|run-now|history`, `plugins run|runs`.
+- Tests: `server/tests/plugin_runtime.rs` (3), `schedule.rs` (4), `restore_app.rs` (1), schedule unit tests,
+  `agent/tests/Plugin.Tests.ps1` (6) + rotation plugin-logs test.
 
 ## Done (v0.9.1, settings everywhere)
 
@@ -112,7 +124,7 @@ untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committ
 
 ## In progress
 
-None: v0.9.1 is tagged. Next: v0.10.0 (plugin runtime, log standard, scheduled runs, app-triggered restore server side).
+v0.10.0 released (tag v0.10.0). Next: Windows VM checks (Pester + PS 5.1 plugin host), then v0.11.0 built-in checks as plugins.
 
 ## Backlog (in order)
 
@@ -166,6 +178,9 @@ python3 scripts/scan_repo.py        # leak scanner (also the pre-commit hook)
 6. An exception added in the app appears in `<share>\exceptions.json` and is honoured on the next run.
 6a. v0.9.1: change `agent.quietMinutes` for one PC in the app; `<share>\agent-settings.json` updates, the PC uses it on the
    next run (and from the agentData cache with the share offline); `itcmdr-cli config list --machine <PC>` agrees.
+6b. v0.10.0: `itcmdr-cli plugins run <name>` with a PowerShell plugin under Windows PowerShell 5.1; a schedule
+   (`itcmdr-cli schedule add ... --when "every 1h"`) queues runs; app-triggered restore: StageRestore stops and
+   restarts the service via sc.exe and rolls back on a failed health check.
 7. Rotation with `-Root <copy> -Today 2027-01-04`: the zips open in Explorer, and the server ingests the archive.
 8. Uninstall removes the service, the tasks and the firewall rule.
 

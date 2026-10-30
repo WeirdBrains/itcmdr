@@ -36,7 +36,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-$script:AgentVersion = '0.9.1'
+$script:AgentVersion = '0.10.0'
 
 function ConvertTo-ItcmdrHashtable {
   param($InputObject)
