@@ -1318,6 +1318,9 @@ class SearchLogsRequest extends $pb.GeneratedMessage {
     $fixnum.Int64? startTs,
     $fixnum.Int64? endTs,
     $core.int? limit,
+    $core.String? category,
+    $core.String? status,
+    $core.int? offset,
   }) {
     final result = SearchLogsRequest._();
     if (query != null) result.query = query;
@@ -1325,6 +1328,9 @@ class SearchLogsRequest extends $pb.GeneratedMessage {
     if (startTs != null) result.startTs = startTs;
     if (endTs != null) result.endTs = endTs;
     if (limit != null) result.limit = limit;
+    if (category != null) result.category = category;
+    if (status != null) result.status = status;
+    if (offset != null) result.offset = offset;
     return result;
   }
 
@@ -1346,6 +1352,9 @@ class SearchLogsRequest extends $pb.GeneratedMessage {
     ..aInt64(3, _omitFieldNames ? '' : 'startTs')
     ..aInt64(4, _omitFieldNames ? '' : 'endTs')
     ..aI(5, _omitFieldNames ? '' : 'limit')
+    ..aOS(6, _omitFieldNames ? '' : 'category')
+    ..aOS(7, _omitFieldNames ? '' : 'status')
+    ..aI(8, _omitFieldNames ? '' : 'offset')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1414,14 +1423,45 @@ class SearchLogsRequest extends $pb.GeneratedMessage {
   $core.bool hasLimit() => $_has(4);
   @$pb.TagNumber(5)
   void clearLimit() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get category => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set category($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasCategory() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearCategory() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.String get status => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set status($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasStatus() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearStatus() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.int get offset => $_getIZ(7);
+  @$pb.TagNumber(8)
+  set offset($core.int value) => $_setSignedInt32(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasOffset() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearOffset() => $_clearField(8);
 }
 
 class SearchLogsResponse extends $pb.GeneratedMessage {
   factory SearchLogsResponse({
     $core.Iterable<$core.String>? lines,
+    $core.int? total,
+    $core.int? nextOffset,
   }) {
     final result = SearchLogsResponse._();
     if (lines != null) result.lines.addAll(lines);
+    if (total != null) result.total = total;
+    if (nextOffset != null) result.nextOffset = nextOffset;
     return result;
   }
 
@@ -1439,6 +1479,8 @@ class SearchLogsResponse extends $pb.GeneratedMessage {
       package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
       createEmptyInstance: SearchLogsResponse.$_createMessage)
     ..pPS(1, _omitFieldNames ? '' : 'lines')
+    ..aI(2, _omitFieldNames ? '' : 'total')
+    ..aI(3, _omitFieldNames ? '' : 'nextOffset')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1465,6 +1507,24 @@ class SearchLogsResponse extends $pb.GeneratedMessage {
 
   @$pb.TagNumber(1)
   $pb.PbList<$core.String> get lines => $_getList(0);
+
+  @$pb.TagNumber(2)
+  $core.int get total => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set total($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasTotal() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearTotal() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.int get nextOffset => $_getIZ(2);
+  @$pb.TagNumber(3)
+  set nextOffset($core.int value) => $_setSignedInt32(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasNextOffset() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearNextOffset() => $_clearField(3);
 }
 
 /// Audit log of mutating actions (on-demand runs, exception changes)

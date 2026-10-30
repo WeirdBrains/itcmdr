@@ -2,14 +2,22 @@
 
 Keep this file current: update it at the start of each work item and in every commit.
 Placeholders only (SERVER01, WS-01, RCU-01, 198.51.100.x). Real site notes go in the
-untracked mirror `../itcmdr-HANDOVER.local.md` (next to this repo, never committed).
+untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committed).
 
 ## Current state (updated 2026-10-30)
 
-- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.3.0** (checks batch; v0.2.0 was `6f3b76b`).
+- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.4.0** (metrics/charts + log search). See `CHANGELOG.md`.
 - Everything passes on the Linux dev box (Rust, Flutter, Pester, PSScriptAnalyzer, scanner).
 - **Nothing has run on Windows yet** (installer, service, scheduled tasks, agent on a real PC).
 - GitHub release builds are blocked by org billing (see Risks), so there is no installer artifact yet.
+
+## Done (v0.4.0)
+
+- `server/src/metrics.rs`: `count_flaps`, `flapping()` -> `flaps:<m>:<check>` (>= `FLAP_MIN`=3 changes);
+  `repeat_offender:<m>:<check>` (>= `REPEAT_MIN`=3 incidents). Test: `tests/ingest_metrics.rs::flapping_and_repeat_offenders`.
+- `server/src/search.rs::search`: machine/category/status exact (case-insensitive), text substring,
+  start/end on the record's ts, newest first, `limit` (default 100, max 1000) + `offset`; response `total`, `next_offset`.
+- App: `lib/charts.dart` (BarChart, `seriesByBucket`), `lib/logs_page.dart` (filters, date range, paging).
 
 ## Done (v0.3.0, checks batch)
 
@@ -45,14 +53,14 @@ untracked mirror `../itcmdr-HANDOVER.local.md` (next to this repo, never committ
 
 ## In progress
 
-- Nothing mid-way. Next: backlog #3 (flapping/repeat-offender metrics, charts). Backlog #1 still pending (VM).
+- Nothing mid-way. Next: backlog #5 (backup coverage), then #6, #7 -> v0.5.0. Backlog #1 still pending (VM).
 
 ## Backlog (in order)
 
 1. Windows VM test pass (plan below); fix whatever it finds. **Pending** (VM being set up).
 2. ~~Missing agent checks~~ done in v0.3.0. Real values must be added to the site.json on Windows hosts.
-3. Flapping and repeat-offender metrics; real charts in the app. (S/M)
-4. Log search: time/category/status filters and paging (`api.rs::search_logs`). (S)
+3. ~~Flapping/repeat-offender metrics, charts~~ done in v0.4.0.
+4. ~~Log search filters and paging~~ done in v0.4.0.
 5. Real backup-coverage check (`agent/Report-BackupCoverage.ps1`). (S)
 6. Poller: clear stale locks after a crash; server: time out requests nobody answers. (S)
 7. gRPC integration test against a running server. (S)
@@ -81,7 +89,7 @@ python3 scripts/scan_repo.py        # leak scanner (also the pre-commit hook)
 
 1. All the checks above are green, and `scan_repo.py` is clean.
 2. Grep the staged diff against `config/banned.local.txt`; it must have 0 hits.
-3. Commit on `main`. Bump `MyAppVersion` in `installer/itcmdr.iss` and `AgentVersion` in the agent.
+3. Commit on `main`. Bump `MyAppVersion` (installer), `version` in `server/Cargo.toml` and `app/pubspec.yaml`, `AgentVersion` when the agent changed; add a `CHANGELOG.md` entry.
 4. `git tag -a vX.Y.Z -m "itcmdr vX.Y.Z"`, then `git push origin main`, then `git push origin vX.Y.Z`.
 5. Never force-push, and never move or delete tags. Push only tested, tagged commits.
 6. The tag triggers `.github/workflows/release.yml`, which builds the Windows installer once Actions works.
@@ -109,6 +117,7 @@ python3 scripts/scan_repo.py        # leak scanner (also the pre-commit hook)
 - **PowerShell 5.1:** the scheduled tasks run `powershell.exe` (5.1). Don't use `ConvertFrom-Json -AsHashtable`,
   `[System.Globalization.ISOWeek]`, three-argument `Join-Path` (fine in tests only), or other PS7-only features.
   Use `Get-ItcmdrValue` for config lookups; StrictMode throws on missing keys.
+- Real site values and instructions: see HANDOVER.local.md → Real-site notes.
 - **Never commit real site values** (IPs, hostnames, domains, usernames, MACs).
   `config/site.local.json`, `config/site.json` and `config/banned.local.txt` are gitignored.
 - The scanner allows only `0.0.0.0`, `TCP-<port>` and `SCAN-NN` tokens beyond the placeholders; don't widen it further.
@@ -116,5 +125,5 @@ python3 scripts/scan_repo.py        # leak scanner (also the pre-commit hook)
 
 ## Where real config lives (not in git)
 
-- The dev box: `config/site.local.json` and `config/banned.local.txt` in the repo (gitignored), plus `../itcmdr-HANDOVER.local.md`.
+- The dev box: `config/site.local.json` and `config/banned.local.txt` in the repo (gitignored), plus `HANDOVER.local.md`.
 - Windows hosts: `C:\ProgramData\itcmdr\site.json` and `C:\ProgramData\itcmdr\server.json`.

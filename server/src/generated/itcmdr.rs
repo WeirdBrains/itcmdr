@@ -212,14 +212,30 @@ pub struct SearchLogsRequest {
     /// optional unix millis
     #[prost(int64, tag = "4")]
     pub end_ts: i64,
-    /// max lines (default 100)
+    /// max lines per page (default 100, max 1000)
     #[prost(int32, tag = "5")]
     pub limit: i32,
+    /// optional: network, connectivity, configuration, services
+    #[prost(string, tag = "6")]
+    pub category: ::prost::alloc::string::String,
+    /// optional: ok, failed, skipped
+    #[prost(string, tag = "7")]
+    pub status: ::prost::alloc::string::String,
+    /// paging: lines to skip (newest first)
+    #[prost(int32, tag = "8")]
+    pub offset: i32,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SearchLogsResponse {
+    /// JSON lines, newest first
     #[prost(string, repeated, tag = "1")]
     pub lines: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    /// matches before paging
+    #[prost(int32, tag = "2")]
+    pub total: i32,
+    /// 0 when there are no more pages
+    #[prost(int32, tag = "3")]
+    pub next_offset: i32,
 }
 /// Audit log of mutating actions (on-demand runs, exception changes)
 #[derive(Clone, PartialEq, ::prost::Message)]

@@ -153,17 +153,9 @@ impl Itcmdr for ItcmdrService {
 
     async fn search_logs(&self, req: Request<SearchLogsRequest>) -> Result<Response<SearchLogsResponse>, Status> {
         let p = req.into_inner();
-        let mut lines = crate::ingest::iter_log_lines(&self.cfg.logs_dir).map_err(internal_err)?;
-        if !p.machine.is_empty() {
-            lines.retain(|l| l.contains(&p.machine));
-        }
-        if !p.query.is_empty() {
-            let q = p.query.to_lowercase();
-            lines.retain(|l| l.to_lowercase().contains(&q));
-        }
-        let limit = if p.limit <= 0 { 100 } else { p.limit as usize };
-        lines.truncate(limit);
-        Ok(Response::new(SearchLogsResponse { lines }))
+        let lines = crate::ingest::iter_log_lines(&self.cfg.logs_dir).map_err(internal_err)?;
+        let page = crate::search::search(lines, &p);
+        Ok(Response::new(SearchLogsResponse { lines: page.lines, total: page.total as i32, next_offset: page.next_offset as i32 }))
     }
 
     async fn list_audit(&self, req: Request<ListAuditRequest>) -> Result<Response<ListAuditResponse>, Status> {
