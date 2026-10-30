@@ -6,10 +6,16 @@ untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committ
 
 ## Current state (updated 2026-10-30)
 
-- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.8.1** (configurable paths, backup settings, 4-week block retention). See `CHANGELOG.md`, root `PLAN.md`.
+- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.9.0** (service plugin packages). See `CHANGELOG.md`, root `PLAN.md`.
 - Everything passes on the Linux dev box (Rust, Flutter, Pester, PSScriptAnalyzer, scanner).
 - **Nothing has run on Windows yet** (installer, service, scheduled tasks, agent on a real PC).
 - GitHub release builds are blocked by org billing (see Risks), so there is no installer artifact yet.
+
+## Done (v0.9.0, packages)
+
+- `server/src/packages.rs`: `read_tar_gz`, `parse_manifest`, `validate`, `install` (quarantine on reject), `list`, `enable`, `disable`, `remove`, `pack`, `list_quarantine`.
+- `plugins` table (schema 2). CLI `plugins ...` / `service plugins ...`. Backups include `service_plugins/**` + `quarantine/index.jsonl`.
+- Tests: `server/tests/packages.rs` (5).
 
 ## Done (v0.8.1, configurable paths)
 
@@ -95,7 +101,7 @@ untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committ
 
 ## In progress
 
-- Nothing mid-way. Next: **v0.9.0 packages**. Statuses: root `PLAN.md`.
+- Nothing mid-way. Next: **v0.9.1 settings everywhere** (decision 15 widened; audit list in `server/PLAN.md`), then v0.10.0. Statuses: root `PLAN.md`.
 
 ## Backlog (in order)
 
@@ -170,6 +176,8 @@ python3 scripts/scan_repo.py        # leak scanner (also the pre-commit hook)
 - Never edit `proto/signing_vectors.json` to make a test pass; regenerate (ITCMDR_REGEN_VECTORS=1) only for a deliberate protocol change.
 - Agent paths come from `Get-ItcmdrPath`; never hard-code `C:\maintenanceRuns` again. In tests use `[IO.Path]::Combine` (Join-Path fails on drive letters / UNC on Linux).
 - Use `settings::backup_dir` / `effective_backup` (not `cfg.backup` directly): DB overrides win.
+- Package installs do file IO and downloads in `spawn_blocking` (ureq is blocking); keep it that way.
+- Never loosen `packages::safe_rel_path` / the regular-file-only rule; restore reuses it for archived plugin paths.
 - Bump `db::SCHEMA_VERSION` with every schema change: restore uses it to refuse archives from newer versions.
 - Tests that start the server should set `backup.nightly = false` (the loop would otherwise write a backup into the temp dir).
 - **SQLCipher build** needs perl + a C compiler (vendored OpenSSL); GitHub Windows runners have Strawberry Perl.

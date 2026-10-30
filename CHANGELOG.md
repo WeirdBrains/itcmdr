@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.9.0 (2026-10-30)
+- Service plugin packages (decisions 7, 8): `.tar.gz` with `package.toml` (`[[files]]`, sha256 checksums, one `main`),
+  `package.sig` (Ed25519 by an active admin/owner key over the package.toml hash) and exactly the listed files.
+- Validation refuses bad gzip/tar/TOML, absolute or `..` paths, symlinks and hard links, missing or extra files, checksum
+  mismatches, bad signatures and unknown, revoked or low-role signers. Refused packages go to `quarantine/` with a line in
+  `quarantine/index.jsonl`, a server-log warning and a `plugin-quarantine` audit entry; the install is denied.
+- `itcmdr-cli plugins install --url|--path [--enable]`, `list`, `enable NAME[@VER]`, `disable`, `remove [--force]`,
+  `quarantine`, `pack` (build + sign). Also reachable as `itcmdr-cli service plugins ...`. Installs land disabled by default
+  in `service_plugins/{name}-{version}`; state in the new `plugins` table (schema version 2).
+- Backup archives now include `service_plugins/**` and the quarantine index; restore copies the current ones aside first.
+- Plan: decision 15 widened (every hard-coded value becomes a setting, v0.9.1), audit list recorded; log standard moved to
+  v0.10.0; decisions 14 (scheduled runs, default schedules + safe cutover) placed in v0.10.0 / v0.11.0 / v0.12.0.
+
 ## v0.8.1 (2026-10-30)
 - Backup retention now keeps 7 daily, 4 weekly and **13 four-week blocks** (ISO weeks 4N-3..4N, week 53 in block 13)
   instead of 12 months. server.json key `backup.keep_blocks` (the old `keep_monthly` is still read).

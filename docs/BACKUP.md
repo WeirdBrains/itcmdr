@@ -7,9 +7,10 @@ What's in an archive (`itcmdr-YYYYMMDD-HHMMSSmmm-<kind>.itcb`):
 | `itcmdr.database` | consistent snapshot of the live SQLCipher DB (still encrypted with db.key) |
 | `keys/db.key.escrow` | db.key sealed for the master key |
 | `server.json` | the config in effect |
+| `service_plugins/**` | installed plugin packages (v0.9.0) |
+| `quarantine/index.jsonl` | refused packages (the quarantined files themselves are not archived) |
 
-Service plugins, plugin config, the quarantine index and plugin logs join the archive in v0.9.0 and
-v0.10.0. `keys/db.key` and `keys/root` are never archived: they are bound to the machine.
+Plugin config and plugin logs join the archive in v0.10.0. `keys/db.key` and `keys/root` are never archived: they are bound to the machine.
 
 The whole archive is encrypted for the master key (only the 24 words open it). The header (manifest
 with versions, schema version and sha256 per file) is signed by the server's root key, which carries a

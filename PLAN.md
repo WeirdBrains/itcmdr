@@ -37,8 +37,9 @@ also covered by the Windows VM test pass below.
 | v0.6.2 | Storage follow-up: auto-delete the plaintext backup after a verified migration | ✅ Done | `v0.6.2` / `19c297c` | 2026-10-30 |
 | v0.7.0 | Keys & auth: BIP39 master, certified keys, signed requests, roles, db.key escrow | ✅ Done | `v0.7.0` (4afe6c7) | 2026-10-30 |
 | v0.8.0 | itcmdr-cli (init, register, users, keys) + backup & restore | ✅ Done | `v0.8.0` (25e232f) | 2026-10-30 |
-| v0.8.1 | Configurable paths + backup settings, retention by 4-week blocks | ✅ Done | `v0.8.1` | 2026-10-30 |
-| v0.9.0 | Packages: format, validation, signature, quarantine, plugins install/list/enable/disable/remove, plugins in backups | 📋 Planned | — | — |
+| v0.8.1 | Configurable paths + backup settings, retention by 4-week blocks | ✅ Done | `v0.8.1` (c1b4388) | 2026-10-30 |
+| v0.9.0 | Packages: format, validation, signature, quarantine, plugins install/list/enable/disable/remove, plugins in backups | ✅ Done | `v0.9.0` | 2026-10-30 |
+| v0.9.1 | Settings everywhere: typed Settings API, central agent settings, `docs/SETTINGS.md`, basic app Settings screen | 📋 Planned | — | — |
 | v0.10.0 | Plugin runtime, log standard, scheduled runs (server, gRPC, CLI) | 📋 Planned | — | — |
 | v0.11.0 | Built-in checks as plugins; nightly task + backup as built-in schedules | 📋 Planned | — | — |
 | v0.12.0 | Flutter: Service Plugins, registration, users/keys, plugin metric charts, Backup & Restore, Schedules, signed requests | 📋 Planned | — | — |
@@ -54,7 +55,8 @@ also covered by the Windows VM test pass below.
 | Delete the plaintext DB backup after the v0.6 migration | ✅ Done (decided) | Decision 12: deleted automatically after a verified read-back (v0.6.2); kept if verification fails |
 | DB key recovery (`keys/db.key`) | ✅ Done (v0.7.0) | Decision 12: `keys/db.key.escrow` sealed for the master key; `itcmdr-server recover-db-key` with the 24 words |
 | Backup & restore | 🔄 Core done (v0.8.0) | Decision 13: DB + escrow + config, CLI, RPCs, nightly + retention in v0.8.0; plugins join in v0.9.0/v0.10.0; app screen in v0.12.0 |
-| Configurable paths | ✅ Done (v0.8.1) | Decision 15: agent `paths.localLogs`/`agentData`, installer LocalLogs, backup settings in the DB via RPC + `itcmdr-cli config`; app screen in v0.12.0 |
+| All hard-coded values as settings | 📋 Planned (v0.9.1) | Decision 15 widened: typed Settings API for every value, agent settings served centrally, CLI + app; full app section in v0.12.0 |
+| Configurable paths | ✅ Done (v0.8.1) | Decision 15: agent `paths.localLogs`/`agentData`, installer LocalLogs, backup settings in the DB via RPC + `itcmdr-cli config` |
 | Scheduled runs | 📋 Planned (decided) | Decision 14: server scheduler + RPCs + `itcmdr-cli schedule` in v0.10.0, built-in schedules with v0.11.0, app screen in v0.12.0 |
 | Backup retention by 4-week blocks | ✅ Done (v0.8.1) | 7 daily, 4 weekly, 13 four-week blocks (ISO weeks 4N-3..4N) instead of 12 months |
 | Signing canonical encoding | 🔄 Rust done (v0.8.0) | `docs/SIGNING.md`, `proto/signing_vectors.json`; the Dart test against the same vectors lands with app signing (v0.12.0) |
@@ -145,11 +147,21 @@ also covered by the Windows VM test pass below.
 - [x] Backup retention: 7 daily, 4 weekly, 13 four-week blocks (was 12 months)
 - [x] Plans: decisions 14 (scheduled runs, default schedules + cutover) and 15 (configurable paths)
 
-### v0.9.0 Packages 📋
-- [ ] package.toml (`[[files]]`, `main = true`), exact file list, sha256, admin/owner signature (`package.sig`)
-- [ ] Safe unpack (no absolute paths, `..`, symlinks, hard links); failures → `quarantine/` + index + log + audit, install denied
-- [ ] `plugins install --url|--path`, list, enable, disable, remove; install dir `{name}-{version}`; `plugins pack` to build and sign
-- [ ] Plugin files and the quarantine index in backup archives
+### v0.9.0 Packages ✅
+- [x] package.toml (`[[files]]`, `main = true`), exact file list, sha256, admin/owner signature (`package.sig`)
+- [x] Safe unpack (no absolute paths, `..`, symlinks, hard links); failures → `quarantine/` + index + log + audit, install denied
+- [x] `plugins install --url|--path [--enable]`, list, enable, disable, remove, quarantine; install dir `{name}-{version}`; `plugins pack` builds and signs
+- [x] Plugin files and the quarantine index in backup archives
+- [x] Tests: every rejection case quarantines, management + audit, URL install, backup round trip, CLI end to end
+
+### v0.9.1 Settings everywhere 📋
+- [ ] Audit every hard-coded value (agent, server, installer, app) → settings with today's defaults (list in `server/PLAN.md` decision 15)
+- [ ] Typed settings registry + `ListSettings` / `GetSettings` / `UpdateSettings` (validated, admin/owner, audited)
+- [ ] `itcmdr-cli config list|get|set|unset` for every key
+- [ ] Agent settings served centrally (`agent-settings.json` on the share: global + per machine), site.json as local override, cached offline
+- [ ] `docs/SETTINGS.md`: name, default, scope, who can change it
+- [ ] Basic app Settings screen on the API (full section in v0.12.0)
+- [ ] Tests: defaults = current behaviour, overrides, validation, RPC roles + audit, agent picks up central settings
 
 ### v0.10.0 Plugin runtime 📋
 - [ ] `PluginService` proto (Describe, Verify, Execute, Log), child process + per-launch secret handshake
@@ -177,7 +189,7 @@ also covered by the Windows VM test pass below.
 - [ ] Plugin metric charts
 - [ ] Backup & Restore screen
 - [ ] Schedules screen (cron presets, next-run preview, toggle, run now, history)
-- [ ] Settings screen: backup folder, nightly time, retention (GetSettings/UpdateSettings), later schedule settings
+- [ ] Full Settings section (server, agent, backup, schedules, paths, thresholds) with validation, on the v0.9.1 API
 - [ ] App signs requests; default `auth_mode` → `signed`
 
 ### v0.13.0 Installer 📋

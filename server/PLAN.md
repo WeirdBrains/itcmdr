@@ -383,7 +383,46 @@ JSON. The rest sounds good to me").
       (`config\`, `%ProgramData%\itcmdr`, next to the exe, or `ITCMDR_SERVER_CONFIG`), the service log
       `%ProgramData%\itcmdr\server-logs` (written before the config loads) and the push-install staging
       folder `C:\Windows\itcmdr\agent` on remote PCs.
-    - **Release:** v0.8.1.
+    - **Release:** v0.8.1 (paths, backup settings).
+    - **Widened** (Michael, Oct 30 2026: "we need to yank hardcoded values and make them a setting...
+      accessible via the app, not just the cli"). Every hard-coded value becomes a setting with today's value
+      as the default, documented in `docs/SETTINGS.md` (name, default, scope, who can change it):
+      - **One typed Settings API.** gRPC `ListSettings` / `GetSettings` / `UpdateSettings` grow from the backup
+        block to a registry of typed keys (int with range, bool, duration, time of day, path, string, list),
+        validated server-side, admin/owner only, audit-logged. `itcmdr-cli config list|get|set|unset` and the
+        app use the same API. Server keys: DB overrides over server.json over defaults.
+      - **Agent keys served centrally**, like `exceptions.json`: the server exports `agent-settings.json` to the
+        maintenanceRuns share with global values and per-machine overrides; the agent merges
+        built-in defaults < central (global, then its machine) < local site.json (local override/fallback),
+        and caches the central file for offline runs.
+      - **Audit found (today's defaults):** agent: quiet-minutes guard 10, printer stuck-job minutes 60, backup
+        task/destination max age 26 h, min backup bytes 1, TCP probe timeout, poller stale-lock minutes 150,
+        local log retention 400 days, install stagger 0 s, rotation time 02:10, paths (v0.8.1). Server: ingest
+        interval 30 s, request timeout 3 h, DB retention 400 days, flap threshold 3, repeat-offender threshold
+        3, clock skew window 5 min, search page 100 / max 1000, max package size 256 MiB, bind address/port,
+        backup block (v0.8.1). App: default port 50051 (a connection preference, stays local). Fixed on
+        purpose: config lookup locations, the service log folder, 24 words, schema/format versions.
+      - **App:** a basic Settings screen ships with the API (v0.9.1); the full Settings section (server,
+        agent, backup, schedules, paths, thresholds) with validation lands in v0.12.0.
+      - **Tests:** defaults equal current behaviour, overrides apply, bad values rejected, RPC roles + audit,
+        the agent picks up centrally served settings.
+
+### Notes from the v0.9.0 build
+
+- Package = `.tar.gz` with `package.toml`, `package.sig` and exactly the listed files (subfolders allowed).
+  `package.sig` is JSON `{v, signer (fingerprint), sig}`; the Ed25519 signature covers
+  `itcmdr-package/v1\n<sha256 of package.toml>`, and package.toml carries every file's checksum.
+  Signers: active admin/owner keys (users or clients, so the root key works too).
+- `type` is one of bin, powershell, data, config; `features` of verify, execute, log; names are
+  lowercase `a-z0-9-_`, versions start with a digit.
+- Installs land **disabled** unless `--enable` (enabling one version disables the others). Removing an
+  enabled version needs `--force`. State in the `plugins` table (schema 2) + `service_plugins/{name}-{version}`.
+- Quarantine: the original bytes go to `quarantine/<ts>-<sha12>-<name>`, a JSON line to
+  `quarantine/index.jsonl`, a warning to the server log and `plugin-quarantine` to the audit log.
+  A failed download or an already installed version is an error, not a quarantine.
+- `itcmdr-cli plugins pack` builds and signs a package; `plugins` is also reachable as `service plugins`.
+- Backups now carry `service_plugins/**` and `quarantine/index.jsonl`; restore copies the current ones
+  aside first. Plugin logs join in v0.10.0. The log standard (decision 11) moved to v0.10.0.
 
 ### Auth notes from the v0.7.0 build
 
@@ -418,6 +457,7 @@ JSON. The rest sounds good to me").
 | v0.8.0 | itcmdr-cli: init, service register [--name], user add, key rotate/revoke; backup create/list/verify + restore [--dry-run], backup RPCs, nightly backup to the share (decision 13) |
 | v0.8.1 | configurable paths (decision 15): agent `paths.localLogs`/`agentData`, installer LocalLogs, backup settings RPCs + `itcmdr-cli config`; backup retention by 4-week blocks; plans for decisions 14-15 |
 | v0.9.0 | packages: format, validation (exact file list, sha256, signature), quarantine + index, plugins install --url/--path, list/enable/disable/remove, plugin files in backups |
+| v0.9.1 | settings everywhere (decision 15 widened): typed Settings registry + `ListSettings`/`GetSettings`/`UpdateSettings`, `itcmdr-cli config list`, central agent settings (global + per machine) with site.json as local override, `docs/SETTINGS.md`, basic app Settings screen |
 | v0.10.0 | plugin runtime: PluginService gRPC, Rust crate, PowerShell module + host, Verify then Execute, Log on error, timeouts, on-demand + audit hooks; per-run log path + log/metric helpers; log standard doc + validator + generic metrics ingest (decision 11, moved from v0.9.0); scheduled runs: server scheduler, schedule RPCs, `itcmdr-cli schedule` (decision 14) |
 | v0.11.0 | built-in checks as plugins: the existing agent checks/repairs rebuilt as service plugins and run through the plugin system (decision 10), logging in itcmdr.log/v1; nightly agent task and nightly backup as built-in schedules (decision 14, no-gap rule) |
 | v0.12.0 | Flutter: Service Plugins section, app registration, user/key management, plugin metric charts, Backup & Restore screen, Schedules screen; app signs requests, default auth_mode -> signed |
