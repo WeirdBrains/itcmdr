@@ -1,5 +1,8 @@
 # Changelog
 
+## v0.5.2 (2026-10-30)
+- Docs only: plan adds v0.11.0 'built-in checks as plugins'; Flutter moves to v0.12.0, installer to v0.13.0.
+
 ## v0.5.1 (2026-10-30)
 - Docs only: service plugin plan with the agreed implementation plan and release breakdown (`server/PLAN.md`).
 
