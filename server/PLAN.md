@@ -273,6 +273,32 @@ JSON. The rest sounds good to me").
     - **Clean migration, no gap in nightly coverage:** the plugin versions first run side by side with the
       current nightly task in report-only mode and their results are compared. The scheduled task switches
       over only after matching results, and the old script stays as a fallback until one full week is clean.
+11. **Plugin logging and a structured log standard** (Michael, Oct 30 2026: "When a plugin logs, I want to
+    give it a path to log to so that we can back them up and gather metrics from them... Maybe we should have a
+    log standard for structured logs.").
+    - **Log path per run.** The server gives every plugin run a log path, both in the Verify/Execute/Log RPC
+      context (`log_path`) and as the env var `ITCMDR_LOG_PATH`. Layout:
+      `<data>/plugin-logs/<plugin>/<yyyy-mm-dd>.jsonl`. That folder sits inside the area the existing rotation
+      (weekly, then 4-week blocks, then ISO yearly) and the backup-coverage check already cover, and it is pushed to
+      the share like the agent logs.
+    - **Standard `itcmdr.log/v1`** (JSONL), written up in `docs/LOG-STANDARD.md`:
+      - Required fields: `schema`, `ts` (RFC 3339 with offset), `level`, `plugin`, `plugin_version`, `run_id`,
+        `machine`, `stage`, `event`, `message`.
+      - Optional fields: `check_id`, `status` (ok|fail|repaired|skipped|excepted), `duration_ms`, and `metrics`,
+        a list of `{name, value, unit, kind: counter|gauge|histogram, labels{}}`.
+      - Compatibility: the current agent lines (`type`, `runId`, `computer`, `checkId`, `status`...) keep being
+        accepted and are mapped onto v1 at ingest. The agent itself moves to v1 when it becomes plugins (v0.11.0).
+    - **Helpers.** The Rust crate has `itcmdr_plugin::log` (`info/warn/error`, `metric(...)`). The PowerShell module has
+      `Write-ItcmdrLog` / `Write-ItcmdrMetric`. Both write conforming lines to the given path, so plugins never
+      handle the format themselves.
+    - **Ingest.** Each line is validated against the schema. Malformed lines are counted as rejects per file and
+      shown, never silently dropped. Values in `metrics` are stored generically (name + labels + ts + value)
+      next to the incident and uptime metrics. A new gRPC query, `GetPluginMetrics` (filter by name and labels,
+      window, rollup), serves them, and the app charts them (v0.12.0).
+    - **Releases:** the schema doc, validator and ingest go in v0.9.0, the runtime log path and helpers in v0.10.0, the
+      built-in plugins on v1 in v0.11.0, and the app charts in v0.12.0.
+    - **Tests:** schema validation (good and bad lines), helpers produce valid lines (Rust + Pester), ingest
+      extracts metrics and counts rejects, and plugin logs are included in rotation and backup coverage.
 
 ### Release breakdown
 
@@ -281,8 +307,8 @@ JSON. The rest sounds good to me").
 | v0.6.0 | storage: data dir layout, SQLCipher DB, roles/users/clients tables, migration of the existing plaintext DB |
 | v0.7.0 | keys & auth: BIP39 words, master init (shown once), certified client/user keys, signed requests + roles; the shared token is retired once the new auth works (migration path documented) |
 | v0.8.0 | itcmdr-cli: init, service register [--name], user add, key rotate/revoke |
-| v0.9.0 | packages: format, validation (exact file list, sha256, signature), quarantine, plugins install --url/--path, list/enable/disable/remove |
-| v0.10.0 | plugin runtime: PluginService gRPC, Rust crate, PowerShell module + host, Verify then Execute, Log on error, timeouts, on-demand + audit hooks |
-| v0.11.0 | built-in checks as plugins: the existing agent checks/repairs rebuilt as service plugins and run through the plugin system (see below) |
-| v0.12.0 | Flutter: Service Plugins section, app registration, user/key management |
+| v0.9.0 | packages: format, validation (exact file list, sha256, signature), quarantine, plugins install --url/--path, list/enable/disable/remove; log standard doc + validator + generic metrics ingest (decision 11) |
+| v0.10.0 | plugin runtime: PluginService gRPC, Rust crate, PowerShell module + host, Verify then Execute, Log on error, timeouts, on-demand + audit hooks; per-run log path + log/metric helpers |
+| v0.11.0 | built-in checks as plugins: the existing agent checks/repairs rebuilt as service plugins and run through the plugin system (decision 10), logging in itcmdr.log/v1 |
+| v0.12.0 | Flutter: Service Plugins section, app registration, user/key management, plugin metric charts |
 | v0.13.0 | installer: first-run master setup showing the words once; Windows VM test items in the handover |

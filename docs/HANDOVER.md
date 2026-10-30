@@ -6,7 +6,7 @@ untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committ
 
 ## Current state (updated 2026-10-30)
 
-- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.5.2** (docs: plugin plan incl. built-in checks as plugins in `server/PLAN.md`; code = v0.5.0). See `CHANGELOG.md`.
+- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.5.3** (docs: plugin plan incl. built-in checks as plugins and plugin logging/log standard in `server/PLAN.md`; code = v0.5.0). See `CHANGELOG.md`.
 - Everything passes on the Linux dev box (Rust, Flutter, Pester, PSScriptAnalyzer, scanner).
 - **Nothing has run on Windows yet** (installer, service, scheduled tasks, agent on a real PC).
 - GitHub release builds are blocked by org billing (see Risks), so there is no installer artifact yet.
@@ -62,7 +62,7 @@ untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committ
 
 ## In progress
 
-- **Plugin workstream** (plan: `server/PLAN.md` -> 'Implementation plan (agreed Oct 30 2026)'; releases v0.6.0..v0.13.0, built-in checks as plugins = v0.11.0). Next: **v0.6.0 storage** (on hold until Michael has shared the plan). Uncommitted locally: `server/Cargo.toml` adds `libsqlite3-sys` (bundled-sqlcipher-vendored-openssl; builds on Linux in ~40s, needs perl), `rand`, `hex`, plus `Cargo.lock`. Next step: `server/src/storage.rs` (data dir, DB key, DPAPI), SQLCipher `init_db`, roles/users/clients tables, plaintext->encrypted migration, tests, tag v0.6.0.
+- **v0.6.0 storage (in progress)**: `server/src/storage.rs` (data dir precedence, layout, DB key with DPAPI/0600), `db.rs::init_db` on SQLCipher + in-place plaintext migration, roles/users/clients tables. Uncommitted Cargo changes add libsqlite3-sys bundled-sqlcipher-vendored-openssl, rand, hex. Next step if interrupted: run tests in server/tests/storage.rs, tag v0.6.0.
 
 ## Backlog (in order)
 
