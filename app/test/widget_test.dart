@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:app/charts.dart';
 import 'package:app/exceptions_form.dart';
+import 'package:app/logs_page.dart';
+import 'package:app/proto/itcmdr.pb.dart';
+import 'package:fixnum/fixnum.dart';
 import 'package:app/main.dart';
 import 'package:app/settings.dart';
 
@@ -115,5 +119,62 @@ void main() {
     final r = await result;
     expect(r.id, 'x1');
     expect(r.reason, 'new reason');
+  });
+
+  test('seriesByBucket sums incidents and averages uptime per bucket', () {
+    MetricPoint p(String k, int ts, double v) =>
+        MetricPoint(key: k, ts: Int64(ts), value: v);
+    final pts = [
+      p('incidents:WS-01', 2, 1),
+      p('incidents:WS-02', 2, 3),
+      p('incidents:WS-01', 1, 2),
+      p('incidents_total:WS-01', 9, 99),
+      p('uptime:WS-01', 1, 1),
+      p('uptime:WS-02', 1, 0.5),
+    ];
+    final inc = seriesByBucket(pts, 'incidents');
+    expect(inc.map((b) => b.ts), [1, 2]);
+    expect(inc.map((b) => b.value), [2.0, 4.0]);
+    expect(seriesByBucket(pts, 'uptime', average: true).single.value, 0.75);
+  });
+
+  test('buildLogsRequest maps filters, whole-day range and paging', () {
+    final r = buildLogsRequest(
+      query: ' dns ',
+      machine: 'WS-01',
+      category: 'network',
+      status: 'failed',
+      from: DateTime(2026, 10, 1, 15),
+      to: DateTime(2026, 10, 2),
+      offset: 100,
+    );
+    expect(r.query, 'dns');
+    expect(r.category, 'network');
+    expect(r.status, 'failed');
+    expect(r.offset, 100);
+    expect(r.limit, logPageSize);
+    expect(r.startTs.toInt(), DateTime(2026, 10, 1).millisecondsSinceEpoch);
+    expect(r.endTs.toInt(), DateTime(2026, 10, 3).millisecondsSinceEpoch - 1);
+    expect(buildLogsRequest().hasStartTs(), isFalse);
+  });
+
+  testWidgets('BarChart renders bars and an empty state', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: Column(
+            children: [
+              BarChart(
+                title: 'A',
+                bars: [ChartBar(0, 1), ChartBar(86400000, 3)],
+              ),
+              BarChart(title: 'B', bars: []),
+            ],
+          ),
+        ),
+      ),
+    );
+    expect(find.text('A'), findsOneWidget);
+    expect(find.text('No data'), findsOneWidget);
   });
 }

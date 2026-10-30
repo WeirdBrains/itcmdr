@@ -37,7 +37,7 @@ TEXT_EXTS = {
 }
 
 SKIP_DIRS = {".git", "target", "build", "dist", ".dart_tool", "node_modules", "installer/out"}
-SKIP_FILES = {".gitignore", "banned.local.txt"}
+SKIP_FILES = {".gitignore", "banned.local.txt", "HANDOVER.local.md"}  # gitignored private files
 
 def is_allowed_ip(s: str) -> bool:
     return any(p.search(s) for p in ALLOWED_IPS)

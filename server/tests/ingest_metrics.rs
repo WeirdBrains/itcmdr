@@ -154,3 +154,25 @@ async fn exceptions_export_matches_agent_format() {
     assert_eq!(r["scope"]["machines"][0], "RCU-01");
     assert_eq!(r["action"], "ignore");
 }
+
+#[tokio::test]
+async fn flapping_and_repeat_offenders() {
+    let tmp = tempfile::tempdir().unwrap();
+    let c = cfg(tmp.path());
+    create_dir_all(&c.logs_dir).unwrap();
+    let today = chrono::Utc::now().date_naive();
+    // failed, ok, failed, ok, failed, ok over six nights -> 5 transitions, 3 incidents
+    for i in 0..6 {
+        let day = (today - chrono::Duration::days(7 - i)).to_string();
+        write_run(&c.logs_dir, &format!("f-{i}"), &day, if i % 2 == 0 { "failed" } else { "ok" });
+    }
+    let pool = itcmdr_server::db::init_db(&c).await.unwrap();
+    itcmdr_server::ingest::ingest_all(&pool, &c.logs_dir).await.unwrap();
+    let pts = itcmdr_server::metrics::get_metrics(&pool, 30, Rollup::Daily).await.unwrap();
+    let get = |k: &str| pts.iter().find(|p| p.key == k).map(|p| p.value);
+    assert_eq!(get("flaps:WS-01:CHK001"), Some(5.0));
+    assert_eq!(get("repeat_offender:WS-01:CHK001"), Some(3.0));
+    // A short window sees too little to call it flapping.
+    let pts = itcmdr_server::metrics::get_metrics(&pool, 3, Rollup::Daily).await.unwrap();
+    assert!(!pts.iter().any(|p| p.key.starts_with("flaps:") || p.key.starts_with("repeat_offender:")));
+}

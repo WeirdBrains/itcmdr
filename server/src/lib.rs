@@ -7,6 +7,7 @@ pub mod exceptions;
 pub mod ingest;
 pub mod metrics;
 pub mod requests;
+pub mod search;
 pub mod generated {
     pub mod itcmdr {
         include!("generated/itcmdr.rs");

@@ -10,6 +10,8 @@ use std::collections::BTreeMap;
 /// - `incidents_total:<machine>`: incidents in the window (sorted high to low = ranking)
 /// - `open_incidents:<machine>`, `mttr:<machine>` (ms), `repair_failures:<machine>:<check>`,
 ///   `missed_runs:<machine>`
+/// - `flaps:<machine>:<check>`: ok<->failed transitions in the window (only when >= FLAP_MIN)
+/// - `repeat_offender:<machine>:<check>`: incidents opened in the window (only when >= REPEAT_MIN)
 pub async fn get_metrics(pool: &DbPool, window_days: i64, rollup: Rollup) -> Result<Vec<MetricPoint>> {
     let now = Utc::now();
     let window_days = window_days.max(1);
@@ -89,6 +91,21 @@ pub async fn get_metrics(pool: &DbPool, window_days: i64, rollup: Rollup) -> Res
         let present: i64 = r.try_get::<Option<i64>, _>("days_present")?.unwrap_or(0);
         points.push(MetricPoint { key: format!("missed_runs:{c}"), ts: now_ms, value: (window_days - present).max(0) as f64 });
     }
+    points.extend(flapping(pool, start.timestamp_millis(), now_ms).await?);
+    let rows = sqlx::query(
+        "SELECT computer, check_id, COUNT(*) AS n FROM incidents WHERE opened_ts_ms >= ? \
+         GROUP BY computer, check_id HAVING COUNT(*) >= ? ORDER BY n DESC",
+    )
+    .bind(start.timestamp_millis())
+    .bind(REPEAT_MIN)
+    .fetch_all(pool)
+    .await?;
+    for r in rows {
+        let c: String = r.try_get("computer")?;
+        let k: String = r.try_get("check_id")?;
+        let n: i64 = r.try_get("n")?;
+        points.push(MetricPoint { key: format!("repeat_offender:{c}:{k}"), ts: now_ms, value: n as f64 });
+    }
     Ok(points)
 }
 
@@ -111,6 +128,38 @@ pub fn rank_by_incidents(rows: &[DailyRow]) -> Vec<(String, i64)> {
     let mut v: Vec<(String, i64)> = m.into_iter().collect();
     v.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
     v
+}
+
+/// A check flaps when it changes between ok and failed at least this many times in the window.
+pub const FLAP_MIN: usize = 3;
+/// A machine/check is a repeat offender with at least this many incidents in the window.
+pub const REPEAT_MIN: i64 = 3;
+
+/// Number of ok<->failed transitions in a time-ordered status sequence (true = failed).
+pub fn count_flaps(failed: &[bool]) -> usize {
+    failed.windows(2).filter(|w| w[0] != w[1]).count()
+}
+
+async fn flapping(pool: &DbPool, start_ms: i64, now_ms: i64) -> Result<Vec<MetricPoint>> {
+    let rows = sqlx::query(
+        "SELECT computer, check_id, status FROM checks WHERE ts_ms >= ? AND status IN ('ok','failed') \
+         ORDER BY computer, check_id, ts_ms",
+    )
+    .bind(start_ms)
+    .fetch_all(pool)
+    .await?;
+    let mut seq: BTreeMap<(String, String), Vec<bool>> = BTreeMap::new();
+    for r in rows {
+        let status: String = r.try_get("status")?;
+        seq.entry((r.try_get("computer")?, r.try_get("check_id")?)).or_default().push(status == "failed");
+    }
+    Ok(seq
+        .into_iter()
+        .filter_map(|((c, k), v)| {
+            let n = count_flaps(&v);
+            (n >= FLAP_MIN).then(|| MetricPoint { key: format!("flaps:{c}:{k}"), ts: now_ms, value: n as f64 })
+        })
+        .collect())
 }
 
 fn monday(year: i32, week: u32) -> NaiveDate {
@@ -232,6 +281,14 @@ mod tests {
         let yearly = aggregate_daily(&rows, Rollup::Yearly, start, today);
         assert_eq!(get(&yearly, "incidents:WS-01"), vec![6.0]);
         assert_eq!(yearly[0].ts, d(2025, 12, 29).and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp_millis());
+    }
+
+    #[test]
+    fn counts_flaps() {
+        assert_eq!(count_flaps(&[]), 0);
+        assert_eq!(count_flaps(&[true, true, true]), 0);
+        assert_eq!(count_flaps(&[false, true, false, true]), 3);
+        assert_eq!(count_flaps(&[false, false, true, true]), 1);
     }
 
     #[test]
