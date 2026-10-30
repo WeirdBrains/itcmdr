@@ -1,5 +1,8 @@
 # Changelog
 
+## v0.5.3 (2026-10-30)
+- Docs only: plan decision 11, plugin log path + structured log standard `itcmdr.log/v1` + metrics from logs, mapped onto v0.9.0-v0.12.0; wording fix in the release table.
+
 ## v0.5.2 (2026-10-30)
 - Docs only: plan adds v0.11.0 'built-in checks as plugins'; Flutter moves to v0.12.0, installer to v0.13.0.
 
