@@ -4,57 +4,106 @@
 //!   itcmdr-server                  run in the console (Ctrl+C stops)
 //!   itcmdr-server --service        run under the Windows Service Control Manager
 //!   itcmdr-server hash-token <t>   print the SHA-256 hex to put in admin_token_hash
+//!   --data-dir <dir>               (any mode) data dir override; beats ITCMDR_DATA_DIR and server.json
 use itcmdr_server::config::ServerConfig;
 
 fn init_tracing(to_file: Option<std::path::PathBuf>) {
-    let filter = tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
-    let builder = tracing_subscriber::fmt().with_env_filter(filter).with_target(false).compact();
+    let filter = tracing_subscriber::EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
+    let builder = tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_target(false)
+        .compact();
     if let Some(path) = to_file {
         if let Some(dir) = path.parent() {
             let _ = std::fs::create_dir_all(dir);
         }
-        if let Ok(f) = std::fs::OpenOptions::new().create(true).append(true).open(&path) {
-            builder.with_ansi(false).with_writer(std::sync::Mutex::new(f)).init();
+        if let Ok(f) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&path)
+        {
+            builder
+                .with_ansi(false)
+                .with_writer(std::sync::Mutex::new(f))
+                .init();
             return;
         }
     }
     builder.init();
 }
 
+static DATA_DIR_FLAG: std::sync::OnceLock<Option<std::path::PathBuf>> = std::sync::OnceLock::new();
+
+/// Load the config and apply `--data-dir`.
+fn load_config() -> anyhow::Result<ServerConfig> {
+    let mut cfg = ServerConfig::load()?;
+    cfg.data_dir_flag = DATA_DIR_FLAG.get().cloned().flatten();
+    Ok(cfg)
+}
+
+/// Remove `--data-dir <dir>` / `--data-dir=<dir>` from the arguments.
+fn take_data_dir(args: &mut Vec<String>) -> anyhow::Result<Option<std::path::PathBuf>> {
+    let mut out = None;
+    let mut i = 0;
+    while i < args.len() {
+        if let Some(v) = args[i].strip_prefix("--data-dir=") {
+            out = Some(v.into());
+            args.remove(i);
+        } else if args[i] == "--data-dir" {
+            anyhow::ensure!(i + 1 < args.len(), "--data-dir needs a value");
+            out = Some(args.remove(i + 1).into());
+            args.remove(i);
+        } else {
+            i += 1;
+        }
+    }
+    Ok(out)
+}
+
 fn main() -> anyhow::Result<()> {
-    let args: Vec<String> = std::env::args().skip(1).collect();
+    let mut args: Vec<String> = std::env::args().skip(1).collect();
+    let _ = DATA_DIR_FLAG.set(take_data_dir(&mut args)?);
     match args.first().map(String::as_str) {
         Some("hash-token") => {
-            let t = args.get(1).ok_or_else(|| anyhow::anyhow!("usage: itcmdr-server hash-token <token>"))?;
+            let t = args
+                .get(1)
+                .ok_or_else(|| anyhow::anyhow!("usage: itcmdr-server hash-token <token>"))?;
             println!("{}", itcmdr_server::api::sha256_hex(t));
             Ok(())
         }
         Some("--service") => service::run(),
         Some("--console") | None => {
             init_tracing(None);
-            let cfg = ServerConfig::load()?;
+            let cfg = load_config()?;
             tokio::runtime::Runtime::new()?.block_on(itcmdr_server::run(cfg, async {
                 let _ = tokio::signal::ctrl_c().await;
             }))
         }
-        Some(other) => anyhow::bail!("unknown argument {other:?}; use --console, --service or hash-token <token>"),
+        Some(other) => anyhow::bail!(
+            "unknown argument {other:?}; use --console, --service or hash-token <token>"
+        ),
     }
 }
 
 #[cfg(not(windows))]
 mod service {
     pub fn run() -> anyhow::Result<()> {
-        anyhow::bail!("--service is only supported on Windows; run without arguments for console mode")
+        anyhow::bail!(
+            "--service is only supported on Windows; run without arguments for console mode"
+        )
     }
 }
 
 #[cfg(windows)]
 mod service {
-    use itcmdr_server::config::ServerConfig;
     use std::ffi::OsString;
     use std::sync::Mutex;
     use std::time::Duration;
-    use windows_service::service::{ServiceControl, ServiceControlAccept, ServiceExitCode, ServiceState, ServiceStatus, ServiceType};
+    use windows_service::service::{
+        ServiceControl, ServiceControlAccept, ServiceExitCode, ServiceState, ServiceStatus,
+        ServiceType,
+    };
     use windows_service::service_control_handler::{self, ServiceControlHandlerResult};
     use windows_service::{define_windows_service, service_dispatcher};
 
@@ -64,7 +113,12 @@ mod service {
 
     pub fn run() -> anyhow::Result<()> {
         let log = std::env::var("ProgramData")
-            .map(|p| std::path::PathBuf::from(p).join("itcmdr").join("server-logs").join("itcmdr-server.txt"))
+            .map(|p| {
+                std::path::PathBuf::from(p)
+                    .join("itcmdr")
+                    .join("server-logs")
+                    .join("itcmdr-server.txt")
+            })
             .ok();
         super::init_tracing(log);
         service_dispatcher::start(SERVICE_NAME, ffi_service_main)?;
@@ -103,10 +157,18 @@ mod service {
             _ => ServiceControlHandlerResult::NotImplemented,
         };
         let handle = service_control_handler::register(SERVICE_NAME, handler)?;
-        handle.set_service_status(status(ServiceState::StartPending, ServiceControlAccept::empty(), 0))?;
-        let result = ServerConfig::load().and_then(|cfg| {
+        handle.set_service_status(status(
+            ServiceState::StartPending,
+            ServiceControlAccept::empty(),
+            0,
+        ))?;
+        let result = super::load_config().and_then(|cfg| {
             let rt = tokio::runtime::Runtime::new()?;
-            handle.set_service_status(status(ServiceState::Running, ServiceControlAccept::STOP | ServiceControlAccept::SHUTDOWN, 0))?;
+            handle.set_service_status(status(
+                ServiceState::Running,
+                ServiceControlAccept::STOP | ServiceControlAccept::SHUTDOWN,
+                0,
+            ))?;
             rt.block_on(itcmdr_server::run(cfg, async {
                 let _ = rx.await;
             }))
@@ -114,7 +176,11 @@ mod service {
         if let Err(e) = &result {
             tracing::error!(error=%e, "server exited with error");
         }
-        handle.set_service_status(status(ServiceState::Stopped, ServiceControlAccept::empty(), if result.is_ok() { 0 } else { 1 }))?;
+        handle.set_service_status(status(
+            ServiceState::Stopped,
+            ServiceControlAccept::empty(),
+            if result.is_ok() { 0 } else { 1 },
+        ))?;
         result
     }
 }

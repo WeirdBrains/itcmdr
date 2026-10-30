@@ -42,7 +42,11 @@ pub fn generate(out_dir: &Path, days: i64, seed: u64, end: DateTime<Utc>) -> any
             let run_id = uuid::Uuid::new_v4().to_string();
             let name = format!("{}_{}_{}.log", m, start.format("%Y%m%d-%H%M%S"), run_id);
             let mut f = File::create(out_dir.join(name))?;
-            writeln!(f, "{}", json!({"type":"run-start","runId":run_id,"computer":m,"role":role,"reportOnly":false,"started":start.to_rfc3339(),"agentVersion":"sample"}))?;
+            writeln!(
+                f,
+                "{}",
+                json!({"type":"run-start","runId":run_id,"computer":m,"role":role,"reportOnly":false,"started":start.to_rfc3339(),"agentVersion":"sample"})
+            )?;
             let mut t = start;
             for (check, cat) in CHECKS {
                 t += Duration::seconds(rng.gen_range(1..20));
@@ -63,7 +67,11 @@ pub fn generate(out_dir: &Path, days: i64, seed: u64, end: DateTime<Utc>) -> any
                         "durationMs": rng.gen_range(50..5000),"ts":t.to_rfc3339(),"excepted":false,"exceptionReason":null})
                 )?;
             }
-            writeln!(f, "{}", json!({"type":"run-complete","runId":run_id,"computer":m,"finished":(t + Duration::seconds(2)).to_rfc3339(),"exitCode":0}))?;
+            writeln!(
+                f,
+                "{}",
+                json!({"type":"run-complete","runId":run_id,"computer":m,"finished":(t + Duration::seconds(2)).to_rfc3339(),"exitCode":0})
+            )?;
             files += 1;
         }
     }

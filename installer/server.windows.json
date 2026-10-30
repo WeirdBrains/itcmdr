@@ -1,7 +1,6 @@
 {
   "bind_addr": "0.0.0.0:50051",
   "logs_dir": "C:\\PDATA\\maintenanceRuns",
-  "database_path": "C:\\ProgramData\\itcmdr\\itcmdr.sqlite",
   "admin_token_hash": "",
   "allow_insecure_no_auth": false,
   "retention_days": 400,

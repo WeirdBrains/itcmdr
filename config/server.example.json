@@ -1,7 +1,6 @@
 {
   "bind_addr": "127.0.0.1:50051",
   "logs_dir": "./sample-maintenanceRuns",
-  "database_path": "./.local/itcmdr.sqlite",
   "requests_dir": "./sample-maintenanceRuns/requests",
   "admin_token_hash": "",
   "allow_insecure_no_auth": false,
@@ -21,5 +20,6 @@
       "yearly"
     ]
   },
-  "request_timeout_secs": 10800
+  "request_timeout_secs": 10800,
+  "data_dir": "./.local/itcmdr-data"
 }

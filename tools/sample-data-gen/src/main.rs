@@ -2,7 +2,10 @@ use clap::Parser;
 use std::path::PathBuf;
 
 #[derive(Debug, Parser)]
-#[command(name = "itcmdr-sample-data-gen", about = "Generate demo agent logs (JSON Lines)")]
+#[command(
+    name = "itcmdr-sample-data-gen",
+    about = "Generate demo agent logs (JSON Lines)"
+)]
 struct Args {
     /// Output folder (point the server's logs_dir here)
     #[arg(long, default_value = "./sample-maintenanceRuns")]

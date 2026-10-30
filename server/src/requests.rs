@@ -28,7 +28,11 @@ pub fn aggregate(expected: &[String], responses: &[(String, String)]) -> (String
         .map(|m| m.to_ascii_uppercase())
         .filter(|m| !by_machine.contains_key(m))
         .collect();
-    let mut msg = by_machine.iter().map(|(m, s)| format!("{m}={s}")).collect::<Vec<_>>().join(", ");
+    let mut msg = by_machine
+        .iter()
+        .map(|(m, s)| format!("{m}={s}"))
+        .collect::<Vec<_>>()
+        .join(", ");
     if !missing.is_empty() {
         msg.push_str(&format!("; waiting: {}", missing.join(", ")));
     }
@@ -46,7 +50,9 @@ pub fn aggregate(expected: &[String], responses: &[(String, String)]) -> (String
 
 fn read_responses(dir: &Path, request_id: &str) -> Vec<(String, String)> {
     let prefix = format!("{request_id}.");
-    let Ok(rd) = std::fs::read_dir(dir) else { return Vec::new() };
+    let Ok(rd) = std::fs::read_dir(dir) else {
+        return Vec::new();
+    };
     rd.filter_map(Result::ok)
         .filter(|e| {
             let n = e.file_name().to_string_lossy().to_string();
@@ -62,16 +68,28 @@ fn read_responses(dir: &Path, request_id: &str) -> Vec<(String, String)> {
 }
 
 /// Give up on a request that is still queued/running after `timeout_ms`.
-pub fn apply_timeout(status: String, msg: String, age_ms: i64, timeout_ms: i64) -> (String, String) {
+pub fn apply_timeout(
+    status: String,
+    msg: String,
+    age_ms: i64,
+    timeout_ms: i64,
+) -> (String, String) {
     if timeout_ms > 0 && age_ms > timeout_ms && (status == "queued" || status == "running") {
-        return ("timed_out".into(), format!("timed out after {} min; {msg}", timeout_ms / 60_000));
+        return (
+            "timed_out".into(),
+            format!("timed out after {} min; {msg}", timeout_ms / 60_000),
+        );
     }
     (status, msg)
 }
 
 /// Update every queued/running request from the response files; time out requests
 /// nobody finished within `timeout_ms` (0 = never). Returns how many changed.
-pub async fn sync_requests(pool: &DbPool, responses_dir: &Path, timeout_ms: i64) -> anyhow::Result<usize> {
+pub async fn sync_requests(
+    pool: &DbPool,
+    responses_dir: &Path,
+    timeout_ms: i64,
+) -> anyhow::Result<usize> {
     let mut changed = 0;
     let now = chrono::Utc::now().timestamp_millis();
     for (id, options, created) in crate::db::pending_requests(pool).await? {
@@ -102,10 +120,21 @@ mod tests {
         let exp = vec!["WS-01".to_string(), "WS-02".to_string()];
         assert_eq!(aggregate(&exp, &[]).0, "queued");
         assert_eq!(aggregate(&exp, &[r("WS-01", "done")]).0, "running");
-        assert!(aggregate(&exp, &[r("WS-01", "done")]).1.contains("waiting: WS-02"));
-        assert_eq!(aggregate(&exp, &[r("ws-01", "done"), r("WS-02", "running")]).0, "running");
-        assert_eq!(aggregate(&exp, &[r("WS-01", "done"), r("WS-02", "done")]).0, "done");
-        assert_eq!(aggregate(&exp, &[r("WS-01", "failed"), r("WS-02", "done")]).0, "failed");
+        assert!(aggregate(&exp, &[r("WS-01", "done")])
+            .1
+            .contains("waiting: WS-02"));
+        assert_eq!(
+            aggregate(&exp, &[r("ws-01", "done"), r("WS-02", "running")]).0,
+            "running"
+        );
+        assert_eq!(
+            aggregate(&exp, &[r("WS-01", "done"), r("WS-02", "done")]).0,
+            "done"
+        );
+        assert_eq!(
+            aggregate(&exp, &[r("WS-01", "failed"), r("WS-02", "done")]).0,
+            "failed"
+        );
         assert_eq!(aggregate(&[], &[r("WS-03", "done")]).0, "done");
     }
 
@@ -116,6 +145,9 @@ mod tests {
         assert_eq!(t("queued", 1001), "timed_out");
         assert_eq!(t("running", 999), "running");
         assert_eq!(t("done", 5000), "done");
-        assert_eq!(apply_timeout("queued".into(), "m".into(), 1 << 40, 0).0, "queued");
+        assert_eq!(
+            apply_timeout("queued".into(), "m".into(), 1 << 40, 0).0,
+            "queued"
+        );
     }
 }

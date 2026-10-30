@@ -33,7 +33,13 @@ impl AgentRecord {
 #[serde(tag = "type", rename_all = "kebab-case")]
 enum LogLine {
     #[serde(rename_all = "camelCase")]
-    RunStart { run_id: String, computer: String, role: Option<String>, report_only: Option<bool>, started: Option<String> },
+    RunStart {
+        run_id: String,
+        computer: String,
+        role: Option<String>,
+        report_only: Option<bool>,
+        started: Option<String>,
+    },
     #[serde(rename_all = "camelCase")]
     Check {
         run_id: String,
@@ -50,7 +56,11 @@ enum LogLine {
         exception_reason: Option<String>,
     },
     #[serde(rename_all = "camelCase")]
-    RunComplete { run_id: String, finished: Option<String>, exit_code: Option<i32> },
+    RunComplete {
+        run_id: String,
+        finished: Option<String>,
+        exit_code: Option<i32>,
+    },
     #[serde(other)]
     Unknown,
 }
@@ -79,7 +89,9 @@ fn read_zip_lines(bytes: Vec<u8>, out: &mut Vec<String>, depth: u32) {
     if depth > 4 {
         return;
     }
-    let Ok(mut z) = zip::ZipArchive::new(std::io::Cursor::new(bytes)) else { return };
+    let Ok(mut z) = zip::ZipArchive::new(std::io::Cursor::new(bytes)) else {
+        return;
+    };
     for i in 0..z.len() {
         let Ok(mut f) = z.by_index(i) else { continue };
         let name = f.name().to_ascii_lowercase();
@@ -98,7 +110,11 @@ fn read_zip_lines(bytes: Vec<u8>, out: &mut Vec<String>, depth: u32) {
 /// Lines of one file (a log, or every log inside a possibly nested zip).
 pub fn read_file_lines(p: &Path) -> Vec<String> {
     let mut out = Vec::new();
-    let name = p.file_name().and_then(|s| s.to_str()).unwrap_or("").to_ascii_lowercase();
+    let name = p
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
     if is_log_name(&name) {
         if let Ok(b) = std::fs::read(p) {
             out.extend(String::from_utf8_lossy(&b).lines().map(|s| s.to_string()));
@@ -123,7 +139,11 @@ pub fn log_files(root: &Path) -> Vec<PathBuf> {
         .filter(|e| e.file_type().is_file())
         .map(|e| e.into_path())
         .filter(|p| {
-            let n = p.file_name().and_then(|s| s.to_str()).unwrap_or("").to_ascii_lowercase();
+            let n = p
+                .file_name()
+                .and_then(|s| s.to_str())
+                .unwrap_or("")
+                .to_ascii_lowercase();
             is_log_name(&n) || n.ends_with(".zip")
         })
         .collect()
@@ -139,9 +159,17 @@ pub fn iter_log_lines(root: &Path) -> anyhow::Result<Vec<String>> {
 }
 
 enum Ev {
-    Start { run_id: String, computer: String, role: Option<String>, report_only: bool },
+    Start {
+        run_id: String,
+        computer: String,
+        role: Option<String>,
+        report_only: bool,
+    },
     Check(AgentRecord),
-    Complete { run_id: String, exit_code: Option<i32> },
+    Complete {
+        run_id: String,
+        exit_code: Option<i32>,
+    },
 }
 
 fn file_stamp(p: &Path) -> Option<(i64, i64)> {
@@ -168,7 +196,9 @@ pub async fn ingest_all(pool: &crate::db::DbPool, dir: &Path) -> anyhow::Result<
     let mut events: Vec<(i64, u8, Ev)> = Vec::new();
     let mut touched = Vec::new();
     for p in log_files(dir) {
-        let Some((size, mtime)) = file_stamp(&p) else { continue };
+        let Some((size, mtime)) = file_stamp(&p) else {
+            continue;
+        };
         let key = p.to_string_lossy().to_string();
         if crate::db::ingested_file(pool, &key).await? == Some((size, mtime)) {
             continue;
@@ -181,13 +211,43 @@ pub async fn ingest_all(pool: &crate::db::DbPool, dir: &Path) -> anyhow::Result<
                 continue;
             }
             match serde_json::from_str::<LogLine>(&line) {
-                Ok(LogLine::RunStart { run_id, computer, role, report_only, started }) => {
+                Ok(LogLine::RunStart {
+                    run_id,
+                    computer,
+                    role,
+                    report_only,
+                    started,
+                }) => {
                     let ts = parse_ts(started.as_deref()).unwrap_or(mtime);
                     run_ts.insert(run_id.clone(), ts);
-                    events.push((ts, 0, Ev::Start { run_id, computer, role, report_only: report_only.unwrap_or(false) }));
+                    events.push((
+                        ts,
+                        0,
+                        Ev::Start {
+                            run_id,
+                            computer,
+                            role,
+                            report_only: report_only.unwrap_or(false),
+                        },
+                    ));
                 }
-                Ok(LogLine::Check { run_id, computer, category, check_id, severity, status, attempted_repair, action, result, ts, excepted, exception_reason }) => {
-                    let t = parse_ts(ts.as_deref()).or_else(|| run_ts.get(&run_id).copied()).unwrap_or(mtime);
+                Ok(LogLine::Check {
+                    run_id,
+                    computer,
+                    category,
+                    check_id,
+                    severity,
+                    status,
+                    attempted_repair,
+                    action,
+                    result,
+                    ts,
+                    excepted,
+                    exception_reason,
+                }) => {
+                    let t = parse_ts(ts.as_deref())
+                        .or_else(|| run_ts.get(&run_id).copied())
+                        .unwrap_or(mtime);
                     events.push((
                         t,
                         1,
@@ -206,7 +266,11 @@ pub async fn ingest_all(pool: &crate::db::DbPool, dir: &Path) -> anyhow::Result<
                         }),
                     ));
                 }
-                Ok(LogLine::RunComplete { run_id, finished, exit_code }) => {
+                Ok(LogLine::RunComplete {
+                    run_id,
+                    finished,
+                    exit_code,
+                }) => {
                     let t = parse_ts(finished.as_deref()).unwrap_or(mtime);
                     events.push((t, 2, Ev::Complete { run_id, exit_code }));
                 }
@@ -219,8 +283,22 @@ pub async fn ingest_all(pool: &crate::db::DbPool, dir: &Path) -> anyhow::Result<
     events.sort_by_key(|(t, k, _)| (*t, *k));
     for (ts, _, ev) in events {
         match ev {
-            Ev::Start { run_id, computer, role, report_only } => {
-                if crate::db::record_run_start(pool, &run_id, &computer, role.as_deref(), report_only, ts).await? {
+            Ev::Start {
+                run_id,
+                computer,
+                role,
+                report_only,
+            } => {
+                if crate::db::record_run_start(
+                    pool,
+                    &run_id,
+                    &computer,
+                    role.as_deref(),
+                    report_only,
+                    ts,
+                )
+                .await?
+                {
                     stats.new_runs += 1;
                 }
             }
@@ -229,7 +307,9 @@ pub async fn ingest_all(pool: &crate::db::DbPool, dir: &Path) -> anyhow::Result<
                     stats.new_checks += 1;
                 }
             }
-            Ev::Complete { run_id, exit_code } => crate::db::record_run_complete(pool, &run_id, ts, exit_code).await?,
+            Ev::Complete { run_id, exit_code } => {
+                crate::db::record_run_complete(pool, &run_id, ts, exit_code).await?
+            }
         }
     }
     for (k, s, m) in touched {
