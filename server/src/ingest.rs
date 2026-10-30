@@ -94,7 +94,11 @@ fn read_zip_lines(bytes: Vec<u8>, out: &mut Vec<String>, depth: u32) {
     };
     for i in 0..z.len() {
         let Ok(mut f) = z.by_index(i) else { continue };
-        let name = f.name().to_ascii_lowercase();
+        let name = f.name().to_ascii_lowercase().replace('\\', "/");
+        // Weekly zips also carry plugin logs (itcmdr.log/v1, ingested from the data dir instead).
+        if name.starts_with("plugin-logs/") || name.contains("/plugin-logs/") {
+            continue;
+        }
         let mut buf = Vec::new();
         if f.read_to_end(&mut buf).is_err() {
             continue;
@@ -207,10 +211,12 @@ pub async fn ingest_all(pool: &crate::db::DbPool, dir: &Path) -> anyhow::Result<
         touched.push((key, size, mtime));
         let mut run_ts: std::collections::HashMap<String, i64> = std::collections::HashMap::new();
         for line in read_file_lines(&p) {
+            // Windows PowerShell 5.1 writes a UTF8 byte-order mark at the start of a file (-Encoding UTF8).
+            let line = line.trim_start_matches('\u{feff}');
             if line.trim().is_empty() {
                 continue;
             }
-            match serde_json::from_str::<LogLine>(&line) {
+            match serde_json::from_str::<LogLine>(line) {
                 Ok(LogLine::RunStart {
                     run_id,
                     computer,

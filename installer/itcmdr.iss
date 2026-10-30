@@ -10,7 +10,7 @@
 
 #define MyAppName "itcmdr"
 #ifndef MyAppVersion
-  #define MyAppVersion "0.10.0"
+  #define MyAppVersion "0.10.1"
 #endif
 #define InstallDirName "itcmdr"
 #ifndef LocalLogs
@@ -37,10 +37,10 @@ Name: "agent"; Description: "Agent (PowerShell + scheduled tasks)"; Types: full 
 
 [Files]
 ; Server binary (built by CI)
-Source: "..\server\target\release\itcmdr-server.exe"; DestDir: "{app}\server"; Components: server; Flags: ignoreversion
-Source: "..\server\target\release\itcmdr-cli.exe"; DestDir: "{app}\server"; Components: server; Flags: ignoreversion
-Source: "..\server\target\release\itcmdr-plugin-ps.exe"; DestDir: "{app}\server"; Components: server; Flags: ignoreversion
-Source: "..\server\target\release\itcmdr-restore.exe"; DestDir: "{app}\server"; Components: server; Flags: ignoreversion
+Source: "..\target\release\itcmdr-server.exe"; DestDir: "{app}\server"; Components: server; Flags: ignoreversion
+Source: "..\target\release\itcmdr-cli.exe"; DestDir: "{app}\server"; Components: server; Flags: ignoreversion
+Source: "..\target\release\itcmdr-plugin-ps.exe"; DestDir: "{app}\server"; Components: server; Flags: ignoreversion
+Source: "..\target\release\itcmdr-restore.exe"; DestDir: "{app}\server"; Components: server; Flags: ignoreversion
 ; App build
 Source: "..\app\build\windows\x64\runner\Release\*"; DestDir: "{app}\app"; Components: app; Flags: recursesubdirs ignoreversion
 ; Agent scripts
@@ -50,6 +50,7 @@ Source: "..\agent\Poll-ItcmdrRequests.ps1"; DestDir: "{app}\agent"; Components: 
 Source: "..\agent\Report-BackupCoverage.ps1"; DestDir: "{app}\agent"; Components: server; Flags: ignoreversion
 Source: "..\agent\Push-Install-ItcmdrAgent.ps1"; DestDir: "{app}\agent"; Components: agent; Flags: ignoreversion
 Source: "..\agent\Rotate-ItcmdrLogs.ps1"; DestDir: "{app}\agent"; Components: server; Flags: ignoreversion
+Source: "..\agent\Install-ItcmdrRotationTask.ps1"; DestDir: "{app}\agent"; Components: server; Flags: ignoreversion
 ; PowerShell plugin module (itcmdr-plugin-ps finds it in ..\agent)
 Source: "..\agent\Itcmdr.Plugin.psm1"; DestDir: "{app}\agent"; Components: server agent; Flags: ignoreversion
 ; Server config template (never overwritten; edit logs_dir and admin_token_hash after install)
@@ -75,12 +76,12 @@ Filename: "sc.exe"; Parameters: "failure itcmdr-server reset= 86400 actions= res
 Filename: "sc.exe"; Parameters: "start itcmdr-server"; Flags: runhidden; Components: server; StatusMsg: "Starting itcmdr-server..."
 
 ; Firewall rule restricted to example subnet; override at install time with /DAllowSubnet=198.51.100.0/24
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$s = '{code:GetAllowSubnet}'; if ($s) { netsh advfirewall firewall delete rule name='itcmdr-server' | Out-Null; netsh advfirewall firewall add rule name='itcmdr-server' dir=in action=allow enable=yes profile=any localport=50051 protocol=TCP remoteip=$s }"""; Flags: runhidden; Components: server; StatusMsg: "Adding firewall rule..."
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$s = '{code:GetAllowSubnet}'; if ($s) {{ netsh advfirewall firewall delete rule name='itcmdr-server' | Out-Null; netsh advfirewall firewall add rule name='itcmdr-server' dir=in action=allow enable=yes profile=any localport=50051 protocol=TCP remoteip=$s }"""; Flags: runhidden; Components: server; StatusMsg: "Adding firewall rule..."
 
 ; Install agent scheduled task
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\agent\Install-ItcmdrAgent.ps1"""; Flags: runhidden; Components: agent; StatusMsg: "Installing agent scheduled task..."
 ; Install log rotation scheduled task (daily, server only)
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$time = '02:10'; try { $t2 = (Get-Content -Raw -Path (Join-Path $env:ProgramData 'itcmdr\site.json') | ConvertFrom-Json).rotation.timeLocal; if ($t2) { $time = $t2 } } catch { }; $a = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument '-NoProfile -ExecutionPolicy Bypass -File \"\"\"{app}\agent\Rotate-ItcmdrLogs.ps1\"\"\"'; $t = New-ScheduledTaskTrigger -Daily -At $time; $p = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -RunLevel Highest -LogonType ServiceAccount; $s = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable; Register-ScheduledTask -TaskName 'itcmdr Log Rotation' -Action $a -Trigger $t -Principal $p -Settings $s -Force"""; Flags: runhidden; Components: server; StatusMsg: "Installing log rotation task..."
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\agent\Install-ItcmdrRotationTask.ps1"""; Flags: runhidden; Components: server; StatusMsg: "Installing log rotation task..."
 
 [UninstallRun]
 Filename: "sc.exe"; Parameters: "stop itcmdr-server"; Flags: runhidden; Components: server
@@ -103,6 +104,6 @@ begin
   Result := ExpandConstant('{param:AllowSubnet|198.51.100.0/24}');
 end;
 
-; Silent install (Agent only):
-;   itcmdr-Setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /COMPONENTS=\"agent\"
+// Silent install (Agent only):
+//   itcmdr-Setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /COMPONENTS=\"agent\"
 

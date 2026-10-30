@@ -487,6 +487,14 @@ JSON. The rest sounds good to me").
   deferred to the app work in v0.12.0). Health = DB opens, schema matches, integrity_check, gRPC answers.
   Test hook `ITCMDR_RESTORE_FORCE_HEALTH_FAIL`.
 
+### Notes from the v0.10.1 Windows VM pass
+
+- Windows PowerShell 5.1's `-Encoding UTF8` writes a BOM; the agent writes through `UTF8Encoding($false)` and the
+  ingest strips a BOM anyway (old agents).
+- Inno Setup treats `{` as a constant in [Run] parameters; complex PowerShell lives in scripts now.
+- The restore helper survives `sc.exe stop` of the service that started it (detached), restarts it, and rolls back
+  on a failed health check; verified with the real service.
+
 ### Auth notes from the v0.7.0 build
 
 - `auth_mode` in server.json: `token` (legacy only), `both` (default: signed requests, or the legacy token for
@@ -522,6 +530,7 @@ JSON. The rest sounds good to me").
 | v0.9.0 | packages: format, validation (exact file list, sha256, signature), quarantine + index, plugins install --url/--path, list/enable/disable/remove, plugin files in backups |
 | v0.9.1 | settings everywhere (decision 15 widened): typed Settings registry + `ListSettings`/`UpdateSetting` (+ backup `GetSettings`/`UpdateSettings`), runtime wiring, plugins enabled on install, `itcmdr-cli config list`, central agent settings (global + per machine) with site.json as local override, `docs/SETTINGS.md`, basic app Settings screen |
 | v0.10.0 ✅ | app-triggered restore server side (decision 13: StageRestore, restore helper, status, health-check rollback); plugin runtime: PluginService gRPC, Rust crate, PowerShell module + host, Verify then Execute, Log on error, timeouts, on-demand + audit hooks; per-run log path + log/metric helpers; log standard doc + validator + generic metrics ingest (decision 11, moved from v0.9.0); scheduled runs: server scheduler, schedule RPCs, `itcmdr-cli schedule` (decision 14) |
+| v0.10.1 ✅ | first Windows VM pass: BOM-safe agent logs + ingest, zipped plugin logs skipped, installer compiles, app exe name, PS 5.1 test fixes, `itcmdr-cli restore-stage` / `restore-status` |
 | v0.11.0 | built-in checks as plugins: the existing agent checks/repairs rebuilt as service plugins and run through the plugin system (decision 10), logging in itcmdr.log/v1; nightly agent task and nightly backup as built-in schedules (decision 14, no-gap rule) |
 | v0.12.0 | Flutter: Service Plugins section, app registration, user/key management, plugin metric charts, Backup & Restore screen, Schedules screen; app signs requests, default auth_mode -> signed |
 | v0.13.0 | installer: first-run master setup showing the words once; Windows VM test items in the handover |

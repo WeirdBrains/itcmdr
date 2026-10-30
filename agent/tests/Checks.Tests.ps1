@@ -2,7 +2,7 @@ Set-StrictMode -Version Latest
 
 BeforeAll {
   $env:ITCMDR_IMPORT_ONLY = '1'
-  . (Join-Path $PSScriptRoot '..' 'Invoke-ItcmdrAgent.ps1')
+  . (Join-Path (Join-Path $PSScriptRoot '..') 'Invoke-ItcmdrAgent.ps1')
   Remove-Item Env:ITCMDR_IMPORT_ONLY -ErrorAction SilentlyContinue
 
   function Get-TestContext([hashtable]$Site, [string]$Role = 'Workstation') {
