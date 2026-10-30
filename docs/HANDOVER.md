@@ -1,12 +1,12 @@
 # itcmdr handover notes
 
-Keep this file current: update it at the start of each work item and in every commit.
+Keep this file current: update it at the start of each work item and in every commit. Phase statuses live in the root `PLAN.md` (update it in every commit too).
 Placeholders only (SERVER01, WS-01, RCU-01, 198.51.100.x). Real site notes go in the
 untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committed).
 
 ## Current state (updated 2026-10-30)
 
-- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.6.0** (plugin plan release 1: storage). See `CHANGELOG.md` and `server/PLAN.md`.
+- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.6.1** (docs: root `PLAN.md` roadmap with statuses; code = v0.6.0). See `CHANGELOG.md`.
 - Everything passes on the Linux dev box (Rust, Flutter, Pester, PSScriptAnalyzer, scanner).
 - **Nothing has run on Windows yet** (installer, service, scheduled tasks, agent on a real PC).
 - GitHub release builds are blocked by org billing (see Risks), so there is no installer artifact yet.

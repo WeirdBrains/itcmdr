@@ -1,5 +1,8 @@
 # Changelog
 
+## v0.6.1 (2026-10-30)
+- Docs only: root `PLAN.md` roadmap: status legend, every release with status/tag/date, cross-cutting items, per-phase checklists.
+
 ## v0.6.0 (2026-10-30)
 - Storage (plugin plan, release 1): data dir `%ProgramData%\itcmdr` / `~/.itcmdr`, override with
   `--data-dir`, `ITCMDR_DATA_DIR` or `data_dir` in server.json; creates `service_plugins/`, `quarantine/`,
