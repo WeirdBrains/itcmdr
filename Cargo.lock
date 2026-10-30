@@ -1257,7 +1257,7 @@ dependencies = [
 
 [[package]]
 name = "itcmdr-server"
-version = "0.10.1"
+version = "0.11.0"
 dependencies = [
  "anyhow",
  "assert_cmd",
@@ -1273,6 +1273,7 @@ dependencies = [
  "futures",
  "hex",
  "hkdf",
+ "iana-time-zone",
  "itcmdr-plugin",
  "itcmdr-sample-data-gen",
  "libsqlite3-sys",

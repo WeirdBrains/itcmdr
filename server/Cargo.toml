@@ -1,6 +1,6 @@
 [package]
 name = "itcmdr-server"
-version = "0.10.1"
+version = "0.11.0"
 edition = "2021"
 description = "itcmdr gRPC server and background ingest"
 
@@ -61,6 +61,7 @@ ureq = "2"
 itcmdr-plugin = { path = "../plugin" }
 cron = "0.15"
 chrono-tz = "0.10"
+iana-time-zone = "0.1"
 
 
 [target.'cfg(windows)'.dependencies]

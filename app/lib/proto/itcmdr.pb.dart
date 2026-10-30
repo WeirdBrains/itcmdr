@@ -4065,6 +4065,8 @@ class Schedule extends $pb.GeneratedMessage {
     $core.bool? builtin,
     $core.Iterable<$fixnum.Int64>? nextRuns,
     $fixnum.Int64? lastFire,
+    $core.String? builtinKey,
+    $core.String? action,
   }) {
     final result = Schedule._();
     if (id != null) result.id = id;
@@ -4083,6 +4085,8 @@ class Schedule extends $pb.GeneratedMessage {
     if (builtin != null) result.builtin = builtin;
     if (nextRuns != null) result.nextRuns.addAll(nextRuns);
     if (lastFire != null) result.lastFire = lastFire;
+    if (builtinKey != null) result.builtinKey = builtinKey;
+    if (action != null) result.action = action;
     return result;
   }
 
@@ -4116,6 +4120,8 @@ class Schedule extends $pb.GeneratedMessage {
     ..p<$fixnum.Int64>(
         15, _omitFieldNames ? '' : 'nextRuns', $pb.PbFieldType.K6)
     ..aInt64(16, _omitFieldNames ? '' : 'lastFire')
+    ..aOS(17, _omitFieldNames ? '' : 'builtinKey')
+    ..aOS(18, _omitFieldNames ? '' : 'action')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -4251,6 +4257,24 @@ class Schedule extends $pb.GeneratedMessage {
   $core.bool hasLastFire() => $_has(15);
   @$pb.TagNumber(16)
   void clearLastFire() => $_clearField(16);
+
+  @$pb.TagNumber(17)
+  $core.String get builtinKey => $_getSZ(16);
+  @$pb.TagNumber(17)
+  set builtinKey($core.String value) => $_setString(16, value);
+  @$pb.TagNumber(17)
+  $core.bool hasBuiltinKey() => $_has(16);
+  @$pb.TagNumber(17)
+  void clearBuiltinKey() => $_clearField(17);
+
+  @$pb.TagNumber(18)
+  $core.String get action => $_getSZ(17);
+  @$pb.TagNumber(18)
+  set action($core.String value) => $_setString(17, value);
+  @$pb.TagNumber(18)
+  $core.bool hasAction() => $_has(17);
+  @$pb.TagNumber(18)
+  void clearAction() => $_clearField(18);
 }
 
 class SaveScheduleRequest extends $pb.GeneratedMessage {
@@ -4378,10 +4402,12 @@ class ScheduleRef extends $pb.GeneratedMessage {
   factory ScheduleRef({
     $core.String? id,
     $core.bool? force,
+    $core.String? confirm,
   }) {
     final result = ScheduleRef._();
     if (id != null) result.id = id;
     if (force != null) result.force = force;
+    if (confirm != null) result.confirm = confirm;
     return result;
   }
 
@@ -4400,6 +4426,7 @@ class ScheduleRef extends $pb.GeneratedMessage {
       createEmptyInstance: ScheduleRef.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'id')
     ..aOB(2, _omitFieldNames ? '' : 'force')
+    ..aOS(3, _omitFieldNames ? '' : 'confirm')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -4441,6 +4468,15 @@ class ScheduleRef extends $pb.GeneratedMessage {
   $core.bool hasForce() => $_has(1);
   @$pb.TagNumber(2)
   void clearForce() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get confirm => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set confirm($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasConfirm() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearConfirm() => $_clearField(3);
 }
 
 class ListSchedulesRequest extends $pb.GeneratedMessage {

@@ -97,8 +97,8 @@ pub fn registry() -> Vec<Def> {
         // ---- server: backup (decision 13)
         Def { from_cfg: Some(|c| json!(c.backup.dir.as_ref().map(|p| p.display().to_string()).unwrap_or_default())),
             ..d("backup.dir", Server, path(true, true), json!(""), "Backup archive folder (e.g. the share). Empty = <data_dir>/backups.") },
-        Def { from_cfg: Some(|c| json!(c.backup.nightly)), ..d("backup.nightly", Server, Kind::Bool, json!(true), "Take a nightly backup.") },
-        Def { from_cfg: Some(|c| json!(c.backup.hour)), ..d("backup.hour", Server, int(0, 23), json!(2), "Local hour from which the nightly backup is due.") },
+        Def { from_cfg: Some(|c| json!(c.backup.nightly)), ..d("backup.nightly", Server, Kind::Bool, json!(true), "Default of the built-in nightly-backup schedule: on (v0.11.0; afterwards pause/resume the schedule).") },
+        Def { from_cfg: Some(|c| json!(c.backup.hour)), ..d("backup.hour", Server, int(0, 23), json!(2), "Default time (HH:00) of the built-in nightly-backup schedule (v0.11.0; afterwards edit the schedule; reset-to-default re-reads it).") },
         Def { from_cfg: Some(|c| json!(c.backup.keep_daily)), ..d("backup.keep_daily", Server, int(0, 3650), json!(7), "Nightly backups kept: newest per day, for this many days.") },
         Def { from_cfg: Some(|c| json!(c.backup.keep_weekly)), ..d("backup.keep_weekly", Server, int(0, 520), json!(4), "Nightly backups kept: newest per ISO week, for this many weeks.") },
         Def { from_cfg: Some(|c| json!(c.backup.keep_blocks)), ..d("backup.keep_blocks", Server, int(0, 1300), json!(13), "Nightly backups kept: newest per 4-week block (ISO weeks 4N-3..4N).") },
@@ -132,7 +132,10 @@ pub fn registry() -> Vec<Def> {
         d("agent.backupMinBytes", Agent, int(0, 1_000_000_000_000), json!(1), "Default minimum size of the newest backup file (per-item minBytes wins)."),
         d("agent.tcpTimeoutMs", Agent, int(100, 60000), json!(3000), "TCP probe timeout (ms)."),
         d("agent.staleLockMinutes", Agent, int(10, 1440), json!(150), "Poller: a request lock older than this was left by a crashed run."),
-        Def { applies: "agent reinstall", ..d("agent.nightlyTime", Agent, Kind::Time, json!("01:30"), "Nightly maintenance task time (before stagger).") },
+        Def { applies: "agent reinstall", ..d("agent.nightlyTime", Agent, Kind::Time, json!("01:30"), "Nightly maintenance task time (before stagger); also the default time of the built-in nightly-agent-run schedule.") },
+        d("agent.pluginMode", Agent, Kind::Text, json!("auto"), "Built-in checks: auto (follow the cutover: plugins in parallel report-only before the switch, plugins after it), off, parallel, plugins."),
+        d("agent.fallbackGraceMinutes", Agent, int(15, 720), json!(120), "After the switch: run the nightly locally when no scheduled run arrived this long after agent.nightlyTime."),
+        d("agent.serverStaleMinutes", Agent, int(2, 1440), json!(15), "schedule-state.json older than this means the server is unreachable (local fallback)."),
         Def { applies: "server reinstall", ..d("rotation.timeLocal", Agent, Kind::Time, json!("02:10"), "Log rotation task time on the server.") },
     ];
     v.sort_by_key(|d| d.key);

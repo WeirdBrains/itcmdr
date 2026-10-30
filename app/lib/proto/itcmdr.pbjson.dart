@@ -1061,6 +1061,8 @@ const Schedule$json = {
     {'1': 'builtin', '3': 14, '4': 1, '5': 8, '10': 'builtin'},
     {'1': 'next_runs', '3': 15, '4': 3, '5': 3, '10': 'nextRuns'},
     {'1': 'last_fire', '3': 16, '4': 1, '5': 3, '10': 'lastFire'},
+    {'1': 'builtin_key', '3': 17, '4': 1, '5': 9, '10': 'builtinKey'},
+    {'1': 'action', '3': 18, '4': 1, '5': 9, '10': 'action'},
   ],
 };
 
@@ -1073,7 +1075,8 @@ final $typed_data.Uint8List scheduleDescriptor = $convert.base64Decode(
     'ZXBhaXIYCSABKAhSBnJlcGFpchISCgR3aGVuGAogASgJUgR3aGVuEhoKCHRpbWV6b25lGAsgAS'
     'gJUgh0aW1lem9uZRIUCgVndWFyZBgMIAEoCVIFZ3VhcmQSFgoGbWlzc2VkGA0gASgJUgZtaXNz'
     'ZWQSGAoHYnVpbHRpbhgOIAEoCFIHYnVpbHRpbhIbCgluZXh0X3J1bnMYDyADKANSCG5leHRSdW'
-    '5zEhsKCWxhc3RfZmlyZRgQIAEoA1IIbGFzdEZpcmU=');
+    '5zEhsKCWxhc3RfZmlyZRgQIAEoA1IIbGFzdEZpcmUSHwoLYnVpbHRpbl9rZXkYESABKAlSCmJ1'
+    'aWx0aW5LZXkSFgoGYWN0aW9uGBIgASgJUgZhY3Rpb24=');
 
 @$core.Deprecated('Use saveScheduleRequestDescriptor instead')
 const SaveScheduleRequest$json = {
@@ -1121,12 +1124,14 @@ const ScheduleRef$json = {
   '2': [
     {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
     {'1': 'force', '3': 2, '4': 1, '5': 8, '10': 'force'},
+    {'1': 'confirm', '3': 3, '4': 1, '5': 9, '10': 'confirm'},
   ],
 };
 
 /// Descriptor for `ScheduleRef`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List scheduleRefDescriptor = $convert.base64Decode(
-    'CgtTY2hlZHVsZVJlZhIOCgJpZBgBIAEoCVICaWQSFAoFZm9yY2UYAiABKAhSBWZvcmNl');
+    'CgtTY2hlZHVsZVJlZhIOCgJpZBgBIAEoCVICaWQSFAoFZm9yY2UYAiABKAhSBWZvcmNlEhgKB2'
+    'NvbmZpcm0YAyABKAlSB2NvbmZpcm0=');
 
 @$core.Deprecated('Use listSchedulesRequestDescriptor instead')
 const ListSchedulesRequest$json = {

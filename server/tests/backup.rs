@@ -433,10 +433,12 @@ async fn backup_rpcs_are_admin_only_and_audited() {
     let _ = stop.send(());
     tokio::time::sleep(Duration::from_millis(200)).await;
     let pool = srv::db::init_db(&c).await.unwrap();
-    let actions: Vec<String> = sqlx::query_scalar("SELECT action FROM audit_log ORDER BY id")
-        .fetch_all(&pool)
-        .await
-        .unwrap();
+    let actions: Vec<String> = sqlx::query_scalar(
+        "SELECT action FROM audit_log WHERE action != 'schedule-seed' ORDER BY id",
+    )
+    .fetch_all(&pool)
+    .await
+    .unwrap();
     assert_eq!(
         actions,
         [

@@ -107,7 +107,9 @@ function Write-ItcmdrResponse {
 function Invoke-ItcmdrPoll {
   # StaleLockMinutes: a lock older than this was left by a crashed/killed poller (the task's
   # limit is 2h), so it is removed and the request is claimed again.
-  param([string[]]$RequestDirectory, [string]$Computer, [string]$AgentPath, [int]$StaleLockMinutes = 150)
+  # PassTrigger (v0.11.0): add -Trigger schedule (the default nightly schedule, NightlyScheduleId)
+  # or on-demand to the agent call.
+  param([string[]]$RequestDirectory, [string]$Computer, [string]$AgentPath, [int]$StaleLockMinutes = 150, [switch]$PassTrigger, [string]$NightlyScheduleId = '')
   $handled = 0
   foreach ($dir in $RequestDirectory) {
     if (-not (Test-Path -LiteralPath $dir)) { continue }
@@ -136,6 +138,10 @@ function Invoke-ItcmdrPoll {
       try {
         Write-ItcmdrResponse -Dir $respDir -RequestId $rid -Computer $Computer -Status 'running'
         $agentArgs = Get-ItcmdrAgentArgument -Request $req
+        if ($PassTrigger) {
+          $sid = [string]$req['scheduleId']
+          $agentArgs['Trigger'] = if ($sid -and $NightlyScheduleId -and $sid -eq $NightlyScheduleId) { 'schedule' } else { 'on-demand' }
+        }
         $status = 'done'; $msg = ''
         try { & $AgentPath @agentArgs | Out-Null } catch { $status = 'failed'; $msg = $_.ToString() }
         Write-ItcmdrResponse -Dir $respDir -RequestId $rid -Computer $Computer -Status $status -Message $msg
@@ -148,9 +154,27 @@ function Invoke-ItcmdrPoll {
   return $handled
 }
 
+# v0.11.0 cutover helpers (schedule-state.json, cutover.json, local fallback).
+. (Join-Path $PSScriptRoot 'Itcmdr.Checks.ps1')
+. (Join-Path $PSScriptRoot 'Itcmdr.PluginRunner.ps1')
+
 if (-not $env:ITCMDR_IMPORT_ONLY) {
   $site = Get-ItcmdrPollSite
   $dirs = Get-ItcmdrRequestDirectory -Site $site
   $stale = [int](Get-ItcmdrPollSetting -Site $site -Key 'agent.staleLockMinutes' -Default 150)
-  Invoke-ItcmdrPoll -RequestDirectory $dirs -Computer $env:COMPUTERNAME -AgentPath (Join-Path $PSScriptRoot 'Invoke-ItcmdrAgent.ps1') -StaleLockMinutes $stale | Out-Null
+  $agentPath = Join-Path $PSScriptRoot 'Invoke-ItcmdrAgent.ps1'
+  $hsite = $null; $ss = $null; $nightlyId = ''
+  try {
+    $hsite = Get-ItcmdrSiteConfig
+    $ss = Get-ItcmdrScheduleState -Site $hsite
+    if ($ss.Doc -and $ss.Doc.PSObject.Properties['nightly'] -and $ss.Doc.nightly) { $nightlyId = [string]$ss.Doc.nightly.id }
+  } catch { Write-Verbose "cutover state unavailable: $_" }
+  Invoke-ItcmdrPoll -RequestDirectory $dirs -Computer $env:COMPUTERNAME -AgentPath $agentPath -StaleLockMinutes $stale -PassTrigger -NightlyScheduleId $nightlyId | Out-Null
+  if ($hsite) {
+    try {
+      $cut = Sync-ItcmdrCutover -Site $hsite -ScheduleState $ss
+      # After the switch: no nightly by now and the server is unreachable (or nothing arrived) -> run locally.
+      if (Test-ItcmdrFallbackDue -Site $hsite -ScheduleState $ss -Cutover $cut) { & $agentPath -Trigger fallback | Out-Null }
+    } catch { Write-Verbose "cutover sync/fallback failed: $_" }
+  }
 }

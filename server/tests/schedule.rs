@@ -299,8 +299,13 @@ async fn office_hours_guard_and_groups() {
     .execute(&pool)
     .await
     .unwrap();
-    assert!(schedule::delete(&pool, "none", false).await.is_err());
-    schedule::delete(&pool, "none", true).await.unwrap();
+    assert!(schedule::delete(&pool, "none", false, None).await.is_err());
+    assert!(schedule::delete(&pool, "none", true, Some("wrong"))
+        .await
+        .is_err());
+    schedule::delete(&pool, "none", true, Some("none"))
+        .await
+        .unwrap();
 }
 
 async fn start(
@@ -442,10 +447,12 @@ async fn schedule_rpcs_roles_and_audit() {
         .await
         .unwrap()
         .into_inner();
-    assert_eq!(l.schedules.len(), 1);
+    assert_eq!(l.schedules.iter().filter(|s| !s.builtin).count(), 1);
+    assert_eq!(l.schedules.iter().filter(|s| s.builtin).count(), 2);
     let rf = ScheduleRef {
         id: "nightly".into(),
         force: false,
+        confirm: String::new(),
     };
     assert_eq!(
         cl.pause_schedule(signed(&user, PA, rf.clone()))
@@ -578,7 +585,11 @@ fn cli_schedule_commands() {
     assert!(ok && o.contains("[on]"), "{o}");
     let (ok, o) = cli(&["--json", "schedule", "list"]);
     assert!(ok, "{o}");
-    let v: serde_json::Value = serde_json::from_str(o.lines().next().unwrap()).unwrap();
+    let v: serde_json::Value = o
+        .lines()
+        .map(|l| serde_json::from_str::<serde_json::Value>(l).unwrap())
+        .find(|v| v["schedule"]["name"] == "nightly")
+        .unwrap();
     assert_eq!(
         v["schedule"]["spec"]["categories"],
         serde_json::json!(["network", "disk"])
@@ -590,6 +601,59 @@ fn cli_schedule_commands() {
     assert!(ok && o.contains("nightly") && o.contains("queued"), "{o}");
     let (ok, o) = cli(&["schedule", "rm", "nightly"]);
     assert!(ok && o.contains("deleted nightly"), "{o}");
+    // Only the built-in defaults (v0.11.0) are left.
     let (ok, o) = cli(&["schedule", "list"]);
-    assert!(ok && o.trim().is_empty(), "{o}");
+    assert!(ok && o.lines().count() == 2, "{o}");
+    assert!(
+        o.contains("Nightly agent run") && o.contains("Nightly backup"),
+        "{o}"
+    );
+    assert!(o.contains("server backup"), "{o}");
+    // A built-in can't be deleted by accident: pause works, rm needs --force and --confirm.
+    let (ok, o) = cli(&["schedule", "rm", "Nightly backup"]);
+    assert!(!ok && o.contains("pause it instead"), "{o}");
+    let (ok, o) = cli(&["schedule", "rm", "Nightly backup", "--force"]);
+    assert!(!ok && o.contains("exact name"), "{o}");
+    let (ok, o) = cli(&[
+        "schedule",
+        "rm",
+        "Nightly backup",
+        "--force",
+        "--confirm",
+        "Nightly backup",
+    ]);
+    assert!(ok, "{o}");
+    // Remembered: the next start/command doesn't re-seed it ...
+    let (ok, o) = cli(&["schedule", "list"]);
+    assert!(ok && !o.contains("Nightly backup"), "{o}");
+    // ... until reset-to-default.
+    let (ok, o) = cli(&["schedule", "reset-to-default", "nightly-backup"]);
+    assert!(ok && o.contains("Nightly backup"), "{o}");
+    let (ok, o) = cli(&["cutover", "status"]);
+    assert!(
+        ok && o.contains("cutover state: task") && o.contains("safe to switch: no"),
+        "{o}"
+    );
+    let (ok, o) = cli(&["cutover", "switch"]);
+    assert!(!ok && o.contains("not safe to switch"), "{o}");
+}
+
+#[test]
+fn daily_time_keeps_its_wall_clock_across_the_fall_back_day() {
+    let spec = Spec {
+        when: "daily 02:00".into(),
+        timezone: "America/Los_Angeles".into(),
+        ..Default::default()
+    };
+    let after = Utc.with_ymd_and_hms(2026, 10, 31, 12, 0, 0).unwrap();
+    let t = schedule::next_times(&spec, after, 3).unwrap();
+    let got: Vec<String> = t.iter().map(|t| t.to_rfc3339()).collect();
+    assert_eq!(
+        got,
+        [
+            "2026-11-01T10:00:00+00:00",
+            "2026-11-02T10:00:00+00:00",
+            "2026-11-03T10:00:00+00:00"
+        ]
+    );
 }

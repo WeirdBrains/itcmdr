@@ -6,9 +6,9 @@ untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committ
 
 ## Current state (updated 2026-10-30)
 
-- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.10.1** (Windows VM fixes; v0.10.0 plugin runtime, log standard, scheduler, restore server side). See `CHANGELOG.md`, root `PLAN.md`.
-- Everything passes on the Linux dev box (Rust, Flutter, Pester, PSScriptAnalyzer, scanner).
-- First Windows VM pass done (v0.10.1): installer, service, tasks, agent, plugins, schedules, backup/restore. See Windows VM test plan → Results.
+- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.11.0** (built-in checks as plugins, default schedules, gated cutover). Previous: v0.10.1 (`2366819`).
+- Windows VM passes: v0.10.1 (installer, service, tasks, agent, plugins, schedules, backup/restore) and v0.11.0 (plugin parity, default schedules, cutover/rollback/fallback, share-offline queue). See Windows VM test plan → Results.
+- **No install is switched.** Every install runs the SYSTEM task as before, plus the plugin versions report-only for parity. Switching is on site: collect a week of parity, `itcmdr-cli cutover status`, then `cutover vm-verified` and `cutover switch` (Michael).
 - GitHub release builds are blocked by org billing (see Risks), so there is no installer artifact yet.
 
 ## Done (v0.10.0, plugin runtime + scheduler + restore server side)
@@ -122,13 +122,22 @@ untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committ
 - Installer (`installer/itcmdr.iss`): service with `--service`, config template, firewall, tasks, uninstall.
 - Sample data: `tools/sample-data-gen`.
 
+## Done (v0.11.0, built-in checks as plugins + default schedules)
+
+- `agent/Itcmdr.Checks.ps1` holds every check (moved, unchanged). `plugins/builtin/` has five plugins over it (network, scanners, config, backup-coverage, services); `Build-BuiltinPlugins.ps1` stages/signs them.
+- Agents run only the copies installed with the agent (`{app}\agent\plugins`); they never download plugins. Plugin packages are fetched (plain HTTPS) and run by the server only (decision 16).
+- `agent/Itcmdr.PluginRunner.ps1`: run plugins as child processes, `Compare-ItcmdrParity`, `schedule-state.json`, `cutover.json`, task enable/disable (never delete), local fallback. `Set-ItcmdrCutover.ps1 -To task|schedule|auto`.
+- Nightly: `agent.pluginMode` auto = plugins report-only first, then the built-in checks, then a `parity` line; after the switch the plugins are the run with per-plugin fallback to the built-in function. run-start carries `trigger`, `cutover`, `scheduleStateTs`, `pluginMode`.
+- Server: `cutover.rs` (seed `Nightly agent run` paused + `Nightly backup`, reset-to-default, remembered deletes, gate, switch, rollback, `schedule-state.json` each pass); backup loop replaced by the backup schedule; schema 4 (`parity_runs`, `agent_state`); gRPC `ResetScheduleToDefault`, `ScheduleRef.confirm`, `Schedule.builtin_key/action` (Dart protos regenerated).
+- CLI: `schedule reset-to-default`, `schedule rm --force --confirm "<name>"`, `cutover status|vm-verified|switch|rollback`.
+
 ## In progress
 
-v0.10.1 released (Windows VM fixes). Next: remaining VM items (app UI on Windows, second PC, share offline), then v0.11.0 built-in checks as plugins.
+v0.11.0 released. Next: v0.12.0 (Flutter: plugins, registration, users/keys, metric charts, Backup & Restore, Schedules incl. cutover status, signed requests). Remaining VM items: the app UI on Windows and a real second PC. On site later: a week of parity, then the gated switch.
 
 ## Backlog (in order)
 
-1. Windows VM test pass: first pass done in v0.10.1 (results below). Still to do: the app UI on Windows (connect, trigger, settings screen), a real second PC as agent, and the share offline queue.
+1. Windows VM test pass: v0.10.1 and v0.11.0 passes done (results below). Still to do: the app UI on Windows (connect, trigger, settings screen) and a real second PC as agent.
 2. ~~Missing agent checks~~ done in v0.3.0. Real values must be added to the site.json on Windows hosts.
 3. ~~Flapping/repeat-offender metrics, charts~~ done in v0.4.0.
 4. ~~Log search filters and paging~~ done in v0.4.0.
@@ -183,6 +192,11 @@ python3 scripts/scan_repo.py        # leak scanner (also the pre-commit hook)
    restarts the service via sc.exe and rolls back on a failed health check.
 7. Rotation with `-Root <copy> -Today 2027-01-04`: the zips open in Explorer, and the server ingests the archive.
 8. Uninstall removes the service, the tasks and the firewall rule.
+9. v0.11.0: after an upgrade, `itcmdr-cli schedule list` shows the two built-ins; the SYSTEM nightly writes a `parity`
+   line with 0 mismatches/errors; `schedule run-now "Nightly agent run"` reaches the agent with `trigger=schedule`;
+   `Set-ItcmdrCutover.ps1 -To schedule|task|auto` disables/re-enables the task; an agent reinstall keeps it disabled;
+   with the server stopped the poller runs the nightly locally (`trigger=fallback`); `cutover switch` is refused
+   without a clean week. Never run `cutover switch` on a real install without the gate.
 
 ### Results: first VM pass (v0.10.1, 2026-10-30, Windows 11 Pro, Windows PowerShell 5.1)
 
@@ -209,6 +223,25 @@ Built on the VM (Rust MSVC, Flutter, Inno Setup), installed silently with the fu
 | Forced health failure → rolled back, service running, old value back | ✅ |
 | Uninstall removes the service, tasks, firewall rule and program dir, and keeps the data; reinstall picks it up | ✅ |
 | Agent repairs on a VM with the example site.json | ⚠️ NET-IP-CORRECT set the example DNS server and cut the VM off. Expected with wrong site values: site.json must match the real network before repairs run |
+
+### Results: second VM pass (v0.11.0, 2026-10-30, Windows 11 Pro, Windows PowerShell 5.1)
+
+Installer built on the VM and installed over v0.10.1 (in-place upgrade). Placeholder office values only; no switch.
+
+| Item | Result |
+|---|---|
+| Pester 81/81 and PSScriptAnalyzer 0 findings under PS 5.1 (incl. plugin parity and end-to-end runs) | ✅ |
+| Upgrade: service Running, new agent files and `agent\plugins\<5>\main.ps1` installed | ✅ |
+| Default schedules seeded: `Nightly agent run` (paused, 01:30, repair) and `Nightly backup` (on, 02:00, catch-up); `schedule-state.json` on the share | ✅ |
+| SYSTEM nightly: built-in run + plugins report-only first; parity 17 matched, 0 mismatched, 0 errors; itcmdr.log/v1 plugin logs | ✅ |
+| `cutover status` shows 7 empty days and the blocking reasons; `cutover switch` refused | ✅ |
+| `schedule run-now "Nightly agent run"` → poller → agent with `trigger=schedule`, parity 17/0 | ✅ |
+| `Set-ItcmdrCutover.ps1 -To schedule` disables the task; `-To task` re-enables it; `-To auto` follows the server | ✅ |
+| Agent reinstall keeps the disabled task disabled | ❌ → fixed: the agent's `$Trigger` parameter collided with the installer script's `$trigger` (re-registration failed); now ✅ |
+| Server stopped → schedule state stale → poller ran the nightly locally (`trigger=fallback`, plugins mode, 17 checks) | ✅ (~150 s with serverStaleMinutes=2 for the test) |
+| Share offline (SMB share removed): log queued in `spool\outbox`; share back → flushed to the share | ✅ |
+| "local" schedule times on Windows across the fall-back day | ❌ → fixed: 02:00 showed 01:00 -08:00 on Nov 1; now uses the IANA zone |
+| App UI on Windows; a real second PC | ⏳ not done |
 
 ## Risks and gotchas
 

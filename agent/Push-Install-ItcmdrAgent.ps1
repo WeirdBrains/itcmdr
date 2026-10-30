@@ -25,6 +25,17 @@ function Copy-Agent($c, $Source) {
   Copy-Item -LiteralPath (Join-Path $Source 'Invoke-ItcmdrAgent.ps1') -Destination $dest -Force
   Copy-Item -LiteralPath (Join-Path $Source 'Install-ItcmdrAgent.ps1') -Destination $dest -Force
   Copy-Item -LiteralPath (Join-Path $Source 'Poll-ItcmdrRequests.ps1') -Destination $dest -Force
+  foreach ($f in @('Itcmdr.Checks.ps1', 'Itcmdr.PluginRunner.ps1', 'Itcmdr.Plugin.psm1', 'Set-ItcmdrCutover.ps1')) {
+    Copy-Item -LiteralPath (Join-Path $Source $f) -Destination $dest -Force
+  }
+  # Built-in check plugins: the only plugin copies agents run (installed, never downloaded).
+  $plugins = Join-Path $Source 'plugins'
+  if (-not (Test-Path -LiteralPath $plugins)) { $plugins = Join-Path (Join-Path (Join-Path $Source '..') 'plugins') 'builtin' }
+  foreach ($d in @(Get-ChildItem -LiteralPath $plugins -Directory -ErrorAction SilentlyContinue)) {
+    $to = Join-Path (Join-Path $dest 'plugins') $d.Name
+    New-Item -ItemType Directory -Path $to -Force | Out-Null
+    Copy-Item -LiteralPath (Join-Path $d.FullName 'main.ps1') -Destination $to -Force
+  }
 }
 }
 

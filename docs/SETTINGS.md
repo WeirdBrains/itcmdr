@@ -26,18 +26,21 @@ Every tunable value in itcmdr is a typed setting with today's behaviour as its d
 |---|---|---|---|---|---|---|
 | `agent.backupMaxAgeHours` | agent | int 1..720 | `26` | next run | admin/owner (RPC, app, CLI) | Default max age of a backup task run / newest backup file (per-item maxAgeHours wins). |
 | `agent.backupMinBytes` | agent | int 0..1_000_000_000_000 | `1` | next run | admin/owner (RPC, app, CLI) | Default minimum size of the newest backup file (per-item minBytes wins). |
-| `agent.nightlyTime` | agent | time | `01:30` | agent reinstall | admin/owner (RPC, app, CLI) | Nightly maintenance task time (before stagger). |
+| `agent.nightlyTime` | agent | time | `01:30` | agent reinstall | admin/owner (RPC, app, CLI) | Nightly maintenance task time (before stagger); also the default time of the built-in nightly-agent-run schedule. |
+| `agent.pluginMode` | agent | text: auto, off, parallel, plugins | `auto` | next run | admin/owner (RPC, app, CLI) | Built-in checks (v0.11.0): auto = plugin versions report-only in parallel before the cutover, plugins after it. |
+| `agent.fallbackGraceMinutes` | agent | int 15..720 | `120` | next poll | admin/owner (RPC, app, CLI) | After the switch: run the nightly locally when no scheduled run arrived this long after agent.nightlyTime. |
+| `agent.serverStaleMinutes` | agent | int 2..1440 | `15` | next poll | admin/owner (RPC, app, CLI) | schedule-state.json older than this means the server is unreachable (local fallback). |
 | `agent.printerStuckMinutes` | agent | int 5..10080 | `60` | next run | admin/owner (RPC, app, CLI) | A print job older than this counts as stuck. |
 | `agent.quietMinutes` | agent | int 0..240 | `10` | next run | admin/owner (RPC, app, CLI) | Clinical guard: no user input for this many minutes before disruptive repairs. |
 | `agent.staleLockMinutes` | agent | int 10..1440 | `150` | next run | admin/owner (RPC, app, CLI) | Poller: a request lock older than this was left by a crashed run. |
 | `agent.tcpTimeoutMs` | agent | int 100..60000 | `3000` | next run | admin/owner (RPC, app, CLI) | TCP probe timeout (ms). |
 | `auth.max_skew_secs` | server | int 30..3600 | `300` | next pass / next use | admin/owner (RPC, app, CLI) | Allowed clock difference for signed requests (seconds). |
 | `backup.dir` | server | path (must exist, writable; empty allowed) | `(empty = <data_dir>/backups)` | next pass / next use | admin/owner (RPC, app, CLI) | Backup archive folder (e.g. the share). Empty = <data_dir>/backups. |
-| `backup.hour` | server | int 0..23 | `2` | next pass / next use | admin/owner (RPC, app, CLI) | Local hour from which the nightly backup is due. |
+| `backup.hour` | server | int 0..23 | `2` | next pass / next use | admin/owner (RPC, app, CLI) | Default time (HH:00) of the built-in nightly-backup schedule (v0.11.0; afterwards edit the schedule; reset-to-default re-reads it). |
 | `backup.keep_blocks` | server | int 0..1300 | `13` | next pass / next use | admin/owner (RPC, app, CLI) | Nightly backups kept: newest per 4-week block (ISO weeks 4N-3..4N). |
 | `backup.keep_daily` | server | int 0..3650 | `7` | next pass / next use | admin/owner (RPC, app, CLI) | Nightly backups kept: newest per day, for this many days. |
 | `backup.keep_weekly` | server | int 0..520 | `4` | next pass / next use | admin/owner (RPC, app, CLI) | Nightly backups kept: newest per ISO week, for this many weeks. |
-| `backup.nightly` | server | bool | `true` | next pass / next use | admin/owner (RPC, app, CLI) | Take a nightly backup. |
+| `backup.nightly` | server | bool | `true` | next pass / next use | admin/owner (RPC, app, CLI) | Default of the built-in nightly-backup schedule: on (v0.11.0; afterwards pause/resume the schedule). |
 | `metrics.flap_min` | server | int 2..1000 | `3` | next pass / next use | admin/owner (RPC, app, CLI) | ok<->failed changes in the window before a check counts as flapping. |
 | `metrics.repeat_min` | server | int 2..1000 | `3` | next pass / next use | admin/owner (RPC, app, CLI) | Incidents in the window before a machine/check is a repeat offender. |
 | `paths.agentData` | agent | path (on each PC) | `C:\ProgramData\itcmdr` | next run | admin/owner (RPC, app, CLI) | Agent cache (exceptions, settings) and spool folder. |

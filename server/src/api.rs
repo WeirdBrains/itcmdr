@@ -787,7 +787,8 @@ impl Itcmdr for ItcmdrService {
             )
             .await?;
         let r = req.into_inner();
-        let d = crate::schedule::delete(&self.pool, &r.id, r.force)
+        let confirm = (!r.confirm.is_empty()).then_some(r.confirm.as_str());
+        let d = crate::schedule::delete(&self.pool, &r.id, r.force, confirm)
             .await
             .map_err(bad_arg)?;
         self.audit(
@@ -798,6 +799,26 @@ impl Itcmdr for ItcmdrService {
         .await;
         Ok(Response::new(ScheduleResponse {
             schedule: Some(to_proto_schedule(&d)),
+        }))
+    }
+
+    async fn reset_schedule_to_default(
+        &self,
+        req: Request<ScheduleRef>,
+    ) -> Result<Response<ScheduleResponse>, Status> {
+        let actor = self
+            .authz(
+                &req,
+                "/itcmdr.Itcmdr/ResetScheduleToDefault",
+                crate::auth::Role::Admin,
+            )
+            .await?;
+        let r = req.into_inner();
+        let s = crate::cutover::reset_to_default(&self.pool, &self.cfg, &r.id, &actor)
+            .await
+            .map_err(bad_arg)?;
+        Ok(Response::new(ScheduleResponse {
+            schedule: Some(to_proto_schedule(&s)),
         }))
     }
 
@@ -1025,6 +1046,7 @@ fn from_proto_schedule(s: &Schedule) -> crate::schedule::Spec {
         guard: s.guard.clone(),
         missed: s.missed.clone(),
         builtin: false,
+        ..Default::default()
     }
 }
 
@@ -1053,6 +1075,8 @@ fn to_proto_schedule(s: &crate::schedule::Schedule) -> Schedule {
         guard: s.spec.guard.clone(),
         missed: s.spec.missed.clone(),
         builtin: s.spec.builtin,
+        builtin_key: s.spec.builtin_key.clone(),
+        action: s.spec.action.clone(),
         next_runs: next,
         last_fire: s.last_fire_ms,
     }
