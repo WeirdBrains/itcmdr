@@ -88,6 +88,13 @@ class ItcmdrClient extends $grpc.Client {
     return $createUnaryCall(_$searchLogs, request, options: options);
   }
 
+  $grpc.ResponseFuture<$0.ListAuditResponse> listAudit(
+    $0.ListAuditRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$listAudit, request, options: options);
+  }
+
   $grpc.ResponseStream<$0.Update> watchUpdates(
     $0.WatchUpdatesRequest request, {
     $grpc.CallOptions? options,
@@ -139,6 +146,11 @@ class ItcmdrClient extends $grpc.Client {
           '/itcmdr.Itcmdr/SearchLogs',
           ($0.SearchLogsRequest value) => value.writeToBuffer(),
           $0.SearchLogsResponse.fromBuffer);
+  static final _$listAudit =
+      $grpc.ClientMethod<$0.ListAuditRequest, $0.ListAuditResponse>(
+          '/itcmdr.Itcmdr/ListAudit',
+          ($0.ListAuditRequest value) => value.writeToBuffer(),
+          $0.ListAuditResponse.fromBuffer);
   static final _$watchUpdates =
       $grpc.ClientMethod<$0.WatchUpdatesRequest, $0.Update>(
           '/itcmdr.Itcmdr/WatchUpdates',
@@ -219,6 +231,13 @@ abstract class ItcmdrServiceBase extends $grpc.Service {
         false,
         ($core.List<$core.int> value) => $0.SearchLogsRequest.fromBuffer(value),
         ($0.SearchLogsResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.ListAuditRequest, $0.ListAuditResponse>(
+        'ListAudit',
+        listAudit_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.ListAuditRequest.fromBuffer(value),
+        ($0.ListAuditResponse value) => value.writeToBuffer()));
     $addMethod($grpc.ServiceMethod<$0.WatchUpdatesRequest, $0.Update>(
         'WatchUpdates',
         watchUpdates_Pre,
@@ -297,6 +316,14 @@ abstract class ItcmdrServiceBase extends $grpc.Service {
 
   $async.Future<$0.SearchLogsResponse> searchLogs(
       $grpc.ServiceCall call, $0.SearchLogsRequest request);
+
+  $async.Future<$0.ListAuditResponse> listAudit_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.ListAuditRequest> $request) async {
+    return listAudit($call, await $request);
+  }
+
+  $async.Future<$0.ListAuditResponse> listAudit(
+      $grpc.ServiceCall call, $0.ListAuditRequest request);
 
   $async.Stream<$0.Update> watchUpdates_Pre($grpc.ServiceCall $call,
       $async.Future<$0.WatchUpdatesRequest> $request) async* {

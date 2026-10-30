@@ -41,13 +41,13 @@
   "retention": {
     "serverDays": 400,
     "agentLocalDays": 400,
-    "yearlyKeepForever": true
+    "keepBlockZipsAfterYearly": true
   },
   "rotation": {
     "enabled": true,
     "timeLocal": "02:10",
     "weekly": true,
-    "monthly": true,
+    "blocks4": true,
     "yearly": true
   },
   "exceptions": [
@@ -70,7 +70,7 @@
     "expectedBackupSources": [
       "\\\\SERVER01\\DATA\\maintenanceRuns",
       "\\\\SERVER01\\DATA\\maintenanceRuns\\archive\\weekly",
-      "\\\\SERVER01\\DATA\\maintenanceRuns\\archive\\monthly",
+      "\\\\SERVER01\\DATA\\maintenanceRuns\\archive\\blocks",
       "\\\\SERVER01\\DATA\\maintenanceRuns\\archive\\yearly"
     ]
   },

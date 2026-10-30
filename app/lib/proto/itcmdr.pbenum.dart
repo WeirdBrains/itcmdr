@@ -15,23 +15,23 @@ import 'dart:core' as $core;
 import 'package:protobuf/protobuf.dart' as $pb;
 
 /// Metrics and rollups
+/// Buckets are aligned to ISO weeks: weekly = ISO week (Mon-Sun);
+/// block4 = 4-ISO-week block N covering weeks 4N-3..4N (13 per ISO year,
+/// week 53 folds into block 13); yearly = ISO year.
 class Rollup extends $pb.ProtobufEnum {
   static const Rollup ROLLUP_DAILY =
       Rollup._(0, _omitEnumNames ? '' : 'ROLLUP_DAILY');
   static const Rollup ROLLUP_WEEKLY =
       Rollup._(1, _omitEnumNames ? '' : 'ROLLUP_WEEKLY');
-  static const Rollup ROLLUP_MONTHLY =
-      Rollup._(2, _omitEnumNames ? '' : 'ROLLUP_MONTHLY');
-  static const Rollup ROLLUP_QUARTERLY =
-      Rollup._(3, _omitEnumNames ? '' : 'ROLLUP_QUARTERLY');
+  static const Rollup ROLLUP_BLOCK4 =
+      Rollup._(2, _omitEnumNames ? '' : 'ROLLUP_BLOCK4');
   static const Rollup ROLLUP_YEARLY =
       Rollup._(4, _omitEnumNames ? '' : 'ROLLUP_YEARLY');
 
   static const $core.List<Rollup> values = <Rollup>[
     ROLLUP_DAILY,
     ROLLUP_WEEKLY,
-    ROLLUP_MONTHLY,
-    ROLLUP_QUARTERLY,
+    ROLLUP_BLOCK4,
     ROLLUP_YEARLY,
   ];
 

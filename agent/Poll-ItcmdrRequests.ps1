@@ -1,13 +1,19 @@
 <#
 .SYNOPSIS
-  Poll for on-demand itcmdr requests and execute runs with provided options.
+  Poll for on-demand itcmdr requests and run the agent with the requested options.
 
 .DESCRIPTION
-  Looks for JSON request files under:
-    - Local: C:\maintenanceRuns\requests\
-    - Remote share: shares.maintenanceRuns\requests from site.json (optional)
-  Claims matching requests (machines includes this computer or empty=all), runs Invoke-ItcmdrAgent.ps1 with flags,
-  and writes a response file with basic status. Idempotent and safe to run every minute.
+  Request files (<requestId>.json, written by the server) are read from:
+    - C:\maintenanceRuns\requests\
+    - <shares.maintenanceRuns>\requests\ from site.json
+  A request applies when its "machines" list is empty (all) or contains this computer.
+  For each applicable request this computer:
+    1. claims it with a per-machine lock (<requestId>.json.<COMPUTER>.lock),
+    2. writes responses\<requestId>.<COMPUTER>.json with status "running",
+    3. runs Invoke-ItcmdrAgent.ps1 with -ReportOnly / -Repair / -Force / -Categories,
+    4. rewrites the response with "done" or "failed".
+  A request already answered done/failed by this computer is skipped, so running
+  every minute is safe. Compatible with Windows PowerShell 5.1 and PowerShell 7.
 #>
 [CmdletBinding()]
 param()
@@ -15,57 +21,92 @@ param()
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-function Get-ItcmdrSite {
-  $candidates = @('config/site.json','C:\ProgramData\itcmdr\site.json')
-  foreach ($p in $candidates) { if (Test-Path $p) { return Get-Content $p -Raw | ConvertFrom-Json -AsHashtable } }
-  return @{} 
+function ConvertFrom-ItcmdrPollJson {
+  param([string]$Text)
+  $o = $Text.TrimStart([char]0xFEFF) | ConvertFrom-Json
+  $h = @{}
+  foreach ($p in $o.PSObject.Properties) { $h[$p.Name] = $p.Value }
+  return $h
 }
 
-function Get-RequestDirectory($site) {
-  $dirs = @('C:\maintenanceRuns\requests')
-  if ($site.shares -and $site.shares.maintenanceRuns) {
-    $shareReq = Join-Path $site.shares.maintenanceRuns 'requests'
-    $dirs += $shareReq
-  }
-  $dirs | ForEach-Object { if (-not (Test-Path $_)) { New-Item -ItemType Directory -Path $_ -Force | Out-Null }; $_ }
-}
-
-function Lock-RequestFile($path) {
-  $lock = "$path.lock"
-  try {
-    return (New-Item -ItemType File -Path $lock -Force -ErrorAction Stop)
-  } catch { return $null }
-}
-
-$site = Get-ItcmdrSite
-$computer = $env:COMPUTERNAME
-$agent = Join-Path $PSScriptRoot 'Invoke-ItcmdrAgent.ps1'
-
-foreach ($dir in Get-RequestDirectory -site $site) {
-  Get-ChildItem -LiteralPath $dir -Filter '*.json' -File -ErrorAction SilentlyContinue | ForEach-Object {
-    $path = $_.FullName
-    $req = $null
-    try { $req = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json -AsHashtable } catch { return }
-    $machines = @($req.machines) | Where-Object { $_ } 
-    $match = ($machines.Count -eq 0) -or ($machines -contains $computer)
-    if (-not $match) { return }
-    if (-not (Lock-RequestFile -path $path)) { return }
-    $rid = [IO.Path]::GetFileNameWithoutExtension($path)
-    $agentArgs = @{ ReportOnly = [bool]$req.reportOnly; Force = [bool]$req.force }
-    if ($req.categories) { $agentArgs['Categories'] = @($req.categories) }
-    try {
-      & $agent @agentArgs
-      $status = 'done'
-    } catch {
-      $status = 'failed'
+function Get-ItcmdrPollSite {
+  foreach ($p in @('config/site.json', 'C:\ProgramData\itcmdr\site.json')) {
+    if (Test-Path $p) {
+      $o = (Get-Content $p -Raw).TrimStart([char]0xFEFF) | ConvertFrom-Json
+      return $o
     }
-    # Simple response file
-    $respDir = Join-Path $dir '..\responses' | Resolve-Path -ErrorAction SilentlyContinue
-    if (-not $respDir) { $respDir = Join-Path $dir '..\responses' }
-    if (-not (Test-Path $respDir)) { New-Item -ItemType Directory -Path $respDir -Force | Out-Null }
-    $out = [pscustomobject]@{ requestId=$rid; machine=$computer; status=$status; ts=(Get-Date).ToString('o') }
-    $out | ConvertTo-Json -Compress | Out-File -LiteralPath (Join-Path $respDir "$rid.$computer.json") -Encoding utf8
-    Remove-Item -LiteralPath "$path.lock" -Force -ErrorAction SilentlyContinue
   }
+  return $null
 }
 
+function Get-ItcmdrRequestDirectory {
+  param($Site)
+  $dirs = @('C:\maintenanceRuns\requests')
+  if ($Site -and $Site.PSObject.Properties['shares'] -and $Site.shares.PSObject.Properties['maintenanceRuns'] -and $Site.shares.maintenanceRuns) {
+    $dirs += (Join-Path $Site.shares.maintenanceRuns 'requests')
+  }
+  return $dirs
+}
+
+function Get-ItcmdrAgentArgument {
+  <# Map request options to agent parameters. reportOnly wins over repair. #>
+  param([hashtable]$Request)
+  $a = @{}
+  if ($Request['reportOnly']) { $a['ReportOnly'] = $true }
+  elseif ($Request['repair']) { $a['Repair'] = $true }
+  if ($Request['force']) { $a['Force'] = $true }
+  $cats = @($Request['categories'] | Where-Object { $_ })
+  if ($cats.Count -gt 0) { $a['Categories'] = [string[]]$cats }
+  return $a
+}
+
+function Write-ItcmdrResponse {
+  param([string]$Dir, [string]$RequestId, [string]$Computer, [string]$Status, [string]$Message = '')
+  if (-not (Test-Path -LiteralPath $Dir)) { New-Item -ItemType Directory -Path $Dir -Force | Out-Null }
+  $out = [pscustomobject]@{ requestId = $RequestId; machine = $Computer; status = $Status; message = $Message; ts = (Get-Date).ToString('o') }
+  $path = Join-Path $Dir "$RequestId.$Computer.json"
+  $tmp = "$path.tmp"
+  [IO.File]::WriteAllText($tmp, ($out | ConvertTo-Json -Compress))
+  Move-Item -LiteralPath $tmp -Destination $path -Force
+}
+
+function Invoke-ItcmdrPoll {
+  param([string[]]$RequestDirectory, [string]$Computer, [string]$AgentPath)
+  $handled = 0
+  foreach ($dir in $RequestDirectory) {
+    if (-not (Test-Path -LiteralPath $dir)) { continue }
+    $respDir = Join-Path (Split-Path -Parent $dir) 'responses'
+    foreach ($file in @(Get-ChildItem -LiteralPath $dir -Filter '*.json' -File -ErrorAction SilentlyContinue)) {
+      $rid = [IO.Path]::GetFileNameWithoutExtension($file.Name)
+      $respPath = Join-Path $respDir "$rid.$Computer.json"
+      if (Test-Path -LiteralPath $respPath) {
+        try {
+          $prev = ConvertFrom-ItcmdrPollJson (Get-Content -LiteralPath $respPath -Raw)
+          if ($prev['status'] -in @('done', 'failed')) { continue }
+        } catch { Write-Verbose "Unreadable response $respPath; re-running" }
+      }
+      try { $req = ConvertFrom-ItcmdrPollJson (Get-Content -LiteralPath $file.FullName -Raw) } catch { continue }
+      $machines = @($req['machines'] | Where-Object { $_ })
+      if ($machines.Count -gt 0 -and $machines -notcontains $Computer) { continue }
+      $lock = "$($file.FullName).$Computer.lock"
+      try { New-Item -ItemType File -Path $lock -ErrorAction Stop | Out-Null } catch { continue }
+      try {
+        Write-ItcmdrResponse -Dir $respDir -RequestId $rid -Computer $Computer -Status 'running'
+        $agentArgs = Get-ItcmdrAgentArgument -Request $req
+        $status = 'done'; $msg = ''
+        try { & $AgentPath @agentArgs | Out-Null } catch { $status = 'failed'; $msg = $_.ToString() }
+        Write-ItcmdrResponse -Dir $respDir -RequestId $rid -Computer $Computer -Status $status -Message $msg
+        $handled++
+      } finally {
+        Remove-Item -LiteralPath $lock -Force -ErrorAction SilentlyContinue
+      }
+    }
+  }
+  return $handled
+}
+
+if (-not $env:ITCMDR_IMPORT_ONLY) {
+  $site = Get-ItcmdrPollSite
+  $dirs = Get-ItcmdrRequestDirectory -Site $site
+  Invoke-ItcmdrPoll -RequestDirectory $dirs -Computer $env:COMPUTERNAME -AgentPath (Join-Path $PSScriptRoot 'Invoke-ItcmdrAgent.ps1') | Out-Null
+}

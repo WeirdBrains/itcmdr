@@ -21,16 +21,18 @@ const Rollup$json = {
   '2': [
     {'1': 'ROLLUP_DAILY', '2': 0},
     {'1': 'ROLLUP_WEEKLY', '2': 1},
-    {'1': 'ROLLUP_MONTHLY', '2': 2},
-    {'1': 'ROLLUP_QUARTERLY', '2': 3},
+    {'1': 'ROLLUP_BLOCK4', '2': 2},
     {'1': 'ROLLUP_YEARLY', '2': 4},
+  ],
+  '4': [
+    {'1': 3, '2': 3},
   ],
 };
 
 /// Descriptor for `Rollup`. Decode as a `google.protobuf.EnumDescriptorProto`.
 final $typed_data.Uint8List rollupDescriptor = $convert.base64Decode(
-    'CgZSb2xsdXASEAoMUk9MTFVQX0RBSUxZEAASEQoNUk9MTFVQX1dFRUtMWRABEhIKDlJPTExVUF'
-    '9NT05USExZEAISFAoQUk9MTFVQX1FVQVJURVJMWRADEhEKDVJPTExVUF9ZRUFSTFkQBA==');
+    'CgZSb2xsdXASEAoMUk9MTFVQX0RBSUxZEAASEQoNUk9MTFVQX1dFRUtMWRABEhEKDVJPTExVUF'
+    '9CTE9DSzQQAhIRCg1ST0xMVVBfWUVBUkxZEAQiBAgDEAM=');
 
 @$core.Deprecated('Use machineDescriptor instead')
 const Machine$json = {
@@ -282,11 +284,15 @@ final $typed_data.Uint8List exceptionRuleDescriptor = $convert.base64Decode(
 @$core.Deprecated('Use listExceptionsRequestDescriptor instead')
 const ListExceptionsRequest$json = {
   '1': 'ListExceptionsRequest',
+  '2': [
+    {'1': 'include_inactive', '3': 1, '4': 1, '5': 8, '10': 'includeInactive'},
+  ],
 };
 
 /// Descriptor for `ListExceptionsRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List listExceptionsRequestDescriptor =
-    $convert.base64Decode('ChVMaXN0RXhjZXB0aW9uc1JlcXVlc3Q=');
+final $typed_data.Uint8List listExceptionsRequestDescriptor = $convert.base64Decode(
+    'ChVMaXN0RXhjZXB0aW9uc1JlcXVlc3QSKQoQaW5jbHVkZV9pbmFjdGl2ZRgBIAEoCFIPaW5jbH'
+    'VkZUluYWN0aXZl');
 
 @$core.Deprecated('Use listExceptionsResponseDescriptor instead')
 const ListExceptionsResponse$json = {
@@ -399,6 +405,54 @@ const SearchLogsResponse$json = {
 /// Descriptor for `SearchLogsResponse`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List searchLogsResponseDescriptor = $convert
     .base64Decode('ChJTZWFyY2hMb2dzUmVzcG9uc2USFAoFbGluZXMYASADKAlSBWxpbmVz');
+
+@$core.Deprecated('Use auditEntryDescriptor instead')
+const AuditEntry$json = {
+  '1': 'AuditEntry',
+  '2': [
+    {'1': 'ts', '3': 1, '4': 1, '5': 3, '10': 'ts'},
+    {'1': 'actor', '3': 2, '4': 1, '5': 9, '10': 'actor'},
+    {'1': 'action', '3': 3, '4': 1, '5': 9, '10': 'action'},
+    {'1': 'detail', '3': 4, '4': 1, '5': 9, '10': 'detail'},
+  ],
+};
+
+/// Descriptor for `AuditEntry`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List auditEntryDescriptor = $convert.base64Decode(
+    'CgpBdWRpdEVudHJ5Eg4KAnRzGAEgASgDUgJ0cxIUCgVhY3RvchgCIAEoCVIFYWN0b3ISFgoGYW'
+    'N0aW9uGAMgASgJUgZhY3Rpb24SFgoGZGV0YWlsGAQgASgJUgZkZXRhaWw=');
+
+@$core.Deprecated('Use listAuditRequestDescriptor instead')
+const ListAuditRequest$json = {
+  '1': 'ListAuditRequest',
+  '2': [
+    {'1': 'limit', '3': 1, '4': 1, '5': 5, '10': 'limit'},
+  ],
+};
+
+/// Descriptor for `ListAuditRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List listAuditRequestDescriptor = $convert
+    .base64Decode('ChBMaXN0QXVkaXRSZXF1ZXN0EhQKBWxpbWl0GAEgASgFUgVsaW1pdA==');
+
+@$core.Deprecated('Use listAuditResponseDescriptor instead')
+const ListAuditResponse$json = {
+  '1': 'ListAuditResponse',
+  '2': [
+    {
+      '1': 'entries',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.itcmdr.AuditEntry',
+      '10': 'entries'
+    },
+  ],
+};
+
+/// Descriptor for `ListAuditResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List listAuditResponseDescriptor = $convert.base64Decode(
+    'ChFMaXN0QXVkaXRSZXNwb25zZRIsCgdlbnRyaWVzGAEgAygLMhIuaXRjbWRyLkF1ZGl0RW50cn'
+    'lSB2VudHJpZXM=');
 
 @$core.Deprecated('Use watchUpdatesRequestDescriptor instead')
 const WatchUpdatesRequest$json = {
