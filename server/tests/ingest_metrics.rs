@@ -291,3 +291,56 @@ async fn flapping_and_repeat_offenders() {
         .iter()
         .any(|p| p.key.starts_with("flaps:") || p.key.starts_with("repeat_offender:")));
 }
+
+/// v0.10.1 (found on Windows): Windows PowerShell 5.1 starts a UTF8 file with a BOM; the
+/// run-start line must still be read.
+#[tokio::test]
+async fn ingests_a_log_that_starts_with_a_utf8_bom() {
+    let tmp = tempfile::tempdir().unwrap();
+    let c = cfg(tmp.path());
+    create_dir_all(&c.logs_dir).unwrap();
+    let day = chrono::Utc::now()
+        .date_naive()
+        .format("%Y-%m-%d")
+        .to_string();
+    write_run(&c.logs_dir, "bom-run", &day, "failed");
+    let p = std::fs::read_dir(&c.logs_dir)
+        .unwrap()
+        .next()
+        .unwrap()
+        .unwrap()
+        .path();
+    let mut b = b"\xEF\xBB\xBF".to_vec();
+    b.extend(std::fs::read(&p).unwrap());
+    std::fs::write(&p, b).unwrap();
+    let pool = itcmdr_server::db::init_db(&c).await.unwrap();
+    let st = itcmdr_server::ingest::ingest_all(&pool, &c.logs_dir)
+        .await
+        .unwrap();
+    assert_eq!((st.new_runs, st.new_checks), (1, 1));
+    assert_eq!(
+        count(&pool, "SELECT count(*) FROM runs WHERE computer = 'WS-01'").await,
+        1
+    );
+}
+
+/// v0.10.1: the weekly zip carries plugin-logs/<plugin>/<day>.jsonl since v0.10.0; agent-log
+/// ingest and search skip them.
+#[test]
+fn zipped_plugin_logs_are_not_read_as_agent_logs() {
+    use std::io::Write as _;
+    let tmp = tempfile::tempdir().unwrap();
+    let p = tmp.path().join("itcmdr-2026-W41.zip");
+    let mut z = zip::ZipWriter::new(File::create(&p).unwrap());
+    let o = zip::write::FileOptions::default();
+    z.start_file("WS-01_20261005-010000_x.log", o).unwrap();
+    z.write_all(b"{\"type\":\"run-start\",\"runId\":\"x\",\"computer\":\"WS-01\"}\n")
+        .unwrap();
+    z.start_file("plugin-logs/disk-free/2026-10-06.jsonl", o)
+        .unwrap();
+    z.write_all(b"{\"schema\":\"itcmdr.log/v1\"}\n").unwrap();
+    z.finish().unwrap();
+    let lines = itcmdr_server::ingest::read_file_lines(&p);
+    assert_eq!(lines.len(), 1, "{lines:?}");
+    assert!(lines[0].contains("run-start"));
+}

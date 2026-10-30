@@ -280,7 +280,7 @@ if (-not $env:ITCMDR_IMPORT_ONLY) {
   if (-not $computer) { $computer = [Environment]::MachineName }
   $runId = [guid]::NewGuid().ToString()
   $logFile = Join-Path $Root ('{0}_{1}_{2}.log' -f $computer, $now.ToString('yyyyMMdd-HHmmss'), $runId)
-  $line = { param($o) Add-Content -LiteralPath $logFile -Value ($o | ConvertTo-Json -Depth 6 -Compress) -Encoding UTF8 }
+  $line = { param($o) [IO.File]::AppendAllText($logFile, ($o | ConvertTo-Json -Depth 6 -Compress) + "`r`n", (New-Object Text.UTF8Encoding($false))) }
   & $line ([pscustomobject]@{ type = 'run-start'; runId = $runId; computer = $computer; role = 'Server'; rotation = $true; started = (Get-Date).ToString('o') })
   $exit = 0
   try {

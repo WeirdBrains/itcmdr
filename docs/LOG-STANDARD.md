@@ -31,7 +31,7 @@ Required. Every one must be a string:
 | `plugin_version` | Plugin version |
 | `run_id` | From `RunContext.run_id` |
 | `machine` | Machine the work is about, e.g. `SERVER01` |
-| `stage` | `verify`, `execute`, `log` (or `run` for the server's lines) |
+| `stage` | `verify`, `execute`, `log` (`start` / `end` on the server's run-start / run-end lines) |
 | `event` | Short machine-readable name: `check`, `metrics`, `stage-failed`, ... |
 | `message` | Text for people (may be empty) |
 

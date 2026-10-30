@@ -31,10 +31,10 @@ jobs:
 
       - name: Build server (release)
         run: cargo build -p itcmdr-server --release --locked --target x86_64-pc-windows-msvc
-      - name: Prepare server binary for installer path
+      - name: Prepare server binaries for the installer path (target/release)
         run: |
-          New-Item -ItemType Directory -Path server\target\release -Force | Out-Null
-          Copy-Item target\x86_64-pc-windows-msvc\release\itcmdr-server.exe server\target\release\itcmdr-server.exe -Force
+          New-Item -ItemType Directory -Path target\release -Force | Out-Null
+          Copy-Item target\x86_64-pc-windows-msvc\release\*.exe target\release\ -Force
 
       - name: Install Flutter ${{ env.FLUTTER_VERSION }}
         run: |

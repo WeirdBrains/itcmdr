@@ -63,6 +63,19 @@ enum Cmd {
         #[arg(long)]
         dry_run: bool,
     },
+    /// Restore through the running server (the app's StageRestore path): the server verifies the
+    /// archive, then itcmdr-restore stops the service, restores, restarts and health-checks, and
+    /// rolls back on failure. Words on stdin. Signed with this server's root key (owner).
+    RestoreStage {
+        /// Archive name from `backup list`.
+        #[arg(long)]
+        backup: String,
+        /// Wait until the restore finished and print each step.
+        #[arg(long)]
+        wait: bool,
+    },
+    /// State of the last app/StageRestore restore.
+    RestoreStatus,
 }
 
 #[derive(clap::Args)]
@@ -348,6 +361,43 @@ fn apply_args(mut s: srv::schedule::Spec, a: &ScheduleArgs) -> srv::schedule::Sp
         s.missed = m.clone();
     }
     s
+}
+
+/// gRPC client to this machine's server, plus the root (owner) key to sign with.
+async fn local_client(
+    cfg: &ServerConfig,
+) -> Result<(
+    srv::generated::itcmdr::itcmdr_client::ItcmdrClient<tonic::transport::Channel>,
+    ed25519_dalek::SigningKey,
+)> {
+    let key = srv::auth::load_root_key(&cfg.layout())
+        .context("loading the root key (run on the server as an admin)")?;
+    let addr = cfg
+        .bind_addr
+        .replace("0.0.0.0", "127.0.0.1")
+        .replace("[::]", "[::1]");
+    let c = srv::generated::itcmdr::itcmdr_client::ItcmdrClient::connect(format!("http://{addr}"))
+        .await
+        .with_context(|| format!("connecting to the server at {addr}"))?;
+    Ok((c, key))
+}
+
+fn signed_req<T: prost::Message>(
+    key: &ed25519_dalek::SigningKey,
+    method: &str,
+    msg: T,
+) -> tonic::Request<T> {
+    let md = srv::auth::sign_request(key, method, &msg.encode_to_vec());
+    let mut r = tonic::Request::new(msg);
+    for (k, v) in md {
+        if let (Ok(k), Ok(v)) = (
+            tonic::metadata::MetadataKey::from_bytes(k.as_bytes()),
+            v.parse::<tonic::metadata::MetadataValue<tonic::metadata::Ascii>>(),
+        ) {
+            r.metadata_mut().insert(k, v);
+        }
+    }
+    r
 }
 
 fn ms_local(ms: i64) -> String {
@@ -1058,6 +1108,63 @@ fn run(rt: &tokio::runtime::Runtime) -> Result<()> {
                     }
                 }
             })
+        }
+        Cmd::RestoreStage { backup, wait } => {
+            let cfg = load()?;
+            let words = read_words()?;
+            rt.block_on(async {
+                let (mut c, key) = local_client(&cfg).await?;
+                let req = srv::generated::itcmdr::StageRestoreRequest {
+                    backup: backup.clone(),
+                    words: words.trim().to_string(),
+                };
+                let st = c
+                    .stage_restore(signed_req(&key, "/itcmdr.Itcmdr/StageRestore", req))
+                    .await
+                    .map_err(|e| anyhow::anyhow!("{}", e.message()))?
+                    .into_inner()
+                    .status;
+                println!(
+                    "{}",
+                    st.map(|s| format!("{}: {}", s.state, s.message))
+                        .unwrap_or_default()
+                );
+                if *wait {
+                    // The server goes away while the helper works: read status.json directly.
+                    let mut seen = 0;
+                    for _ in 0..1200 {
+                        if let Some(s) = srv::restore::read_status(&cfg) {
+                            for (ts, state, msg) in s.steps.iter().skip(seen) {
+                                println!("{}  {state}  {msg}", ms_local(*ts));
+                            }
+                            seen = s.steps.len();
+                            if ["done", "rolled-back", "failed"].contains(&s.state.as_str()) {
+                                if s.state != "done" {
+                                    bail!("restore {}", s.state);
+                                }
+                                return Ok(());
+                            }
+                        }
+                        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                    }
+                    bail!("restore did not finish in 10 minutes");
+                }
+                Ok(())
+            })
+        }
+        Cmd::RestoreStatus => {
+            let cfg = load()?;
+            match srv::restore::read_status(&cfg) {
+                None => println!("no restore has run"),
+                Some(s) if cli.json => println!("{}", serde_json::to_string_pretty(&s)?),
+                Some(s) => {
+                    println!("{} ({}, by {})", s.state, s.archive, s.actor);
+                    for (ts, state, msg) in &s.steps {
+                        println!("{}  {state}  {msg}", ms_local(*ts));
+                    }
+                }
+            }
+            Ok(())
         }
         Cmd::Schedule(sc) => {
             let cfg = load()?;
