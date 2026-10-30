@@ -72,7 +72,7 @@ def scan_file(path: Path):
     # Heuristic hostnames
     for m in HOSTNAME_HEURISTIC.finditer(data):
         token = m.group(0)
-        if re.fullmatch(r"(WS|PRN)-\d{2,3}", token) or token in {"RCU-01"}:
+        if re.fullmatch(r"(WS|PRN|SCAN)-\d{2,3}", token) or token in {"RCU-01"}:
             continue
         # Check ids that name a TCP port (NET-SERVER-TCP-445), not a host
         if re.fullmatch(r"TCP-\d{1,5}", token):
