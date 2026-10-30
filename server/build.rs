@@ -14,4 +14,3 @@ fn main() {
         .compile_protos(&[proto_dir.join("itcmdr.proto")], &[proto_dir])
         .expect("failed to compile protos");
 }
-

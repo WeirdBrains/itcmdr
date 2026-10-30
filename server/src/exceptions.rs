@@ -27,7 +27,11 @@ pub struct ExceptionDoc {
     pub scope: ScopeDoc,
     #[serde(default, alias = "check_id", skip_serializing_if = "String::is_empty")]
     pub check_id: String,
-    #[serde(default, alias = "check_pattern", skip_serializing_if = "String::is_empty")]
+    #[serde(
+        default,
+        alias = "check_pattern",
+        skip_serializing_if = "String::is_empty"
+    )]
     pub check_pattern: String,
     #[serde(default)]
     pub action: String,
@@ -62,7 +66,10 @@ impl ExceptionDoc {
     pub fn to_proto(&self, active: bool) -> ExceptionRule {
         ExceptionRule {
             id: self.id.clone(),
-            scope: Some(ExceptionScope { machines: self.scope.machines.clone(), role: self.scope.role.clone().unwrap_or_default() }),
+            scope: Some(ExceptionScope {
+                machines: self.scope.machines.clone(),
+                role: self.scope.role.clone().unwrap_or_default(),
+            }),
             check_id: self.check_id.clone(),
             check_pattern: self.check_pattern.clone(),
             action: self.action.clone(),
@@ -83,7 +90,8 @@ impl ExceptionDoc {
             return Err("a reason is required".into());
         }
         if let Some(e) = &self.expires {
-            let ok = chrono::NaiveDate::parse_from_str(e, "%Y-%m-%d").is_ok() || chrono::DateTime::parse_from_rfc3339(e).is_ok();
+            let ok = chrono::NaiveDate::parse_from_str(e, "%Y-%m-%d").is_ok()
+                || chrono::DateTime::parse_from_rfc3339(e).is_ok();
             if !ok {
                 return Err("expires must be YYYY-MM-DD or an RFC 3339 timestamp".into());
             }
@@ -100,19 +108,34 @@ pub struct ExportFile {
     pub rules: Vec<ExceptionDoc>,
 }
 
-pub async fn load(pool: &DbPool, include_inactive: bool) -> anyhow::Result<Vec<(ExceptionDoc, bool)>> {
+pub async fn load(
+    pool: &DbPool,
+    include_inactive: bool,
+) -> anyhow::Result<Vec<(ExceptionDoc, bool)>> {
     Ok(crate::db::list_exceptions(pool, include_inactive)
         .await?
         .into_iter()
-        .filter_map(|(json, active)| serde_json::from_str::<ExceptionDoc>(&json).ok().map(|d| (d, active)))
+        .filter_map(|(json, active)| {
+            serde_json::from_str::<ExceptionDoc>(&json)
+                .ok()
+                .map(|d| (d, active))
+        })
         .collect())
 }
 
 /// Write the active rules to `path` atomically (temp file + rename).
 pub async fn export(pool: &DbPool, path: &Path) -> anyhow::Result<usize> {
-    let rules: Vec<ExceptionDoc> = load(pool, false).await?.into_iter().map(|(d, _)| d).collect();
+    let rules: Vec<ExceptionDoc> = load(pool, false)
+        .await?
+        .into_iter()
+        .map(|(d, _)| d)
+        .collect();
     let n = rules.len();
-    let file = ExportFile { version: 1, generated: chrono::Utc::now().to_rfc3339(), rules };
+    let file = ExportFile {
+        version: 1,
+        generated: chrono::Utc::now().to_rfc3339(),
+        rules,
+    };
     if let Some(dir) = path.parent() {
         std::fs::create_dir_all(dir)?;
     }
@@ -138,7 +161,12 @@ mod tests {
 
     #[test]
     fn validates() {
-        let mut d = ExceptionDoc { check_id: "X".into(), action: "ignore".into(), reason: "r".into(), ..Default::default() };
+        let mut d = ExceptionDoc {
+            check_id: "X".into(),
+            action: "ignore".into(),
+            reason: "r".into(),
+            ..Default::default()
+        };
         assert!(d.validate().is_ok());
         d.action = "delete".into();
         assert!(d.validate().is_err());

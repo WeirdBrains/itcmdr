@@ -6,16 +6,134 @@ use std::str::FromStr;
 
 pub type DbPool = Pool<Sqlite>;
 
+/// Open (creating if needed) the SQLCipher database. The data dir layout and DB key are created
+/// on first use. A pre-0.6 plaintext database at the target path, or `itcmdr.sqlite` next to it,
+/// is encrypted first (see `migrate_plaintext`).
 pub async fn init_db(cfg: &ServerConfig) -> anyhow::Result<DbPool> {
-    if let Some(parent) = cfg.database_path.parent() {
+    let layout = cfg.layout();
+    layout.ensure()?;
+    let key = crate::storage::load_or_create_db_key(&layout)?;
+    let path = cfg.database_path();
+    if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).ok();
     }
-    let conn_opts = SqliteConnectOptions::from_str(&format!("sqlite://{}", cfg.database_path.display()))?
-        .create_if_missing(true);
-    let pool = SqlitePoolOptions::new().max_connections(5).connect_with(conn_opts).await?;
-    sqlx::query("PRAGMA journal_mode=WAL").execute(&pool).await.ok();
+    migrate_plaintext(&path, &key).await?;
+    let pool = SqlitePoolOptions::new()
+        .max_connections(5)
+        .connect_with(encrypted_options(&path, &key)?.create_if_missing(true))
+        .await?;
+    // Fails here (not later) when the key is wrong.
+    sqlx::query("SELECT count(*) FROM sqlite_master")
+        .execute(&pool)
+        .await
+        .map_err(|e| {
+            anyhow::anyhow!(
+                "cannot open {} with keys/db.key (wrong key or not an itcmdr database): {e}",
+                path.display()
+            )
+        })?;
+    sqlx::query("PRAGMA journal_mode=WAL")
+        .execute(&pool)
+        .await
+        .ok();
     create_schema(&pool).await?;
     Ok(pool)
+}
+
+fn encrypted_options(
+    path: &std::path::Path,
+    key: &[u8; 32],
+) -> anyhow::Result<SqliteConnectOptions> {
+    // `key` must be the first pragma on every connection; sqlx applies it first.
+    Ok(
+        SqliteConnectOptions::from_str(&format!("sqlite://{}", path.display()))?
+            .pragma("key", crate::storage::key_pragma(key)),
+    )
+}
+
+/// Encrypt a plaintext database into `target`. Sources: `target` itself (in place) or the legacy
+/// `itcmdr.sqlite` beside it. The plaintext original is kept as `<name>.plaintext-backup`
+/// (delete it once the server has run fine; it is NOT encrypted). Returns true when migrated.
+pub async fn migrate_plaintext(target: &std::path::Path, key: &[u8; 32]) -> anyhow::Result<bool> {
+    use crate::storage::{is_plaintext_sqlite, LEGACY_DB_FILE};
+    let legacy = target.with_file_name(LEGACY_DB_FILE);
+    let source = if is_plaintext_sqlite(target) {
+        target.to_path_buf()
+    } else if !target.exists() && legacy != target && is_plaintext_sqlite(&legacy) {
+        legacy
+    } else {
+        return Ok(false);
+    };
+    tracing::warn!(source=%source.display(), target=%target.display(), "encrypting plaintext database");
+    let tmp = target.with_extension("encrypting");
+    let _ = std::fs::remove_file(&tmp);
+    let counts_plain;
+    {
+        let plain = SqlitePoolOptions::new()
+            .max_connections(1)
+            // create flag so ATTACH can create the encrypted file (source must exist: checked above)
+            .connect_with(
+                SqliteConnectOptions::from_str(&format!("sqlite://{}", source.display()))?
+                    .create_if_missing(true),
+            )
+            .await?;
+        sqlx::query("PRAGMA wal_checkpoint(TRUNCATE)")
+            .execute(&plain)
+            .await
+            .ok();
+        counts_plain = table_counts(&plain).await?;
+        let tmp_s = tmp.display().to_string().replace('\'', "''");
+        sqlx::query(&format!(
+            "ATTACH DATABASE '{tmp_s}' AS enc KEY {}",
+            crate::storage::key_pragma(key)
+        ))
+        .execute(&plain)
+        .await?;
+        sqlx::query("SELECT sqlcipher_export('enc')")
+            .execute(&plain)
+            .await?;
+        sqlx::query("DETACH DATABASE enc").execute(&plain).await?;
+        plain.close().await;
+    }
+    {
+        let enc = SqlitePoolOptions::new()
+            .max_connections(1)
+            .connect_with(encrypted_options(&tmp, key)?)
+            .await?;
+        let counts_enc = table_counts(&enc).await?;
+        enc.close().await;
+        anyhow::ensure!(
+            counts_enc == counts_plain,
+            "migration check failed: {counts_plain:?} vs {counts_enc:?}"
+        );
+    }
+    let backup = source.with_file_name(format!(
+        "{}.plaintext-backup",
+        source.file_name().unwrap_or_default().to_string_lossy()
+    ));
+    std::fs::rename(&source, &backup)?;
+    for ext in ["-wal", "-shm"] {
+        let side = std::path::PathBuf::from(format!("{}{ext}", source.display()));
+        let _ = std::fs::remove_file(side);
+    }
+    std::fs::rename(&tmp, target)?;
+    tracing::warn!(backup=%backup.display(), "plaintext database migrated; delete the plaintext backup once verified");
+    Ok(true)
+}
+
+async fn table_counts(pool: &DbPool) -> anyhow::Result<Vec<(String, i64)>> {
+    let names: Vec<String> = sqlx::query_scalar("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")
+        .fetch_all(pool)
+        .await?;
+    let mut out = Vec::new();
+    for n in names {
+        let c: i64 =
+            sqlx::query_scalar(&format!("SELECT count(*) FROM \"{}\"", n.replace('"', "")))
+                .fetch_one(pool)
+                .await?;
+        out.push((n, c));
+    }
+    Ok(out)
 }
 
 async fn create_schema(pool: &DbPool) -> anyhow::Result<()> {
@@ -97,6 +215,38 @@ async fn create_schema(pool: &DbPool) -> anyhow::Result<()> {
         path TEXT PRIMARY KEY,
         size INTEGER NOT NULL,
         mtime_ms INTEGER NOT NULL
+    );
+
+    -- Auth (v0.6.0): keys are PUBLIC keys only, ids are random UUIDs, fingerprint = sha256(public key) hex (no semicolons in comments: the schema is split on them)
+    CREATE TABLE IF NOT EXISTS roles (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE
+    );
+    CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        email TEXT,
+        phone TEXT,
+        created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+        role_id TEXT NOT NULL REFERENCES roles(id),
+        public_key TEXT NOT NULL,
+        fingerprint TEXT NOT NULL UNIQUE,
+        certificate TEXT,
+        revoked_at TEXT
+    );
+    CREATE TABLE IF NOT EXISTS clients (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+        role_id TEXT NOT NULL REFERENCES roles(id),
+        public_key TEXT NOT NULL,
+        fingerprint TEXT NOT NULL UNIQUE,
+        certificate TEXT,
+        revoked_at TEXT
+    );
+    CREATE TABLE IF NOT EXISTS server_meta (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
     )
     "#;
     for stmt in schema.split(';') {
@@ -114,13 +264,35 @@ async fn create_schema(pool: &DbPool) -> anyhow::Result<()> {
         let _ = sqlx::query(m).execute(pool).await;
     }
     // Drop legacy duplicates, then enforce one row per (run, check).
-    sqlx::query("DELETE FROM checks WHERE id NOT IN (SELECT MIN(id) FROM checks GROUP BY run_id, check_id)")
-        .execute(pool)
-        .await?;
-    sqlx::query("CREATE UNIQUE INDEX IF NOT EXISTS ux_checks_run_check ON checks(run_id, check_id)")
-        .execute(pool)
-        .await?;
+    sqlx::query(
+        "DELETE FROM checks WHERE id NOT IN (SELECT MIN(id) FROM checks GROUP BY run_id, check_id)",
+    )
+    .execute(pool)
+    .await?;
+    sqlx::query(
+        "CREATE UNIQUE INDEX IF NOT EXISTS ux_checks_run_check ON checks(run_id, check_id)",
+    )
+    .execute(pool)
+    .await?;
+    for role in ROLES {
+        sqlx::query("INSERT INTO roles(id, name) SELECT ?, ? WHERE NOT EXISTS (SELECT 1 FROM roles WHERE name = ?)")
+            .bind(uuid::Uuid::new_v4().to_string())
+            .bind(role)
+            .bind(role)
+            .execute(pool)
+            .await?;
+    }
     Ok(())
+}
+
+/// Roles, most to least privileged.
+pub const ROLES: [&str; 4] = ["owner", "admin", "user", "client"];
+
+pub async fn role_id(pool: &DbPool, name: &str) -> anyhow::Result<Option<String>> {
+    Ok(sqlx::query_scalar("SELECT id FROM roles WHERE name = ?")
+        .bind(name)
+        .fetch_optional(pool)
+        .await?)
 }
 
 /// Delete data older than `retention_days` (runs, checks, closed incidents, rollups,
@@ -128,23 +300,45 @@ async fn create_schema(pool: &DbPool) -> anyhow::Result<()> {
 pub async fn apply_retention(pool: &DbPool, retention_days: i64) -> anyhow::Result<()> {
     let cutoff = Utc::now() - Duration::days(retention_days);
     let cutoff_ms = cutoff.timestamp_millis();
-    sqlx::query("DELETE FROM runs WHERE ts_ms < ?").bind(cutoff_ms).execute(pool).await?;
-    sqlx::query("DELETE FROM checks WHERE ts_ms < ?").bind(cutoff_ms).execute(pool).await?;
-    sqlx::query("DELETE FROM incidents WHERE is_open=0 AND closed_ts_ms < ?").bind(cutoff_ms).execute(pool).await?;
+    sqlx::query("DELETE FROM runs WHERE ts_ms < ?")
+        .bind(cutoff_ms)
+        .execute(pool)
+        .await?;
+    sqlx::query("DELETE FROM checks WHERE ts_ms < ?")
+        .bind(cutoff_ms)
+        .execute(pool)
+        .await?;
+    sqlx::query("DELETE FROM incidents WHERE is_open=0 AND closed_ts_ms < ?")
+        .bind(cutoff_ms)
+        .execute(pool)
+        .await?;
     sqlx::query("DELETE FROM requests WHERE created_ts_ms < ? AND status IN ('done','failed')")
         .bind(cutoff_ms)
         .execute(pool)
         .await?;
     let cutoff_day = cutoff.date_naive().to_string();
-    sqlx::query("DELETE FROM rollup_daily WHERE day_utc < ?").bind(&cutoff_day).execute(pool).await?;
+    sqlx::query("DELETE FROM rollup_daily WHERE day_utc < ?")
+        .bind(&cutoff_day)
+        .execute(pool)
+        .await?;
     Ok(())
 }
 
 fn day_of(ts_ms: i64) -> String {
-    chrono::DateTime::from_timestamp_millis(ts_ms).unwrap_or_default().date_naive().to_string()
+    chrono::DateTime::from_timestamp_millis(ts_ms)
+        .unwrap_or_default()
+        .date_naive()
+        .to_string()
 }
 
-async fn bump_rollup(pool: &DbPool, ts_ms: i64, computer: &str, runs: i64, incidents: i64, failed_repairs: i64) -> anyhow::Result<()> {
+async fn bump_rollup(
+    pool: &DbPool,
+    ts_ms: i64,
+    computer: &str,
+    runs: i64,
+    incidents: i64,
+    failed_repairs: i64,
+) -> anyhow::Result<()> {
     sqlx::query(
         "INSERT INTO rollup_daily (day_utc, computer, runs, incidents, failed_repairs, run_duration_ms_sum) VALUES (?,?,?,?,?,0) \
          ON CONFLICT(day_utc,computer) DO UPDATE SET runs=runs+excluded.runs, incidents=incidents+excluded.incidents, failed_repairs=failed_repairs+excluded.failed_repairs",
@@ -160,7 +354,14 @@ async fn bump_rollup(pool: &DbPool, ts_ms: i64, computer: &str, runs: i64, incid
 }
 
 /// Returns true when the run was new.
-pub async fn record_run_start(pool: &DbPool, run_id: &str, computer: &str, role: Option<&str>, report_only: bool, ts_ms: i64) -> anyhow::Result<bool> {
+pub async fn record_run_start(
+    pool: &DbPool,
+    run_id: &str,
+    computer: &str,
+    role: Option<&str>,
+    report_only: bool,
+    ts_ms: i64,
+) -> anyhow::Result<bool> {
     let res = sqlx::query("INSERT OR IGNORE INTO runs (run_id, computer, ts_ms, role, report_only) VALUES (?,?,?,?,?)")
         .bind(run_id)
         .bind(computer)
@@ -177,18 +378,29 @@ pub async fn record_run_start(pool: &DbPool, run_id: &str, computer: &str, role:
     Ok(new)
 }
 
-pub async fn record_run_complete(pool: &DbPool, run_id: &str, finished_ts_ms: i64, exit_code: Option<i32>) -> anyhow::Result<()> {
-    sqlx::query("UPDATE runs SET finished_ts_ms=?, exit_code=? WHERE run_id=? AND finished_ts_ms IS NULL")
-        .bind(finished_ts_ms)
-        .bind(exit_code)
-        .bind(run_id)
-        .execute(pool)
-        .await?;
+pub async fn record_run_complete(
+    pool: &DbPool,
+    run_id: &str,
+    finished_ts_ms: i64,
+    exit_code: Option<i32>,
+) -> anyhow::Result<()> {
+    sqlx::query(
+        "UPDATE runs SET finished_ts_ms=?, exit_code=? WHERE run_id=? AND finished_ts_ms IS NULL",
+    )
+    .bind(finished_ts_ms)
+    .bind(exit_code)
+    .bind(run_id)
+    .execute(pool)
+    .await?;
     Ok(())
 }
 
 /// Insert a check once (unique on run_id+check_id). Returns true when new.
-pub async fn record_check(pool: &DbPool, rec: &crate::ingest::AgentRecord, ts_ms: i64) -> anyhow::Result<bool> {
+pub async fn record_check(
+    pool: &DbPool,
+    rec: &crate::ingest::AgentRecord,
+    ts_ms: i64,
+) -> anyhow::Result<bool> {
     let res = sqlx::query("INSERT OR IGNORE INTO checks (run_id, computer, category, check_id, severity, status, attempted_repair, action, result, ts_ms, excepted, exception_reason) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)")
         .bind(&rec.run_id)
         .bind(&rec.computer)
@@ -208,8 +420,20 @@ pub async fn record_check(pool: &DbPool, rec: &crate::ingest::AgentRecord, ts_ms
         return Ok(false);
     }
     let opened = update_incidents_for_check(pool, rec, ts_ms).await?;
-    let failed_repair = rec.attempted_repair() && rec.result.as_deref().is_some_and(|r| r.eq_ignore_ascii_case("failed"));
-    bump_rollup(pool, ts_ms, &rec.computer, 0, opened as i64, failed_repair as i64).await?;
+    let failed_repair = rec.attempted_repair()
+        && rec
+            .result
+            .as_deref()
+            .is_some_and(|r| r.eq_ignore_ascii_case("failed"));
+    bump_rollup(
+        pool,
+        ts_ms,
+        &rec.computer,
+        0,
+        opened as i64,
+        failed_repair as i64,
+    )
+    .await?;
     crate::events::notify("check", &rec.computer, &rec.run_id);
     Ok(true)
 }
@@ -219,26 +443,39 @@ pub async fn record_check(pool: &DbPool, rec: &crate::ingest::AgentRecord, ts_ms
 /// incident with zero time-to-repair. Records older than the newest already-seen record
 /// for the pair (late arrivals from archives) don't change state.
 /// Returns true when a new incident was opened.
-async fn update_incidents_for_check(pool: &DbPool, rec: &crate::ingest::AgentRecord, ts_ms: i64) -> anyhow::Result<bool> {
+async fn update_incidents_for_check(
+    pool: &DbPool,
+    rec: &crate::ingest::AgentRecord,
+    ts_ms: i64,
+) -> anyhow::Result<bool> {
     if rec.excepted.unwrap_or(false) {
         return Ok(false);
     }
-    let newer: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM checks WHERE computer=? AND check_id=? AND ts_ms > ?")
-        .bind(&rec.computer)
-        .bind(&rec.check_id)
-        .bind(ts_ms)
-        .fetch_one(pool)
-        .await?;
+    let newer: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM checks WHERE computer=? AND check_id=? AND ts_ms > ?",
+    )
+    .bind(&rec.computer)
+    .bind(&rec.check_id)
+    .bind(ts_ms)
+    .fetch_one(pool)
+    .await?;
     if newer > 0 {
         return Ok(false);
     }
     let failed = rec.status.eq_ignore_ascii_case("failed");
-    let repaired = !failed && rec.attempted_repair() && rec.result.as_deref().is_some_and(|r| r.eq_ignore_ascii_case("success"));
-    let open: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM incidents WHERE computer=? AND check_id=? AND is_open=1")
-        .bind(&rec.computer)
-        .bind(&rec.check_id)
-        .fetch_one(pool)
-        .await?;
+    let repaired = !failed
+        && rec.attempted_repair()
+        && rec
+            .result
+            .as_deref()
+            .is_some_and(|r| r.eq_ignore_ascii_case("success"));
+    let open: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM incidents WHERE computer=? AND check_id=? AND is_open=1",
+    )
+    .bind(&rec.computer)
+    .bind(&rec.check_id)
+    .fetch_one(pool)
+    .await?;
     let mut opened = false;
     if failed {
         if open == 0 {
@@ -276,11 +513,19 @@ async fn update_incidents_for_check(pool: &DbPool, rec: &crate::ingest::AgentRec
 
 /// (size, mtime_ms) recorded the last time `path` was ingested.
 pub async fn ingested_file(pool: &DbPool, path: &str) -> anyhow::Result<Option<(i64, i64)>> {
-    let row = sqlx::query("SELECT size, mtime_ms FROM ingested_files WHERE path=?").bind(path).fetch_optional(pool).await?;
+    let row = sqlx::query("SELECT size, mtime_ms FROM ingested_files WHERE path=?")
+        .bind(path)
+        .fetch_optional(pool)
+        .await?;
     Ok(row.map(|r| (r.get::<i64, _>("size"), r.get::<i64, _>("mtime_ms"))))
 }
 
-pub async fn mark_ingested(pool: &DbPool, path: &str, size: i64, mtime_ms: i64) -> anyhow::Result<()> {
+pub async fn mark_ingested(
+    pool: &DbPool,
+    path: &str,
+    size: i64,
+    mtime_ms: i64,
+) -> anyhow::Result<()> {
     sqlx::query("INSERT INTO ingested_files (path, size, mtime_ms) VALUES (?,?,?) ON CONFLICT(path) DO UPDATE SET size=excluded.size, mtime_ms=excluded.mtime_ms")
         .bind(path)
         .bind(size)
@@ -290,7 +535,11 @@ pub async fn mark_ingested(pool: &DbPool, path: &str, size: i64, mtime_ms: i64) 
     Ok(())
 }
 
-pub async fn insert_request(pool: &DbPool, request_id: &str, options_json: &str) -> anyhow::Result<()> {
+pub async fn insert_request(
+    pool: &DbPool,
+    request_id: &str,
+    options_json: &str,
+) -> anyhow::Result<()> {
     sqlx::query("INSERT OR REPLACE INTO requests (request_id, created_ts_ms, options_json, status, message) VALUES (?,?,?,'queued','queued')")
         .bind(request_id)
         .bind(Utc::now().timestamp_millis())
@@ -302,8 +551,14 @@ pub async fn insert_request(pool: &DbPool, request_id: &str, options_json: &str)
 }
 
 /// (status, message); status is "unknown" when the id doesn't exist.
-pub async fn get_request_status(pool: &DbPool, request_id: &str) -> anyhow::Result<(String, String)> {
-    let row = sqlx::query("SELECT status, message FROM requests WHERE request_id=?").bind(request_id).fetch_optional(pool).await?;
+pub async fn get_request_status(
+    pool: &DbPool,
+    request_id: &str,
+) -> anyhow::Result<(String, String)> {
+    let row = sqlx::query("SELECT status, message FROM requests WHERE request_id=?")
+        .bind(request_id)
+        .fetch_optional(pool)
+        .await?;
     Ok(match row {
         Some(r) => {
             let st: String = r.get("status");
@@ -318,10 +573,24 @@ pub async fn get_request_status(pool: &DbPool, request_id: &str) -> anyhow::Resu
 /// (request_id, options_json, created_ts_ms) of queued/running requests.
 pub async fn pending_requests(pool: &DbPool) -> anyhow::Result<Vec<(String, String, i64)>> {
     let rows = sqlx::query("SELECT request_id, options_json, created_ts_ms FROM requests WHERE status IN ('queued','running')").fetch_all(pool).await?;
-    Ok(rows.into_iter().map(|r| (r.get("request_id"), r.get("options_json"), r.get("created_ts_ms"))).collect())
+    Ok(rows
+        .into_iter()
+        .map(|r| {
+            (
+                r.get("request_id"),
+                r.get("options_json"),
+                r.get("created_ts_ms"),
+            )
+        })
+        .collect())
 }
 
-pub async fn set_request_status(pool: &DbPool, request_id: &str, status: &str, message: &str) -> anyhow::Result<bool> {
+pub async fn set_request_status(
+    pool: &DbPool,
+    request_id: &str,
+    status: &str,
+    message: &str,
+) -> anyhow::Result<bool> {
     let res = sqlx::query("UPDATE requests SET status=?, message=? WHERE request_id=? AND (status<>? OR COALESCE(message,'')<>?)")
         .bind(status)
         .bind(message)
@@ -337,7 +606,9 @@ pub async fn set_request_status(pool: &DbPool, request_id: &str, status: &str, m
     Ok(changed)
 }
 
-pub async fn list_machines_overview(pool: &DbPool) -> anyhow::Result<Vec<(String, String, i64, i64)>> {
+pub async fn list_machines_overview(
+    pool: &DbPool,
+) -> anyhow::Result<Vec<(String, String, i64, i64)>> {
     let rows = sqlx::query(
         r#"
         SELECT r.computer as name,
@@ -361,7 +632,12 @@ pub async fn list_machines_overview(pool: &DbPool) -> anyhow::Result<Vec<(String
     Ok(out)
 }
 
-pub async fn save_exception(pool: &DbPool, id: &str, rule_json: &str, active: bool) -> anyhow::Result<()> {
+pub async fn save_exception(
+    pool: &DbPool,
+    id: &str,
+    rule_json: &str,
+    active: bool,
+) -> anyhow::Result<()> {
     sqlx::query("INSERT OR REPLACE INTO exceptions (id, rule_json, active) VALUES (?,?,?)")
         .bind(id)
         .bind(rule_json)
@@ -374,23 +650,42 @@ pub async fn save_exception(pool: &DbPool, id: &str, rule_json: &str, active: bo
 
 /// Returns true when a rule with that id existed.
 pub async fn expire_exception(pool: &DbPool, id: &str) -> anyhow::Result<bool> {
-    let res = sqlx::query("UPDATE exceptions SET active=0 WHERE id=?").bind(id).execute(pool).await?;
+    let res = sqlx::query("UPDATE exceptions SET active=0 WHERE id=?")
+        .bind(id)
+        .execute(pool)
+        .await?;
     crate::events::notify("exception-expire", "", id);
     Ok(res.rows_affected() > 0)
 }
 
 /// (rule_json, active)
-pub async fn list_exceptions(pool: &DbPool, include_inactive: bool) -> anyhow::Result<Vec<(String, bool)>> {
+pub async fn list_exceptions(
+    pool: &DbPool,
+    include_inactive: bool,
+) -> anyhow::Result<Vec<(String, bool)>> {
     let q = if include_inactive {
         "SELECT rule_json, active FROM exceptions ORDER BY id"
     } else {
         "SELECT rule_json, active FROM exceptions WHERE active=1 ORDER BY id"
     };
     let rows = sqlx::query(q).fetch_all(pool).await?;
-    Ok(rows.into_iter().map(|r| (r.get::<String, _>("rule_json"), r.get::<i64, _>("active") != 0)).collect())
+    Ok(rows
+        .into_iter()
+        .map(|r| {
+            (
+                r.get::<String, _>("rule_json"),
+                r.get::<i64, _>("active") != 0,
+            )
+        })
+        .collect())
 }
 
-pub async fn insert_audit(pool: &DbPool, actor: &str, action: &str, detail: &str) -> anyhow::Result<()> {
+pub async fn insert_audit(
+    pool: &DbPool,
+    actor: &str,
+    action: &str,
+    detail: &str,
+) -> anyhow::Result<()> {
     sqlx::query("INSERT INTO audit_log (ts_ms, actor, action, detail) VALUES (?,?,?,?)")
         .bind(Utc::now().timestamp_millis())
         .bind(actor)
@@ -403,10 +698,23 @@ pub async fn insert_audit(pool: &DbPool, actor: &str, action: &str, detail: &str
 }
 
 /// Newest first: (ts_ms, actor, action, detail)
-pub async fn list_audit(pool: &DbPool, limit: i64) -> anyhow::Result<Vec<(i64, String, String, String)>> {
+pub async fn list_audit(
+    pool: &DbPool,
+    limit: i64,
+) -> anyhow::Result<Vec<(i64, String, String, String)>> {
     let rows = sqlx::query("SELECT ts_ms, COALESCE(actor,'') AS actor, action, COALESCE(detail,'') AS detail FROM audit_log ORDER BY id DESC LIMIT ?")
         .bind(limit)
         .fetch_all(pool)
         .await?;
-    Ok(rows.into_iter().map(|r| (r.get("ts_ms"), r.get("actor"), r.get("action"), r.get("detail"))).collect())
+    Ok(rows
+        .into_iter()
+        .map(|r| {
+            (
+                r.get("ts_ms"),
+                r.get("actor"),
+                r.get("action"),
+                r.get("detail"),
+            )
+        })
+        .collect())
 }

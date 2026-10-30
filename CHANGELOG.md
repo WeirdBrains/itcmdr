@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.6.0 (2026-10-30)
+- Storage (plugin plan, release 1): data dir `%ProgramData%\itcmdr` / `~/.itcmdr`, override with
+  `--data-dir`, `ITCMDR_DATA_DIR` or `data_dir` in server.json; creates `service_plugins/`, `quarantine/`,
+  `keys/`, `plugin-logs/`.
+- Database is now SQLCipher-encrypted (`itcmdr.database`, bundled SQLCipher + vendored OpenSSL, no system lib).
+  Key: `keys/db.key`, DPAPI (LocalMachine) on Windows, 0600 hex file on Linux (refused if group/world readable).
+- Automatic migration of the pre-0.6 plaintext DB (`itcmdr.sqlite` in the data dir, or a plaintext file at an
+  explicit `database_path`): row counts verified, original kept as `*.plaintext-backup`.
+- New tables: `roles` (owner/admin/user/client, UUID ids), `users`, `clients` (public key + unique fingerprint,
+  certificate, revoked_at), `server_meta`.
+- `database_path` is now optional (override only). Code formatted with `cargo fmt`.
+
 ## v0.5.3 (2026-10-30)
 - Docs only: plan decision 11, plugin log path + structured log standard `itcmdr.log/v1` + metrics from logs, mapped onto v0.9.0-v0.12.0; wording fix in the release table.
 
