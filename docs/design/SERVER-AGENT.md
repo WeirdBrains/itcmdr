@@ -2,7 +2,7 @@
 
 Status: **proposed** (2026-10-31). Nothing here is built yet. Placeholders only: SERVER01, WS-01, example.local, 198.51.100.x.
 
-The admin server tier (offsite adminsvr, the SRE app, site upgrades from adminsvr) is in [ADMINSVR.md](ADMINSVR.md). Its roadmap and open questions supersede sections 10 and 11 below.
+The admin server tier (offsite adminsvr, the SRE app, site upgrades from adminsvr) is in [ADMINSVR.md](ADMINSVR.md). Its roadmap and open questions supersede sections 10 and 11 below. The loop is symmetric: adminsvr pushes updates, plugins, configs and heartbeats to site servers, and site servers push the same four to their agents (ADMINSVR.md, "The push loop").
 
 ## Goal
 
