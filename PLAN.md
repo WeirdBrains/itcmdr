@@ -43,14 +43,14 @@ also covered by the Windows VM test pass below.
 | v0.10.0 | Plugin runtime, log standard, scheduled runs (server, gRPC, CLI), app-triggered restore (server side) | ✅ Done | `v0.10.0` (faa2ae6) | 2026-10-30 |
 | v0.10.1 | First Windows VM pass + fixes (BOM in agent logs, installer compile, app exe name, PS 5.1 tests), `itcmdr-cli restore-stage` | ✅ Done | `v0.10.1` (2366819) | 2026-10-30 |
 | v0.11.0 | Built-in checks as plugins (parallel report-only, parity); nightly run + backup as built-in schedules; gated cutover, rollback, local fallback | ✅ Done | `v0.11.0` (b249612) | 2026-10-30 |
-| v0.12.0 | Flutter: Service Plugins, registration, users/keys, plugin metric charts, Backup & Restore (incl. restore with the words), Schedules, signed requests | 🔄 In progress | working tree, not tagged | 2026-10-31 |
+| v0.12.0 | Flutter: Service Plugins, registration, users/keys, plugin metric charts, Backup & Restore (incl. restore with the words), Schedules, signed requests | ✅ Done | `v0.12.0` (fb007b2) | 2026-10-31 |
 | v0.13.0 | Installer: first-run master setup (words shown once); VM test items | 📋 Planned | — | — |
 
 ## Cross-cutting items
 
 | Item | Status | Notes |
 |---|---|---|
-| Windows VM test pass | 🔄 v0.12.0 upgrade installed | v0.10.1 and v0.11.0 passes, plus a v0.12.0 in-place upgrade (Pester 82/82, installer, service, tasks, app binary). Auth stays `both` because server.json sets it. App screens not clicked through. A second PC is still open. Results in docs/HANDOVER.md |
+| Windows VM test pass | 🔄 v0.12.0 pass done headless | v0.10.1, v0.11.0 and v0.12.0 passes (Pester 82/82, installer, upgrade, task re-registration, kept-both auth path, Dart e2e on Windows). Still to do: click through the app with a person, a second PC. Results in docs/HANDOVER.md |
 | GitHub Actions installer builds | ⛔ Blocked | Org billing ("payments failed / spending limit"). Workaround in use: the installer builds on the Windows test VM (v0.10.1) |
 | Real site values in site.json | 📋 Pending (on-site) | Scanners (incl. the 3D unit + exception), DNS records, drive maps, printer queues, Sirona config paths, stale patterns, backup tasks/destinations. See HANDOVER.local.md |
 | Delete the plaintext DB backup after the v0.6 migration | ✅ Done (decided) | Decision 12: deleted automatically after a verified read-back (v0.6.2); kept if verification fails |

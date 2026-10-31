@@ -6,7 +6,7 @@ untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committ
 
 ## Current state (updated 2026-10-31)
 
-- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.11.0** (built-in checks as plugins, default schedules, gated cutover). Previous: v0.10.1 (`2366819`). **v0.12.0 is in the working tree, not tagged.** Versions in the tree: server 0.12.0, app 0.12.0+17, installer 0.12.0, agent `AgentVersion` 0.12.0.
+- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.12.0** (`fb007b2`; signed app, keys, schedules, backup & restore screens, signed-by-default auth). Previous: v0.11.0 (`b249612`). Versions in the tree: server 0.12.0, app 0.12.0+17, installer 0.12.0, agent `AgentVersion` 0.12.0.
 - Linux for v0.12.0: analyzer clean. Widget tests cover the Keys, Schedules and Backup dialogs and the settings search/switches. `app/test/e2e_test.dart` runs init, certifies an app key, then WhoAmI, every registry setting, a schedule, a backup and a restore dry run.
 - Windows VM passes: v0.10.1, v0.11.0, and a v0.12.0 upgrade (Pester 82/82, installer, service, tasks, new app binary). The app screens were not clicked through. See Results.
 - **No install is switched.** Every install runs the SYSTEM task as before, plus the plugin versions report-only for parity. Switching is on site: collect a week of parity, `itcmdr-cli cutover status`, then `cutover vm-verified` and `cutover switch` (Michael).
@@ -132,9 +132,9 @@ untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committ
 - Server: `cutover.rs` (seed `Nightly agent run` paused + `Nightly backup`, reset-to-default, remembered deletes, gate, switch, rollback, `schedule-state.json` each pass); backup loop replaced by the backup schedule; schema 4 (`parity_runs`, `agent_state`); gRPC `ResetScheduleToDefault`, `ScheduleRef.confirm`, `Schedule.builtin_key/action` (Dart protos regenerated).
 - CLI: `schedule reset-to-default`, `schedule rm --force --confirm "<name>"`, `cutover status|vm-verified|switch|rollback`.
 
-## Handoff: v0.12.0 WIP (2026-10-31)
+## Done (v0.12.0, the app signs requests; released as fb007b2)
 
-Base v0.11.0 = `b249612`. Not tagged. Linux at handoff: cargo fmt/clippy -D warnings clean, Rust 93 passed,
+Base v0.11.0 = `b249612`. WIP `46bb345`, released `fb007b2` (tag v0.12.0). Linux at the WIP commit: cargo fmt/clippy -D warnings clean, Rust 93 passed,
 Pester 82/82, flutter test 15 passed, flutter analyze 4 infos (curly braces in backup_page.dart, schedules_page.dart).
 Later the same day: those 4 infos fixed, widget tests added, Dart e2e green, versions set to 0.12.0. Analyzer clean.
 
@@ -155,8 +155,10 @@ Later the same day: those 4 infos fixed, widget tests added, Dart e2e green, ver
 - VM: v0.12.0 upgrade is installed (Pester 82/82, service Running, tasks Ready, app binary matches the build). `auth status` is `both` from server.json. The screens were not clicked through.
 
 **Next steps in order**
-1. Click through the installed app on the VM (connect, Keys, Schedules, Backup dry run, Settings). A second PC as an agent is still open.
-2. Leak scan is clean. Commit, tag v0.12.0, push main then the tag when asked.
+1. Click through the installed app on the VM (connect, Keys, Schedules, Backup dry run, Settings) with a person at the screen.
+2. A real second PC as an agent.
+3. On site: register the app key, `itcmdr-cli auth set-mode signed`, restart; a week of parity, then the gated cutover.
+4. v0.13.0: installer first-run master setup.
 
 **Commands**
 - Linux: `export PATH=$HOME/Projects/tools/flutter/bin:$HOME/Projects/tools/pwsh:$HOME/Projects/tools/protoc/bin:$HOME/.pub-cache/bin:$PATH`; `cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace`; `pwsh -NoProfile -c 'Invoke-Pester -Path agent/tests -CI'`; `cd app && flutter analyze && flutter test`.
@@ -170,11 +172,11 @@ Later the same day: those 4 infos fixed, widget tests added, Dart e2e green, ver
 
 ## In progress
 
-v0.12.0 is in the working tree (not tagged). See 'Handoff: v0.12.0 WIP' above.
+v0.12.0 released (tag on `fb007b2`); a follow-up commit adds the Windows e2e fix and the VM results. Next: VM click-through, second PC, v0.13.0.
 
 ## Backlog (in order)
 
-1. Windows VM test pass: v0.10.1 and v0.11.0 passes done (results below). Still to do: the v0.12.0 app on Windows (connect, keys, schedules, backup dry run, settings) and a real second PC as agent.
+1. Windows VM test pass: v0.10.1 and v0.11.0 passes done (results below). v0.12.0 pass done headless (results below). Still to do: click through the app with a person at the screen, and a real second PC as agent.
 2. ~~Missing agent checks~~ done in v0.3.0. Real values must be added to the site.json on Windows hosts.
 3. ~~Flapping/repeat-offender metrics, charts~~ done in v0.4.0.
 4. ~~Log search filters and paging~~ done in v0.4.0.
@@ -293,7 +295,11 @@ In-place upgrade over the v0.11.0 install. The installer is built after `flutter
 | Silent upgrade: exit 0, service Running, nightly / poller / rotation tasks still Ready | ✅ |
 | Installed agent `AgentVersion` 0.12.0; installed `itcmdr.exe` timestamp matches the build | ✅ |
 | `itcmdr-cli auth status` | both, because server.json still has `"auth_mode": "both"` from the v0.11.0 installer. Upgrades do not replace that file, so this install does not take the kept-both path. The shared token is still configured. One admin key (`Dr Example`) can sign. |
-| App screens clicked through on the VM | not done |
+| Kept-both path: `auth_mode` removed from server.json, service restarted | ✅ `auth status` = both ("not set; this install predates v0.12.0"), unsigned token call still works; server.json restored after |
+| Installed `itcmdr.exe` starts and stays up (15 s, headless) | ✅ |
+| Dart e2e against a real server on Windows (`flutter test test\e2e_test.dart`, release bins via `ITCMDR_E2E_BIN_DIR`) + signing and page tests | ✅ 14 passed |
+| Dart e2e on Windows | ❌ → fixed: the test hard-coded `../target/debug/itcmdr-server` (no `.exe`, no bin dir override) |
+| App screens clicked through on the VM | not done (needs a person at the screen) |
 
 ## Risks and gotchas
 
