@@ -3,6 +3,76 @@
 Status: **proposed** (2026-10-31). Nothing is built yet. Extends [SERVER-AGENT.md](SERVER-AGENT.md). Placeholders only
 (SERVER01, WS-01, example.local, 198.51.100.x, adminsvr.example.com).
 
+## Decisions (Michael, 2026-10-31)
+
+These are decided and supersede the earlier recommendations and open questions in this doc and in SERVER-AGENT.md.
+
+1. **Host:** adminsvr runs on any host (configurable: listen addresses, public URL, DB URL, data dir). Production runs on
+   Michael's VPS. Nothing in the design is tied to one host.
+2. **Containers:** test containers use **rootless Podman** on alien-blue. The compose files are Podman-compatible:
+   - no Docker-only features, no privileged ports inside the containers (use 8443/8080 and map them)
+   - named volumes with `:Z` labels
+   - `podman compose` or `podman-compose` both work
+   Docker remains possible but is not tested.
+3. **Platforms:** Android, **iOS**, web, and Linux/Windows/macOS desktop. Pending: **Mac build/signing step** (Apple
+   developer account, signing identities, TestFlight). It happens once Michael's Mac is on.
+4. **Paging:** no email, ntfy, webhook or Pushover. Every alert goes through one of:
+   - the **adminsvr app**, including its push notifications
+   - the **adminsvr CLI** (`itcmdr-admin`). It has **full feature parity with the app, as a hard requirement: every
+     app action has a CLI command**, and the release checklist checks this.
+   - a future **adminsvr agent**. Placeholder: Michael will describe it later, and nothing depends on it yet.
+5. **Alert levels:** all levels (Critical, Cautious, Informational) are delivered in the app. There are no digest or
+   office-hours paging rules. Instead, each user has **per-level notification settings** in the app and CLI (push
+   on/off, sound, quiet times on the device).
+6. **mTLS from the start** on every link (agent → server, server → adminsvr), alongside pinned TLS and signed
+   messages. See "Client certificates" below.
+7. **Heartbeats:** 60 s interval, non-responsive after 5 missed, office-hours profile available. Every value is
+   configurable **per tier and per agent or server**, in the settings registry, the app and the CLI.
+8. **Ports:** 50051 at the site; 443 (web/app API) and 8443 (SiteLink) on adminsvr. All configurable.
+9. **Releases:** owner-signed, plus a second approver. **Only owners and admins can be the second approver; SREs
+   cannot approve.** Rings: VM → one office → all.
+10. **No PowerShell agent fallback.** The office server also runs the new Rust agent, so it is watched like every PC.
+    The PS agent (task-based runner, poller) is retired at the parity cutover (the v0.20.0 agent switch). The PS check
+    plugins stay, hosted by the Rust agent.
+11. **Roles (confirmed exactly as follows):**
+    - adminsvr roles and site roles stay separate.
+    - SREs start with no assigned servers.
+    - Every remote command carries dual signatures (the adminsvr root key and the acting user's device key). It is
+      checked against the site allowlist and audited on the site with the user's identity.
+    - Never-remote items stay never-remote.
+    - **Owner:** can do everything, signs releases, manages owners. There is always at least one owner.
+    - **Admin:** full access, manages users and assigns servers. Cannot create owners or edit owner accounts.
+    - **SRE:** assigned servers only.
+12. **Remote upgrades are ON by default** at every site. They roll out automatically through the rings, with
+    health-gated auto-pause (a failed health check or new Critical alerts in a ring pause the rollout) and automatic
+    rollback. The off switches are the global freeze and the site-local `adminsvr.enabled=false`.
+13. **Users category:** hidden from SREs except their own account and activity.
+
+### Client certificates (mTLS)
+
+- **CAs:**
+  - Each site server has a **site CA** (Ed25519 key in DPAPI, certified by the master key) that issues agent client
+    certs.
+  - adminsvr has an **adminsvr CA** (offline-capable root, plus an online issuing intermediate) that issues site
+    client certs.
+- **Issue:**
+  - At enrollment the agent (or site) generates its key and sends a CSR with the one-time token. It receives a client
+    cert (CN = agent or site id, SAN = machine name, 90-day lifetime) plus the CA cert to pin.
+  - Servers require and verify the client cert on every connection, and the cert's id must match the signing key of
+    the messages.
+- **Rotation:**
+  - Automatic renewal over the existing stream at 2/3 of the lifetime (a new key and CSR, signed with the old key).
+  - An overlap window keeps the old cert valid until the new one is in use.
+  - CA rollover publishes the new CA cert over the stream before it starts issuing.
+  - Expiry within 14 days without renewal raises a Cautious alert, and within 3 days a Critical one.
+- **Revocation:**
+  - Revoking an agent or site in the app or CLI adds its serial to a revocation list held by the issuer and checked on
+    every handshake.
+  - It also closes the live stream at once and is audited.
+  - A revoked machine must re-enroll with a new token.
+  - Lost CA key: re-issue the CA (from the master key on the site, or from the offline root on adminsvr) and
+    re-enroll.
+
 ## 1. Three tiers
 
 ```
@@ -79,8 +149,9 @@ flowchart TB
 
 - The site runs **fully standalone**. Nothing in the site depends on adminsvr for its function: backups, agents,
   schedules, plugins, local alerts and the on-site app all keep working.
-- **Local paging still works.** The site's own notifier channels (SMTP / ntfy / webhook, SERVER-AGENT.md section 5)
-  are the primary path. adminsvr is an additional one.
+- **Alerts while adminsvr is down:** there are no site-side notifiers (decision 4). Alerts stay visible locally in the
+  on-site app and `itcmdr-cli`, and are queued for adminsvr. adminsvr itself raises a Critical "site unreachable"
+  alert to SREs after the missed threshold, so the outage is still paged.
 - Upstream messages go to a durable outbound queue (`adminsvr-queue.db`, capped by `adminsvr.queue_max_mib`, oldest
   Informational dropped first, and the drop itself is reported). The site reconnects with backoff (1 s → 5 min,
   jitter).
@@ -102,7 +173,9 @@ flowchart TB
      `setup check` OK, adminsvr link back) within 5 min.
   4. If the health check fails, it **rolls back** automatically to `previous` and restores the pre-upgrade DB if the
      schema changed.
-- A site can set `adminsvr.allow_upgrades = false` to refuse upgrades entirely (section 6).
+- Upgrades are **on by default** and roll out automatically through the rings. A failed health check or new Critical
+  alerts in a ring pause the rollout automatically, and the failing site rolls back. Off switches: the global
+  freeze, or `adminsvr.enabled=false` on the site.
 
 ## 2. Data model and RBAC
 
@@ -254,16 +327,27 @@ in the app bar or a notification tap. It is not a fifth category.
 
 ### Push notifications
 
-**Recommendation: a self-hosted ntfy (running next to adminsvr) as the default**, with FCM/APNs as an optional
-channel. Privacy-friendly: only alert metadata, never PHI (section 5), and no Google/Apple dependency for the server.
-Android gets reliable delivery through the ntfy app's UnifiedPush. iOS needs APNs for reliable background delivery,
-so iOS users get APNs through an adminsvr-held key if Michael wants iOS (open question). Payloads carry only an
-alert id, level and a short title. The app fetches details over the signed API.
+- Android uses FCM and iOS uses APNs, with keys held by adminsvr (decision 4; no ntfy).
+- Web and desktop use the app's live stream while it is open, plus the OS notification when it runs in the
+  background (desktop) or Web Push (web).
+- Payloads carry only an alert id, level and a short template title, never PHI. The app fetches details over the
+  signed API.
+- Per-level notification settings are per user and per device.
+
+### CLI parity (`itcmdr-admin`)
+
+Every app action has a CLI command: users, devices, servers, alerts, configs, plugins, updates, approvals, audit,
+settings and the freeze. Both call the same gRPC API with device-key signing. A parity test lists the app's actions
+and the CLI commands and fails if one is missing.
+
+### adminsvr agent (placeholder)
+
+Michael will describe this later. It is reserved as a third alert and control surface. Nothing depends on it yet.
 
 ## 4. Hosting adminsvr offsite
 
 - **Deployment:** one container image (`itcmdr-adminsvr`, Rust, static binary, distroless), with Compose for
-  adminsvr + Postgres + ntfy + a reverse proxy (Caddy, automatic TLS for the web app). The SiteLink gRPC port uses
+  adminsvr + Postgres + a reverse proxy (Caddy, automatic TLS for the web app), Podman-compatible (rootless) compose. Host, URLs, ports and DB URL are configurable. The SiteLink gRPC port uses
   adminsvr's own pinned certificate, separate from the web TLS.
 - **DB:** **Postgres** (recommended). It handles concurrent users and many sites, row-level scoping, proper
   backups/PITR, and managed options. SQLite/SQLCipher stays the right choice for site servers (one box, no admin).
@@ -272,7 +356,7 @@ alert id, level and a short title. The app fetches details over the signed API.
   A monthly restore test, documented.
 - **HA expectations:** single instance is fine to start. Sites are standalone and queue, so an adminsvr outage only
   delays visibility and paging through adminsvr. Target: restore within 4 h, an RPO of 24 h (or 15 min with WAL).
-  A health check from outside (e.g. a second ntfy/uptime monitor) pages if adminsvr itself is down.
+  A health check from outside (an external uptime check) pages if adminsvr itself is down.
 - **Multi-site / tenancy:** one adminsvr serves many sites of **one organization** (single tenant). Multi-tenant
   (several unrelated practices) later, as separate deployments, not shared tables. Simpler and safer for HIPAA.
 
@@ -287,7 +371,7 @@ adminsvr can push code to every office PC, so it is the highest-value target. Co
 - **Site-side allowlist** (`adminsvr.allowed_commands`, edited only locally on the site, by a site owner):
   - Default: alert ack/resolve, run schedule now, pause/resume schedule, set non-security settings, enable/disable
     plugins, start backup.
-  - Upgrades only if `adminsvr.allow_upgrades = true`.
+  - Upgrades (on by default, decision 12).
   - **Never allowed remotely, whatever the allowlist says:** auth mode, key registration/revocation, restore, word
     entry, cutover switch, unlinking safeguards, and the allowlist itself.
 - **Kill switches:**
@@ -319,33 +403,17 @@ releases** as the adminsvr features it uses.
 | Version | Scope | VM / test plan |
 |---|---|---|
 | v0.15.0 | Error contract (`itcmdr-common` + derive), call log | as in SERVER-AGENT.md |
-| v0.16.0 | Site alerts + paging (SMTP, ntfy, webhook); the alert record is also the shape that will go up to adminsvr | as in SERVER-AGENT.md |
-| v0.17.0 | Rust agent, enrollment, heartbeats, offline queue | as in SERVER-AGENT.md |
+| v0.16.0 | Site alerts in the on-site app and CLI (no external notifiers); the alert record is also the shape that goes up to adminsvr | as in SERVER-AGENT.md |
+| v0.17.0 | Rust agent (also on the office server), enrollment with mTLS client certs, heartbeats (configurable per tier/machine), offline queue | as in SERVER-AGENT.md |
 | v0.18.0 | Agent runs plugins + schedules, report-only parity | as in SERVER-AGENT.md |
-| v0.19.0 | **adminsvr MVP + SRE app v1:** adminsvr container (Postgres, ntfy), `adminsvr init`, users/roles/RBAC rules, passkey + TOTP, device keys; SiteLink (site enrollment, pinned TLS, signed messages, up: heartbeats/status/alerts, outbound queue). SRE app: chrome (sign-in/2FA, settings) + Users (incl. audit/call log) + Servers (list, health, agents, alerts, alert inbox); web + Android + Linux desktop builds. Dart packages split out of `app/` | adminsvr in a container on alien-blue; the VM site links to it; alerts raised on the VM reach the app; kill the container and check the site queues and still pages locally; RBAC tests incl. the owner rules |
-| v0.20.0 | Config over the agent stream + gated agent switch; **adminsvr down-commands:** allowlist, preview/dry-run, two-person approval, freeze/kill switch; metrics summaries up. SRE app: Servers configs/commands + metrics explorer, and **Service Plugins** (catalog, rollout, quarantine view); adminsvr becomes the plugin source of truth, sites cache and relay | push a setting and a schedule from the app to the VM site; refused when off the allowlist; two-person flow; egress filter tests (PHI patterns dropped) |
+| v0.19.0 | **adminsvr MVP + SRE app v1:** adminsvr container (Postgres, rootless Podman for tests), `itcmdr-admin` CLI with app parity, mTLS site certs, FCM/APNs push, `adminsvr init`, users/roles/RBAC rules, passkey + TOTP, device keys; SiteLink (site enrollment, pinned TLS, signed messages, up: heartbeats/status/alerts, outbound queue). SRE app: chrome (sign-in/2FA, settings) + Users (incl. audit/call log) + Servers (list, health, agents, alerts, alert inbox); web + Android + iOS (pending Mac signing) + Linux desktop builds. Dart packages split out of `app/` | adminsvr in a container on alien-blue; the VM site links to it; alerts raised on the VM reach the app; kill the container and check the site queues and adminsvr reports it as unreachable on restart; RBAC tests incl. the owner rules |
+| v0.20.0 | Config over the agent stream + gated agent switch (PS agent retired here); **adminsvr down-commands:** allowlist, preview/dry-run, two-person approval, freeze/kill switch; metrics summaries up. SRE app: Servers configs/commands + metrics explorer, and **Service Plugins** (catalog, rollout, quarantine view); adminsvr becomes the plugin source of truth, sites cache and relay | push a setting and a schedule from the app to the VM site; refused when off the allowlist; two-person flow; egress filter tests (PHI patterns dropped) |
 | v0.21.0 | Agent self-upgrade (release plugin, rings, watchdog) + **site-server self-upgrade via adminsvr** (pre-upgrade backup, server watchdog, rollback). SRE app: **Updates** (releases, rings, approvals, rollback) | broken release rolls back (agent and server); ring gating across two sites (VM + a second test site container) |
-| v0.22.0 | Retire share flows; Windows desktop and iOS builds of the SRE app (if approved); adminsvr backup/restore runbook + monthly restore test | fresh install with no share dependency; adminsvr restore drill |
+| v0.22.0 | Retire share flows; Windows/macOS desktop builds of the SRE app; adminsvr backup/restore runbook + monthly restore test | fresh install with no share dependency; adminsvr restore drill |
 
-## 7. Open questions (merged list, with recommended defaults)
+## 7. Open questions
 
-1. **Paging:** site-local SMTP for Critical and Cautious plus ntfy for Critical; adminsvr adds app push.
-2. **Who is paged when:** Critical at any time; Cautious in office hours as a digest; Informational in the app only.
-3. **Agent and site transport:** pinned TLS plus signed messages; no mTLS in the first version.
-4. **Heartbeats:** 60 s interval; non-responsive after 5 missed; per-machine office-hours profiles for PCs switched
-   off at night.
-5. **Port:** site 50051 for the app and agents; adminsvr on 443 (web) plus 8443 (SiteLink).
-6. **Release signing:** only owner keys; two-person approval; rings test VM → one office → all.
-7. **PowerShell agent:** keep it as the fallback until the share flows are retired (v0.22.0).
-8. **Where adminsvr runs:** a small VPS you control (EU/US per your preference) with Docker Compose. Start single
-   instance.
-9. **Mobile platforms:** Android + web + Linux/Windows desktop first. iOS only if you want it (needs an Apple
-   developer account and a Mac for builds).
-10. **Push for the SRE app:** self-hosted ntfy, with APNs only for iOS.
-11. **Roles:** keep adminsvr roles separate from site roles; SREs get no site scopes until granted.
-12. **Remote upgrades:** off by default per site (`adminsvr.allow_upgrades = false`) until you turn them on at each
-    office.
-13. **Test container on alien-blue:** Docker 29.9 and Compose are installed, but this user is not in the `docker`
-    group, so the daemon refuses the connection, and Podman is not installed. Recommended: add the user to the
-    `docker` group (a system change; needs your OK), or install rootless Podman. Until then the adminsvr can run as
-    a plain binary with SQLite for tests.
+All earlier questions are decided (see "Decisions" at the top). Still pending:
+- The Mac build/signing step for iOS and macOS.
+- The design of the adminsvr agent (Michael, later).
+- Podman install on alien-blue (needs sudo, see HANDOVER).

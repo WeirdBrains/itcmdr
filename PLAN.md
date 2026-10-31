@@ -50,18 +50,20 @@ also covered by the Windows VM test pass below.
 | v0.14.0 | Installer and first-run setup: site values, checks, words shown once, first admin key (signed from day one), upgrade keeps settings | ✅ Done | `v0.14.0` | 2026-10-31 |
 | v0.14.1 | Plugins moved to the itcmdr-plugins repo (pinned in `plugins.pin.json`); one-time history rewrite of itcmdr (approved) | ✅ Done | `v0.14.1` | 2026-10-31 |
 
-### Proposed: server, agents and adminsvr (docs/design/SERVER-AGENT.md, docs/design/ADMINSVR.md; not started)
+### Proposed: server, agents and adminsvr (docs/design/SERVER-AGENT.md, docs/design/ADMINSVR.md; decisions recorded 2026-10-31; not started)
+
+Pending: Mac build/signing step for iOS/macOS; adminsvr agent design (Michael); rootless Podman on alien-blue (needs sudo).
 
 | Version | Scope | Status |
 |---|---|---|
 | v0.15.0 | `itcmdr-common` (ErrorCriticality, ServicePluginError + derive, backtrace), plugin-error in plugin.proto and itcmdr.log/v1, PS `New-ItcmdrPluginError`, call log of every RPC | 💡 Proposed |
-| v0.16.0 | Site alerts (Critical / Cautious / Informational; dedupe, ack, resolve, silence), AlertService, app Alerts screen, paging via SMTP, ntfy, webhook | 💡 Proposed |
-| v0.17.0 | Rust `itcmdr-agent` service: enrollment, per-agent keys, pinned TLS, agent-initiated stream, heartbeats + non-responsive alerts, offline queue, app Agents screen | 💡 Proposed |
+| v0.16.0 | Site alerts (Critical / Cautious / Informational; dedupe, ack, resolve, silence), AlertService, app Alerts screen, delivered in the on-site app and CLI (no external notifiers) | 💡 Proposed |
+| v0.17.0 | Rust `itcmdr-agent` service (on every PC and the office server): enrollment, per-agent keys, pinned TLS + mTLS client certs, agent-initiated stream, heartbeats + non-responsive alerts, offline queue, app Agents screen | 💡 Proposed |
 | v0.18.0 | Agent runs plugins and schedules, RunNow, run reports and artifacts, report-only parity vs the nightly | 💡 Proposed |
-| v0.19.0 | adminsvr MVP (container, Postgres, ntfy, users/roles, passkeys + TOTP, site enrollment, alerts/status up) + SRE app v1 (Users and Servers categories, alert inbox, sign-in, settings) | 💡 Proposed |
-| v0.20.0 | Agent config over the stream + gated switch; adminsvr commands down (allowlist, preview, two-person approval, kill switch), metrics summaries up; SRE app Service Plugins category, Servers configs + metrics; adminsvr as plugin source of truth | 💡 Proposed |
+| v0.19.0 | adminsvr MVP (configurable host, rootless Podman compose, Postgres, mTLS, `itcmdr-admin` CLI with app parity, FCM/APNs push, users/roles, passkeys + TOTP, site enrollment, alerts/status up) + SRE app v1 (Users and Servers categories, alert inbox, sign-in, settings) | 💡 Proposed |
+| v0.20.0 | Agent config over the stream + gated switch (PS agent retired, no fallback); adminsvr commands down (allowlist, preview, two-person approval, kill switch), metrics summaries up; SRE app Service Plugins category, Servers configs + metrics; adminsvr as plugin source of truth | 💡 Proposed |
 | v0.21.0 | Agent self-upgrade + site-server self-upgrade via adminsvr (rings, watchdogs, rollback); SRE app Updates category | 💡 Proposed |
-| v0.22.0 | Retire the share flows; SRE app Windows/iOS builds if approved; adminsvr restore drill | 💡 Proposed |
+| v0.22.0 | Retire the share flows; SRE app Windows/macOS builds; adminsvr restore drill | 💡 Proposed |
 
 ## Cross-cutting items
 

@@ -2,6 +2,8 @@
 
 Status: **proposed** (2026-10-31). Nothing here is built yet. Placeholders only: SERVER01, WS-01, example.local, 198.51.100.x.
 
+**Decisions (2026-10-31) are recorded in [ADMINSVR.md](ADMINSVR.md#decisions-michael-2026-10-31)**: no external notifiers (alerts via the adminsvr app/CLI), mTLS client certs on every link, no PS agent fallback (the office server runs the Rust agent too), and every heartbeat value configurable per tier and per machine. Where this doc differs, those decisions win.
+
 The admin server tier (offsite adminsvr, the SRE app, site upgrades from adminsvr) is in [ADMINSVR.md](ADMINSVR.md). Its roadmap and open questions supersede sections 10 and 11 below. The loop is symmetric: adminsvr pushes updates, plugins, configs and heartbeats to site servers, and site servers push the same four to their agents (ADMINSVR.md, "The push loop").
 
 ## Goal
@@ -162,7 +164,7 @@ Pushes are idempotent, and a reconnect resends anything not acked.
 - **Who:** the server sends `Ping` every `agent.heartbeat_interval_secs` on each open stream. The agent answers with
   `Pong`. If the stream is down there are no pings, and missed beats are counted from `last_seen` against the
   interval. The agent also sends `Hello` on every reconnect.
-- **Settings** (new, in the registry, editable in the app and the CLI like every other setting):
+- **Settings** (new, in the registry, editable in the app and the CLI like every other setting). Every heartbeat value can be overridden **per agent** (and, on adminsvr, per server), not only per tier:
 
 | Setting | Default | Meaning |
 |---|---|---|
@@ -170,12 +172,11 @@ Pushes are idempotent, and a reconnect resends anything not acked.
 | `agent.missed_heartbeats_threshold` | 5 | Missed beats before **non-responsive** (5 min) |
 | `agent.late_heartbeats` | 2 | Missed beats before **late** (no alert) |
 | `agent.nonresponsive_alert_level` | critical | Level of the non-responsive alert (servers can be set separately: `agent.server_role_level`) |
-| `agent.office_hours_only` | false | Alert only in office hours (uses the existing office-hours guard) |
+| `agent.office_hours_profile` | none | Optional office-hours profile (a PC switched off at night is not non-responsive outside it) |
 | `agent.reconnect_max_secs` | 300 | Backoff cap |
 | `agent.queue_max_mib` | 256 | Offline queue cap |
 | `agent.artifact_max_mib` | 50 | Per artifact |
 | `alerts.dedupe_window_mins` | 60 | Same key within the window → count++ |
-| `alerts.page_min_level` | critical | Lowest level that pages |
 | `alerts.repeat_page_mins` | 60 | Re-page an unacked Critical |
 | `calllog.retention_days` | 30 | Section 7 |
 
@@ -221,22 +222,14 @@ Behavior:
 Alerts are also a metric (`alerts_open{level}`, `alerts_raised_total{level,source}`), so they show up in the
 existing charts.
 
-**Paging (the alert endpoint).** A `Notifier` trait with channels configured in the app or CLI:
-- **Webhook** (HTTPS POST, JSON, HMAC-signed body).
-- **Email over SMTP** (STARTTLS, credentials in the DPAPI secret store).
-- **ntfy** (a topic URL; self-hosted or ntfy.sh).
-- **Pushover** (app + user key).
-
-Each channel has a minimum level and optional office-hours rules. **Recommended default: email (SMTP) for Critical
-and Cautious, plus ntfy for Critical phone pushes.** Both work without a vendor account (ntfy can be self-hosted),
-and webhooks cover anything else later. Sends are retried with backoff, every send attempt is logged, and the app's
-**Test** button sends a sample.
+**Delivery (decided).** There are no site-side notifiers (no SMTP, ntfy, webhook or Pushover). Alerts show in the
+on-site app and `itcmdr-cli` and go up to adminsvr. There they are delivered to the SRE app (push included), the
+`itcmdr-admin` CLI, or the future adminsvr agent. Every level is delivered; users set per-level notification settings.
 
 **App:**
 - **Alerts** screen: open, acked and resolved; filter by level and machine; ack, resolve and silence.
 - A badge on the shell.
 - **Agents** screen: state, last seen, versions, queue depth, enroll and revoke.
-- Settings: channels.
 
 **CLI:** `itcmdr-cli alerts list|ack|resolve|silence`, `itcmdr-cli alerts channel add|test`,
 `itcmdr-cli agent list|enroll-token|revoke|maintenance`.
@@ -379,27 +372,15 @@ Every step must be testable on the VM, and the server, agent and app keep workin
 | Version | Scope | VM / test plan | Risks |
 |---|---|---|---|
 | **v0.15.0** | `itcmdr-common` + `itcmdr-common-derive` (ErrorCriticality, ServicePluginError, backtrace capture); `PluginError` in plugin.proto, itcmdr.log/v1 `plugin-error`; PS `New-ItcmdrPluginError`; call log layer + retention + app Calls view | Unit tests for the derive (trybuild compile-fail cases), log round trip; a PS plugin throwing each level on the VM; call log rows for every RPC; prune test | Proc-macro maintenance; call-log volume (mitigated by stream aggregation) |
-| **v0.16.0** | Alerts: table, dedupe/ack/resolve/silence, AlertService, app Alerts screen + badge, CLI; sources: plugin errors, server events (backup failed/overdue, quarantine); notifiers: SMTP + ntfy + webhook, Test button | Raise each level on the VM; dedupe, auto-resolve and repeat page; SMTP against a local test mail sink; ntfy against a local ntfy container | Alert noise: defaults conservative, page only Critical |
-| **v0.17.0** | `itcmdr-agent` service (Rust): enrollment tokens, per-agent keys (DPAPI), TLS with pinned cert, `Connect` stream, Hello/Ping/Pong/Status, offline queue; heartbeat state machine + non-responsive alerts; app Agents screen; installer component | VM as server + VM agent (and a second agent instance on the same VM, separate data dir); kill the server and check backoff + queue; pull the network and check non-responsive → back online | NAT/firewall; TLS cert handling on renewals; clock skew |
+| **v0.16.0** | Alerts: table, dedupe/ack/resolve/silence, AlertService, app Alerts screen + badge, CLI; sources: plugin errors, server events (backup failed/overdue, quarantine); no external notifiers (app + CLI only) | Raise each level on the VM; dedupe, auto-resolve | Alert noise: per-level notification settings |
+| **v0.17.0** | `itcmdr-agent` service (Rust): enrollment tokens, per-agent keys (DPAPI), pinned TLS + mTLS client certs (site CA), the office server runs the agent too, `Connect` stream, Hello/Ping/Pong/Status, offline queue; heartbeat state machine + non-responsive alerts; app Agents screen; installer component | VM as server + VM agent (and a second agent instance on the same VM, separate data dir); kill the server and check backoff + queue; pull the network and check non-responsive → back online | NAT/firewall; TLS cert handling on renewals; clock skew |
 | **v0.18.0** | Agent runs plugins: PluginUpdate (signed, verified on the agent), ScheduleSet + local scheduler, RunNow, RunReport/artifacts, report-only parity vs the nightly | Parity on the VM for 3+ days; push, enable, remove a plugin; offline schedule run then a queued report | Divergence from the PS runner (parity catches it) |
-| **v0.19.0** | ConfigUpdate (typed, versioned) replaces agent-settings.json for the new agent; gated `cutover switch --to agent` + rollback | Switch and roll back on the VM; nightly task disabled/enabled | Gate too strict or too loose; tested both ways |
+| **v0.19.0 → see ADMINSVR.md, folded into v0.20.0** | ConfigUpdate (typed, versioned) replaces agent-settings.json for the new agent; gated `cutover switch --to agent` + rollback; **PS agent retired at this switch (no fallback)** | Switch and roll back on the VM; nightly task disabled/enabled | Gate too strict or too loose; tested both ways |
 | **v0.20.0** | Self-upgrade: `itcmdr-agent-release` package kind, rings, watchdog service, health-checked swap + rollback | Upgrade the VM agent; a deliberately broken release must roll back; kill the watchdog → restarted | Bricking agents: watchdog never self-upgrades, owner-signed releases only |
 | **v0.21.0** | Retire the poller, requests/, schedule-state, share ingest (after one release on the switched path); docs | Fresh install on the VM has no share dependency except backups | Sites not yet switched: keep the old path until switched |
 
 A second real PC (still an open item) should join at v0.17.0 at the latest. Two agents on one VM are a weaker test.
 
-## 11. Open questions (Michael), with recommended defaults
+## 11. Open questions
 
-1. **Default paging channel.** Recommended: email over SMTP via the office mailbox for Critical and Cautious, plus
-   ntfy (self-hosted or ntfy.sh topic) for Critical pushes to your phone.
-2. **Who is paged, and when.** Recommended: Critical at any time; Cautious only in office hours, as an email digest
-   every 4 h; Informational never paged (app only).
-3. **Agent transport security.** Recommended: TLS with a pinned self-signed server cert plus per-agent signed
-   messages; no mTLS in the first version.
-4. **Heartbeat defaults.** Recommended: 60 s interval, non-responsive after 5 missed (5 min). PCs that are switched
-   off at night use a per-machine "office hours" profile so they don't page every evening.
-5. **Port.** Recommended: keep 50051 for both the app and agents (one firewall rule). A separate port is only needed
-   if you want different subnets for each.
-6. **Release signing.** Recommended: only owner keys may sign agent releases, and rollout rings are VM → one PC → all.
-7. **The PowerShell agent's future.** Recommended: keep it as the fallback until v0.21.0, then retire the task-based
-   runner and keep only the PS checks/plugins hosted by the Rust agent.
+Decided on 2026-10-31. See [ADMINSVR.md, Decisions](ADMINSVR.md#decisions-michael-2026-10-31). The merged roadmap there (v0.15.0 to v0.22.0) supersedes section 10.

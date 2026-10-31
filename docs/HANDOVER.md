@@ -172,7 +172,7 @@ Later the same day: those 4 infos fixed, widget tests added, Dart e2e green, ver
 
 ## In progress
 
-Nothing in progress. Proposed next: server/agent + adminsvr architecture (docs/design/SERVER-AGENT.md, docs/design/ADMINSVR.md incl. the SRE Flutter app; roadmap v0.15.0 to v0.22.0 in PLAN.md), waiting for Michael on the open questions. v0.14.1 released; itcmdr history rewritten once (plugins/ removed, tags recreated); VM tree re-synced from the new history.
+Nothing in progress. Proposed next: server/agent + adminsvr architecture (docs/design/SERVER-AGENT.md, docs/design/ADMINSVR.md incl. the SRE Flutter app; roadmap v0.15.0 to v0.22.0 in PLAN.md), Michael's decisions recorded 2026-10-31 (ADMINSVR.md "Decisions"); next is v0.15.0 once started. Pending: Mac signing step for iOS/macOS, the adminsvr agent design, rootless Podman install on alien-blue (sudo needs a password: `sudo pacman -S --needed podman passt slirp4netns fuse-overlayfs podman-compose`; subuid/subgid for m3talsmith already set, 100000:65536). v0.14.1 released; itcmdr history rewritten once (plugins/ removed, tags recreated); VM tree re-synced from the new history.
 
 ## Backlog (in order)
 

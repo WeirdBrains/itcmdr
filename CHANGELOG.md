@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+- Docs: recorded Michael's server/agent/adminsvr decisions in `docs/design/ADMINSVR.md`:
+  - configurable adminsvr host
+  - rootless Podman for test containers
+  - iOS in scope
+  - alerts only through the adminsvr app, the CLI (with full parity) or the future adminsvr agent
+  - mTLS client certs on every link
+  - configurable heartbeats and ports
+  - releases owner-signed with an owner/admin second approver
+  - no PS agent fallback
+  - separate roles
+  - remote upgrades on by default through rings
+  - Users hidden from SREs
+
 ## v0.14.1 (2026-10-31)
 The check plugins moved to their own repo, github.com/WeirdBrains/itcmdr-plugins (v1.0.1, with history).
 - `plugins.pin.json` pins the release (tag + commit). `scripts/fetch-plugins.sh` puts it in `third_party/itcmdr-plugins` (gitignored) and checks the commit.
