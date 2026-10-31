@@ -2,7 +2,7 @@
 
 Status: **proposed** (2026-10-31). Nothing here is built yet. Placeholders only: SERVER01, WS-01, example.local, 198.51.100.x.
 
-**Decisions (2026-10-31) are recorded in [ADMINSVR.md](ADMINSVR.md#decisions-michael-2026-10-31)**: no external notifiers (alerts via the adminsvr app/CLI), mTLS client certs on every link, no PS agent fallback (the office server runs the Rust agent too), and every heartbeat value configurable per tier and per machine. Where this doc differs, those decisions win.
+**Decisions (2026-10-31) are recorded in [ADMINSVR.md](ADMINSVR.md#decisions-michael-2026-10-31)**: no external notifiers (alerts via the adminsvr app/CLI), mTLS client certs on every link, no PS agent fallback (the office server runs the Rust agent too), every heartbeat value configurable per tier and per machine, and adminsvr users using the same key-based signed-request auth as site users, with every adminsvr change and push signed and hash-chain audited. Where this doc differs, those decisions win.
 
 The admin server tier (offsite adminsvr, the SRE app, site upgrades from adminsvr) is in [ADMINSVR.md](ADMINSVR.md). Its roadmap and open questions supersede sections 10 and 11 below. The loop is symmetric: adminsvr pushes updates, plugins, configs and heartbeats to site servers, and site servers push the same four to their agents (ADMINSVR.md, "The push loop").
 

@@ -605,3 +605,4 @@ Recorded in docs/design/ADMINSVR.md ("Decisions"):
 - Roles stay separate.
 - Remote upgrades are on by default and roll through rings automatically, with auto-pause and rollback.
 - SREs see only their own account in Users.
+- adminsvr users use the same key-based signed-request auth as the site (reused code, per-device keys, signed-only). Every state-changing action and every push is signed, rejected if unsigned, and logged in a hash-chained audit log with app and CLI views.

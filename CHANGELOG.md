@@ -13,6 +13,7 @@
   - separate roles
   - remote upgrades on by default through rings
   - Users hidden from SREs
+- Docs: adminsvr users use the same key-based signed-request auth as the site (reused code, per-device keys, signed-only). Every state-changing action and every push is signed, rejected if unsigned, and logged in a hash-chained audit log with app and CLI views.
 
 ## v0.14.1 (2026-10-31)
 The check plugins moved to their own repo, github.com/WeirdBrains/itcmdr-plugins (v1.0.1, with history).
