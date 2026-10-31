@@ -52,7 +52,7 @@ also covered by the Windows VM test pass below.
 
 ### Proposed: server, agents and adminsvr (docs/design/SERVER-AGENT.md, docs/design/ADMINSVR.md; decisions recorded 2026-10-31; not started)
 
-Pending: Mac build/signing step for iOS/macOS; adminsvr agent design (Michael); rootless Podman on alien-blue (needs sudo).
+Key backup on by default (opt-out), locked with the 24 words; COOP/COEP accepted. Pending: Mac build/signing step for iOS/macOS; adminsvr agent design (Michael); rootless Podman on alien-blue (needs sudo).
 
 | Version | Scope | Status |
 |---|---|---|

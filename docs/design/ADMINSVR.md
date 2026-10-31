@@ -46,6 +46,12 @@ These are decided and supersede the earlier recommendations and open questions i
 12. **Remote upgrades are ON by default** at every site. They roll out automatically through the rings, with
     health-gated auto-pause (a failed health check or new Critical alerts in a ring pause the rollout) and automatic
     rollback. The off switches are the global freeze and the site-local `adminsvr.enabled=false`.
+17. **Key backup defaults:**
+    - The client-side encrypted key backup on adminsvr is **on by default** for every user. A user can opt out
+      (signed, audited).
+    - It is locked with a key derived from the **24 words**.
+    - Cross-origin isolation headers (COOP/COEP) on the adminsvr web host are accepted, so WASM threads are
+      available.
 16. **Passkeys / YubiKeys (WebAuthn) as an optional second factor** (v0.19.1). The 24-word key remains the
     signing identity. A passkey unlocks the stored key and a fresh touch is required for step-up actions (owner-
     configurable). See "Passkeys / YubiKeys".
@@ -274,7 +280,7 @@ security and consistency. There are no passwords, TOTP, passkeys, session cookie
      adminsvr stores only the user's master public key and the device certificate.
   5. The creator confirms the fingerprint (a signed approval). The key is then active.
 - **The key stays with the user by default** (OS keystore, or encrypted local storage on web).
-- **Optional key backup on adminsvr:**
+- **Key backup on adminsvr (on by default, opt-out; locked with the 24 words):**
   - The device key is encrypted **client-side**, with a key derived from the 24 words (HKDF, info
     `itcmdr/user-key-wrap/v1`) or from a passphrase (Argon2id), using XChaCha20-Poly1305. The blob is stored on
     adminsvr, which never sees the plaintext.
@@ -586,11 +592,6 @@ releases** as the adminsvr features it uses.
 ## 7. Open questions
 
 All earlier questions are decided (see "Decisions" at the top). Still pending:
-- Encrypted key backup on adminsvr: opt-in per user (recommended), or on by default?
-- Wrap key for that backup: derived from the 24 words (recommended; no extra secret to forget), or a separate
-  passphrase?
-- flutter_rust_bridge on web needs WASM threads (cross-origin isolation headers on the adminsvr web host). Fine for
-  self-hosting; confirm that is acceptable.
 - The Mac build/signing step for iOS and macOS.
 - The design of the adminsvr agent (Michael, later).
 - Podman install on alien-blue (needs sudo, see HANDOVER).
