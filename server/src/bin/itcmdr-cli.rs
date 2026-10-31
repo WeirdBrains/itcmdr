@@ -61,6 +61,9 @@ enum Cmd {
     /// Auth mode (v0.12.0 migration from the shared token to signed requests).
     #[command(subcommand)]
     Auth(AuthCmd),
+    /// Install and first-run setup (v0.14.0): checks, site values, master key + first admin key.
+    #[command(subcommand)]
+    Setup(SetupCmd),
     /// Restore an archive into the data dir. Stop the server first.
     Restore {
         #[arg(long)]
@@ -82,6 +85,53 @@ enum Cmd {
     },
     /// State of the last app/StageRestore restore.
     RestoreStatus,
+}
+
+#[derive(Subcommand)]
+enum SetupCmd {
+    /// Check the config, data dir, log share and backup folder (exist, writable), the
+    /// initialization and the app keys. Exit code 1 when a check fails.
+    Check {
+        /// Also write the report to this file (the installer keeps it in the data dir).
+        #[arg(long)]
+        report: Option<PathBuf>,
+    },
+    /// Write site values into server.json (created when missing). Upgrades pass --keep-existing,
+    /// which only fills values that are missing or empty.
+    Apply {
+        /// The maintenanceRuns share/folder the agents write to.
+        #[arg(long)]
+        logs_dir: Option<PathBuf>,
+        #[arg(long)]
+        data_dir: Option<PathBuf>,
+        /// Backup folder (a share or second disk).
+        #[arg(long)]
+        backup_dir: Option<PathBuf>,
+        #[arg(long)]
+        bind_addr: Option<String>,
+        #[arg(long)]
+        keep_existing: bool,
+        /// server.json to write (default: the one in use, else %ProgramData%\itcmdr\server.json).
+        #[arg(long)]
+        config: Option<PathBuf>,
+    },
+    /// IN PERSON, at the server: create the master key and show the 24 words ONCE on this screen
+    /// (never written to a file or log), ask three of them back, then register the first admin
+    /// app key (owner) so the app can sign from day one.
+    FirstRun {
+        /// Name for the first admin key (a person).
+        #[arg(long)]
+        admin_name: Option<String>,
+        /// Public key (hex) from the app's Keys screen.
+        #[arg(long, conflicts_with = "app_key_store")]
+        admin_public_key: Option<String>,
+        /// Windows: use (or create) the app key of the current user (%APPDATA%\itcmdr\app-key.dpapi).
+        #[arg(long)]
+        app_key_store: bool,
+        /// Tests only: no terminal needed, no pause, no confirmation.
+        #[arg(long, hide = true)]
+        no_confirm: bool,
+    },
 }
 
 #[derive(clap::Args)]
@@ -637,6 +687,221 @@ async fn export_if_agent(pool: &srv::db::DbPool, cfg: &srv::config::ServerConfig
     }
 }
 
+fn print_checks(checks: &[srv::setup::Check], json: bool) -> Result<String> {
+    use srv::setup::Level;
+    let text = if json {
+        serde_json::to_string_pretty(checks)?
+    } else {
+        checks
+            .iter()
+            .map(|c| {
+                let l = match c.level {
+                    Level::Ok => "OK  ",
+                    Level::Warn => "WARN",
+                    Level::Fail => "FAIL",
+                };
+                format!("{l} {:<12} {}", c.name, c.detail)
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
+    println!("{text}");
+    Ok(text)
+}
+
+fn clear_screen() {
+    #[cfg(windows)]
+    let _ = std::process::Command::new("cmd")
+        .args(["/c", "cls"])
+        .status();
+    #[cfg(not(windows))]
+    print!("\x1b[2J\x1b[3J\x1b[H");
+    use std::io::Write;
+    let _ = std::io::stdout().flush();
+}
+
+fn prompt_line(q: &str) -> Result<Zeroizing<String>> {
+    use std::io::Write;
+    print!("{q}");
+    std::io::stdout().flush()?;
+    let mut l = Zeroizing::new(String::new());
+    std::io::stdin().lock().read_line(&mut l)?;
+    Ok(l)
+}
+
+fn run_setup(
+    rt: &tokio::runtime::Runtime,
+    sc: &SetupCmd,
+    load: &dyn Fn() -> Result<ServerConfig>,
+    json: bool,
+) -> Result<()> {
+    match sc {
+        SetupCmd::Check { report } => {
+            let cfg = load()?;
+            let mut checks = srv::setup::check_paths(&cfg);
+            if srv::setup::worst(&checks) != srv::setup::Level::Fail {
+                checks = rt.block_on(async {
+                    let pool = srv::db::init_db(&cfg).await?;
+                    srv::setup::check(&pool, &cfg).await
+                })?;
+            }
+            let text = print_checks(&checks, json)?;
+            if let Some(r) = report {
+                std::fs::write(r, format!("{text}\n"))?;
+            }
+            if srv::setup::worst(&checks) == srv::setup::Level::Fail {
+                std::process::exit(1);
+            }
+            Ok(())
+        }
+        SetupCmd::Apply {
+            logs_dir,
+            data_dir,
+            backup_dir,
+            bind_addr,
+            keep_existing,
+            config,
+        } => {
+            let path = match config {
+                Some(p) => p.clone(),
+                None => match std::env::var_os("ITCMDR_SERVER_CONFIG") {
+                    Some(p) => PathBuf::from(p),
+                    None => match load()?.source_path {
+                        Some(p) => p,
+                        None => {
+                            PathBuf::from(std::env::var("ProgramData").context("pass --config")?)
+                                .join("itcmdr")
+                                .join("server.json")
+                        }
+                    },
+                },
+            };
+            let v = srv::setup::Values {
+                logs_dir: logs_dir.clone(),
+                data_dir: data_dir.clone(),
+                backup_dir: backup_dir.clone(),
+                bind_addr: bind_addr.clone(),
+            };
+            let changed = srv::setup::apply(&path, &v, *keep_existing)?;
+            if changed.is_empty() {
+                println!("{}: nothing changed", path.display());
+            } else {
+                println!("{}: set {}", path.display(), changed.join(", "));
+                println!("restart the service to use them (sc.exe stop itcmdr-server, then start)");
+            }
+            Ok(())
+        }
+        SetupCmd::FirstRun {
+            admin_name,
+            admin_public_key,
+            app_key_store,
+            no_confirm,
+        } => {
+            let interactive = std::io::stdin().is_terminal() && std::io::stdout().is_terminal();
+            if !interactive && !no_confirm {
+                bail!("first-run shows the 24 words on screen only: run it in a console window, not with redirected input/output");
+            }
+            let mut cfg = load()?;
+            let paths = srv::setup::check_paths(&cfg);
+            if srv::setup::worst(&paths) == srv::setup::Level::Fail {
+                print_checks(&paths, false)?;
+                bail!("fix the failed checks first (itcmdr-cli setup apply)");
+            }
+            let name = match admin_name {
+                Some(n) => n.trim().to_string(),
+                None if interactive => {
+                    prompt_line("Name for the first admin (a person, e.g. Dr Example): ")?
+                        .trim()
+                        .to_string()
+                }
+                None => String::new(),
+            };
+            let (pk, created) = match (admin_public_key, app_key_store) {
+                (Some(h), _) => (Some(keys::parse_public_key(h.trim())?), false),
+                (None, true) => {
+                    let (k, c) = srv::setup::app_store_public_key()?;
+                    (Some(k), c)
+                }
+                (None, false) => (None, false),
+            };
+            let admin = match (pk, name.is_empty()) {
+                (Some(public_key), false) => Some(srv::setup::FirstAdmin {
+                    name: name.clone(),
+                    public_key,
+                }),
+                (Some(_), true) => bail!("give --admin-name for the admin key"),
+                (None, _) => None,
+            };
+            let out = rt.block_on(async {
+                let pool = srv::db::init_db(&cfg).await?;
+                srv::auth::settle_auth_mode(&pool, &mut cfg).await?;
+                srv::setup::first_run(&pool, &cfg, admin).await
+            })?;
+            if interactive {
+                clear_screen();
+            }
+            println!("==================== itcmdr RECOVERY WORDS ====================");
+            println!("Shown ONCE. Not saved on this server or anywhere else.");
+            println!("Write them on paper now and keep the paper OFF this server (e.g. the office safe).");
+            println!("They are the only way to add keys and to open backups on a new server.\n");
+            for (i, w) in out.words.split(' ').enumerate() {
+                print!("  {:>2}. {:<12}", i + 1, w);
+                if i % 4 == 3 {
+                    println!();
+                }
+            }
+            println!("\nmaster key fingerprint: {}", out.master_fingerprint);
+            if interactive {
+                prompt_line("\nPress Enter when the words are written down...")?;
+                loop {
+                    let pos = srv::setup::confirm_positions();
+                    clear_screen();
+                    let a = prompt_line(&format!(
+                        "Check: type words {}, {} and {} from your paper, separated by spaces: ",
+                        pos[0], pos[1], pos[2]
+                    ))?;
+                    if srv::setup::confirm_ok(&out.words, &pos, &a) {
+                        break;
+                    }
+                    println!("Those don't match. Press Enter to see the words again.");
+                    prompt_line("")?;
+                    clear_screen();
+                    for (i, w) in out.words.split(' ').enumerate() {
+                        print!("  {:>2}. {:<12}", i + 1, w);
+                        if i % 4 == 3 {
+                            println!();
+                        }
+                    }
+                    prompt_line("\nPress Enter when you have checked your paper...")?;
+                }
+                clear_screen();
+                println!("Words confirmed. They were removed from the screen.");
+            }
+            drop(out.words);
+            println!(
+                "itcmdr is initialized. root client fingerprint: {}",
+                out.root_fingerprint
+            );
+            match &out.admin_fingerprint {
+                Some(fp) => {
+                    println!("first admin key registered: {name:?} (owner) fingerprint {fp}");
+                    if created {
+                        println!("the key was created in your app key store; the itcmdr app on this PC will use it");
+                    }
+                    println!("the app can sign from now on (auth_mode {})", cfg.auth_mode);
+                }
+                None => println!(
+                    "no admin key registered: certify the app's key later with the words (itcmdr-cli keys certify + keys register)"
+                ),
+            }
+            if interactive {
+                prompt_line("\nPress Enter to close.")?;
+            }
+            Ok(())
+        }
+    }
+}
+
 fn read_words() -> Result<Zeroizing<String>> {
     if std::io::stdin().is_terminal() {
         eprintln!("Enter the 24 recovery words on one line, then press Enter:");
@@ -764,6 +1029,7 @@ fn run(rt: &tokio::runtime::Runtime) -> Result<()> {
                 Ok(())
             })
         }
+        Cmd::Setup(sc) => run_setup(rt, sc, &load, cli.json),
         Cmd::RecoverDbKey { force } => {
             let cfg = load()?;
             srv::auth::recover_db_key(&cfg.layout(), &read_words()?, *force)?;

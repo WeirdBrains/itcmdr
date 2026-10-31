@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.14.0 (2026-10-31)
+Installer and first-run setup. A new office goes from installer to signed-only in one sitting, with no hand-edited JSON.
+- `itcmdr-cli setup check|apply|first-run` (`server/src/setup.rs`).
+  - `check` verifies the config, the data dir, the log share and the backup folder (they exist and are writable), the initialization, the admin app keys and the auth mode. It saves a report and exits 1 when a check fails.
+  - `apply` writes site values into server.json, creating it if needed. With `--keep-existing` it only fills empty values.
+  - `first-run` creates the master key and shows the 24 words once, in a real console only. They are never written to a file or log. It asks three words back, then registers the first admin app key (owner), certified while the words are only in memory. On Windows, `--app-key-store` uses or creates the app's DPAPI key (same format as the app). The app signs from the first start.
+- Agent role: `agent/Initialize-ItcmdrSite.ps1` writes site name, server name, the maintenanceRuns share and the local log folder into site.json. It keeps existing values unless `-Overwrite`. It checks that the folders exist and are writable and that the server port answers.
+- Installer: Site settings and First admin wizard pages, shown on a first install only. Silent parameters `/LogsDir /BackupDir /SiteName /ServerHostname /Share /AdminName`. A post-install "Run first-run setup now" console. Check reports in `%ProgramData%\itcmdr\setup-check.txt` and `agent-setup-check.txt`. Upgrades never replace server.json and only fill empty site.json values.
+- VM: clean install (data backed up first, then restored), first-run, signed calls from day one, and an upgrade from v0.13.0 that keeps every setting.
+
 ## v0.13.0 (2026-10-31)
 App private key encrypted at rest, plugins managed from the app, and the signed-only switch proven on the test VM.
 - App key storage (`app/lib/key_store.dart`). Windows: DPAPI for the current user (`%APPDATA%\itcmdr\app-key.dpapi`, own FFI to crypt32, fixed entropy). Linux: the Secret Service keyring via `secret-tool` when it works, else a 0600 file under `$XDG_CONFIG_HOME/itcmdr`. macOS: the login Keychain via `security`. An existing plaintext key in the app preferences is moved into the store on first start, read back, then overwritten and removed. Old plaintext key files are overwritten before they are deleted. The Keys screen shows where the key is stored and warns when the store is not encrypted.
