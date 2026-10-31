@@ -172,7 +172,7 @@ Later the same day: those 4 infos fixed, widget tests added, Dart e2e green, ver
 
 ## In progress
 
-v0.14.1 released next (plugins split, pinned itcmdr-plugins v1.0.1 e7fde59). Then: approved one-time history rewrite (backup to ~/Projects/WeirdBrains/backups/itcmdr-pre-rewrite-2026-10-31 first).
+Nothing in progress. v0.14.1 released; itcmdr history rewritten once (plugins/ removed, tags recreated, map in docs/HISTORY-REWRITE.md); VM tree re-synced from the new history.
 
 ## Backlog (in order)
 
