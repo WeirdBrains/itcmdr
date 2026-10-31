@@ -252,6 +252,56 @@ class ItcmdrClient extends $grpc.Client {
         options: options);
   }
 
+  /// v0.12.0
+  $grpc.ResponseFuture<$0.RestoreKey> getRestoreKey(
+    $0.GetRestoreKeyRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$getRestoreKey, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.WhoAmIResponse> whoAmI(
+    $0.WhoAmIRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$whoAmI, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.ListKeysResponse> listKeys(
+    $0.ListKeysRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$listKeys, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.RegisterKeyResponse> registerKey(
+    $0.RegisterKeyRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$registerKey, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.RevokeKeyResponse> revokeKey(
+    $0.RevokeKeyRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$revokeKey, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.ListPluginsResponse> listPlugins(
+    $0.ListPluginsRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$listPlugins, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.PreviewScheduleResponse> previewSchedule(
+    $0.SaveScheduleRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$previewSchedule, request, options: options);
+  }
+
   // method descriptors
 
   static final _$listMachines =
@@ -409,6 +459,41 @@ class ItcmdrClient extends $grpc.Client {
           '/itcmdr.Itcmdr/WatchUpdates',
           ($0.WatchUpdatesRequest value) => value.writeToBuffer(),
           $0.Update.fromBuffer);
+  static final _$getRestoreKey =
+      $grpc.ClientMethod<$0.GetRestoreKeyRequest, $0.RestoreKey>(
+          '/itcmdr.Itcmdr/GetRestoreKey',
+          ($0.GetRestoreKeyRequest value) => value.writeToBuffer(),
+          $0.RestoreKey.fromBuffer);
+  static final _$whoAmI =
+      $grpc.ClientMethod<$0.WhoAmIRequest, $0.WhoAmIResponse>(
+          '/itcmdr.Itcmdr/WhoAmI',
+          ($0.WhoAmIRequest value) => value.writeToBuffer(),
+          $0.WhoAmIResponse.fromBuffer);
+  static final _$listKeys =
+      $grpc.ClientMethod<$0.ListKeysRequest, $0.ListKeysResponse>(
+          '/itcmdr.Itcmdr/ListKeys',
+          ($0.ListKeysRequest value) => value.writeToBuffer(),
+          $0.ListKeysResponse.fromBuffer);
+  static final _$registerKey =
+      $grpc.ClientMethod<$0.RegisterKeyRequest, $0.RegisterKeyResponse>(
+          '/itcmdr.Itcmdr/RegisterKey',
+          ($0.RegisterKeyRequest value) => value.writeToBuffer(),
+          $0.RegisterKeyResponse.fromBuffer);
+  static final _$revokeKey =
+      $grpc.ClientMethod<$0.RevokeKeyRequest, $0.RevokeKeyResponse>(
+          '/itcmdr.Itcmdr/RevokeKey',
+          ($0.RevokeKeyRequest value) => value.writeToBuffer(),
+          $0.RevokeKeyResponse.fromBuffer);
+  static final _$listPlugins =
+      $grpc.ClientMethod<$0.ListPluginsRequest, $0.ListPluginsResponse>(
+          '/itcmdr.Itcmdr/ListPlugins',
+          ($0.ListPluginsRequest value) => value.writeToBuffer(),
+          $0.ListPluginsResponse.fromBuffer);
+  static final _$previewSchedule =
+      $grpc.ClientMethod<$0.SaveScheduleRequest, $0.PreviewScheduleResponse>(
+          '/itcmdr.Itcmdr/PreviewSchedule',
+          ($0.SaveScheduleRequest value) => value.writeToBuffer(),
+          $0.PreviewScheduleResponse.fromBuffer);
 }
 
 @$pb.GrpcServiceName('itcmdr.Itcmdr')
@@ -674,6 +759,62 @@ abstract class ItcmdrServiceBase extends $grpc.Service {
         ($core.List<$core.int> value) =>
             $0.WatchUpdatesRequest.fromBuffer(value),
         ($0.Update value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.GetRestoreKeyRequest, $0.RestoreKey>(
+        'GetRestoreKey',
+        getRestoreKey_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) =>
+            $0.GetRestoreKeyRequest.fromBuffer(value),
+        ($0.RestoreKey value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.WhoAmIRequest, $0.WhoAmIResponse>(
+        'WhoAmI',
+        whoAmI_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.WhoAmIRequest.fromBuffer(value),
+        ($0.WhoAmIResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.ListKeysRequest, $0.ListKeysResponse>(
+        'ListKeys',
+        listKeys_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.ListKeysRequest.fromBuffer(value),
+        ($0.ListKeysResponse value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.RegisterKeyRequest, $0.RegisterKeyResponse>(
+            'RegisterKey',
+            registerKey_Pre,
+            false,
+            false,
+            ($core.List<$core.int> value) =>
+                $0.RegisterKeyRequest.fromBuffer(value),
+            ($0.RegisterKeyResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.RevokeKeyRequest, $0.RevokeKeyResponse>(
+        'RevokeKey',
+        revokeKey_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.RevokeKeyRequest.fromBuffer(value),
+        ($0.RevokeKeyResponse value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.ListPluginsRequest, $0.ListPluginsResponse>(
+            'ListPlugins',
+            listPlugins_Pre,
+            false,
+            false,
+            ($core.List<$core.int> value) =>
+                $0.ListPluginsRequest.fromBuffer(value),
+            ($0.ListPluginsResponse value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.SaveScheduleRequest, $0.PreviewScheduleResponse>(
+            'PreviewSchedule',
+            previewSchedule_Pre,
+            false,
+            false,
+            ($core.List<$core.int> value) =>
+                $0.SaveScheduleRequest.fromBuffer(value),
+            ($0.PreviewScheduleResponse value) => value.writeToBuffer()));
   }
 
   $async.Future<$0.ListMachinesResponse> listMachines_Pre(
@@ -939,4 +1080,61 @@ abstract class ItcmdrServiceBase extends $grpc.Service {
 
   $async.Stream<$0.Update> watchUpdates(
       $grpc.ServiceCall call, $0.WatchUpdatesRequest request);
+
+  $async.Future<$0.RestoreKey> getRestoreKey_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.GetRestoreKeyRequest> $request) async {
+    return getRestoreKey($call, await $request);
+  }
+
+  $async.Future<$0.RestoreKey> getRestoreKey(
+      $grpc.ServiceCall call, $0.GetRestoreKeyRequest request);
+
+  $async.Future<$0.WhoAmIResponse> whoAmI_Pre(
+      $grpc.ServiceCall $call, $async.Future<$0.WhoAmIRequest> $request) async {
+    return whoAmI($call, await $request);
+  }
+
+  $async.Future<$0.WhoAmIResponse> whoAmI(
+      $grpc.ServiceCall call, $0.WhoAmIRequest request);
+
+  $async.Future<$0.ListKeysResponse> listKeys_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.ListKeysRequest> $request) async {
+    return listKeys($call, await $request);
+  }
+
+  $async.Future<$0.ListKeysResponse> listKeys(
+      $grpc.ServiceCall call, $0.ListKeysRequest request);
+
+  $async.Future<$0.RegisterKeyResponse> registerKey_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.RegisterKeyRequest> $request) async {
+    return registerKey($call, await $request);
+  }
+
+  $async.Future<$0.RegisterKeyResponse> registerKey(
+      $grpc.ServiceCall call, $0.RegisterKeyRequest request);
+
+  $async.Future<$0.RevokeKeyResponse> revokeKey_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.RevokeKeyRequest> $request) async {
+    return revokeKey($call, await $request);
+  }
+
+  $async.Future<$0.RevokeKeyResponse> revokeKey(
+      $grpc.ServiceCall call, $0.RevokeKeyRequest request);
+
+  $async.Future<$0.ListPluginsResponse> listPlugins_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.ListPluginsRequest> $request) async {
+    return listPlugins($call, await $request);
+  }
+
+  $async.Future<$0.ListPluginsResponse> listPlugins(
+      $grpc.ServiceCall call, $0.ListPluginsRequest request);
+
+  $async.Future<$0.PreviewScheduleResponse> previewSchedule_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.SaveScheduleRequest> $request) async {
+    return previewSchedule($call, await $request);
+  }
+
+  $async.Future<$0.PreviewScheduleResponse> previewSchedule(
+      $grpc.ServiceCall call, $0.SaveScheduleRequest request);
 }

@@ -4,7 +4,7 @@ Keep this file current: update it at the start of each work item and in every co
 Placeholders only (SERVER01, WS-01, RCU-01, 198.51.100.x). Real site notes go in the
 untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committed).
 
-## Current state (updated 2026-10-30)
+## Current state (updated 2026-10-31)
 
 - Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.11.0** (built-in checks as plugins, default schedules, gated cutover). Previous: v0.10.1 (`2366819`).
 - Windows VM passes: v0.10.1 (installer, service, tasks, agent, plugins, schedules, backup/restore) and v0.11.0 (plugin parity, default schedules, cutover/rollback/fallback, share-offline queue). See Windows VM test plan → Results.
@@ -131,9 +131,49 @@ untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committ
 - Server: `cutover.rs` (seed `Nightly agent run` paused + `Nightly backup`, reset-to-default, remembered deletes, gate, switch, rollback, `schedule-state.json` each pass); backup loop replaced by the backup schedule; schema 4 (`parity_runs`, `agent_state`); gRPC `ResetScheduleToDefault`, `ScheduleRef.confirm`, `Schedule.builtin_key/action` (Dart protos regenerated).
 - CLI: `schedule reset-to-default`, `schedule rm --force --confirm "<name>"`, `cutover status|vm-verified|switch|rollback`.
 
+## Handoff: v0.12.0 WIP (2026-10-31)
+
+Base v0.11.0 = `b249612`. Not tagged. Linux at handoff: cargo fmt/clippy -D warnings clean, Rust 93 passed,
+Pester 82/82, flutter test 15 passed, flutter analyze 4 infos (curly braces in backup_page.dart, schedules_page.dart).
+
+**Done (server, tested on Linux)**
+- Sealed restore words: `server/src/restore_seal.rs` (X25519 + HKDF (SHA-256) + XChaCha20-Poly1305, one-time 10-min keys bound to the signing key, aad binds key id + backup). `GetRestoreKey` RPC; `StageRestore` refuses plaintext `words`, needs `sealed_words`, `dry_run` first, then `dry_run_id` (30 min, same key + backup). Restore/keys RPCs are signed-only (`signed_only` in `api.rs`); the shared token cannot restore. Audited: restore-dry-run, restore-refused, restore-stage. `itcmdr-cli restore-stage` uses the same path. Tests: `server/tests/restore_app.rs`.
+- New RPCs: WhoAmI, ListKeys (admin), RegisterKey/RevokeKey (owner; bundle certified offline), ListPlugins, PreviewSchedule. Tests: `server/tests/app_api.rs`.
+- auth_mode: default `signed`. Without a value in server.json, `db::init_db` writes `server_meta.auth_mode_default` once ("both" if the DB already had tables = pre-0.12 install, else "signed"); `auth::settle_auth_mode` applies it in `lib.rs run`. Unknown/empty mode fails secure (Signed). Installer template no longer sets auth_mode (existing installs keep their explicit "both"). `itcmdr-cli auth status|set-mode MODE [--force]` (refuses `signed` without a non-root admin/owner key).
+- Vectors: `proto/signing_vectors.json` (+3 new, old ones unchanged), new `proto/app_vectors.json` (Ed25519 sig + sealed words).
+
+**Done (app, unit-tested only)**
+- `app/lib/signing.dart`: AppKey, SigningInterceptor, `canonicalBytes` (Dart writes explicit defaults; the vector test caught it), `sealWords`. `app/test/signing_test.dart` matches the Rust vectors byte for byte.
+- Pages: `keys_page.dart`, `schedules_page.dart`, `backup_page.dart`, `plugins_page.dart`; `main.dart` now a NavigationRail with 11 entries; `settings.dart` stores the key seed (`auth.key_seed`).
+
+**Half-done / untested**
+- No widget tests for the new pages; never run against a real server (no Dart e2e yet).
+- Settings screen: generic over ListSettings (covers the registry) but no search/bool toggles yet.
+- Key seed is stored in shared_preferences (user profile, plaintext); DPAPI later.
+- Docs not updated: CHANGELOG, SIGNING.md ("Sealed restore words" section referenced in code), SETTINGS.md (auth_mode default), INSTALL.md (new installs are signed: init + app key), ARCHITECTURE.md.
+- VM: nothing done for v0.12.0 (VM was down: port 2222 refused at start).
+
+**Next steps in order**
+1. Fix the 4 analyze infos; add widget tests for Keys/Schedules/Backup dialogs (validateScheduleForm, deleteAllowed, checkWords already pure).
+2. Dart e2e against a local server: start `itcmdr-server` with a temp data dir, `itcmdr-cli init`, certify the app key, then WhoAmI / schedules / backup / dry run from Dart.
+3. Settings screen: search + bool switches + a test over all registry keys.
+4. Docs above; versions to 0.12.0 (server/Cargo.toml, agent AgentVersion, installer MyAppVersion, app/pubspec.yaml 0.12.0+17).
+5. VM: Pester (82 incl. the AST test), build a fresh installer, reinstall and recheck the task re-registration fix, `flutter build windows`, smoke-test app against the VM server, check `itcmdr-cli auth status` shows kept-both on the upgraded install.
+6. Leak scans, commit, tag v0.12.0, push main then the tag.
+
+**Commands**
+- Linux: `export PATH=$HOME/Projects/tools/flutter/bin:$HOME/Projects/tools/pwsh:$HOME/Projects/tools/protoc/bin:$HOME/.pub-cache/bin:$PATH`; `cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace`; `pwsh -NoProfile -c 'Invoke-Pester -Path agent/tests -CI'`; `cd app && flutter analyze && flutter test`.
+- Protos: `protoc --dart_out=grpc:app/lib/proto -Iproto proto/itcmdr.proto` (Rust regenerates in build.rs). Vectors: `ITCMDR_REGEN_VECTORS=1 cargo test --test signing` (add only, never change existing).
+- VM: see HANDOVER.local.md.
+
+**Gotchas**
+- pwsh on Linux crashed after the reboot ("The given assembly name was invalid"): a corrupt `~/.cache/powershell/StartupProfileData-NonInteractive`. Moving the cache aside fixed it.
+- One `corrupted size vs. prev_size` abort at exit of the backup test binary, not reproduced in 3 reruns.
+- Tests that use the shared token must set `auth_mode: "both"` (default is now signed).
+
 ## In progress
 
-v0.11.0 released. Next: v0.12.0 (Flutter: plugins, registration, users/keys, metric charts, Backup & Restore, Schedules incl. cutover status, signed requests). Remaining VM items: the app UI on Windows and a real second PC. On site later: a week of parity, then the gated switch.
+v0.12.0 WORK IN PROGRESS, committed as 'wip: v0.12.0 progress (handover)' (not tagged). See 'Handoff: v0.12.0 WIP' below.
 
 ## Backlog (in order)
 

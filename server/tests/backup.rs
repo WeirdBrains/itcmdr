@@ -13,6 +13,8 @@ const TOKEN: &str = "legacy-token";
 
 fn cfg(root: &Path) -> ServerConfig {
     let mut c = ServerConfig {
+        // These tests cover the shared token (migration mode "both").
+        auth_mode: "both".into(),
         bind_addr: "127.0.0.1:0".into(),
         logs_dir: root.join("maintenanceRuns"),
         data_dir: Some(root.join("data")),

@@ -6,7 +6,6 @@
   "retention_days": 400,
   "ingest_interval_secs": 30,
   "request_timeout_secs": 10800,
-  "auth_mode": "both",
   "backup": {
     "dir": null,
     "nightly": true,

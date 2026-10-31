@@ -33,9 +33,19 @@ pub struct ServerConfig {
     #[serde(default)]
     pub admin_token_hash: Option<String>,
     /// "token" (legacy shared token only), "both" (signed requests, or the token for mutating calls:
-    /// the migration mode, default) or "signed" (signed requests only, token retired; reads need a key too).
-    #[serde(default = "default_auth_mode")]
+    /// the migration mode) or "signed" (signed requests only, token retired; reads need a key too).
+    /// Default since v0.12.0: "signed". When server.json does not set it and the database already
+    /// exists (an install from before v0.12.0), the server keeps "both" so nothing locks out; see
+    /// `itcmdr-cli auth status` / `auth set-mode`.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub auth_mode: String,
+    /// Where `auth_mode` came from (not read from JSON): "server.json", "default" (built-in),
+    /// "unset" (not settled yet), "new-install" or "kept-both" (settled from the database).
+    #[serde(skip)]
+    pub auth_mode_source: String,
+    /// The server.json this was read from (not read from JSON).
+    #[serde(skip)]
+    pub source_path: Option<PathBuf>,
     /// Explicit opt-out: allow mutating RPCs without any token (lab/demo only).
     #[serde(default)]
     pub allow_insecure_no_auth: bool,
@@ -173,7 +183,7 @@ fn default_request_timeout() -> u64 {
 }
 
 fn default_auth_mode() -> String {
-    "both".into()
+    "signed".into()
 }
 
 fn default_rollups() -> Vec<String> {
@@ -206,6 +216,8 @@ impl Default for ServerConfig {
             requests_dir: None,
             admin_token_hash: None,
             auth_mode: default_auth_mode(),
+            auth_mode_source: "default".into(),
+            source_path: None,
             allow_insecure_no_auth: false,
             retention_days: DEFAULT_RETENTION_DAYS,
             ingest_interval_secs: DEFAULT_INGEST_INTERVAL_SECS,
@@ -276,7 +288,10 @@ impl ServerConfig {
                 return Self::from_path(c);
             }
         }
-        Ok(Self::default())
+        let mut d = Self::default();
+        d.auth_mode.clear();
+        d.resolve_auth_mode();
+        Ok(d)
     }
 
     pub fn from_path(path: PathBuf) -> anyhow::Result<Self> {
@@ -286,6 +301,8 @@ impl ServerConfig {
         if cfg.bind_addr.trim().is_empty() {
             cfg.bind_addr = DEFAULT_BIND.to_string();
         }
+        cfg.source_path = Some(path);
+        cfg.resolve_auth_mode();
         Ok(cfg)
     }
 
@@ -307,6 +324,18 @@ impl ServerConfig {
         self.exceptions_export_path
             .clone()
             .unwrap_or_else(|| self.logs_dir.join("exceptions.json"))
+    }
+
+    /// Mark where `auth_mode` came from. When server.json leaves it out it stays empty here and
+    /// the server settles it after opening the database (`auth::settle_auth_mode`): installs from
+    /// before v0.12.0 keep "both", new installs get "signed". Unknown/empty values fail secure.
+    pub fn resolve_auth_mode(&mut self) {
+        if self.auth_mode.trim().is_empty() {
+            self.auth_mode.clear();
+            self.auth_mode_source = "unset".into();
+        } else {
+            self.auth_mode_source = "server.json".into();
+        }
     }
 
     /// Token hash, trimmed and lowercased; None when unset/blank.

@@ -78,7 +78,132 @@ fn vectors() -> Vec<(&'static str, &'static str, Vec<u8>)> {
                 .encode_to_vec()
             }),
         ),
+        (
+            "SaveSchedule/typical",
+            "/itcmdr.Itcmdr/CreateSchedule",
+            e(&|| {
+                SaveScheduleRequest {
+                    schedule: Some(Schedule {
+                        name: "Evening scan".into(),
+                        enabled: true,
+                        machines: vec!["WS-01".into()],
+                        groups: vec!["Workstation".into()],
+                        categories: vec!["network".into()],
+                        when: "weekdays 18:30".into(),
+                        timezone: "local".into(),
+                        guard: "none".into(),
+                        missed: "skip".into(),
+                        ..Default::default()
+                    }),
+                }
+                .encode_to_vec()
+            }),
+        ),
+        (
+            "StageRestore/sealed-dry-run",
+            "/itcmdr.Itcmdr/StageRestore",
+            e(&|| {
+                StageRestoreRequest {
+                    backup: "itcmdr-20261030-020000000-nightly.itcb".into(),
+                    sealed_words: Some(SealedWords {
+                        key_id: "k1".into(),
+                        eph: "ab".into(),
+                        nonce: "cd".into(),
+                        ct: "ef".into(),
+                    }),
+                    dry_run: true,
+                    ..Default::default()
+                }
+                .encode_to_vec()
+            }),
+        ),
+        (
+            "UpdateSetting/override",
+            "/itcmdr.Itcmdr/UpdateSetting",
+            e(&|| {
+                UpdateSettingRequest {
+                    key: "agent.nightlyTime".into(),
+                    value: "01:30".into(),
+                    machine: "WS-01".into(),
+                    unset: false,
+                }
+                .encode_to_vec()
+            }),
+        ),
     ]
+}
+
+/// Fixed-key vectors for the app (Dart): an Ed25519 request signature and a sealed-words blob.
+#[test]
+fn app_crypto_vectors() {
+    use ed25519_dalek::Signer;
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../proto/app_vectors.json");
+    let seed = [7u8; 32];
+    let key = ed25519_dalek::SigningKey::from_bytes(&seed);
+    let body = TriggerRunsRequest {
+        machines: vec!["WS-01".into()],
+        ..Default::default()
+    }
+    .encode_to_vec();
+    let msg = srv::keys::request_message(
+        "/itcmdr.Itcmdr/TriggerRuns",
+        1_790_000_000_000,
+        "0123456789abcdef",
+        &body,
+    );
+    let sig = key.sign(&msg);
+    let server_secret = x25519_dalek::StaticSecret::from([9u8; 32]);
+    let server_pub = x25519_dalek::PublicKey::from(&server_secret);
+    let words =
+        "abandon ability able about above absent absorb abstract absurd abuse access accident";
+    let sealed = srv::restore_seal::seal_with(
+        server_pub.as_bytes(),
+        "key-1",
+        "itcmdr-20261030-020000000-nightly.itcb",
+        words,
+        [5u8; 32],
+        [3u8; 24],
+    )
+    .unwrap();
+    // The server opens what the app sealed.
+    assert_eq!(
+        srv::restore_seal::open(
+            &server_secret,
+            &sealed,
+            "itcmdr-20261030-020000000-nightly.itcb"
+        )
+        .unwrap()
+        .as_str(),
+        words
+    );
+    let now = serde_json::json!({
+        "ed25519": {
+            "seed_hex": hex::encode(seed),
+            "public_hex": hex::encode(key.verifying_key().as_bytes()),
+            "fingerprint": srv::keys::fingerprint(&key.verifying_key()),
+            "method": "/itcmdr.Itcmdr/TriggerRuns",
+            "ts": 1_790_000_000_000i64,
+            "nonce": "0123456789abcdef",
+            "body_hex": hex::encode(&body),
+            "sig_hex": hex::encode(sig.to_bytes()),
+        },
+        "sealed_words": {
+            "server_secret_hex": hex::encode([9u8; 32]),
+            "server_public_hex": hex::encode(server_pub.as_bytes()),
+            "eph_secret_hex": hex::encode([5u8; 32]),
+            "nonce_hex": hex::encode([3u8; 24]),
+            "key_id": "key-1",
+            "backup": "itcmdr-20261030-020000000-nightly.itcb",
+            "words": words,
+            "eph": sealed.eph,
+            "ct": sealed.ct,
+        }
+    });
+    if std::env::var("ITCMDR_REGEN_VECTORS").is_ok() {
+        std::fs::write(&path, serde_json::to_string_pretty(&now).unwrap() + "\n").unwrap();
+    }
+    let pinned: serde_json::Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    assert_eq!(pinned, now, "app crypto vectors changed");
 }
 
 #[test]
@@ -116,6 +241,11 @@ fn reencoding_is_stable() {
                 .encode_to_vec(),
             "SearchLogs" => SearchLogsRequest::decode(&b[..]).unwrap().encode_to_vec(),
             "VerifyBackup" => VerifyBackupRequest::decode(&b[..]).unwrap().encode_to_vec(),
+            "SaveSchedule" => SaveScheduleRequest::decode(&b[..]).unwrap().encode_to_vec(),
+            "StageRestore" => StageRestoreRequest::decode(&b[..]).unwrap().encode_to_vec(),
+            "UpdateSetting" => UpdateSettingRequest::decode(&b[..])
+                .unwrap()
+                .encode_to_vec(),
             _ => ListMachinesRequest::decode(&b[..]).unwrap().encode_to_vec(),
         };
         assert_eq!(back, b, "{n}");

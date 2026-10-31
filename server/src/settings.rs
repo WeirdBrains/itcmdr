@@ -109,7 +109,7 @@ pub fn registry() -> Vec<Def> {
         Def { from_cfg: Some(|c| json!(c.bind_addr)), read_only: true, applies: "restart",
             ..d("server.bind_addr", Server, Kind::Text, json!("127.0.0.1:50051"), "gRPC listen address (server.json only).") },
         Def { from_cfg: Some(|c| json!(c.auth_mode)), read_only: true, applies: "restart",
-            ..d("server.auth_mode", Server, Kind::Text, json!("both"), "token | both | signed (server.json only: security-critical).") },
+            ..d("server.auth_mode", Server, Kind::Text, json!("signed"), "token | both | signed (server.json only: security-critical). Default signed since v0.12.0; installs from before v0.12.0 without a value keep both (itcmdr-cli auth status).") },
         d("metrics.flap_min", Server, int(2, 1000), json!(3), "ok<->failed changes in the window before a check counts as flapping."),
         d("metrics.repeat_min", Server, int(2, 1000), json!(3), "Incidents in the window before a machine/check is a repeat offender."),
         d("auth.max_skew_secs", Server, int(30, 3600), json!(300), "Allowed clock difference for signed requests (seconds)."),
