@@ -58,9 +58,9 @@ also covered by the Windows VM test pass below.
 | v0.16.0 | Site alerts (Critical / Cautious / Informational; dedupe, ack, resolve, silence), AlertService, app Alerts screen, paging via SMTP, ntfy, webhook | 💡 Proposed |
 | v0.17.0 | Rust `itcmdr-agent` service: enrollment, per-agent keys, pinned TLS, agent-initiated stream, heartbeats + non-responsive alerts, offline queue, app Agents screen | 💡 Proposed |
 | v0.18.0 | Agent runs plugins and schedules, RunNow, run reports and artifacts, report-only parity vs the nightly | 💡 Proposed |
-| v0.19.0 | adminsvr MVP (container, Postgres, ntfy, users/roles, passkeys + TOTP, site enrollment, alerts/status up) + SRE app v1 (sign-in, alert inbox, sites, users and roles, audit/call log, settings) | 💡 Proposed |
-| v0.20.0 | Agent config over the stream + gated switch; adminsvr commands down (allowlist, preview, two-person approval, kill switch), metrics summaries up; SRE app pushes + metrics explorer | 💡 Proposed |
-| v0.21.0 | Agent self-upgrade + site-server self-upgrade via adminsvr (rings, watchdogs, rollback); SRE app upgrade flow | 💡 Proposed |
+| v0.19.0 | adminsvr MVP (container, Postgres, ntfy, users/roles, passkeys + TOTP, site enrollment, alerts/status up) + SRE app v1 (Users and Servers categories, alert inbox, sign-in, settings) | 💡 Proposed |
+| v0.20.0 | Agent config over the stream + gated switch; adminsvr commands down (allowlist, preview, two-person approval, kill switch), metrics summaries up; SRE app Service Plugins category, Servers configs + metrics; adminsvr as plugin source of truth | 💡 Proposed |
+| v0.21.0 | Agent self-upgrade + site-server self-upgrade via adminsvr (rings, watchdogs, rollback); SRE app Updates category | 💡 Proposed |
 | v0.22.0 | Retire the share flows; SRE app Windows/iOS builds if approved; adminsvr restore drill | 💡 Proposed |
 
 ## Cross-cutting items

@@ -46,6 +46,35 @@ Sites are behind NAT, so **the site server dials adminsvr**. This is the same pa
 | Config documents (settings, schedules) per site, versioned | Command results (`Applied` ok/failed, output summary) |
 | Heartbeat pings | Its own audit and call-log summaries (counts, failures) |
 
+### The push loop (symmetric at each tier)
+
+adminsvr is the **source of truth for service plugins and updates**. Site servers **cache and relay** them, and at each hop they
+still verify signatures and the local allowlist. The same four things flow down at both tiers, and heartbeats run both ways:
+
+```mermaid
+flowchart TB
+  A[adminsvr<br/>source of truth: plugins, updates] -- "updates, plugins, configs, heartbeat pings" --> S[site server<br/>caches + relays<br/>verifies signatures, allowlist, quarantine]
+  S -- "pongs, alerts, status, metrics summaries, results" --> A
+  S -- "updates, plugins, configs, heartbeat pings" --> G[agents]
+  G -- "pongs, run reports, errors, alerts" --> S
+```
+
+- **Updates:** server and agent releases. adminsvr publishes; the site applies its own server release and relays agent
+  releases to its agents in rings.
+- **Plugins:** adminsvr holds the catalog and versions. A plugin pushed down to a site goes through **the same validation
+  and quarantine at the site** as a locally installed package (master-certified signer, checksum, manifest checks,
+  quarantine on failure) before any agent receives it. Agents verify again.
+- **Configs:** settings, schedules and per-agent config, versioned. The site applies them only if allowed by its local
+  allowlist, then derives the agent configs.
+- **Heartbeats, both tiers:**
+  - adminsvr pings site servers and they pong; site servers ping agents and they pong.
+  - Each tier has its own interval and missed threshold: `adminsvr.heartbeat_secs` 60 with `site_missed` 5 by default,
+    and the agent settings in SERVER-AGENT.md.
+  - Both use the late → non-responsive states, and a non-responsive alert is raised at the tier that noticed. A
+    non-responsive agent alert also travels up to adminsvr.
+  - Each side also watches the other's pings: a site that hears nothing from adminsvr marks the link down and keeps
+    running standalone.
+
 ### When adminsvr is unreachable
 
 - The site runs **fully standalone**. Nothing in the site depends on adminsvr for its function: backups, agents,
@@ -166,35 +195,40 @@ Turn `app/` into a small mono-repo of Dart packages:
 The on-site app (`app/`) and the SRE app (`adminapp/`) stay **separate apps**: different users, servers, threat
 models and store listings. They share the packages, not the shell.
 
-### Screens
+### Navigation: four categories
 
-1. **Sign-in and 2FA:** server URL (pinned on first use), passkey, password + TOTP fallback, new-device approval
-   wait screen, recovery codes. Biometric unlock on mobile.
-2. **Alert inbox:** grouped by level (Critical / Cautious / Informational), filter by site, machine and state.
-   Ack, resolve and silence (with duration), all synced back to the site. Swipe actions on mobile. A detail view shows
-   the source plugin or check, the backtrace, the history and the linked metric.
-3. **Sites and servers:** a list with health (online / late / unreachable), version, ring, backup age, auth mode,
-   agent counts by state and open alerts. The site detail view lists its agents and their heartbeat state.
-4. **Pushes (update and config):**
-   - Pick the site(s), then the change: a setting, a schedule, a plugin enable/disable or a package push, an agent
-     or server upgrade.
-   - **Preview / dry-run:** the site computes the diff and validation (and, for schedules, the next runs) and
-     returns it without applying.
-   - **Confirm:** type the site name for risky actions, then step-up auth.
-   - For upgrades and code pushes, a "needs a second approver" request goes to the inbox of eligible approvers.
-   - Track: pending → approved → sent → applied / failed per site, with rollback where available.
-5. **Metrics explorer:** pick a site, machine and metric. Time range, rollup (day/week/month), compare sites, and
-   alert counts as a metric. Built on the shared chart widgets.
-6. **Users and roles** (owner/admin only): invite, role picker, site scopes, disable, sessions/devices, revoke.
-   - The role picker **does not offer owner to admins**.
-   - Owners' rows are read-only for admins.
-   - "Demote" on the last owner is disabled with an explanation.
-   - Self-demotion asks for confirmation and step-up auth.
-   - Every rule is also enforced server-side, and the app shows the server's refusal text.
-7. **Audit and call log viewer:** filter by user, site, action, status and time. Export as CSV. SREs only see their
-   own entries and those of their scoped sites.
-8. **Settings:** profile, 2FA and passkeys, devices, notification preferences (levels, quiet hours, per-site
-   mute), theme. Owners also see the adminsvr settings, notifier channels and the kill switch.
+The app has exactly four top-level categories (bottom bar on mobile, side rail on web and desktop). **Sign-in/2FA and
+Settings are chrome** (the account menu), not categories. The **global alert inbox** is reached from Servers or from a badge
+in the app bar or a notification tap. It is not a fifth category.
+
+1. **Users**
+   - Users: invite, role, site scopes, disable.
+   - Devices and sessions: approve, revoke.
+   - The **audit and call log**. It lives here because it answers "who did what", and is filterable by site, which
+     links into Servers.
+   - Admins are never offered owner; owner rows are read-only for admins; the last owner can't be demoted.
+   - **SREs: hidden, except "My account / my activity"** (recommended), so they see their own audit entries but no
+     other users.
+2. **Service Plugins**
+   - Catalog, versions and changelogs.
+   - Per-site deployment status: which version is enabled where, and per-agent results.
+   - Rollout with preview and approval (two-person for pushes), and enable/disable per site.
+   - **Quarantine view:** packages that sites rejected during validation, with the reason.
+   - SREs can view everything, and request a push or rollout.
+3. **Servers**
+   - List of site servers with health (online / late / non-responsive), version, ring, backup age and open alerts.
+   - Drill into a server, then into its **networked agents**, each with heartbeat state, last runs and errors.
+   - Per server and per agent: alerts (ack, resolve, silence), health, the **metrics explorer**, configs (settings,
+     schedules) and allowlisted commands, all with preview, confirmation and step-up auth.
+   - The global alert inbox lives here too.
+   - SREs can act only on scoped servers.
+4. **Updates**
+   - Server and agent releases.
+   - Rings (test VM → one office → all) with soak status.
+   - Pending approvals (two-person; an owner for upgrades).
+   - Per-site rollout progress, and rollback and history.
+   - The global freeze (kill switch) banner is shown here and in Settings; only owners can toggle it.
+   - SREs view and request only.
 
 ### Push notifications
 
@@ -266,9 +300,9 @@ releases** as the adminsvr features it uses.
 | v0.16.0 | Site alerts + paging (SMTP, ntfy, webhook); the alert record is also the shape that will go up to adminsvr | as in SERVER-AGENT.md |
 | v0.17.0 | Rust agent, enrollment, heartbeats, offline queue | as in SERVER-AGENT.md |
 | v0.18.0 | Agent runs plugins + schedules, report-only parity | as in SERVER-AGENT.md |
-| v0.19.0 | **adminsvr MVP + SRE app v1:** adminsvr container (Postgres, ntfy), `adminsvr init`, users/roles/RBAC rules, passkey + TOTP, device keys; SiteLink (site enrollment, pinned TLS, signed messages, up: heartbeats/status/alerts, outbound queue). SRE app: sign-in/2FA, alert inbox (ack/resolve/silence), sites list + health, users and roles, audit/call log viewer, settings; web + Android + Linux desktop builds. Dart packages split out of `app/` | adminsvr in a container on alien-blue; the VM site links to it; alerts raised on the VM reach the app; kill the container and check the site queues and still pages locally; RBAC tests incl. the owner rules |
-| v0.20.0 | Config over the agent stream + gated agent switch; **adminsvr down-commands:** allowlist, preview/dry-run, two-person approval, freeze/kill switch; metrics summaries up. SRE app: pushes screen (preview, confirm, approvals), metrics explorer | push a setting and a schedule from the app to the VM site; refused when off the allowlist; two-person flow; egress filter tests (PHI patterns dropped) |
-| v0.21.0 | Agent self-upgrade (release plugin, rings, watchdog) + **site-server self-upgrade via adminsvr** (pre-upgrade backup, server watchdog, rollback). SRE app: upgrade flow with rings | broken release rolls back (agent and server); ring gating across two sites (VM + a second test site container) |
+| v0.19.0 | **adminsvr MVP + SRE app v1:** adminsvr container (Postgres, ntfy), `adminsvr init`, users/roles/RBAC rules, passkey + TOTP, device keys; SiteLink (site enrollment, pinned TLS, signed messages, up: heartbeats/status/alerts, outbound queue). SRE app: chrome (sign-in/2FA, settings) + Users (incl. audit/call log) + Servers (list, health, agents, alerts, alert inbox); web + Android + Linux desktop builds. Dart packages split out of `app/` | adminsvr in a container on alien-blue; the VM site links to it; alerts raised on the VM reach the app; kill the container and check the site queues and still pages locally; RBAC tests incl. the owner rules |
+| v0.20.0 | Config over the agent stream + gated agent switch; **adminsvr down-commands:** allowlist, preview/dry-run, two-person approval, freeze/kill switch; metrics summaries up. SRE app: Servers configs/commands + metrics explorer, and **Service Plugins** (catalog, rollout, quarantine view); adminsvr becomes the plugin source of truth, sites cache and relay | push a setting and a schedule from the app to the VM site; refused when off the allowlist; two-person flow; egress filter tests (PHI patterns dropped) |
+| v0.21.0 | Agent self-upgrade (release plugin, rings, watchdog) + **site-server self-upgrade via adminsvr** (pre-upgrade backup, server watchdog, rollback). SRE app: **Updates** (releases, rings, approvals, rollback) | broken release rolls back (agent and server); ring gating across two sites (VM + a second test site container) |
 | v0.22.0 | Retire share flows; Windows desktop and iOS builds of the SRE app (if approved); adminsvr backup/restore runbook + monthly restore test | fresh install with no share dependency; adminsvr restore drill |
 
 ## 7. Open questions (merged list, with recommended defaults)
