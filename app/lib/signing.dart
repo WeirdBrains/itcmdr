@@ -1,14 +1,19 @@
-// v0.12.0 signed requests (docs/SIGNING.md) and sealed restore words, matching the server byte
-// for byte (pinned in proto/signing_vectors.json and proto/app_vectors.json).
+// v0.12.0 signed requests (docs/SIGNING.md) and sealed restore words. Since v0.14.2 all crypto
+// runs in the shared Rust crate `itcmdr-keys` through flutter_rust_bridge (app/rust), so the app
+// signs with the server's own code (pinned in proto/signing_vectors.json and proto/app_vectors.json).
+// Call `RustLib.init()` once before using anything here.
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:cryptography/cryptography.dart';
 import 'package:fixnum/fixnum.dart';
+import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart'
+    show PlatformInt64Util;
 import 'package:grpc/grpc.dart';
 import 'package:protobuf/protobuf.dart';
+
+import 'src/rust/api/keys.dart' as rk;
 
 String hexOf(List<int> b) =>
     b.map((x) => x.toRadixString(16).padLeft(2, '0')).join();
@@ -30,7 +35,7 @@ Uint8List randomBytes(int n) {
 }
 
 Future<String> sha256Hex(List<int> b) async =>
-    hexOf((await Sha256().hash(b)).bytes);
+    rk.sha256Hex(data: Uint8List.fromList(b));
 
 /// `itcmdr-req/v1\n{method}\n{ts}\n{nonce}\n{sha256 hex of body}`
 Future<List<int>> requestMessage(
@@ -38,8 +43,11 @@ Future<List<int>> requestMessage(
   int tsMs,
   String nonce,
   List<int> body,
-) async => utf8.encode(
-  'itcmdr-req/v1\n$method\n$tsMs\n$nonce\n${await sha256Hex(body)}',
+) async => rk.requestMessage(
+  method: method,
+  tsMs: PlatformInt64Util.from(tsMs),
+  nonce: nonce,
+  body: Uint8List.fromList(body),
 );
 
 /// Canonical proto3 bytes (docs/SIGNING.md rule 2): Dart writes a scalar that was set
@@ -87,10 +95,9 @@ void _strip(GeneratedMessage m) {
 /// `itcmdr-cli keys new` writes), stored on this PC only.
 class AppKey {
   final Uint8List seed;
-  final SimpleKeyPair _pair;
   final Uint8List publicKey;
   final String fingerprint;
-  AppKey._(this.seed, this._pair, this.publicKey, this.fingerprint);
+  AppKey._(this.seed, this.publicKey, this.fingerprint);
 
   static Future<AppKey> fromSeed(List<int> seed) async {
     if (seed.length != 32) {
@@ -98,17 +105,17 @@ class AppKey {
         'a private key is 32 bytes (64 hex characters)',
       );
     }
-    final pair = await Ed25519().newKeyPairFromSeed(seed);
-    final pub = Uint8List.fromList((await pair.extractPublicKey()).bytes);
-    return AppKey._(Uint8List.fromList(seed), pair, pub, await sha256Hex(pub));
+    final s = Uint8List.fromList(seed);
+    final pub = rk.publicKey(seed: s);
+    return AppKey._(s, pub, rk.fingerprint(publicKey: pub));
   }
 
-  static Future<AppKey> generate() => fromSeed(randomBytes(32));
+  static Future<AppKey> generate() => fromSeed(rk.randomSeed());
 
   String get publicHex => hexOf(publicKey);
 
   Future<String> signHex(List<int> message) async =>
-      hexOf((await Ed25519().sign(message, keyPair: _pair)).bytes);
+      hexOf(rk.sign(seed: seed, message: Uint8List.fromList(message)));
 
   /// Metadata for one call. [tsMs]/[nonce] are fixed only in tests.
   Future<Map<String, String>> sign(
@@ -188,29 +195,13 @@ Future<SealedWordsParts> sealWords({
 }) async {
   final server = bytesOfHex(serverPublicHex);
   if (server.length != 32) throw const FormatException('bad restore key');
-  final x = X25519();
-  final eph = await x.newKeyPairFromSeed(ephSeed ?? randomBytes(32));
-  final ephPub = (await eph.extractPublicKey()).bytes;
-  final shared = await x.sharedSecretKey(
-    keyPair: eph,
-    remotePublicKey: SimplePublicKey(server, type: KeyPairType.x25519),
+  final out = rk.sealWords(
+    serverPublic: server,
+    keyId: keyId,
+    backup: backup,
+    words: words,
+    ephSeed: ephSeed == null ? null : Uint8List.fromList(ephSeed),
+    nonce: nonce == null ? null : Uint8List.fromList(nonce),
   );
-  final key = await Hkdf(hmac: Hmac.sha256(), outputLength: 32).deriveKey(
-    secretKey: shared,
-    nonce: [...ephPub, ...server],
-    info: utf8.encode('itcmdr/restore-words/v1'),
-  );
-  final n = nonce ?? randomBytes(24);
-  final box = await Xchacha20.poly1305Aead().encrypt(
-    utf8.encode(words.trim()),
-    secretKey: key,
-    nonce: n,
-    aad: restoreAad(keyId, backup),
-  );
-  return SealedWordsParts(
-    keyId,
-    hexOf(ephPub),
-    hexOf(n),
-    hexOf([...box.cipherText, ...box.mac.bytes]),
-  );
+  return SealedWordsParts(out.keyId, out.eph, out.nonce, out.ct);
 }

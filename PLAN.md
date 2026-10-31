@@ -56,7 +56,7 @@ Key backup on by default (opt-out), locked with the 24 words; COOP/COEP accepted
 
 | Version | Scope | Status |
 |---|---|---|
-| v0.14.2 | Extract `itcmdr-keys` (key generation, 24 words/master, backup, recovery, signing/verification, vectors) from `server`; the Flutter app uses it via flutter_rust_bridge (native + WASM), replacing the crypto in `app/lib/signing.dart`; parity tests against the existing vectors | 💡 Proposed |
+| v0.14.2 | Extract `itcmdr-keys` (key generation, 24 words/master, backup, recovery, signing/verification, vectors) from `server`; the Flutter app uses it via flutter_rust_bridge (native + WASM), replacing the crypto in `app/lib/signing.dart`; parity tests against the existing vectors | ✅ Done (native; web: crate + bridge build for WASM and pass the vectors, on-site app stays desktop-only) |
 | v0.15.0 | `itcmdr-common` (ErrorCriticality, ServicePluginError + derive, backtrace), plugin-error in plugin.proto and itcmdr.log/v1, PS `New-ItcmdrPluginError`, call log of every RPC | 💡 Proposed |
 | v0.16.0 | Site alerts (Critical / Cautious / Informational; dedupe, ack, resolve, silence), AlertService, app Alerts screen, delivered in the on-site app and CLI (no external notifiers) | 💡 Proposed |
 | v0.17.0 | Rust `itcmdr-agent` service (on every PC and the office server): enrollment, per-agent keys, pinned TLS + mTLS client certs, agent-initiated stream, heartbeats + non-responsive alerts, offline queue, app Agents screen | 💡 Proposed |

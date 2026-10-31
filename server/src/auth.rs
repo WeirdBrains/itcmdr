@@ -11,7 +11,7 @@ use crate::db::DbPool;
 use crate::keys::{self, Certificate, Master, MasterPublic};
 use crate::storage::Layout;
 use anyhow::{anyhow, bail, Context, Result};
-use ed25519_dalek::{Signature, Signer, SigningKey, Verifier};
+use ed25519_dalek::SigningKey;
 use parking_lot::Mutex;
 use sqlx::Row;
 use std::collections::HashMap;
@@ -324,19 +324,9 @@ pub fn load_root_key(layout: &Layout) -> Result<SigningKey> {
     Ok(SigningKey::from_bytes(&b))
 }
 
-/// Metadata a client attaches to a signed call.
+/// Metadata a client attaches to a signed call (see `itcmdr_keys::sign_request`).
 pub fn sign_request(key: &SigningKey, method: &str, body: &[u8]) -> Vec<(&'static str, String)> {
-    let ts = chrono::Utc::now().timestamp_millis();
-    let mut n = [0u8; 16];
-    rand::RngCore::fill_bytes(&mut rand::rngs::OsRng, &mut n);
-    let nonce = hex::encode(n);
-    let sig = key.sign(&keys::request_message(method, ts, &nonce, body));
-    vec![
-        ("x-itcmdr-key", keys::fingerprint(&key.verifying_key())),
-        ("x-itcmdr-ts", ts.to_string()),
-        ("x-itcmdr-nonce", nonce),
-        ("x-itcmdr-sig", hex::encode(sig.to_bytes())),
-    ]
+    keys::sign_request(key, method, body)
 }
 
 /// Seen nonces (per key) until they fall out of the clock window.
@@ -444,15 +434,13 @@ pub async fn verify(
     {
         return Err(deny("certificate does not match the key record"));
     }
-    let sig: [u8; 64] = hex::decode(sig_hex)
-        .ok()
-        .and_then(|b| b.try_into().ok())
-        .ok_or_else(|| deny("bad x-itcmdr-sig"))?;
-    pk.verify(
-        &keys::request_message(method, ts, nonce, body),
-        &Signature::from_bytes(&sig),
-    )
-    .map_err(|_| deny("bad signature"))?;
+    keys::verify_request(&pk, method, ts, nonce, body, sig_hex).map_err(|e| {
+        deny(if e.to_string() == "bad signature" {
+            "bad signature"
+        } else {
+            "bad x-itcmdr-sig"
+        })
+    })?;
     if !nonces.check_and_insert_ttl(fp, nonce, now_ms, 2 * skew_ms) {
         return Err(deny("replayed request (nonce already used)"));
     }

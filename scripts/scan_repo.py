@@ -29,7 +29,7 @@ HOSTNAME_HEURISTIC = re.compile(r"\b[A-Z]{2,8}-[A-Z0-9]*\d[A-Z0-9]*\b")
 # MAC address patterns
 MAC_RE = re.compile(r"\b([0-9A-Fa-f]{2}([-:])){5}[0-9A-Fa-f]{2}\b")
 
-ALLOWED_TOKENS = {"SHA-256"}
+ALLOWED_TOKENS = {"SHA-256", "LICENSE-2"}  # LICENSE-2: apache.org LICENSE-2.0 URL (vendored cargokit)
 
 TEXT_EXTS = {
     ".rs", ".toml", ".md", ".yml", ".yaml", ".json", ".ps1", ".psd1", ".psm1",

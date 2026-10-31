@@ -10,9 +10,12 @@ import 'package:app/signing.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'rust_init.dart';
+
 import 'settings_doc.dart';
 
 void main() {
+  setUpAll(initRust);
   setUp(() {
     ServerSettings.keyStoreFactory = () async => MemoryKeyStore();
     ServerSettings.resetKeyStore();

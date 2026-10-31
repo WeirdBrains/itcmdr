@@ -6,6 +6,9 @@ import 'package:app/proto/itcmdr.pb.dart';
 import 'package:app/signing.dart';
 import 'package:fixnum/fixnum.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'rust_init.dart';
+
 import 'package:protobuf/protobuf.dart';
 
 dynamic _json(String name) =>
@@ -77,6 +80,7 @@ extension on GeneratedMessage {
 }
 
 void main() {
+  setUpAll(initRust);
   test(
     'explicit defaults are not signed (Dart writes them, the server does not)',
     () {

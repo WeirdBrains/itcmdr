@@ -20,7 +20,7 @@
 
 #define MyAppName "itcmdr"
 #ifndef MyAppVersion
-  #define MyAppVersion "0.14.1"
+  #define MyAppVersion "0.14.2"
 #endif
 #define InstallDirName "itcmdr"
 #ifndef LocalLogs

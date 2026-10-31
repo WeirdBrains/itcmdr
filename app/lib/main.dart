@@ -2,6 +2,9 @@ import 'dart:async';
 
 import 'package:fixnum/fixnum.dart';
 import 'package:flutter/material.dart';
+
+import 'src/rust/frb_generated.dart';
+
 import 'package:grpc/grpc_or_grpcweb.dart';
 
 import 'backup_page.dart';
@@ -15,7 +18,9 @@ import 'schedules_page.dart';
 import 'server_settings.dart';
 import 'settings.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await RustLib.init(); // itcmdr-keys (all signing and sealing)
   runApp(const MyApp());
 }
 
