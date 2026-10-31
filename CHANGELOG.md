@@ -1,8 +1,15 @@
 # Changelog
 
+## v0.13.0 (2026-10-31)
+App private key encrypted at rest, plugins managed from the app, and the signed-only switch proven on the test VM.
+- App key storage (`app/lib/key_store.dart`). Windows: DPAPI for the current user (`%APPDATA%\itcmdr\app-key.dpapi`, own FFI to crypt32, fixed entropy). Linux: the Secret Service keyring via `secret-tool` when it works, else a 0600 file under `$XDG_CONFIG_HOME/itcmdr`. macOS: the login Keychain via `security`. An existing plaintext key in the app preferences is moved into the store on first start, read back, then overwritten and removed. Old plaintext key files are overwritten before they are deleted. The Keys screen shows where the key is stored and warns when the store is not encrypted.
+- Plugins from the app: install from an HTTPS URL (the server downloads it; plain http only for loopback) or from a file upload, optionally installed disabled. Enable, disable, remove (an enabled plugin needs a confirmed force), and the quarantine list. New RPCs `InstallPlugin`, `EnablePlugin`, `DisablePlugin`, `RemovePlugin`, `ListQuarantine`. Admin role, signed requests only, audited, same validation and quarantine as `itcmdr-cli plugins install`. The server's maximum message size follows `plugins.max_package_mib`.
+- Test VM: switched to `auth_mode = signed` with the app's key in the DPAPI store. Signed calls work, shared-token calls are refused, and the rollback (`auth set-mode both`) was tested. On-site checklist: `docs/INSTALL.md` (Switch to signed-only).
+- The installer first-run setup moves to v0.14.0.
+
 ## v0.12.0 (2026-10-31)
 App screens for keys, schedules, plugins, backup and restore, and signed requests as the default.
-Not tagged. The Windows VM pass for this version has not been run.
+Tagged `v0.12.0` (fb007b2). The Windows VM pass followed in 9484fb5.
 - App signs every call (`app/lib/signing.dart`). Canonical bytes match `proto/signing_vectors.json`. New installs default to `auth_mode = signed`. An install from before v0.12.0 with no value keeps `both` (`itcmdr-cli auth status` / `auth set-mode`).
 - Restore words are sealed on the app for a one-time in-memory server key (`docs/SIGNING.md`). `StageRestore` refuses plaintext words and requires a dry run first. Key and restore calls accept only a signed request.
 - Screens: Keys (make, import, certify command, register, revoke), Schedules (preview, edit, pause, run now, history), Service plugins (list, run, metric charts), Backup & Restore (back up, check, dry run, restore), Settings search and bool switches.

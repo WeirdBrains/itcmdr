@@ -345,3 +345,278 @@ async fn app_rpcs_whoami_keys_plugins_preview() {
     assert!(acts.contains(&"key-register".into()) && acts.contains(&"key-revoke".into()));
     let _ = tx.send(());
 }
+
+fn plugin_source(root: &std::path::Path, name: &str, version: &str) -> std::path::PathBuf {
+    let d = root.join(format!("src-{name}-{version}"));
+    std::fs::create_dir_all(&d).unwrap();
+    std::fs::write(d.join("run.ps1"), "Write-Output 'hi'\n").unwrap();
+    std::fs::write(
+        d.join("package.toml"),
+        format!(
+            "name = \"{name}\"\nversion = \"{version}\"\nfeatures = [\"verify\", \"execute\", \"log\"]\n\n\
+             [[files]]\nname = \"run.ps1\"\ntype = \"powershell\"\nmain = true\nchecksum = \"\"\n"
+        ),
+    )
+    .unwrap();
+    d
+}
+
+/// Serve `body` once over plain HTTP on loopback (stands in for an HTTPS package host).
+fn serve_once(body: Vec<u8>) -> String {
+    use std::io::{Read, Write};
+    let l = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = l.local_addr().unwrap().port();
+    std::thread::spawn(move || {
+        if let Ok((mut s, _)) = l.accept() {
+            let mut buf = [0u8; 2048];
+            let _ = s.read(&mut buf);
+            let _ = write!(
+                s,
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                body.len()
+            );
+            let _ = s.write_all(&body);
+        }
+    });
+    format!("http://127.0.0.1:{port}/pkg.tar.gz")
+}
+
+#[test]
+fn package_urls_are_https_only_except_loopback() {
+    use srv::packages::url_allowed;
+    assert!(url_allowed("https://plugins.example.local/a.tar.gz"));
+    assert!(url_allowed("http://127.0.0.1:8080/a.tar.gz"));
+    assert!(url_allowed("http://localhost/a"));
+    assert!(url_allowed("http://[::1]:9/a"));
+    assert!(!url_allowed("http://plugins.example.local/a.tar.gz"));
+    assert!(!url_allowed("http://127.0.0.1.example.local/a"));
+    assert!(!url_allowed("ftp://x/a"));
+    assert!(!url_allowed("file:///etc/passwd"));
+}
+
+#[tokio::test]
+async fn plugin_rpcs_install_upload_and_url_enable_disable_remove() {
+    let t = tempfile::tempdir().unwrap();
+    let p = write_cfg(t.path(), Some("both"));
+    let c = ServerConfig::from_path(p).unwrap();
+    let pool = srv::db::init_db(&c).await.unwrap();
+    let out = srv::auth::init(&pool, &c.layout()).await.unwrap();
+    let m = srv::keys::Master::from_words(&out.words).unwrap();
+    let mk = |name: &str, role: &str| {
+        let k = srv::keys::new_keypair();
+        let cert = srv::keys::certify(&m.signing, "user", name, role, &k.verifying_key());
+        (k, cert)
+    };
+    let (admin, acert) = mk("Dr A", "admin");
+    let (user, ucert) = mk("Desk", "user");
+    for (k, cert, name, role) in [
+        (&admin, &acert, "Dr A", srv::auth::Role::Admin),
+        (&user, &ucert, "Desk", srv::auth::Role::User),
+    ] {
+        let pk = hex::encode(k.verifying_key().as_bytes());
+        srv::auth::register(
+            &pool,
+            srv::auth::NewKey {
+                kind: "user",
+                name,
+                role,
+                email: None,
+                phone: None,
+                public_key_hex: &pk,
+                certificate: cert,
+            },
+        )
+        .await
+        .unwrap();
+    }
+    pool.close().await;
+    let pack = |name: &str, v: &str| {
+        let o = t.path().join(format!("{name}-{v}.tar.gz"));
+        srv::packages::pack(&plugin_source(t.path(), name, v), &admin, &o).unwrap();
+        std::fs::read(o).unwrap()
+    };
+    let port = c.bind_addr.rsplit(':').next().unwrap().to_string();
+    let (tx, rx) = tokio::sync::oneshot::channel::<()>();
+    tokio::spawn(srv::run(c.clone(), async move {
+        let _ = rx.await;
+    }));
+    let mut cl = None;
+    for _ in 0..100 {
+        if let Ok(x) = ItcmdrClient::connect(format!("http://127.0.0.1:{port}")).await {
+            cl = Some(x);
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    let mut cl = cl.expect("server up");
+    const IP: &str = "/itcmdr.Itcmdr/InstallPlugin";
+    let up = |b: Vec<u8>, disabled: bool| InstallPluginRequest {
+        package: b,
+        file_name: "disk-free.tar.gz".into(),
+        disabled,
+        ..Default::default()
+    };
+
+    // Admin + signed only.
+    assert_eq!(
+        cl.install_plugin(token(up(pack("disk-free", "1.0.0"), false)))
+            .await
+            .unwrap_err()
+            .code(),
+        Code::Unauthenticated
+    );
+    assert_eq!(
+        cl.install_plugin(signed(&user, IP, up(pack("disk-free", "1.0.0"), false)))
+            .await
+            .unwrap_err()
+            .code(),
+        Code::PermissionDenied
+    );
+    // Upload: enabled on install by default.
+    let r = cl
+        .install_plugin(signed(&admin, IP, up(pack("disk-free", "1.0.0"), false)))
+        .await
+        .unwrap()
+        .into_inner();
+    assert!(
+        !r.quarantined && r.plugin.as_ref().unwrap().enabled,
+        "{r:?}"
+    );
+    // URL (loopback http stands in for https), installed disabled.
+    let url = serve_once(pack("disk-free", "1.1.0"));
+    let r = cl
+        .install_plugin(signed(
+            &admin,
+            IP,
+            InstallPluginRequest {
+                url,
+                disabled: true,
+                ..Default::default()
+            },
+        ))
+        .await
+        .unwrap()
+        .into_inner();
+    let pl = r.plugin.unwrap();
+    assert_eq!((pl.version.as_str(), pl.enabled), ("1.1.0", false));
+    // Plain http to a non-loopback host, or both/neither source: refused before any fetch.
+    for bad in [
+        InstallPluginRequest {
+            url: "http://plugins.example.local/x.tar.gz".into(),
+            ..Default::default()
+        },
+        InstallPluginRequest::default(),
+        InstallPluginRequest {
+            url: "https://plugins.example.local/x.tar.gz".into(),
+            package: vec![1],
+            ..Default::default()
+        },
+    ] {
+        assert_eq!(
+            cl.install_plugin(signed(&admin, IP, bad))
+                .await
+                .unwrap_err()
+                .code(),
+            Code::InvalidArgument
+        );
+    }
+    // A broken package is quarantined, and listed.
+    let r = cl
+        .install_plugin(signed(&admin, IP, up(b"not a package".to_vec(), false)))
+        .await
+        .unwrap()
+        .into_inner();
+    assert!(r.quarantined && r.plugin.is_none(), "{r:?}");
+    let q = cl
+        .list_quarantine(signed(
+            &admin,
+            "/itcmdr.Itcmdr/ListQuarantine",
+            ListQuarantineRequest {},
+        ))
+        .await
+        .unwrap()
+        .into_inner()
+        .entries;
+    assert_eq!(q.len(), 1);
+    assert!(q[0].source.starts_with("upload:"), "{q:?}");
+
+    // Enable 1.1.0 (1.0.0 is disabled then), disable, remove.
+    let pr = |spec: &str, force: bool| PluginRef {
+        spec: spec.into(),
+        force,
+    };
+    cl.enable_plugin(signed(
+        &admin,
+        "/itcmdr.Itcmdr/EnablePlugin",
+        pr("disk-free@1.1.0", false),
+    ))
+    .await
+    .unwrap();
+    let list = cl
+        .list_plugins(signed(
+            &admin,
+            "/itcmdr.Itcmdr/ListPlugins",
+            ListPluginsRequest {},
+        ))
+        .await
+        .unwrap()
+        .into_inner()
+        .plugins;
+    let en: Vec<_> = list
+        .iter()
+        .filter(|p| p.enabled)
+        .map(|p| p.version.as_str())
+        .collect();
+    assert_eq!(en, ["1.1.0"]);
+    assert!(
+        cl.remove_plugin(signed(
+            &admin,
+            "/itcmdr.Itcmdr/RemovePlugin",
+            pr("disk-free@1.1.0", false)
+        ))
+        .await
+        .is_err(),
+        "an enabled plugin needs force"
+    );
+    cl.disable_plugin(signed(
+        &admin,
+        "/itcmdr.Itcmdr/DisablePlugin",
+        pr("disk-free", false),
+    ))
+    .await
+    .unwrap();
+    cl.remove_plugin(signed(
+        &admin,
+        "/itcmdr.Itcmdr/RemovePlugin",
+        pr("disk-free@1.1.0", false),
+    ))
+    .await
+    .unwrap();
+    assert_eq!(
+        cl.enable_plugin(signed(
+            &user,
+            "/itcmdr.Itcmdr/EnablePlugin",
+            pr("disk-free", false)
+        ))
+        .await
+        .unwrap_err()
+        .code(),
+        Code::PermissionDenied
+    );
+    let pool = srv::db::init_db(&c).await.unwrap();
+    let acts: Vec<String> =
+        sqlx::query_scalar("SELECT action FROM audit_log WHERE action LIKE 'plugin-%'")
+            .fetch_all(&pool)
+            .await
+            .unwrap();
+    for a in [
+        "plugin-install",
+        "plugin-quarantine",
+        "plugin-enable",
+        "plugin-disable",
+        "plugin-remove",
+    ] {
+        assert!(acts.contains(&a.to_string()), "{a}: {acts:?}");
+    }
+    let _ = tx.send(());
+}

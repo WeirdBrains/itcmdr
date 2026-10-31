@@ -44,25 +44,26 @@ also covered by the Windows VM test pass below.
 | v0.10.1 | First Windows VM pass + fixes (BOM in agent logs, installer compile, app exe name, PS 5.1 tests), `itcmdr-cli restore-stage` | ✅ Done | `v0.10.1` (2366819) | 2026-10-30 |
 | v0.11.0 | Built-in checks as plugins (parallel report-only, parity); nightly run + backup as built-in schedules; gated cutover, rollback, local fallback | ✅ Done | `v0.11.0` (b249612) | 2026-10-30 |
 | v0.12.0 | Flutter: Service Plugins, registration, users/keys, plugin metric charts, Backup & Restore (incl. restore with the words), Schedules, signed requests | ✅ Done | `v0.12.0` (fb007b2) | 2026-10-31 |
-| v0.13.0 | Installer: first-run master setup (words shown once); VM test items | 📋 Planned | — | — |
+| v0.13.0 | App key encrypted at rest (DPAPI / keyring), plugin install/enable/disable/remove from the app, signed-only switch proven on the VM | ✅ Done | `v0.13.0` | 2026-10-31 |
+| v0.14.0 | Installer: first-run master setup (words shown once); VM test items (moved from v0.13.0) | 📋 Planned | — | — |
 
 ## Cross-cutting items
 
 | Item | Status | Notes |
 |---|---|---|
-| Windows VM test pass | 🔄 v0.12.0 pass done headless | v0.10.1, v0.11.0 and v0.12.0 passes (Pester 82/82, installer, upgrade, task re-registration, kept-both auth path, Dart e2e on Windows). Still to do: click through the app with a person, a second PC. Results in docs/HANDOVER.md |
+| Windows VM test pass | 🔄 Only the second PC is left | v0.10.1, v0.11.0, v0.12.0 and v0.13.0 passes (Pester 82/82, installer, upgrade, task re-registration, both auth paths, Dart tests incl. DPAPI on Windows, signed-only switch and rollback). App click-through on the VM: passed (Michael, 2026-10-31). Still open: a real second PC as agent. Results in docs/HANDOVER.md |
 | GitHub Actions installer builds | ⛔ Blocked | Org billing ("payments failed / spending limit"). Workaround in use: the installer builds on the Windows test VM (v0.10.1) |
 | Real site values in site.json | 📋 Pending (on-site) | Scanners (incl. the 3D unit + exception), DNS records, drive maps, printer queues, Sirona config paths, stale patterns, backup tasks/destinations. See HANDOVER.local.md |
 | Delete the plaintext DB backup after the v0.6 migration | ✅ Done (decided) | Decision 12: deleted automatically after a verified read-back (v0.6.2); kept if verification fails |
 | DB key recovery (`keys/db.key`) | ✅ Done (v0.7.0) | Decision 12: `keys/db.key.escrow` sealed for the master key; `itcmdr-server recover-db-key` with the 24 words |
-| Backup & restore | 🔄 App screen in the working tree (v0.12.0) | Decision 13: DB + escrow + config, CLI, RPCs, nightly + retention in v0.8.0; plugins in v0.9.0; app-triggered restore server side in v0.10.0; app Backup & Restore screen (sealed words, dry run first) exercised by `app/test/e2e_test.dart`. Windows VM pass for that screen is still open. |
+| Backup & restore | ✅ App screen done (v0.12.0) | Decision 13: DB + escrow + config, CLI, RPCs, nightly + retention in v0.8.0; plugins in v0.9.0; app-triggered restore server side in v0.10.0; app Backup & Restore screen (sealed words, dry run first) exercised by `app/test/e2e_test.dart`. Clicked through on the VM (2026-10-31). |
 | All hard-coded values as settings | ✅ Done (v0.9.1) | Decision 15 widened: typed settings (`docs/SETTINGS.md`), `ListSettings`/`UpdateSetting`, `itcmdr-cli config`, central `agent-settings.json`. App screen searches the list; bool settings are switches (v0.12.0). |
 | Configurable paths | ✅ Done (v0.8.1) | Decision 15: agent `paths.localLogs`/`agentData`, installer LocalLogs, backup settings in the DB via RPC + `itcmdr-cli config` |
-| Scheduled runs | 🔄 App screen in the working tree (v0.12.0) | Decision 14: server scheduler + RPCs + `itcmdr-cli schedule` in v0.10.0; built-in schedules + gated cutover in v0.11.0. App Schedules screen (preview, edit, pause, run now, history) is in the working tree. Windows VM pass for that screen is still open. |
+| Scheduled runs | ✅ App screen done (v0.12.0) | Decision 14: server scheduler + RPCs + `itcmdr-cli schedule` in v0.10.0; built-in schedules + gated cutover in v0.11.0. App Schedules screen (preview, edit, pause, run now, history) done in v0.12.0. Clicked through on the VM (2026-10-31). |
 | Backup retention by 4-week blocks | ✅ Done (v0.8.1) | 7 daily, 4 weekly, 13 four-week blocks (ISO weeks 4N-3..4N) instead of 12 months |
 | Plugins enabled on install | ✅ Done (v0.9.1) | A validated package is enabled on install (other versions disabled); `--disabled` opts out; setting `plugins.enable_on_install` (default true); failures still quarantine |
 | Signing canonical encoding | ✅ Done (v0.12.0) | `docs/SIGNING.md`, `proto/signing_vectors.json`, `proto/app_vectors.json`. Rust and Dart tests match the same bytes. |
-| Retire the shared admin token | 🔄 Default is signed | New installs use `signed`. An install from before v0.12.0 with no value keeps `both` until `itcmdr-cli auth set-mode signed`. |
+| Retire the shared admin token | 🔄 Default is signed; the VM runs signed-only | New installs use `signed`. An install from before v0.12.0 with no value keeps `both` until `itcmdr-cli auth set-mode signed`. The test VM was switched in v0.13.0; the office server follows the on-site checklist in docs/INSTALL.md. |
 | `docs/LOG-STANDARD.md` | ✅ Done (v0.10.0) | itcmdr.log/v1, validator, reject counts, metrics ingest, PS + Rust helpers (decision 11) |
 
 ## Phases
@@ -193,17 +194,24 @@ Agreed 2026-10-30: agents run only the plugin copies shipped with the agent, nev
 - [x] Tests: Rust (seeding, defaults, delete/reset, backup schedule, gate, switch/rollback, DST) and Pester (parity, cutover, fallback, end to end); Windows VM under PS 5.1
 - [ ] Real installs: collect a week of parity, then `cutover vm-verified` + `cutover switch` (on site, by Michael)
 
-### v0.12.0 Flutter 🔄
-Linux only so far (widget tests + `app/test/e2e_test.dart`). Not tagged. Windows VM not run.
-- [x] Service Plugins section: list, run, recent runs, metric charts. Install and enable/disable stay on `itcmdr-cli plugins`.
+### v0.12.0 Flutter ✅
+- [x] Service Plugins section: list, run, recent runs, metric charts (install and enable/disable added in v0.13.0)
 - [x] Keys: make or import a key, WhoAmI, the offline certify command, owner register and revoke
 - [x] Plugin metric charts
 - [x] Backup & Restore screen (sealed words, dry run, then restore)
 - [x] Schedules screen (preview, edit, pause, run now, history)
 - [x] Settings: search, bool switches, client check of every registry key
 - [x] App signs requests; default `auth_mode` is `signed` (older installs keep `both`)
-- [ ] Windows VM: Pester 82/82, installer, and in-place upgrade done 2026-10-31 (service Running, tasks re-registered, app binary matches the build). `auth status` is `both` from server.json (the v0.11.0 template wrote it; upgrades do not replace the file). App screens not clicked through.
+- [x] Windows VM: Pester 82/82, installer, in-place upgrade, Dart e2e on Windows (9484fb5). App screens clicked through by Michael (passed).
 
-### v0.13.0 Installer 📋
+### v0.13.0 Key storage, plugins in the app, signed-only ✅
+- [x] App private key encrypted at rest: DPAPI (Windows), Secret Service keyring or a documented 0600 file fallback (Linux), Keychain (macOS); plaintext key migrated and removed
+- [x] Plugins from the app: install from an HTTPS URL or a file upload (optionally disabled), enable, disable, remove, quarantine list; admin, signed, audited
+- [x] Signed-only switch on the test VM, with the rollback tested; on-site checklist in docs/INSTALL.md
+- [x] App click-through on the VM: passed (Michael)
+- [ ] A real second PC as agent (open)
+
+### v0.14.0 Installer 📋
+Moved from v0.13.0.
 - [ ] First-run master setup in the installer, words shown once
 - [ ] Windows VM test items for the plugin system added to the handover

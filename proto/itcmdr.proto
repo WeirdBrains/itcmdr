@@ -305,6 +305,21 @@ message RevokeKeyResponse { bool revoked = 1; }
 message PluginInfo { string name = 1; string version = 2; bool enabled = 3; string installed_at = 4; string signer = 5; string package_sha256 = 6; }
 message ListPluginsRequest {}
 message ListPluginsResponse { repeated PluginInfo plugins = 1; }
+// v0.13.0: plugin management from the app (admin, signed only, audited). Same validation,
+// quarantine and enable-on-install as `itcmdr-cli plugins install`. URLs are fetched by the server
+// over HTTPS only (decision 16); agents never download plugins.
+message InstallPluginRequest {
+  string url = 1;                  // https://...; or
+  bytes package = 2;               // an uploaded .tar.gz package
+  string file_name = 3;            // upload label (audit/quarantine)
+  bool disabled = 4;               // install without enabling (default: setting plugins.enable_on_install)
+}
+message InstallPluginResponse { PluginInfo plugin = 1; bool quarantined = 2; string message = 3; }
+message PluginRef { string spec = 1; bool force = 2; }   // name or name@version; force: remove an enabled one
+message PluginActionResponse { string name = 1; string version = 2; string message = 3; }
+message QuarantineEntry { string ts = 1; string file = 2; string source = 3; string sha256 = 4; string reason = 5; }
+message ListQuarantineRequest {}
+message ListQuarantineResponse { repeated QuarantineEntry entries = 1; }
 message PreviewScheduleResponse { repeated int64 next_runs = 1; string error = 2; }
 message GetRestoreStatusRequest {}
 message GetRestoreStatusResponse { RestoreStatus status = 1; }   // unset when no restore ever ran
@@ -349,5 +364,11 @@ service Itcmdr {
   rpc RevokeKey(RevokeKeyRequest) returns (RevokeKeyResponse);             // owner, signed only
   rpc ListPlugins(ListPluginsRequest) returns (ListPluginsResponse);       // admin
   rpc PreviewSchedule(SaveScheduleRequest) returns (PreviewScheduleResponse);
+  // v0.13.0
+  rpc InstallPlugin(InstallPluginRequest) returns (InstallPluginResponse);  // admin, signed only
+  rpc EnablePlugin(PluginRef) returns (PluginActionResponse);               // admin, signed only
+  rpc DisablePlugin(PluginRef) returns (PluginActionResponse);              // admin, signed only
+  rpc RemovePlugin(PluginRef) returns (PluginActionResponse);               // admin, signed only
+  rpc ListQuarantine(ListQuarantineRequest) returns (ListQuarantineResponse); // admin
 }
 

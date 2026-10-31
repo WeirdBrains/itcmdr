@@ -38,3 +38,18 @@ ct  = XChaCha20-Poly1305(key, 24-byte nonce, words encoded as UTF8, aad)
 `StageRestore` requires `sealed_words`. A dry run must pass first; the real restore then sends that
 `dry_run_id` (30 minutes, same signing key and same backup). Plaintext `words` are refused. These
 calls, and the key RPCs, accept only a signed request. Pinned bytes: `proto/app_vectors.json`.
+
+## Where the app keeps its private key
+
+The app's Ed25519 seed is never stored in the app preferences (from v0.13.0). It is kept in:
+
+| OS | Store | Encrypted |
+|---|---|---|
+| Windows | DPAPI, current user (`%APPDATA%\itcmdr\app-key.dpapi`, entropy `itcmdr-app-key/v1`). Only the same Windows user on the same PC can decrypt it. | yes |
+| Linux | Secret Service keyring via `secret-tool` (attributes `service=itcmdr`, `account=app-key`) when `secret-tool` is installed and the keyring is unlocked | yes |
+| Linux fallback | `$XDG_CONFIG_HOME/itcmdr/app-key` (default `~/.config`), mode 0600. Used when there is no working keyring. Protected only by the file mode and disk encryption. The Keys screen warns about it. | no |
+| macOS | login Keychain via `security` (service `itcmdr`, account `app-key`) | yes |
+
+Migration: on first start, a key found in the old `auth.key_seed` preference is written to the store and read back. Only then is the preference overwritten with zeros and removed. If the read-back fails, the preference is kept and the app keeps working. A plaintext key file that is replaced is overwritten with random bytes before it is deleted.
+
+A DPAPI key does not move with a Windows profile copied to another PC. On a new PC, make a new key (Keys screen) and register it, then revoke the old one.

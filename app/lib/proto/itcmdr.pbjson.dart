@@ -1520,6 +1520,122 @@ final $typed_data.Uint8List listPluginsResponseDescriptor = $convert.base64Decod
     'ChNMaXN0UGx1Z2luc1Jlc3BvbnNlEiwKB3BsdWdpbnMYASADKAsyEi5pdGNtZHIuUGx1Z2luSW'
     '5mb1IHcGx1Z2lucw==');
 
+@$core.Deprecated('Use installPluginRequestDescriptor instead')
+const InstallPluginRequest$json = {
+  '1': 'InstallPluginRequest',
+  '2': [
+    {'1': 'url', '3': 1, '4': 1, '5': 9, '10': 'url'},
+    {'1': 'package', '3': 2, '4': 1, '5': 12, '10': 'package'},
+    {'1': 'file_name', '3': 3, '4': 1, '5': 9, '10': 'fileName'},
+    {'1': 'disabled', '3': 4, '4': 1, '5': 8, '10': 'disabled'},
+  ],
+};
+
+/// Descriptor for `InstallPluginRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List installPluginRequestDescriptor = $convert.base64Decode(
+    'ChRJbnN0YWxsUGx1Z2luUmVxdWVzdBIQCgN1cmwYASABKAlSA3VybBIYCgdwYWNrYWdlGAIgAS'
+    'gMUgdwYWNrYWdlEhsKCWZpbGVfbmFtZRgDIAEoCVIIZmlsZU5hbWUSGgoIZGlzYWJsZWQYBCAB'
+    'KAhSCGRpc2FibGVk');
+
+@$core.Deprecated('Use installPluginResponseDescriptor instead')
+const InstallPluginResponse$json = {
+  '1': 'InstallPluginResponse',
+  '2': [
+    {
+      '1': 'plugin',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.itcmdr.PluginInfo',
+      '10': 'plugin'
+    },
+    {'1': 'quarantined', '3': 2, '4': 1, '5': 8, '10': 'quarantined'},
+    {'1': 'message', '3': 3, '4': 1, '5': 9, '10': 'message'},
+  ],
+};
+
+/// Descriptor for `InstallPluginResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List installPluginResponseDescriptor = $convert.base64Decode(
+    'ChVJbnN0YWxsUGx1Z2luUmVzcG9uc2USKgoGcGx1Z2luGAEgASgLMhIuaXRjbWRyLlBsdWdpbk'
+    'luZm9SBnBsdWdpbhIgCgtxdWFyYW50aW5lZBgCIAEoCFILcXVhcmFudGluZWQSGAoHbWVzc2Fn'
+    'ZRgDIAEoCVIHbWVzc2FnZQ==');
+
+@$core.Deprecated('Use pluginRefDescriptor instead')
+const PluginRef$json = {
+  '1': 'PluginRef',
+  '2': [
+    {'1': 'spec', '3': 1, '4': 1, '5': 9, '10': 'spec'},
+    {'1': 'force', '3': 2, '4': 1, '5': 8, '10': 'force'},
+  ],
+};
+
+/// Descriptor for `PluginRef`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List pluginRefDescriptor = $convert.base64Decode(
+    'CglQbHVnaW5SZWYSEgoEc3BlYxgBIAEoCVIEc3BlYxIUCgVmb3JjZRgCIAEoCFIFZm9yY2U=');
+
+@$core.Deprecated('Use pluginActionResponseDescriptor instead')
+const PluginActionResponse$json = {
+  '1': 'PluginActionResponse',
+  '2': [
+    {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
+    {'1': 'version', '3': 2, '4': 1, '5': 9, '10': 'version'},
+    {'1': 'message', '3': 3, '4': 1, '5': 9, '10': 'message'},
+  ],
+};
+
+/// Descriptor for `PluginActionResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List pluginActionResponseDescriptor = $convert.base64Decode(
+    'ChRQbHVnaW5BY3Rpb25SZXNwb25zZRISCgRuYW1lGAEgASgJUgRuYW1lEhgKB3ZlcnNpb24YAi'
+    'ABKAlSB3ZlcnNpb24SGAoHbWVzc2FnZRgDIAEoCVIHbWVzc2FnZQ==');
+
+@$core.Deprecated('Use quarantineEntryDescriptor instead')
+const QuarantineEntry$json = {
+  '1': 'QuarantineEntry',
+  '2': [
+    {'1': 'ts', '3': 1, '4': 1, '5': 9, '10': 'ts'},
+    {'1': 'file', '3': 2, '4': 1, '5': 9, '10': 'file'},
+    {'1': 'source', '3': 3, '4': 1, '5': 9, '10': 'source'},
+    {'1': 'sha256', '3': 4, '4': 1, '5': 9, '10': 'sha256'},
+    {'1': 'reason', '3': 5, '4': 1, '5': 9, '10': 'reason'},
+  ],
+};
+
+/// Descriptor for `QuarantineEntry`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List quarantineEntryDescriptor = $convert.base64Decode(
+    'Cg9RdWFyYW50aW5lRW50cnkSDgoCdHMYASABKAlSAnRzEhIKBGZpbGUYAiABKAlSBGZpbGUSFg'
+    'oGc291cmNlGAMgASgJUgZzb3VyY2USFgoGc2hhMjU2GAQgASgJUgZzaGEyNTYSFgoGcmVhc29u'
+    'GAUgASgJUgZyZWFzb24=');
+
+@$core.Deprecated('Use listQuarantineRequestDescriptor instead')
+const ListQuarantineRequest$json = {
+  '1': 'ListQuarantineRequest',
+};
+
+/// Descriptor for `ListQuarantineRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List listQuarantineRequestDescriptor =
+    $convert.base64Decode('ChVMaXN0UXVhcmFudGluZVJlcXVlc3Q=');
+
+@$core.Deprecated('Use listQuarantineResponseDescriptor instead')
+const ListQuarantineResponse$json = {
+  '1': 'ListQuarantineResponse',
+  '2': [
+    {
+      '1': 'entries',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.itcmdr.QuarantineEntry',
+      '10': 'entries'
+    },
+  ],
+};
+
+/// Descriptor for `ListQuarantineResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List listQuarantineResponseDescriptor =
+    $convert.base64Decode(
+        'ChZMaXN0UXVhcmFudGluZVJlc3BvbnNlEjEKB2VudHJpZXMYASADKAsyFy5pdGNtZHIuUXVhcm'
+        'FudGluZUVudHJ5UgdlbnRyaWVz');
+
 @$core.Deprecated('Use previewScheduleResponseDescriptor instead')
 const PreviewScheduleResponse$json = {
   '1': 'PreviewScheduleResponse',

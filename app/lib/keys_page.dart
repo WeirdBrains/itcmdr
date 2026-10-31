@@ -50,6 +50,8 @@ class KeysPage extends StatefulWidget {
 
 class _KeysPageState extends State<KeysPage> {
   AppKey? _key;
+  String _storeKind = '';
+  bool _storeEncrypted = true;
   WhoAmIResponse? _me;
   List<KeyInfo> _keys = [];
   String? _error;
@@ -75,6 +77,9 @@ class _KeysPageState extends State<KeysPage> {
 
   Future<void> _load() async {
     final k = await widget.settings.appKey();
+    final ks = await ServerSettings.keyStore();
+    _storeKind = ks.kind;
+    _storeEncrypted = ks.encrypted;
     if (!mounted) return;
     setState(() => _key = k);
     WhoAmIResponse? me;
@@ -204,6 +209,12 @@ class _KeysPageState extends State<KeysPage> {
             key: const Key('key-fp'),
           ),
           SelectableText('Public key: ${k.publicHex}'),
+          Text(
+            key: const Key('key-store'),
+            'Private key stored in: $_storeKind'
+            '${_storeEncrypted ? '' : ' (NOT encrypted: no OS keyring found; see docs/SIGNING.md)'}',
+            style: TextStyle(color: _storeEncrypted ? null : Colors.orange),
+          ),
         ],
         const SizedBox(height: 8),
         Wrap(

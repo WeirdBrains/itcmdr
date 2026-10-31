@@ -1,5 +1,7 @@
 import 'package:app/backup_page.dart';
+import 'package:app/key_store.dart';
 import 'package:app/keys_page.dart';
+import 'package:app/plugins_page.dart';
 import 'package:app/proto/itcmdr.pbgrpc.dart';
 import 'package:app/schedules_page.dart';
 import 'package:app/server_settings.dart';
@@ -11,6 +13,26 @@ import 'package:flutter_test/flutter_test.dart';
 import 'settings_doc.dart';
 
 void main() {
+  setUp(() {
+    ServerSettings.keyStoreFactory = () async => MemoryKeyStore();
+    ServerSettings.resetKeyStore();
+  });
+
+  test('plugin install form wants one https URL or one .tar.gz file', () {
+    expect(validateInstall('', ''), contains('one of them'));
+    expect(
+      validateInstall('https://x.example.local/p.tar.gz', '/tmp/p.tar.gz'),
+      contains('one of them'),
+    );
+    expect(
+      validateInstall('http://x.example.local/p.tar.gz', ''),
+      contains('https'),
+    );
+    expect(validateInstall('', '/tmp/p.zip'), contains('.tar.gz'));
+    expect(validateInstall(' https://x.example.local/p.tar.gz ', ''), isNull);
+    expect(validateInstall('', 'C:\\pkgs\\disk-free-1.0.0.TAR.GZ'), isNull);
+  });
+
   test('checkWords wants 24 letter words', () {
     expect(checkWords(''), isNotNull);
     expect(checkWords(List.filled(23, 'abandon').join(' ')), contains('23'));
@@ -205,6 +227,10 @@ void main() {
     );
     await _until(tester, find.byKey(const Key('key-fp')));
     expect(find.textContaining(key.fingerprint), findsWidgets);
+    expect(
+      find.textContaining('Private key stored in: memory'),
+      findsOneWidget,
+    );
     await tester.tap(find.byKey(const Key('key-generate')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
