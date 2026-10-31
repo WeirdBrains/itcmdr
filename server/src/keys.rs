@@ -32,7 +32,7 @@ pub fn generate_words() -> String {
         .to_string()
 }
 
-fn hkdf32(salt: &[u8], ikm: &[u8], info: &str) -> Zeroizing<[u8; 32]> {
+pub fn hkdf32(salt: &[u8], ikm: &[u8], info: &str) -> Zeroizing<[u8; 32]> {
     let mut out = Zeroizing::new([0u8; 32]);
     Hkdf::<Sha256>::new(Some(salt), ikm)
         .expand(info.as_bytes(), out.as_mut())

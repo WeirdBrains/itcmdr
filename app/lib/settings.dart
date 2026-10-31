@@ -1,7 +1,11 @@
 import 'package:grpc/grpc_or_grpcweb.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Server address and admin token, persisted with shared_preferences.
+import 'proto/itcmdr.pbgrpc.dart';
+import 'signing.dart';
+
+/// Server address, the app's signing key (v0.12.0) and the legacy admin token, persisted with
+/// shared_preferences. The key's 32-byte private seed is stored on this PC only (user profile).
 class ServerSettings {
   final String host;
   final int port;
@@ -9,12 +13,16 @@ class ServerSettings {
   final String token;
   final String actor;
 
+  /// Hex of the app's Ed25519 private seed; empty = no key (unsigned, token only).
+  final String keySeed;
+
   const ServerSettings({
     this.host = 'localhost',
     this.port = 50051,
     this.tls = false,
     this.token = '',
     this.actor = '',
+    this.keySeed = '',
   });
 
   static const _kHost = 'server.host';
@@ -22,6 +30,7 @@ class ServerSettings {
   static const _kTls = 'server.tls';
   static const _kToken = 'server.token';
   static const _kActor = 'server.actor';
+  static const _kKeySeed = 'auth.key_seed';
 
   static Future<ServerSettings> load() async {
     final p = await SharedPreferences.getInstance();
@@ -31,6 +40,7 @@ class ServerSettings {
       tls: p.getBool(_kTls) ?? false,
       token: p.getString(_kToken) ?? '',
       actor: p.getString(_kActor) ?? '',
+      keySeed: p.getString(_kKeySeed) ?? '',
     );
   }
 
@@ -41,6 +51,7 @@ class ServerSettings {
     await p.setBool(_kTls, tls);
     await p.setString(_kToken, token);
     await p.setString(_kActor, actor.trim());
+    await p.setString(_kKeySeed, keySeed.trim());
   }
 
   ServerSettings copyWith({
@@ -49,13 +60,34 @@ class ServerSettings {
     bool? tls,
     String? token,
     String? actor,
+    String? keySeed,
   }) => ServerSettings(
     host: host ?? this.host,
     port: port ?? this.port,
     tls: tls ?? this.tls,
     token: token ?? this.token,
     actor: actor ?? this.actor,
+    keySeed: keySeed ?? this.keySeed,
   );
+
+  bool get hasKey => keySeed.trim().isNotEmpty;
+
+  /// The signing key, or null when none is set or it is unreadable.
+  Future<AppKey?> appKey() async {
+    if (!hasKey) return null;
+    try {
+      return await AppKey.fromSeed(bytesOfHex(keySeed));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// A client that signs every call when the app has a key.
+  ItcmdrClient client(GrpcOrGrpcWebClientChannel ch, AppKey? key) =>
+      ItcmdrClient(
+        ch,
+        interceptors: key == null ? const [] : [SigningInterceptor(key)],
+      );
 
   /// Host without any scheme or path a user may have pasted.
   String get cleanHost {

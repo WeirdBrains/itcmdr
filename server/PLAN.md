@@ -568,3 +568,8 @@ JSON. The rest sounds good to me").
 | v0.11.0 ✅ | built-in checks as plugins: the existing agent checks/repairs rebuilt as service plugins and run through the plugin system (decision 10), logging in itcmdr.log/v1; nightly agent task and nightly backup as built-in schedules (decision 14, no-gap rule); agents run only shipped plugin copies (decision 16) |
 | v0.12.0 | Flutter: Service Plugins section, app registration, user/key management, plugin metric charts, Backup & Restore screen, Schedules screen; app signs requests, default auth_mode -> signed |
 | v0.13.0 | installer: first-run master setup showing the words once; Windows VM test items in the handover |
+
+### Notes from the v0.12.0 build (WIP)
+
+- Restore words are sealed on the app for a one-time in-memory server key (`restore_seal.rs`); plaintext words are refused; a dry run must pass first. Restore and key RPCs need a signed request in every auth mode.
+- `auth_mode` defaults to `signed`; installs from before v0.12.0 without a value keep `both` (`server_meta.auth_mode_default`), switch with `itcmdr-cli auth set-mode signed`. Status: server done and tested; app and VM pending (docs/HANDOVER.md).

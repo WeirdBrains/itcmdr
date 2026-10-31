@@ -15,6 +15,8 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   testWidgets('app shell builds', (WidgetTester tester) async {
+    // Desktop window: the navigation rail has 11 entries.
+    await tester.binding.setSurfaceSize(const Size(1400, 1000));
     await tester.pumpWidget(const MyApp());
     await tester.pump();
     await tester.pump();

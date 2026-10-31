@@ -207,6 +207,11 @@ async fn table_counts(pool: &DbPool) -> anyhow::Result<Vec<(String, i64)>> {
 }
 
 async fn create_schema(pool: &DbPool) -> anyhow::Result<()> {
+    // v0.12.0 auth-mode migration: a database that already had tables predates the marker.
+    let had_tables: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM sqlite_master WHERE type = 'table'")
+            .fetch_one(pool)
+            .await?;
     let schema = r#"
     CREATE TABLE IF NOT EXISTS runs (
         run_id TEXT PRIMARY KEY,
@@ -425,6 +430,11 @@ async fn create_schema(pool: &DbPool) -> anyhow::Result<()> {
     .execute(pool)
     .await?;
     sqlx::query(&format!("PRAGMA user_version = {SCHEMA_VERSION}"))
+        .execute(pool)
+        .await?;
+    // Remembered once per database (auth::settle_auth_mode): existing installs keep "both".
+    sqlx::query("INSERT OR IGNORE INTO server_meta(key, value) VALUES ('auth_mode_default', ?)")
+        .bind(if had_tables > 0 { "both" } else { "signed" })
         .execute(pool)
         .await?;
     for role in ROLES {

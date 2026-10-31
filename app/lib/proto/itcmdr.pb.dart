@@ -4906,10 +4906,16 @@ class StageRestoreRequest extends $pb.GeneratedMessage {
   factory StageRestoreRequest({
     $core.String? backup,
     $core.String? words,
+    SealedWords? sealedWords,
+    $core.bool? dryRun,
+    $core.String? dryRunId,
   }) {
     final result = StageRestoreRequest._();
     if (backup != null) result.backup = backup;
     if (words != null) result.words = words;
+    if (sealedWords != null) result.sealedWords = sealedWords;
+    if (dryRun != null) result.dryRun = dryRun;
+    if (dryRunId != null) result.dryRunId = dryRunId;
     return result;
   }
 
@@ -4928,6 +4934,10 @@ class StageRestoreRequest extends $pb.GeneratedMessage {
       createEmptyInstance: StageRestoreRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'backup')
     ..aOS(2, _omitFieldNames ? '' : 'words')
+    ..aOM<SealedWords>(3, _omitFieldNames ? '' : 'sealedWords',
+        subBuilder: SealedWords.$_createMessage)
+    ..aOB(4, _omitFieldNames ? '' : 'dryRun')
+    ..aOS(5, _omitFieldNames ? '' : 'dryRunId')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -4970,6 +4980,251 @@ class StageRestoreRequest extends $pb.GeneratedMessage {
   $core.bool hasWords() => $_has(1);
   @$pb.TagNumber(2)
   void clearWords() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  SealedWords get sealedWords => $_getN(2);
+  @$pb.TagNumber(3)
+  set sealedWords(SealedWords value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasSealedWords() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearSealedWords() => $_clearField(3);
+  @$pb.TagNumber(3)
+  SealedWords ensureSealedWords() => $_ensure(2);
+
+  @$pb.TagNumber(4)
+  $core.bool get dryRun => $_getBF(3);
+  @$pb.TagNumber(4)
+  set dryRun($core.bool value) => $_setBool(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasDryRun() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearDryRun() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get dryRunId => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set dryRunId($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasDryRunId() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearDryRunId() => $_clearField(5);
+}
+
+/// v0.12.0: the 24 words never travel in plaintext. The app seals them for a one-time server key
+/// (docs/SIGNING.md "Sealed restore words"): X25519 + HKDF (SHA-256) + XChaCha20-Poly1305.
+class SealedWords extends $pb.GeneratedMessage {
+  factory SealedWords({
+    $core.String? keyId,
+    $core.String? eph,
+    $core.String? nonce,
+    $core.String? ct,
+  }) {
+    final result = SealedWords._();
+    if (keyId != null) result.keyId = keyId;
+    if (eph != null) result.eph = eph;
+    if (nonce != null) result.nonce = nonce;
+    if (ct != null) result.ct = ct;
+    return result;
+  }
+
+  SealedWords._();
+
+  factory SealedWords.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SealedWords()..mergeFromBuffer(data, registry);
+  factory SealedWords.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SealedWords()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SealedWords',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: SealedWords.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'keyId')
+    ..aOS(2, _omitFieldNames ? '' : 'eph')
+    ..aOS(3, _omitFieldNames ? '' : 'nonce')
+    ..aOS(4, _omitFieldNames ? '' : 'ct')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SealedWords clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SealedWords copyWith(void Function(SealedWords) updates) =>
+      super.copyWith((message) => updates(message as SealedWords))
+          as SealedWords;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use SealedWords() / SealedWords.new instead')
+  static SealedWords create() => SealedWords._();
+  static $pb.GeneratedMessage $_createMessage() => SealedWords._();
+  @$core.override
+  SealedWords createEmptyInstance() => SealedWords._();
+  @$core.pragma('dart2js:noInline')
+  static SealedWords getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SealedWords>(
+          SealedWords.$_createMessage);
+  static SealedWords? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get keyId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set keyId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasKeyId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearKeyId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get eph => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set eph($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasEph() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearEph() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get nonce => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set nonce($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasNonce() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearNonce() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get ct => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set ct($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasCt() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearCt() => $_clearField(4);
+}
+
+class GetRestoreKeyRequest extends $pb.GeneratedMessage {
+  factory GetRestoreKeyRequest() => GetRestoreKeyRequest._();
+
+  GetRestoreKeyRequest._();
+
+  factory GetRestoreKeyRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetRestoreKeyRequest()..mergeFromBuffer(data, registry);
+  factory GetRestoreKeyRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetRestoreKeyRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetRestoreKeyRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: GetRestoreKeyRequest.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetRestoreKeyRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetRestoreKeyRequest copyWith(void Function(GetRestoreKeyRequest) updates) =>
+      super.copyWith((message) => updates(message as GetRestoreKeyRequest))
+          as GetRestoreKeyRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use GetRestoreKeyRequest() / GetRestoreKeyRequest.new instead')
+  static GetRestoreKeyRequest create() => GetRestoreKeyRequest._();
+  static $pb.GeneratedMessage $_createMessage() => GetRestoreKeyRequest._();
+  @$core.override
+  GetRestoreKeyRequest createEmptyInstance() => GetRestoreKeyRequest._();
+  @$core.pragma('dart2js:noInline')
+  static GetRestoreKeyRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetRestoreKeyRequest>(
+          GetRestoreKeyRequest.$_createMessage);
+  static GetRestoreKeyRequest? _defaultInstance;
+}
+
+class RestoreKey extends $pb.GeneratedMessage {
+  factory RestoreKey({
+    $core.String? keyId,
+    $core.String? x25519Pub,
+    $fixnum.Int64? expires,
+  }) {
+    final result = RestoreKey._();
+    if (keyId != null) result.keyId = keyId;
+    if (x25519Pub != null) result.x25519Pub = x25519Pub;
+    if (expires != null) result.expires = expires;
+    return result;
+  }
+
+  RestoreKey._();
+
+  factory RestoreKey.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RestoreKey()..mergeFromBuffer(data, registry);
+  factory RestoreKey.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RestoreKey()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'RestoreKey',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: RestoreKey.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'keyId')
+    ..aOS(2, _omitFieldNames ? '' : 'x25519Pub')
+    ..aInt64(3, _omitFieldNames ? '' : 'expires')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RestoreKey clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RestoreKey copyWith(void Function(RestoreKey) updates) =>
+      super.copyWith((message) => updates(message as RestoreKey)) as RestoreKey;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use RestoreKey() / RestoreKey.new instead')
+  static RestoreKey create() => RestoreKey._();
+  static $pb.GeneratedMessage $_createMessage() => RestoreKey._();
+  @$core.override
+  RestoreKey createEmptyInstance() => RestoreKey._();
+  @$core.pragma('dart2js:noInline')
+  static RestoreKey getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<RestoreKey>(RestoreKey.$_createMessage);
+  static RestoreKey? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get keyId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set keyId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasKeyId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearKeyId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get x25519Pub => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set x25519Pub($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasX25519Pub() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearX25519Pub() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get expires => $_getI64(2);
+  @$pb.TagNumber(3)
+  set expires($fixnum.Int64 value) => $_setInt64(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasExpires() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearExpires() => $_clearField(3);
 }
 
 class RestoreStatus extends $pb.GeneratedMessage {
@@ -5104,9 +5359,13 @@ class RestoreStatus extends $pb.GeneratedMessage {
 class StageRestoreResponse extends $pb.GeneratedMessage {
   factory StageRestoreResponse({
     RestoreStatus? status,
+    $core.String? dryRunId,
+    $core.String? message,
   }) {
     final result = StageRestoreResponse._();
     if (status != null) result.status = status;
+    if (dryRunId != null) result.dryRunId = dryRunId;
+    if (message != null) result.message = message;
     return result;
   }
 
@@ -5125,6 +5384,8 @@ class StageRestoreResponse extends $pb.GeneratedMessage {
       createEmptyInstance: StageRestoreResponse.$_createMessage)
     ..aOM<RestoreStatus>(1, _omitFieldNames ? '' : 'status',
         subBuilder: RestoreStatus.$_createMessage)
+    ..aOS(2, _omitFieldNames ? '' : 'dryRunId')
+    ..aOS(3, _omitFieldNames ? '' : 'message')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -5160,6 +5421,921 @@ class StageRestoreResponse extends $pb.GeneratedMessage {
   void clearStatus() => $_clearField(1);
   @$pb.TagNumber(1)
   RestoreStatus ensureStatus() => $_ensure(0);
+
+  @$pb.TagNumber(2)
+  $core.String get dryRunId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set dryRunId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasDryRunId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearDryRunId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get message => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set message($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasMessage() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearMessage() => $_clearField(3);
+}
+
+/// ---- v0.12.0: app support
+class WhoAmIRequest extends $pb.GeneratedMessage {
+  factory WhoAmIRequest() => WhoAmIRequest._();
+
+  WhoAmIRequest._();
+
+  factory WhoAmIRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      WhoAmIRequest()..mergeFromBuffer(data, registry);
+  factory WhoAmIRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      WhoAmIRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'WhoAmIRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: WhoAmIRequest.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  WhoAmIRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  WhoAmIRequest copyWith(void Function(WhoAmIRequest) updates) =>
+      super.copyWith((message) => updates(message as WhoAmIRequest))
+          as WhoAmIRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use WhoAmIRequest() / WhoAmIRequest.new instead')
+  static WhoAmIRequest create() => WhoAmIRequest._();
+  static $pb.GeneratedMessage $_createMessage() => WhoAmIRequest._();
+  @$core.override
+  WhoAmIRequest createEmptyInstance() => WhoAmIRequest._();
+  @$core.pragma('dart2js:noInline')
+  static WhoAmIRequest getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<WhoAmIRequest>(
+          WhoAmIRequest.$_createMessage);
+  static WhoAmIRequest? _defaultInstance;
+}
+
+class WhoAmIResponse extends $pb.GeneratedMessage {
+  factory WhoAmIResponse({
+    $core.String? name,
+    $core.String? role,
+    $core.String? kind,
+    $core.String? fingerprint,
+    $core.String? authMode,
+    $core.bool? signed,
+  }) {
+    final result = WhoAmIResponse._();
+    if (name != null) result.name = name;
+    if (role != null) result.role = role;
+    if (kind != null) result.kind = kind;
+    if (fingerprint != null) result.fingerprint = fingerprint;
+    if (authMode != null) result.authMode = authMode;
+    if (signed != null) result.signed = signed;
+    return result;
+  }
+
+  WhoAmIResponse._();
+
+  factory WhoAmIResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      WhoAmIResponse()..mergeFromBuffer(data, registry);
+  factory WhoAmIResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      WhoAmIResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'WhoAmIResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: WhoAmIResponse.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..aOS(2, _omitFieldNames ? '' : 'role')
+    ..aOS(3, _omitFieldNames ? '' : 'kind')
+    ..aOS(4, _omitFieldNames ? '' : 'fingerprint')
+    ..aOS(5, _omitFieldNames ? '' : 'authMode')
+    ..aOB(6, _omitFieldNames ? '' : 'signed')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  WhoAmIResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  WhoAmIResponse copyWith(void Function(WhoAmIResponse) updates) =>
+      super.copyWith((message) => updates(message as WhoAmIResponse))
+          as WhoAmIResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use WhoAmIResponse() / WhoAmIResponse.new instead')
+  static WhoAmIResponse create() => WhoAmIResponse._();
+  static $pb.GeneratedMessage $_createMessage() => WhoAmIResponse._();
+  @$core.override
+  WhoAmIResponse createEmptyInstance() => WhoAmIResponse._();
+  @$core.pragma('dart2js:noInline')
+  static WhoAmIResponse getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<WhoAmIResponse>(
+          WhoAmIResponse.$_createMessage);
+  static WhoAmIResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get name => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set name($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearName() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get role => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set role($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasRole() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearRole() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get kind => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set kind($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasKind() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearKind() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get fingerprint => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set fingerprint($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasFingerprint() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearFingerprint() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get authMode => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set authMode($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasAuthMode() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearAuthMode() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.bool get signed => $_getBF(5);
+  @$pb.TagNumber(6)
+  set signed($core.bool value) => $_setBool(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasSigned() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearSigned() => $_clearField(6);
+}
+
+class KeyInfo extends $pb.GeneratedMessage {
+  factory KeyInfo({
+    $core.String? kind,
+    $core.String? name,
+    $core.String? role,
+    $core.String? fingerprint,
+    $core.String? createdAt,
+    $core.String? revokedAt,
+  }) {
+    final result = KeyInfo._();
+    if (kind != null) result.kind = kind;
+    if (name != null) result.name = name;
+    if (role != null) result.role = role;
+    if (fingerprint != null) result.fingerprint = fingerprint;
+    if (createdAt != null) result.createdAt = createdAt;
+    if (revokedAt != null) result.revokedAt = revokedAt;
+    return result;
+  }
+
+  KeyInfo._();
+
+  factory KeyInfo.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      KeyInfo()..mergeFromBuffer(data, registry);
+  factory KeyInfo.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      KeyInfo()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'KeyInfo',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: KeyInfo.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'kind')
+    ..aOS(2, _omitFieldNames ? '' : 'name')
+    ..aOS(3, _omitFieldNames ? '' : 'role')
+    ..aOS(4, _omitFieldNames ? '' : 'fingerprint')
+    ..aOS(5, _omitFieldNames ? '' : 'createdAt')
+    ..aOS(6, _omitFieldNames ? '' : 'revokedAt')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  KeyInfo clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  KeyInfo copyWith(void Function(KeyInfo) updates) =>
+      super.copyWith((message) => updates(message as KeyInfo)) as KeyInfo;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use KeyInfo() / KeyInfo.new instead')
+  static KeyInfo create() => KeyInfo._();
+  static $pb.GeneratedMessage $_createMessage() => KeyInfo._();
+  @$core.override
+  KeyInfo createEmptyInstance() => KeyInfo._();
+  @$core.pragma('dart2js:noInline')
+  static KeyInfo getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<KeyInfo>(KeyInfo.$_createMessage);
+  static KeyInfo? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get kind => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set kind($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasKind() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearKind() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get name => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set name($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearName() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get role => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set role($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasRole() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearRole() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get fingerprint => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set fingerprint($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasFingerprint() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearFingerprint() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get createdAt => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set createdAt($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasCreatedAt() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearCreatedAt() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get revokedAt => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set revokedAt($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasRevokedAt() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearRevokedAt() => $_clearField(6);
+}
+
+class ListKeysRequest extends $pb.GeneratedMessage {
+  factory ListKeysRequest() => ListKeysRequest._();
+
+  ListKeysRequest._();
+
+  factory ListKeysRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListKeysRequest()..mergeFromBuffer(data, registry);
+  factory ListKeysRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListKeysRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ListKeysRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: ListKeysRequest.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListKeysRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListKeysRequest copyWith(void Function(ListKeysRequest) updates) =>
+      super.copyWith((message) => updates(message as ListKeysRequest))
+          as ListKeysRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ListKeysRequest() / ListKeysRequest.new instead')
+  static ListKeysRequest create() => ListKeysRequest._();
+  static $pb.GeneratedMessage $_createMessage() => ListKeysRequest._();
+  @$core.override
+  ListKeysRequest createEmptyInstance() => ListKeysRequest._();
+  @$core.pragma('dart2js:noInline')
+  static ListKeysRequest getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ListKeysRequest>(
+          ListKeysRequest.$_createMessage);
+  static ListKeysRequest? _defaultInstance;
+}
+
+class ListKeysResponse extends $pb.GeneratedMessage {
+  factory ListKeysResponse({
+    $core.Iterable<KeyInfo>? keys,
+  }) {
+    final result = ListKeysResponse._();
+    if (keys != null) result.keys.addAll(keys);
+    return result;
+  }
+
+  ListKeysResponse._();
+
+  factory ListKeysResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListKeysResponse()..mergeFromBuffer(data, registry);
+  factory ListKeysResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListKeysResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ListKeysResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: ListKeysResponse.$_createMessage)
+    ..pPM<KeyInfo>(1, _omitFieldNames ? '' : 'keys',
+        subBuilder: KeyInfo.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListKeysResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListKeysResponse copyWith(void Function(ListKeysResponse) updates) =>
+      super.copyWith((message) => updates(message as ListKeysResponse))
+          as ListKeysResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ListKeysResponse() / ListKeysResponse.new instead')
+  static ListKeysResponse create() => ListKeysResponse._();
+  static $pb.GeneratedMessage $_createMessage() => ListKeysResponse._();
+  @$core.override
+  ListKeysResponse createEmptyInstance() => ListKeysResponse._();
+  @$core.pragma('dart2js:noInline')
+  static ListKeysResponse getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ListKeysResponse>(
+          ListKeysResponse.$_createMessage);
+  static ListKeysResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<KeyInfo> get keys => $_getList(0);
+}
+
+class RegisterKeyRequest extends $pb.GeneratedMessage {
+  factory RegisterKeyRequest({
+    $core.String? bundleJson,
+    $core.String? email,
+    $core.String? phone,
+  }) {
+    final result = RegisterKeyRequest._();
+    if (bundleJson != null) result.bundleJson = bundleJson;
+    if (email != null) result.email = email;
+    if (phone != null) result.phone = phone;
+    return result;
+  }
+
+  RegisterKeyRequest._();
+
+  factory RegisterKeyRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RegisterKeyRequest()..mergeFromBuffer(data, registry);
+  factory RegisterKeyRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RegisterKeyRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'RegisterKeyRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: RegisterKeyRequest.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'bundleJson')
+    ..aOS(2, _omitFieldNames ? '' : 'email')
+    ..aOS(3, _omitFieldNames ? '' : 'phone')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RegisterKeyRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RegisterKeyRequest copyWith(void Function(RegisterKeyRequest) updates) =>
+      super.copyWith((message) => updates(message as RegisterKeyRequest))
+          as RegisterKeyRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use RegisterKeyRequest() / RegisterKeyRequest.new instead')
+  static RegisterKeyRequest create() => RegisterKeyRequest._();
+  static $pb.GeneratedMessage $_createMessage() => RegisterKeyRequest._();
+  @$core.override
+  RegisterKeyRequest createEmptyInstance() => RegisterKeyRequest._();
+  @$core.pragma('dart2js:noInline')
+  static RegisterKeyRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<RegisterKeyRequest>(
+          RegisterKeyRequest.$_createMessage);
+  static RegisterKeyRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get bundleJson => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set bundleJson($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasBundleJson() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearBundleJson() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get email => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set email($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasEmail() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearEmail() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get phone => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set phone($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasPhone() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearPhone() => $_clearField(3);
+}
+
+class RegisterKeyResponse extends $pb.GeneratedMessage {
+  factory RegisterKeyResponse({
+    KeyInfo? key,
+  }) {
+    final result = RegisterKeyResponse._();
+    if (key != null) result.key = key;
+    return result;
+  }
+
+  RegisterKeyResponse._();
+
+  factory RegisterKeyResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RegisterKeyResponse()..mergeFromBuffer(data, registry);
+  factory RegisterKeyResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RegisterKeyResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'RegisterKeyResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: RegisterKeyResponse.$_createMessage)
+    ..aOM<KeyInfo>(1, _omitFieldNames ? '' : 'key',
+        subBuilder: KeyInfo.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RegisterKeyResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RegisterKeyResponse copyWith(void Function(RegisterKeyResponse) updates) =>
+      super.copyWith((message) => updates(message as RegisterKeyResponse))
+          as RegisterKeyResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core
+      .Deprecated('Use RegisterKeyResponse() / RegisterKeyResponse.new instead')
+  static RegisterKeyResponse create() => RegisterKeyResponse._();
+  static $pb.GeneratedMessage $_createMessage() => RegisterKeyResponse._();
+  @$core.override
+  RegisterKeyResponse createEmptyInstance() => RegisterKeyResponse._();
+  @$core.pragma('dart2js:noInline')
+  static RegisterKeyResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<RegisterKeyResponse>(
+          RegisterKeyResponse.$_createMessage);
+  static RegisterKeyResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  KeyInfo get key => $_getN(0);
+  @$pb.TagNumber(1)
+  set key(KeyInfo value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasKey() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearKey() => $_clearField(1);
+  @$pb.TagNumber(1)
+  KeyInfo ensureKey() => $_ensure(0);
+}
+
+class RevokeKeyRequest extends $pb.GeneratedMessage {
+  factory RevokeKeyRequest({
+    $core.String? fingerprint,
+  }) {
+    final result = RevokeKeyRequest._();
+    if (fingerprint != null) result.fingerprint = fingerprint;
+    return result;
+  }
+
+  RevokeKeyRequest._();
+
+  factory RevokeKeyRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RevokeKeyRequest()..mergeFromBuffer(data, registry);
+  factory RevokeKeyRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RevokeKeyRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'RevokeKeyRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: RevokeKeyRequest.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'fingerprint')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RevokeKeyRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RevokeKeyRequest copyWith(void Function(RevokeKeyRequest) updates) =>
+      super.copyWith((message) => updates(message as RevokeKeyRequest))
+          as RevokeKeyRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use RevokeKeyRequest() / RevokeKeyRequest.new instead')
+  static RevokeKeyRequest create() => RevokeKeyRequest._();
+  static $pb.GeneratedMessage $_createMessage() => RevokeKeyRequest._();
+  @$core.override
+  RevokeKeyRequest createEmptyInstance() => RevokeKeyRequest._();
+  @$core.pragma('dart2js:noInline')
+  static RevokeKeyRequest getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<RevokeKeyRequest>(
+          RevokeKeyRequest.$_createMessage);
+  static RevokeKeyRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get fingerprint => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set fingerprint($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasFingerprint() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearFingerprint() => $_clearField(1);
+}
+
+class RevokeKeyResponse extends $pb.GeneratedMessage {
+  factory RevokeKeyResponse({
+    $core.bool? revoked,
+  }) {
+    final result = RevokeKeyResponse._();
+    if (revoked != null) result.revoked = revoked;
+    return result;
+  }
+
+  RevokeKeyResponse._();
+
+  factory RevokeKeyResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RevokeKeyResponse()..mergeFromBuffer(data, registry);
+  factory RevokeKeyResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      RevokeKeyResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'RevokeKeyResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: RevokeKeyResponse.$_createMessage)
+    ..aOB(1, _omitFieldNames ? '' : 'revoked')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RevokeKeyResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  RevokeKeyResponse copyWith(void Function(RevokeKeyResponse) updates) =>
+      super.copyWith((message) => updates(message as RevokeKeyResponse))
+          as RevokeKeyResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use RevokeKeyResponse() / RevokeKeyResponse.new instead')
+  static RevokeKeyResponse create() => RevokeKeyResponse._();
+  static $pb.GeneratedMessage $_createMessage() => RevokeKeyResponse._();
+  @$core.override
+  RevokeKeyResponse createEmptyInstance() => RevokeKeyResponse._();
+  @$core.pragma('dart2js:noInline')
+  static RevokeKeyResponse getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<RevokeKeyResponse>(
+          RevokeKeyResponse.$_createMessage);
+  static RevokeKeyResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.bool get revoked => $_getBF(0);
+  @$pb.TagNumber(1)
+  set revoked($core.bool value) => $_setBool(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasRevoked() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearRevoked() => $_clearField(1);
+}
+
+class PluginInfo extends $pb.GeneratedMessage {
+  factory PluginInfo({
+    $core.String? name,
+    $core.String? version,
+    $core.bool? enabled,
+    $core.String? installedAt,
+    $core.String? signer,
+    $core.String? packageSha256,
+  }) {
+    final result = PluginInfo._();
+    if (name != null) result.name = name;
+    if (version != null) result.version = version;
+    if (enabled != null) result.enabled = enabled;
+    if (installedAt != null) result.installedAt = installedAt;
+    if (signer != null) result.signer = signer;
+    if (packageSha256 != null) result.packageSha256 = packageSha256;
+    return result;
+  }
+
+  PluginInfo._();
+
+  factory PluginInfo.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      PluginInfo()..mergeFromBuffer(data, registry);
+  factory PluginInfo.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      PluginInfo()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PluginInfo',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: PluginInfo.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..aOS(2, _omitFieldNames ? '' : 'version')
+    ..aOB(3, _omitFieldNames ? '' : 'enabled')
+    ..aOS(4, _omitFieldNames ? '' : 'installedAt')
+    ..aOS(5, _omitFieldNames ? '' : 'signer')
+    ..aOS(6, _omitFieldNames ? '' : 'packageSha256')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PluginInfo clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PluginInfo copyWith(void Function(PluginInfo) updates) =>
+      super.copyWith((message) => updates(message as PluginInfo)) as PluginInfo;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use PluginInfo() / PluginInfo.new instead')
+  static PluginInfo create() => PluginInfo._();
+  static $pb.GeneratedMessage $_createMessage() => PluginInfo._();
+  @$core.override
+  PluginInfo createEmptyInstance() => PluginInfo._();
+  @$core.pragma('dart2js:noInline')
+  static PluginInfo getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PluginInfo>(PluginInfo.$_createMessage);
+  static PluginInfo? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get name => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set name($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearName() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get version => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set version($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasVersion() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearVersion() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.bool get enabled => $_getBF(2);
+  @$pb.TagNumber(3)
+  set enabled($core.bool value) => $_setBool(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasEnabled() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearEnabled() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get installedAt => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set installedAt($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasInstalledAt() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearInstalledAt() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get signer => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set signer($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasSigner() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearSigner() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get packageSha256 => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set packageSha256($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasPackageSha256() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearPackageSha256() => $_clearField(6);
+}
+
+class ListPluginsRequest extends $pb.GeneratedMessage {
+  factory ListPluginsRequest() => ListPluginsRequest._();
+
+  ListPluginsRequest._();
+
+  factory ListPluginsRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListPluginsRequest()..mergeFromBuffer(data, registry);
+  factory ListPluginsRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListPluginsRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ListPluginsRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: ListPluginsRequest.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListPluginsRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListPluginsRequest copyWith(void Function(ListPluginsRequest) updates) =>
+      super.copyWith((message) => updates(message as ListPluginsRequest))
+          as ListPluginsRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ListPluginsRequest() / ListPluginsRequest.new instead')
+  static ListPluginsRequest create() => ListPluginsRequest._();
+  static $pb.GeneratedMessage $_createMessage() => ListPluginsRequest._();
+  @$core.override
+  ListPluginsRequest createEmptyInstance() => ListPluginsRequest._();
+  @$core.pragma('dart2js:noInline')
+  static ListPluginsRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ListPluginsRequest>(
+          ListPluginsRequest.$_createMessage);
+  static ListPluginsRequest? _defaultInstance;
+}
+
+class ListPluginsResponse extends $pb.GeneratedMessage {
+  factory ListPluginsResponse({
+    $core.Iterable<PluginInfo>? plugins,
+  }) {
+    final result = ListPluginsResponse._();
+    if (plugins != null) result.plugins.addAll(plugins);
+    return result;
+  }
+
+  ListPluginsResponse._();
+
+  factory ListPluginsResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListPluginsResponse()..mergeFromBuffer(data, registry);
+  factory ListPluginsResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListPluginsResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ListPluginsResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: ListPluginsResponse.$_createMessage)
+    ..pPM<PluginInfo>(1, _omitFieldNames ? '' : 'plugins',
+        subBuilder: PluginInfo.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListPluginsResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListPluginsResponse copyWith(void Function(ListPluginsResponse) updates) =>
+      super.copyWith((message) => updates(message as ListPluginsResponse))
+          as ListPluginsResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core
+      .Deprecated('Use ListPluginsResponse() / ListPluginsResponse.new instead')
+  static ListPluginsResponse create() => ListPluginsResponse._();
+  static $pb.GeneratedMessage $_createMessage() => ListPluginsResponse._();
+  @$core.override
+  ListPluginsResponse createEmptyInstance() => ListPluginsResponse._();
+  @$core.pragma('dart2js:noInline')
+  static ListPluginsResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ListPluginsResponse>(
+          ListPluginsResponse.$_createMessage);
+  static ListPluginsResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<PluginInfo> get plugins => $_getList(0);
+}
+
+class PreviewScheduleResponse extends $pb.GeneratedMessage {
+  factory PreviewScheduleResponse({
+    $core.Iterable<$fixnum.Int64>? nextRuns,
+    $core.String? error,
+  }) {
+    final result = PreviewScheduleResponse._();
+    if (nextRuns != null) result.nextRuns.addAll(nextRuns);
+    if (error != null) result.error = error;
+    return result;
+  }
+
+  PreviewScheduleResponse._();
+
+  factory PreviewScheduleResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      PreviewScheduleResponse()..mergeFromBuffer(data, registry);
+  factory PreviewScheduleResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      PreviewScheduleResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PreviewScheduleResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: PreviewScheduleResponse.$_createMessage)
+    ..p<$fixnum.Int64>(1, _omitFieldNames ? '' : 'nextRuns', $pb.PbFieldType.K6)
+    ..aOS(2, _omitFieldNames ? '' : 'error')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PreviewScheduleResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PreviewScheduleResponse copyWith(
+          void Function(PreviewScheduleResponse) updates) =>
+      super.copyWith((message) => updates(message as PreviewScheduleResponse))
+          as PreviewScheduleResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use PreviewScheduleResponse() / PreviewScheduleResponse.new instead')
+  static PreviewScheduleResponse create() => PreviewScheduleResponse._();
+  static $pb.GeneratedMessage $_createMessage() => PreviewScheduleResponse._();
+  @$core.override
+  PreviewScheduleResponse createEmptyInstance() => PreviewScheduleResponse._();
+  @$core.pragma('dart2js:noInline')
+  static PreviewScheduleResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PreviewScheduleResponse>(
+          PreviewScheduleResponse.$_createMessage);
+  static PreviewScheduleResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<$fixnum.Int64> get nextRuns => $_getList(0);
+
+  @$pb.TagNumber(2)
+  $core.String get error => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set error($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasError() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearError() => $_clearField(2);
 }
 
 class GetRestoreStatusRequest extends $pb.GeneratedMessage {

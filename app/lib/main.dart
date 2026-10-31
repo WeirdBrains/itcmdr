@@ -4,10 +4,14 @@ import 'package:fixnum/fixnum.dart';
 import 'package:flutter/material.dart';
 import 'package:grpc/grpc_or_grpcweb.dart';
 
+import 'backup_page.dart';
 import 'charts.dart';
 import 'exceptions_form.dart';
+import 'keys_page.dart';
 import 'logs_page.dart';
+import 'plugins_page.dart';
 import 'proto/itcmdr.pbgrpc.dart';
+import 'schedules_page.dart';
 import 'server_settings.dart';
 import 'settings.dart';
 
@@ -66,7 +70,7 @@ class _HomeShellState extends State<HomeShell> {
     await _updates?.cancel();
     await _channel?.shutdown();
     final ch = s.channel();
-    final client = ItcmdrClient(ch);
+    final client = s.client(ch, await s.appKey());
     if (!mounted) {
       await ch.shutdown();
       return;
@@ -113,21 +117,58 @@ class _HomeShellState extends State<HomeShell> {
     }
     final key = ValueKey(_generation);
     final updates = _updatesCtl.stream;
-    final pages = <Widget>[
-      OverviewPage(key: key, client: c, updates: updates),
-      MetricsPage(key: key, client: c),
-      LogsPage(key: key, client: c, errText: errText),
-      ExceptionsPage(key: key, client: c, settings: s, updates: updates),
-      OnDemandPage(key: key, client: c, settings: s, updates: updates),
-      AuditPage(key: key, client: c, updates: updates),
-      SettingsPage(
-        key: key,
-        settings: s,
-        client: c,
-        onSave: (n) async {
-          await n.save();
-          await _apply(n);
-        },
+    Future<void> save(ServerSettings n) async {
+      await n.save();
+      await _apply(n);
+    }
+
+    final pages = <(IconData, String, Widget)>[
+      (
+        Icons.grid_view,
+        'Overview',
+        OverviewPage(key: key, client: c, updates: updates),
+      ),
+      (Icons.query_stats, 'Metrics', MetricsPage(key: key, client: c)),
+      (
+        Icons.description,
+        'Logs',
+        LogsPage(key: key, client: c, errText: errText),
+      ),
+      (
+        Icons.rule,
+        'Exceptions',
+        ExceptionsPage(key: key, client: c, settings: s, updates: updates),
+      ),
+      (
+        Icons.playlist_add_check,
+        'On-demand',
+        OnDemandPage(key: key, client: c, settings: s, updates: updates),
+      ),
+      (
+        Icons.schedule,
+        'Schedules',
+        SchedulesPage(key: key, client: c, settings: s),
+      ),
+      (
+        Icons.extension,
+        'Plugins',
+        PluginsPage(key: key, client: c, settings: s),
+      ),
+      (Icons.backup, 'Backup', BackupPage(key: key, client: c, settings: s)),
+      (
+        Icons.history,
+        'Audit',
+        AuditPage(key: key, client: c, updates: updates),
+      ),
+      (
+        Icons.key,
+        'Keys',
+        KeysPage(key: key, client: c, settings: s, onSave: save),
+      ),
+      (
+        Icons.settings,
+        'Settings',
+        SettingsPage(key: key, settings: s, client: c, onSave: save),
       ),
     ];
     return Scaffold(
@@ -138,6 +179,12 @@ class _HomeShellState extends State<HomeShell> {
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
               children: [
+                Icon(
+                  s.hasKey ? Icons.lock : Icons.lock_open,
+                  size: 14,
+                  color: s.hasKey ? Colors.green : Colors.orange,
+                ),
+                const SizedBox(width: 6),
                 Icon(
                   Icons.circle,
                   size: 10,
@@ -150,25 +197,20 @@ class _HomeShellState extends State<HomeShell> {
           ),
         ],
       ),
-      body: pages[_index],
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.grid_view), label: 'Overview'),
-          NavigationDestination(
-            icon: Icon(Icons.query_stats),
-            label: 'Metrics',
+      body: Row(
+        children: [
+          NavigationRail(
+            selectedIndex: _index,
+            labelType: NavigationRailLabelType.all,
+            destinations: [
+              for (final p in pages)
+                NavigationRailDestination(icon: Icon(p.$1), label: Text(p.$2)),
+            ],
+            onDestinationSelected: (i) => setState(() => _index = i),
           ),
-          NavigationDestination(icon: Icon(Icons.description), label: 'Logs'),
-          NavigationDestination(icon: Icon(Icons.rule), label: 'Exceptions'),
-          NavigationDestination(
-            icon: Icon(Icons.playlist_add_check),
-            label: 'On-demand',
-          ),
-          NavigationDestination(icon: Icon(Icons.history), label: 'Audit'),
-          NavigationDestination(icon: Icon(Icons.settings), label: 'Settings'),
+          const VerticalDivider(width: 1),
+          Expanded(child: pages[_index].$3),
         ],
-        onDestinationSelected: (i) => setState(() => _index = i),
       ),
     );
   }
@@ -901,8 +943,7 @@ class _SettingsPageState extends State<SettingsPage> {
           controller: _token,
           obscureText: !_showToken,
           decoration: InputDecoration(
-            labelText:
-                'Admin token (needed for on-demand runs and exception changes)',
+            labelText: 'Shared admin token (legacy; servers in signed mode ignore it - use Keys)',
             suffixIcon: IconButton(
               icon: Icon(_showToken ? Icons.visibility_off : Icons.visibility),
               onPressed: () => setState(() => _showToken = !_showToken),

@@ -46,5 +46,29 @@
     "signed_message": "itcmdr-req/v1\n/itcmdr.Itcmdr/VerifyBackup\n1790000000000\n0123456789abcdef\n20af63c8757d89b4757015bb8500e319632a0fefff098b931ad2483a4c247cd2",
     "signed_message_nonce": "0123456789abcdef",
     "signed_message_ts": 1790000000000
+  },
+  {
+    "body_hex": "0a50120c4576656e696e67207363616e18012a0557532d3031320b576f726b73746174696f6e3a076e6574776f726b520e7765656b646179732031383a33305a056c6f63616c62046e6f6e656a04736b6970",
+    "method": "/itcmdr.Itcmdr/CreateSchedule",
+    "name": "SaveSchedule/typical",
+    "signed_message": "itcmdr-req/v1\n/itcmdr.Itcmdr/CreateSchedule\n1790000000000\n0123456789abcdef\n4a91957f594b552d61d87b6a5e3b888f970fcd0227935d1268caa1875edd8538",
+    "signed_message_nonce": "0123456789abcdef",
+    "signed_message_ts": 1790000000000
+  },
+  {
+    "body_hex": "0a266974636d64722d32303236313033302d3032303030303030302d6e696768746c792e697463621a100a026b31120261621a026364220265662001",
+    "method": "/itcmdr.Itcmdr/StageRestore",
+    "name": "StageRestore/sealed-dry-run",
+    "signed_message": "itcmdr-req/v1\n/itcmdr.Itcmdr/StageRestore\n1790000000000\n0123456789abcdef\na0685e41a0253fd775ea2fc133655d6e7cb9fef40cdfb50154a17ddc4245e401",
+    "signed_message_nonce": "0123456789abcdef",
+    "signed_message_ts": 1790000000000
+  },
+  {
+    "body_hex": "0a116167656e742e6e696768746c7954696d65120530313a33301a0557532d3031",
+    "method": "/itcmdr.Itcmdr/UpdateSetting",
+    "name": "UpdateSetting/override",
+    "signed_message": "itcmdr-req/v1\n/itcmdr.Itcmdr/UpdateSetting\n1790000000000\n0123456789abcdef\nf37bca544ee8384162b9d2855d0d5992afd3eabd86a26704a8dec1c6b0529773",
+    "signed_message_nonce": "0123456789abcdef",
+    "signed_message_ts": 1790000000000
   }
 ]

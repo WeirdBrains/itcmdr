@@ -567,6 +567,28 @@ pub async fn rotate_root(pool: &DbPool, layout: &Layout, master: &Master) -> Res
     Ok(cert.fingerprint)
 }
 
+/// v0.12.0 auth-mode migration. When server.json does not set `auth_mode`, the database decides:
+/// `db::init_db` records `server_meta.auth_mode_default` once ("both" for a database that existed
+/// before v0.12.0, so the shared token keeps working; "signed" for a new one). server.json wins.
+pub async fn settle_auth_mode(pool: &DbPool, cfg: &mut crate::config::ServerConfig) -> Result<()> {
+    // Only a value nobody set: server.json and programmatic configs ("default") win.
+    if cfg.auth_mode_source != "unset" {
+        return Ok(());
+    }
+    let stored: Option<String> =
+        sqlx::query_scalar("SELECT value FROM server_meta WHERE key = 'auth_mode_default'")
+            .fetch_optional(pool)
+            .await?;
+    let stored = stored.unwrap_or_else(|| "signed".into());
+    cfg.auth_mode_source = if stored == "both" {
+        "kept-both".into()
+    } else {
+        "new-install".into()
+    };
+    cfg.auth_mode = stored;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
