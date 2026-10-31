@@ -6,7 +6,7 @@ untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committ
 
 ## Current state (updated 2026-10-31)
 
-- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.14.0** (installer and first-run setup). Previous: v0.13.0 (`fba79ce`). Versions in the tree: server 0.14.0, app 0.14.0+19, installer 0.14.0, agent `AgentVersion` 0.14.0.
+- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.14.1** (plugins moved to github.com/WeirdBrains/itcmdr-plugins, pinned in `plugins.pin.json`). Previous: v0.14.0. Versions in the tree: server 0.14.1, app 0.14.1+20, installer 0.14.1, agent `AgentVersion` 0.14.1. Run `scripts/fetch-plugins.sh` once after cloning (installer and parity tests need it).
 - Linux for v0.12.0: analyzer clean. Widget tests cover the Keys, Schedules and Backup dialogs and the settings search/switches. `app/test/e2e_test.dart` runs init, certifies an app key, then WhoAmI, every registry setting, a schedule, a backup and a restore dry run.
 - Windows VM passes: v0.10.1, v0.11.0, v0.12.0 and v0.13.0. App click-through on the VM: passed (Michael). The test VM runs signed-only. See Results.
 - **No install is switched.** Every install runs the SYSTEM task as before, plus the plugin versions report-only for parity. Switching is on site: collect a week of parity, `itcmdr-cli cutover status`, then `cutover vm-verified` and `cutover switch` (Michael).
@@ -125,7 +125,7 @@ untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committ
 
 ## Done (v0.11.0, built-in checks as plugins + default schedules)
 
-- `agent/Itcmdr.Checks.ps1` holds every check (moved, unchanged). `plugins/builtin/` has five plugins over it (network, scanners, config, backup-coverage, services); `Build-BuiltinPlugins.ps1` stages/signs them.
+- `agent/Itcmdr.Checks.ps1` holds every check (moved, unchanged). `plugins/builtin/` had five plugins over it (moved to the itcmdr-plugins repo in v0.14.1) (network, scanners, config, backup-coverage, services); `Build-BuiltinPlugins.ps1` stages/signs them.
 - Agents run only the copies installed with the agent (`{app}\agent\plugins`); they never download plugins. Plugin packages are fetched (plain HTTPS) and run by the server only (decision 16).
 - `agent/Itcmdr.PluginRunner.ps1`: run plugins as child processes, `Compare-ItcmdrParity`, `schedule-state.json`, `cutover.json`, task enable/disable (never delete), local fallback. `Set-ItcmdrCutover.ps1 -To task|schedule|auto`.
 - Nightly: `agent.pluginMode` auto = plugins report-only first, then the built-in checks, then a `parity` line; after the switch the plugins are the run with per-plugin fallback to the built-in function. run-start carries `trigger`, `cutover`, `scheduleStateTs`, `pluginMode`.
@@ -158,7 +158,7 @@ Later the same day: those 4 infos fixed, widget tests added, Dart e2e green, ver
 1. Click through the installed app on the VM (connect, Keys, Schedules, Backup dry run, Settings) with a person at the screen.
 2. A real second PC as an agent.
 3. On site (Michael): the signed-only checklist in docs/INSTALL.md; a week of parity, then the gated cutover.
-4. Next (queued, approved): plugins move to the itcmdr-plugins repo, then a one-time history rewrite of itcmdr.
+4. Done in v0.14.1: plugins in itcmdr-plugins. A one-time history rewrite of itcmdr follows (approved by Michael, t427s1111).
 
 **Commands**
 - Linux: `export PATH=$HOME/Projects/tools/flutter/bin:$HOME/Projects/tools/pwsh:$HOME/Projects/tools/protoc/bin:$HOME/.pub-cache/bin:$PATH`; `cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace`; `pwsh -NoProfile -c 'Invoke-Pester -Path agent/tests -CI'`; `cd app && flutter analyze && flutter test`.
@@ -172,7 +172,7 @@ Later the same day: those 4 infos fixed, widget tests added, Dart e2e green, ver
 
 ## In progress
 
-Nothing. v0.14.0 is released.
+v0.14.1 released next (plugins split, pinned itcmdr-plugins v1.0.1 e7fde59). Then: approved one-time history rewrite (backup to ~/Projects/WeirdBrains/backups/itcmdr-pre-rewrite-2026-10-31 first).
 
 ## Backlog (in order)
 
@@ -191,6 +191,7 @@ Tools are under `~/Projects/tools` (flutter, pwsh, protoc); add them to PATH:
 `export PATH=$HOME/Projects/tools/flutter/bin:$HOME/Projects/tools/pwsh:$HOME/Projects/tools/protoc/bin:$HOME/.pub-cache/bin:$PATH`
 
 ```
+scripts/fetch-plugins.sh   # pinned itcmdr-plugins -> third_party (installer + parity tests)
 cargo build --workspace --all-targets && cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings
 (cd app && flutter pub get && flutter analyze && flutter test)
@@ -300,6 +301,19 @@ In-place upgrade over the v0.11.0 install. The installer is built after `flutter
 | Dart e2e against a real server on Windows (`flutter test test\e2e_test.dart`, release bins via `ITCMDR_E2E_BIN_DIR`) + signing and page tests | ✅ 14 passed |
 | Dart e2e on Windows | ❌ → fixed: the test hard-coded `../target/debug/itcmdr-server` (no `.exe`, no bin dir override) |
 | App screens clicked through on the VM | ✅ passed (Michael, 2026-10-31) |
+
+### Results: v0.14.1 VM pass (2026-10-31, plugins from itcmdr-plugins)
+
+| Item | Result |
+|---|---|
+| Build, ISCC with the pinned copy, Pester 88/88 (parity against the pinned plugins), PSScriptAnalyzer 0, `flutter test` 31 + 1 skipped | ✅ |
+| Upgrade to v0.14.1: installed `agent\plugins` = the five pinned copies (hash equal), `AgentVersion` 0.14.1, signed mode kept | ✅ |
+| itcmdr-plugins Pester on PS 5.1 | ✅ 10/10 after a test fix (v1.0.1) |
+| `Install-Plugins.ps1 -Disabled` against the signed-mode server (registered admin key) | ✅ five installed disabled |
+| Remove, then `Install-Plugins.ps1` (enable on install) | ✅ five enabled |
+| Tampered package via `-Packages` | ✅ refused ("sha256 does not match"), quarantined, exit 1 |
+| `-Cli` pointing nowhere | ✅ "itcmdr-cli not found", exit 1 |
+| `itcmdr-cli plugins run <check plugin>` | ❌ → fixed: "plugin exited before the handshake" (verbatim `\\?\` script path, so `$PSScriptRoot` was empty under PS 5.1). After the fix all five run (verify ok, execute ok). They ran in repair mode on the test VM. |
 
 ### Results: v0.14.0 VM pass (2026-10-31, Windows 11 Pro, Windows PowerShell 5.1)
 

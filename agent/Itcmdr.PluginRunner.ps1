@@ -7,7 +7,7 @@
   Dot-sourced after Itcmdr.Checks.ps1 by Invoke-ItcmdrAgent.ps1 and Poll-ItcmdrRequests.ps1.
 
   Plugins: agents run only the built-in plugin copies installed with the agent
-  (<agent>\plugins\<name>, or plugins\builtin in a source tree). Agents never download plugins;
+  (<agent>\plugins\<name>, or the pinned itcmdr-plugins copy in a source tree). Agents never download plugins;
   plugin packages are fetched (plain HTTPS) and run by the server only. Each plugin runs as a child PowerShell process with the plugin protocol (stdin JSON, one
   ITCMDR-RESULT line), like itcmdr-plugin-ps on the server.
 
@@ -43,11 +43,17 @@ function Write-ItcmdrJsonFile {
   Move-Item -LiteralPath $tmp -Destination $Path -Force
 }
 
+# Source tree only: the itcmdr-plugins checkout pinned in plugins.pin.json (scripts/fetch-plugins.sh).
+function Get-ItcmdrSourcePluginsDir([string]$AgentDir) {
+  return (Join-Path (Join-Path (Join-Path (Join-Path $AgentDir '..') 'third_party') 'itcmdr-plugins') 'plugins')
+}
+
 function Get-ItcmdrBuiltinPluginSet {
   <#
     One entry per built-in check plugin: Name, Version, Main, Source (bundled | missing),
     CheckFunction. Agents run ONLY the copies installed next to the agent scripts
-    (<agent>\plugins\<name>, or plugins\builtin\<name> in a source tree). They never download or
+    (<agent>\plugins\<name>, or third_party\itcmdr-plugins\plugins\<name> in a source tree, fetched
+    from the pinned itcmdr-plugins tag by scripts/fetch-plugins.sh). They never download or
     copy plugins from the share or anywhere else: any PC can write to the share, so a planted copy
     would run as SYSTEM everywhere. Signed packages are fetched (HTTPS) and run by the server only.
   #>
@@ -55,7 +61,7 @@ function Get-ItcmdrBuiltinPluginSet {
   $set = @()
   foreach ($name in @($script:ItcmdrBuiltinPlugins.Keys)) {
     $main = $null
-    foreach ($d in @((Join-Path (Join-Path $AgentDir 'plugins') $name), (Join-Path (Join-Path (Join-Path (Join-Path $AgentDir '..') 'plugins') 'builtin') $name))) {
+    foreach ($d in @((Join-Path (Join-Path $AgentDir 'plugins') $name), (Join-Path (Get-ItcmdrSourcePluginsDir $AgentDir) $name))) {
       $m = Join-Path $d 'main.ps1'
       if (Test-Path -LiteralPath $m) { $main = (Resolve-Path -LiteralPath $m).Path; break }
     }

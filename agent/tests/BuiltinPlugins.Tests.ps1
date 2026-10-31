@@ -5,6 +5,8 @@ Set-StrictMode -Version Latest
 BeforeAll {
   $env:ITCMDR_IMPORT_ONLY = '1'
   $script:agentDir = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+  $pinned = Join-Path $script:agentDir '..\third_party\itcmdr-plugins\plugins\itcmdr-network\main.ps1'
+  if (-not (Test-Path -LiteralPath $pinned)) { throw 'The pinned itcmdr-plugins checkout is missing: run scripts/fetch-plugins.sh first (plugins.pin.json).' }
   . (Join-Path $script:agentDir 'Invoke-ItcmdrAgent.ps1')
   Remove-Item Env:ITCMDR_IMPORT_ONLY -ErrorAction SilentlyContinue
   $env:ITCMDR_TCP_TIMEOUT_MS = '500'

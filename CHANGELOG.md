@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.14.1 (2026-10-31)
+The check plugins moved to their own repo, github.com/WeirdBrains/itcmdr-plugins (v1.0.1, with history).
+- `plugins.pin.json` pins the release (tag + commit). `scripts/fetch-plugins.sh` puts it in `third_party/itcmdr-plugins` (gitignored) and checks the commit.
+- The installer, `Push-Install-ItcmdrAgent.ps1`, the agent's source-tree fallback and the parity tests use the pinned copy. ISCC and the tests fail with a clear message when it is missing. Agents still run only the installed copies, and parity/cutover is unchanged.
+- Installing on a server: `Install-Plugins.ps1` (PowerShell 5.1) or `install.sh` from itcmdr-plugins (`itcmdr-cli plugins install --path`, `-Disabled`).
+- Fix: `itcmdr-plugin-ps` passed a verbatim `\\?\C:\...` script path, so Windows PowerShell 5.1 left `$PSScriptRoot` empty and every check plugin failed at the handshake when the server ran it (`plugins run`). This bug dates from v0.10.0 and was found on the VM. Simple plugins such as disk-free were not affected.
+- `agent/Itcmdr.Checks.ps1`, the `plugin/` crate and `Itcmdr.Plugin.psm1` stay here (the agent, the server and the tests need them).
+
 ## v0.14.0 (2026-10-31)
 Installer and first-run setup. A new office goes from installer to signed-only in one sitting, with no hand-edited JSON.
 - `itcmdr-cli setup check|apply|first-run` (`server/src/setup.rs`).

@@ -20,7 +20,7 @@
 
 #define MyAppName "itcmdr"
 #ifndef MyAppVersion
-  #define MyAppVersion "0.14.0"
+  #define MyAppVersion "0.14.1"
 #endif
 #define InstallDirName "itcmdr"
 #ifndef LocalLogs
@@ -61,8 +61,12 @@ Source: "..\agent\Itcmdr.Checks.ps1"; DestDir: "{app}\agent"; Components: agent;
 Source: "..\agent\Itcmdr.PluginRunner.ps1"; DestDir: "{app}\agent"; Components: agent; Flags: ignoreversion
 Source: "..\agent\Initialize-ItcmdrSite.ps1"; DestDir: "{app}\agent"; Components: agent; Flags: ignoreversion
 Source: "..\agent\Set-ItcmdrCutover.ps1"; DestDir: "{app}\agent"; Components: agent; Flags: ignoreversion
-; Built-in check plugins (v0.11.0): the only plugin copies agents run; never downloaded
-Source: "..\plugins\builtin\*"; Excludes: "*.toml,Build-BuiltinPlugins.ps1"; DestDir: "{app}\agent\plugins"; Components: agent; Flags: ignoreversion recursesubdirs
+; Check plugins: the only plugin copies agents run; never downloaded by agents. They come from the
+; itcmdr-plugins tag pinned in plugins.pin.json (scripts/fetch-plugins.sh puts it in third_party).
+#if !FileExists(AddBackslash(SourcePath) + "..\third_party\itcmdr-plugins\plugins\itcmdr-network\main.ps1")
+  #error "Pinned plugins missing: run scripts/fetch-plugins.sh (see plugins.pin.json)"
+#endif
+Source: "..\third_party\itcmdr-plugins\plugins\*"; Excludes: "*.toml"; DestDir: "{app}\agent\plugins"; Components: agent; Flags: ignoreversion recursesubdirs
 Source: "..\agent\Report-BackupCoverage.ps1"; DestDir: "{app}\agent"; Components: server; Flags: ignoreversion
 Source: "..\agent\Push-Install-ItcmdrAgent.ps1"; DestDir: "{app}\agent"; Components: agent; Flags: ignoreversion
 Source: "..\agent\Rotate-ItcmdrLogs.ps1"; DestDir: "{app}\agent"; Components: server; Flags: ignoreversion
