@@ -221,8 +221,12 @@ async fn grpc_answers(cfg: &ServerConfig) -> bool {
 /// Health check after the restart: DB opens with this schema and passes integrity_check, and
 /// gRPC answers, within `timeout`.
 pub async fn health(cfg: &ServerConfig, timeout: Duration) -> Result<()> {
-    if std::env::var_os(ENV_FORCE_HEALTH_FAIL).is_some() {
-        bail!("health check forced to fail ({ENV_FORCE_HEALTH_FAIL})");
+    // Test hook: "1", or the path of a file that exists (lets a test toggle it for a server
+    // process it started earlier).
+    if let Some(v) = std::env::var_os(ENV_FORCE_HEALTH_FAIL) {
+        if v == "1" || std::path::Path::new(&v).exists() {
+            bail!("health check forced to fail ({ENV_FORCE_HEALTH_FAIL})");
+        }
     }
     let pool = crate::db::init_db(cfg)
         .await

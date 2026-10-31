@@ -101,22 +101,36 @@ async fn set_limit(c: &ServerConfig, v: &str) {
 
 async fn wait_terminal(
     cl: &mut ItcmdrClient<tonic::transport::Channel>,
-    root: &ed25519_dalek::SigningKey,
+    root: &mut ed25519_dalek::SigningKey,
 ) -> RestoreStatus {
     for _ in 0..240 {
-        let s = cl
+        // The helper restarts the server, so calls fail for a moment.
+        let r = cl
             .get_restore_status(signed(root, GS, GetRestoreStatusRequest {}))
-            .await
-            .unwrap()
-            .into_inner()
-            .status
-            .unwrap();
+            .await;
+        let Ok(r) = r else {
+            // The restore issues a new root key: pick it up once the old one is refused.
+            *root =
+                srv::auth::load_root_key(&server_cfg().layout()).unwrap_or_else(|_| root.clone());
+            tokio::time::sleep(Duration::from_millis(250)).await;
+            if let Ok(x) = ItcmdrClient::connect(server_url()).await {
+                *cl = x;
+            }
+            continue;
+        };
+        let Some(s) = r.into_inner().status else {
+            tokio::time::sleep(Duration::from_millis(250)).await;
+            continue;
+        };
         if ["done", "rolled-back", "failed"].contains(&s.state.as_str()) {
             return s;
         }
         tokio::time::sleep(Duration::from_millis(250)).await;
     }
-    panic!("restore did not finish");
+    let c = server_cfg();
+    let st = std::fs::read_to_string(c.layout().root.join("restore").join("status.json"))
+        .unwrap_or_default();
+    panic!("restore did not finish; helper status: {st}");
 }
 
 #[tokio::test]
@@ -134,12 +148,19 @@ async fn stage_restore_done_then_rolled_back_on_failed_health() {
         ..ServerConfig::default()
     };
     c.backup.nightly = false;
+    // A real server process, stopped and started by the helper like the service: Windows cannot
+    // replace the database while an in-process server still holds it open.
+    let pidf = tmp.path().join("server.pid");
+    let (start, stop) = server_commands(env!("CARGO_BIN_EXE_itcmdr-server"), &pidf);
+    c.restore.start_command = start.clone();
+    c.restore.stop_command = stop.clone();
+    let force = tmp.path().join("force-health-fail");
     // The helper is a separate process: it finds this config like the real one does.
     let cfgp = tmp.path().join("server.json");
     std::fs::write(&cfgp, serde_json::to_vec(&c).unwrap()).unwrap();
     std::env::set_var("ITCMDR_SERVER_CONFIG", &cfgp);
     std::env::set_var("ITCMDR_RESTORE_BIN", env!("CARGO_BIN_EXE_itcmdr-restore"));
-    std::env::remove_var(srv::restore::ENV_FORCE_HEALTH_FAIL);
+    std::env::set_var(srv::restore::ENV_FORCE_HEALTH_FAIL, &force);
 
     let pool = srv::db::init_db(&c).await.unwrap();
     let out = srv::auth::init(&pool, &c.layout()).await.unwrap();
@@ -172,12 +193,10 @@ async fn stage_restore_done_then_rolled_back_on_failed_health() {
         .await
         .unwrap();
     pool.close().await;
-    let root = srv::auth::load_root_key(&c.layout()).unwrap();
+    let mut root = srv::auth::load_root_key(&c.layout()).unwrap();
 
-    let (tx, rx) = tokio::sync::oneshot::channel::<()>();
-    tokio::spawn(srv::run(c.clone(), async move {
-        let _ = rx.await;
-    }));
+    run(&start);
+    let _stop = StopOnDrop(stop.clone());
     let mut cl = None;
     for _ in 0..100 {
         if let Ok(x) = ItcmdrClient::connect(format!("http://127.0.0.1:{port}")).await {
@@ -275,17 +294,17 @@ async fn stage_restore_done_then_rolled_back_on_failed_health() {
     // Restore: dry run, then the helper restores and the health check passes.
     let st = dry_then_stage(&mut cl, &root, &bn, &words).await;
     assert_eq!(st.state, "staged");
-    let st = wait_terminal(&mut cl, &root).await;
+    let st = wait_terminal(&mut cl, &mut root).await;
     assert_eq!(st.state, "done", "{st:?}");
     assert!(!st.safety_copy.is_empty());
     assert_eq!(limit(&c).await, 5, "restored");
 
     // Forced health failure: back to the pre-restore copy.
     set_limit(&c, "9").await;
-    std::env::set_var(srv::restore::ENV_FORCE_HEALTH_FAIL, "1");
+    std::fs::write(&force, b"1").unwrap();
     dry_then_stage(&mut cl, &root, &bn, &words).await;
-    let st = wait_terminal(&mut cl, &root).await;
-    std::env::remove_var(srv::restore::ENV_FORCE_HEALTH_FAIL);
+    let st = wait_terminal(&mut cl, &mut root).await;
+    std::fs::remove_file(&force).unwrap();
     assert_eq!(st.state, "rolled-back", "{st:?}");
     assert!(st.message.contains("health check"), "{st:?}");
     assert_eq!(limit(&c).await, 9, "rolled back to the safety copy");
@@ -312,5 +331,67 @@ async fn stage_restore_done_then_rolled_back_on_failed_health() {
         "{names:?}"
     );
 
-    let _ = tx.send(());
+    pool.close().await;
+}
+
+fn run(argv: &[String]) {
+    let st = std::process::Command::new(&argv[0])
+        .args(&argv[1..])
+        .status()
+        .unwrap();
+    assert!(st.success(), "{argv:?}");
+}
+
+/// Start/stop commands for a background itcmdr-server that records its pid (it finds its config
+/// through ITCMDR_SERVER_CONFIG, inherited from this test).
+fn server_commands(exe: &str, pidf: &std::path::Path) -> (Vec<String>, Vec<String>) {
+    let pid = pidf.display().to_string();
+    let s = |v: &[&str]| v.iter().map(|x| x.to_string()).collect::<Vec<_>>();
+    if cfg!(windows) {
+        let ps = |c: String| {
+            s(&[
+                "powershell",
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                &c,
+            ])
+        };
+        (
+            ps(format!(
+                "(Start-Process -FilePath '{exe}' -WindowStyle Hidden -PassThru).Id | Set-Content -LiteralPath '{pid}'"
+            )),
+            ps(format!(
+                "Stop-Process -Id (Get-Content -LiteralPath '{pid}') -Force; Start-Sleep -Milliseconds 500"
+            )),
+        )
+    } else {
+        (
+            s(&[
+                "sh",
+                "-c",
+                &format!("'{exe}' >/dev/null 2>&1 & echo $! > '{pid}'"),
+            ]),
+            s(&["sh", "-c", &format!("kill $(cat '{pid}'); sleep 0.5")]),
+        )
+    }
+}
+
+fn server_cfg() -> ServerConfig {
+    let cfgp = std::env::var("ITCMDR_SERVER_CONFIG").unwrap();
+    serde_json::from_slice(&std::fs::read(cfgp).unwrap()).unwrap()
+}
+
+fn server_url() -> String {
+    format!("http://{}", server_cfg().bind_addr)
+}
+
+/// Stops the background server even when an assertion fails.
+struct StopOnDrop(Vec<String>);
+impl Drop for StopOnDrop {
+    fn drop(&mut self) {
+        let _ = std::process::Command::new(&self.0[0])
+            .args(&self.0[1..])
+            .status();
+    }
 }

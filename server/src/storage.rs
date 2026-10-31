@@ -183,7 +183,7 @@ mod dpapi {
         } else {
             std::ptr::null_mut()
         };
-        let mut inb = CRYPT_INTEGER_BLOB {
+        let inb = CRYPT_INTEGER_BLOB {
             cbData: input.len() as u32,
             pbData: input.as_ptr() as *mut u8,
         };
@@ -196,7 +196,7 @@ mod dpapi {
         let ok = unsafe {
             if encrypt {
                 CryptProtectData(
-                    &mut inb,
+                    &inb,
                     std::ptr::null(),
                     entp,
                     std::ptr::null_mut(),
@@ -206,7 +206,7 @@ mod dpapi {
                 )
             } else {
                 CryptUnprotectData(
-                    &mut inb,
+                    &inb,
                     std::ptr::null_mut(),
                     entp,
                     std::ptr::null_mut(),

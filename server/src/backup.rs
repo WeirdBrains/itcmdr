@@ -625,6 +625,11 @@ pub async fn restore(
             log_out.push((layout.plugin_logs().join(rel), b));
         }
     }
+    // A stopped service can hold the database for a moment after it stops answering (Windows
+    // refuses to replace an open file), so wait until nothing else has it open.
+    if !dry_run {
+        wait_released(&dbp, std::time::Duration::from_secs(30))?;
+    }
     let plugins_dir = layout.service_plugins();
     let qindex = crate::packages::quarantine_index(&layout);
     let has_plugins = plugins_dir.is_dir() && std::fs::read_dir(&plugins_dir)?.next().is_some();
@@ -658,7 +663,7 @@ pub async fn restore(
     for p in [side("-wal"), side("-shm")] {
         let _ = std::fs::remove_file(p);
     }
-    std::fs::rename(&tmp, &dbp)?;
+    retry_io(|| std::fs::rename(&tmp, &dbp)).context("replacing the database")?;
     std::fs::write(
         &escrow,
         get(F_ESCROW).ok_or_else(|| anyhow!("archive has no db.key escrow"))?,
@@ -696,6 +701,63 @@ pub async fn restore(
     rep.table_counts = db::table_counts_of(&pool).await?;
     pool.close().await;
     Ok(rep)
+}
+
+/// Windows: wait until `path` can be opened with no sharing (no other process has it open).
+/// Elsewhere a no-op: open files can be replaced.
+fn wait_released(path: &Path, timeout: std::time::Duration) -> Result<()> {
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        if !path.exists() {
+            return Ok(());
+        }
+        let until = std::time::Instant::now() + timeout;
+        loop {
+            match std::fs::OpenOptions::new()
+                .read(true)
+                .write(true)
+                .share_mode(0)
+                .open(path)
+            {
+                Ok(_) => return Ok(()),
+                Err(e) if std::time::Instant::now() < until => {
+                    let _ = e;
+                    std::thread::sleep(std::time::Duration::from_millis(250));
+                }
+                Err(e) => {
+                    return Err(anyhow!(
+                        "{} is still in use after {}s: {e}",
+                        path.display(),
+                        timeout.as_secs()
+                    ))
+                }
+            }
+        }
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (path, timeout);
+        Ok(())
+    }
+}
+
+/// Retry a file operation that Windows refuses while another process still releases the file
+/// (access denied / sharing violation), for up to 10 s.
+fn retry_io(mut f: impl FnMut() -> std::io::Result<()>) -> std::io::Result<()> {
+    let until = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    loop {
+        match f() {
+            Err(e)
+                if cfg!(windows)
+                    && matches!(e.raw_os_error(), Some(5) | Some(32))
+                    && std::time::Instant::now() < until =>
+            {
+                std::thread::sleep(std::time::Duration::from_millis(250))
+            }
+            r => return r,
+        }
+    }
 }
 
 #[cfg(test)]

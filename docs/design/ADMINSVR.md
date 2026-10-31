@@ -65,6 +65,28 @@ These are decided and supersede the earlier recommendations and open questions i
     is signed, rejected if unsigned, and logged** in an append-only, hash-chained audit log. See "User auth" and
     "Signed changes and the audit chain".
 13. **Users category:** hidden from SREs except their own account and activity.
+18. **Site backups never leave the site** (Michael, 2026-10-31). All backups stay on the site server and adminsvr never
+    has access to them:
+    - adminsvr may see backup **metadata only**: age, size, last result.
+    - adminsvr may send the allowlisted **"start a backup"** command; the backup runs locally on the site and the
+      archive stays there.
+    - No backup archive, backup contents, `keys/db.key`, the escrow or the 24 words ever cross the SiteLink.
+    - adminsvr has **no restore capability**. Restore stays site-owner only, on the site (app or CLI).
+    - Required v0.19.0 tests: no backup bytes or key material on the link; a restore command from adminsvr is rejected.
+19. **No internal information leaves the site: the SiteLink is redacted by default** (Michael, 2026-10-31).
+    - By default the SiteLink carries only: **opaque site-scoped IDs** for servers, agents, users and plugin
+      instances (stable pseudonyms: keyed HMAC with a site-local secret that never leaves the site), alert code,
+      severity, plugin package name, timestamps, counts, and numeric status/metric rollups.
+    - Never sent: hostnames, IPs, domains, usernames, file paths, share names, message text, backtraces, log lines.
+    - Full details are seen only over a direct connection to the site; the site maps IDs back to names locally.
+    - Per-site opt-in **share display names** of servers/agents: off by default, owner-only on the site, signed and
+      audited on the site, and its state is visible on adminsvr. Even when on, paths, IPs, usernames, message text
+      and backtraces never leave.
+    - Enforcement is **site-side**: one redaction layer that every outbound SiteLink message passes through,
+      allowlist-based, deny by default (unknown fields are dropped).
+    - Required v0.19.0 tests: a fuzz/property test that no outbound message contains any hostname, IP, path or
+      username from the site config; with the opt-in on, display names appear and nothing else changes.
+    - Related: decision 18 (backups never leave the site).
 
 ### Client certificates (mTLS)
 
@@ -588,7 +610,7 @@ releases** as the adminsvr features it uses.
 | v0.16.0 | Site alerts in the on-site app and CLI (no external notifiers); the alert record is also the shape that goes up to adminsvr | as in SERVER-AGENT.md |
 | v0.17.0 | Rust agent (also on the office server), enrollment with mTLS client certs, heartbeats (configurable per tier/machine), offline queue | as in SERVER-AGENT.md |
 | v0.18.0 | Agent runs plugins + schedules, report-only parity | as in SERVER-AGENT.md |
-| v0.19.0 | **adminsvr MVP + SRE app v1:** adminsvr container (Postgres, rootless Podman for tests), `itcmdr-admin` CLI with app parity, mTLS site certs, FCM/APNs push, `adminsvr init`, users/roles/RBAC rules, key-based signed-request auth (reused site signing code), device enrollment, rotation, revocation, 24-word onboarding, optional client-side encrypted key backup (signed retrieval), `recover-owner`; hash-chained audit log of every signed change and push, checkpoints to sites, `audit verify`; SiteLink (site enrollment, pinned TLS, signed messages, up: heartbeats/status/alerts, outbound queue). SRE app: chrome (device enrollment/unlock, settings) + Users (incl. audit/call log) + Servers (list, health, agents, alerts, alert inbox); web + Android + iOS (pending Mac signing) + Linux desktop builds. Dart packages split out of `app/` | adminsvr in a container on alien-blue; the VM site links to it; alerts raised on the VM reach the app; kill the container and check the site queues and adminsvr reports it as unreachable on restart; RBAC tests incl. the owner rules; an unsigned or wrongly signed change is rejected; a revoked key is refused at once; tampering with an `audit_chain` row is caught by `audit verify` and by the site checkpoints; app/CLI audit parity test; onboarding on web (WASM) and Android/Linux gives identical signatures; key backup round trip (adminsvr only holds ciphertext); new device from the 24 words |
+| v0.19.0 | **adminsvr MVP + SRE app v1:** adminsvr container (Postgres, rootless Podman for tests), `itcmdr-admin` CLI with app parity, mTLS site certs, FCM/APNs push, `adminsvr init`, users/roles/RBAC rules, key-based signed-request auth (reused site signing code), device enrollment, rotation, revocation, 24-word onboarding, optional client-side encrypted key backup (signed retrieval), `recover-owner`; hash-chained audit log of every signed change and push, checkpoints to sites, `audit verify`; SiteLink (site enrollment, pinned TLS, signed messages, up: heartbeats/status/alerts, outbound queue). SRE app: chrome (device enrollment/unlock, settings) + Users (incl. audit/call log) + Servers (list, health, agents, alerts, alert inbox); web + Android + iOS (pending Mac signing) + Linux desktop builds. Dart packages split out of `app/` | adminsvr in a container on alien-blue; the VM site links to it; alerts raised on the VM reach the app; kill the container and check the site queues and adminsvr reports it as unreachable on restart; RBAC tests incl. the owner rules; an unsigned or wrongly signed change is rejected; a revoked key is refused at once; tampering with an `audit_chain` row is caught by `audit verify` and by the site checkpoints; app/CLI audit parity test; onboarding on web (WASM) and Android/Linux gives identical signatures; key backup round trip (adminsvr only holds ciphertext); new device from the 24 words; **required (decision 18):** no backup bytes or key material on the SiteLink (link capture), a restore command from adminsvr is rejected and audited on the site; **required (decision 19):** redaction-by-default property/fuzz test (no site hostnames, IPs, paths or usernames in any outbound message), name opt-in shows display names only |
 | v0.19.1 | Passkeys/YubiKeys (WebAuthn) as an optional second factor: registration, key unlock, step-up bound to the request hash, assertions in the audit chain, configurable step-up list, per-role enforcement, recovery with the 24 words plus an owner/admin reset; app on web, desktop and mobile; CLI with USB security keys (libfido2) | step-up refused without a touch and when the challenge belongs to another request; a replayed assertion is refused; owner-only enforcement; lost-passkey reset audited; a YubiKey on Linux via the CLI and the web app |
 | v0.20.0 | Config over the agent stream + gated agent switch (PS agent retired here); **adminsvr down-commands:** allowlist, preview/dry-run, two-person approval, freeze/kill switch; metrics summaries up. SRE app: Servers configs/commands + metrics explorer, and **Service Plugins** (catalog, rollout, quarantine view); adminsvr becomes the plugin source of truth, sites cache and relay | push a setting and a schedule from the app to the VM site; refused when off the allowlist; two-person flow; egress filter tests (PHI patterns dropped) |
 | v0.21.0 | Agent self-upgrade (release plugin, rings, watchdog) + **site-server self-upgrade via adminsvr** (pre-upgrade backup, server watchdog, rollback). SRE app: **Updates** (releases, rings, approvals, rollback) | broken release rolls back (agent and server); ring gating across two sites (VM + a second test site container) |

@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## v0.15.1 (2026-10-31)
+Windows restore fix, local release builds, and two adminsvr decisions.
+- Restore on Windows: the restore now waits until the stopped server has released the database (up to 30 s) and retries the database swap on "access denied" / "sharing violation" (up to 10 s). Before, a service that stopped answering but still held the file made the restore fail with "Access is denied" and no rollback.
+- `server/tests/restore_app.rs` runs a real `itcmdr-server` process that the restore helper stops and starts (as with the service), picks up the root key the restore rotates, and always stops its server. The test passes on Windows now; before it only passed on Linux because the in-process server kept using the replaced database. The forced-health-failure test hook also accepts a marker-file path.
+- Test safety: before this release `restore_app` used the default restore commands, which on Windows are `sc.exe stop/start itcmdr-server`, so running the test suite on a Windows machine with itcmdr installed stopped and restarted the real service. The test now only stops and starts its own server process.
+- Windows clippy: two unnecessary `&mut` in the DPAPI calls (`storage.rs`).
+- Local release builds while Actions is unavailable: `scripts/release-local.sh` (`unix`, `check`, `publish`) and `docs/RELEASE-LOCAL.md` (Linux, macOS and Windows VM steps). `check` scans every unpacked artifact for private values and writes `SHA256SUMS`; `publish` uses `gh release` on the existing tag. v0.15.0 was published this way.
+- Docs: ADMINSVR.md decisions 18 (site backups never leave the site; adminsvr sees metadata and may start a backup, never restore) and 19 (the SiteLink is redacted by default: opaque site-scoped IDs, codes, counts and rollups; per-site owner opt-in for display names; deny-by-default redaction layer on the site), with required v0.19.0 tests.
+
 ## v0.15.0 (2026-10-31)
 The plugin error contract and a log of every call.
 - New workspace crate `common/` (`itcmdr-common`, no gRPC or server dependency) with `ErrorCriticality` (`critical`, `cautious` (default), `informational`; logged at error, warn and info), `PluginErrorRecord` (error up to 4 KiB, backtrace up to 16 KiB, cut on a character boundary) and the `ServicePluginError` trait. The proc-macro crate `common/derive` (`itcmdr-common-derive`) provides `#[derive(ServicePluginError)]`: the struct needs `error`, `criticality`, `backtrace` and `service_plugin` fields; `#[service_plugin(name = "..", kind = "..")]` sets the plugin and kind; other fields go into the error's context (`#[service_plugin(skip)]` leaves one out). Misuse fails to compile (trybuild tests).
