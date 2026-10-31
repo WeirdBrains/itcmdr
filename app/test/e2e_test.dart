@@ -168,9 +168,13 @@ void main() {
 }
 
 ({String server, String cli}) _bins() {
-  final dir = Directory('../target/debug');
-  final server = File('${dir.path}/itcmdr-server');
-  final cli = File('${dir.path}/itcmdr-cli');
+  // ITCMDR_E2E_BIN_DIR: e.g. target/release on the Windows VM.
+  final dir = Directory(
+    Platform.environment['ITCMDR_E2E_BIN_DIR'] ?? '../target/debug',
+  );
+  final ext = Platform.isWindows ? '.exe' : '';
+  final server = File('${dir.path}/itcmdr-server$ext');
+  final cli = File('${dir.path}/itcmdr-cli$ext');
   if (!server.existsSync() || !cli.existsSync()) {
     fail('build the server first: cargo build -p itcmdr-server --bins');
   }
