@@ -165,6 +165,24 @@ mod dpapi {
     };
 
     fn call(input: &[u8], encrypt: bool) -> Result<Vec<u8>> {
+        call_with(input, encrypt, CRYPTPROTECT_LOCAL_MACHINE, None)
+    }
+
+    pub(super) fn call_with(
+        input: &[u8],
+        encrypt: bool,
+        scope: u32,
+        entropy: Option<&[u8]>,
+    ) -> Result<Vec<u8>> {
+        let mut ent = CRYPT_INTEGER_BLOB {
+            cbData: entropy.map_or(0, |e| e.len() as u32),
+            pbData: entropy.map_or(std::ptr::null_mut(), |e| e.as_ptr() as *mut u8),
+        };
+        let entp: *mut CRYPT_INTEGER_BLOB = if entropy.is_some() {
+            &mut ent
+        } else {
+            std::ptr::null_mut()
+        };
         let mut inb = CRYPT_INTEGER_BLOB {
             cbData: input.len() as u32,
             pbData: input.as_ptr() as *mut u8,
@@ -173,14 +191,14 @@ mod dpapi {
             cbData: 0,
             pbData: std::ptr::null_mut(),
         };
-        let flags = CRYPTPROTECT_LOCAL_MACHINE | CRYPTPROTECT_UI_FORBIDDEN;
+        let flags = scope | CRYPTPROTECT_UI_FORBIDDEN;
         // SAFETY: valid in/out blobs; the output buffer is freed with LocalFree below.
         let ok = unsafe {
             if encrypt {
                 CryptProtectData(
                     &mut inb,
                     std::ptr::null(),
-                    std::ptr::null_mut(),
+                    entp,
                     std::ptr::null_mut(),
                     std::ptr::null_mut(),
                     flags,
@@ -190,7 +208,7 @@ mod dpapi {
                 CryptUnprotectData(
                     &mut inb,
                     std::ptr::null_mut(),
-                    std::ptr::null_mut(),
+                    entp,
                     std::ptr::null_mut(),
                     std::ptr::null_mut(),
                     flags,
@@ -216,6 +234,20 @@ mod dpapi {
     pub fn unprotect(d: &[u8]) -> Result<Vec<u8>> {
         call(d, false)
     }
+}
+
+/// Entropy the desktop app uses for its DPAPI key file (`app/lib/key_store.dart`).
+pub const APP_KEY_ENTROPY: &[u8] = b"itcmdr-app-key/v1";
+
+/// Windows: DPAPI for the CURRENT USER with the app's entropy, the format of
+/// `%APPDATA%\itcmdr\app-key.dpapi` (the app's private key, a hex seed in UTF8).
+#[cfg(windows)]
+pub fn protect_for_app(data: &[u8]) -> Result<Vec<u8>> {
+    dpapi::call_with(data, true, 0, Some(APP_KEY_ENTROPY))
+}
+#[cfg(windows)]
+pub fn unprotect_for_app(data: &[u8]) -> Result<Vec<u8>> {
+    dpapi::call_with(data, false, 0, Some(APP_KEY_ENTROPY))
 }
 
 /// Load `keys/db.key`, creating a random 32-byte key the first time.

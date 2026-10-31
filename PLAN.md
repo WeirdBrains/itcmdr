@@ -45,7 +45,7 @@ also covered by the Windows VM test pass below.
 | v0.11.0 | Built-in checks as plugins (parallel report-only, parity); nightly run + backup as built-in schedules; gated cutover, rollback, local fallback | ✅ Done | `v0.11.0` (b249612) | 2026-10-30 |
 | v0.12.0 | Flutter: Service Plugins, registration, users/keys, plugin metric charts, Backup & Restore (incl. restore with the words), Schedules, signed requests | ✅ Done | `v0.12.0` (fb007b2) | 2026-10-31 |
 | v0.13.0 | App key encrypted at rest (DPAPI / keyring), plugin install/enable/disable/remove from the app, signed-only switch proven on the VM | ✅ Done | `v0.13.0` | 2026-10-31 |
-| v0.14.0 | Installer: first-run master setup (words shown once); VM test items (moved from v0.13.0) | 📋 Planned | — | — |
+| v0.14.0 | Installer and first-run setup: site values, checks, words shown once, first admin key (signed from day one), upgrade keeps settings | ✅ Done | `v0.14.0` | 2026-10-31 |
 
 ## Cross-cutting items
 
@@ -211,7 +211,10 @@ Agreed 2026-10-30: agents run only the plugin copies shipped with the agent, nev
 - [x] App click-through on the VM: passed (Michael)
 - [ ] A real second PC as agent (open)
 
-### v0.14.0 Installer 📋
-Moved from v0.13.0.
-- [ ] First-run master setup in the installer, words shown once
-- [ ] Windows VM test items for the plugin system added to the handover
+### v0.14.0 Installer and first-run setup ✅
+- [x] First-run master setup from the installer, words shown once in a console only (`itcmdr-cli setup first-run`)
+- [x] First admin app key registered at first run (DPAPI store on the server PC, or a pasted public key): signed from day one
+- [x] Site values (server.json via `setup apply`, site.json via `Initialize-ItcmdrSite.ps1`), server vs agent roles, existence and writability checks (`setup check`)
+- [x] Upgrades keep existing settings (VM: server.json byte-identical, site.json unchanged)
+- [x] Windows VM: clean install (data backed up and restored), upgrade from v0.13.0
+- [x] Windows VM test items for the plugin system are in the handover (v0.10.0 to v0.13.0 results)
