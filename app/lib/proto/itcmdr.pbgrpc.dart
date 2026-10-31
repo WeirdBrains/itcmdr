@@ -302,6 +302,42 @@ class ItcmdrClient extends $grpc.Client {
     return $createUnaryCall(_$previewSchedule, request, options: options);
   }
 
+  /// v0.13.0
+  $grpc.ResponseFuture<$0.InstallPluginResponse> installPlugin(
+    $0.InstallPluginRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$installPlugin, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.PluginActionResponse> enablePlugin(
+    $0.PluginRef request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$enablePlugin, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.PluginActionResponse> disablePlugin(
+    $0.PluginRef request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$disablePlugin, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.PluginActionResponse> removePlugin(
+    $0.PluginRef request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$removePlugin, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.ListQuarantineResponse> listQuarantine(
+    $0.ListQuarantineRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$listQuarantine, request, options: options);
+  }
+
   // method descriptors
 
   static final _$listMachines =
@@ -494,6 +530,31 @@ class ItcmdrClient extends $grpc.Client {
           '/itcmdr.Itcmdr/PreviewSchedule',
           ($0.SaveScheduleRequest value) => value.writeToBuffer(),
           $0.PreviewScheduleResponse.fromBuffer);
+  static final _$installPlugin =
+      $grpc.ClientMethod<$0.InstallPluginRequest, $0.InstallPluginResponse>(
+          '/itcmdr.Itcmdr/InstallPlugin',
+          ($0.InstallPluginRequest value) => value.writeToBuffer(),
+          $0.InstallPluginResponse.fromBuffer);
+  static final _$enablePlugin =
+      $grpc.ClientMethod<$0.PluginRef, $0.PluginActionResponse>(
+          '/itcmdr.Itcmdr/EnablePlugin',
+          ($0.PluginRef value) => value.writeToBuffer(),
+          $0.PluginActionResponse.fromBuffer);
+  static final _$disablePlugin =
+      $grpc.ClientMethod<$0.PluginRef, $0.PluginActionResponse>(
+          '/itcmdr.Itcmdr/DisablePlugin',
+          ($0.PluginRef value) => value.writeToBuffer(),
+          $0.PluginActionResponse.fromBuffer);
+  static final _$removePlugin =
+      $grpc.ClientMethod<$0.PluginRef, $0.PluginActionResponse>(
+          '/itcmdr.Itcmdr/RemovePlugin',
+          ($0.PluginRef value) => value.writeToBuffer(),
+          $0.PluginActionResponse.fromBuffer);
+  static final _$listQuarantine =
+      $grpc.ClientMethod<$0.ListQuarantineRequest, $0.ListQuarantineResponse>(
+          '/itcmdr.Itcmdr/ListQuarantine',
+          ($0.ListQuarantineRequest value) => value.writeToBuffer(),
+          $0.ListQuarantineResponse.fromBuffer);
 }
 
 @$pb.GrpcServiceName('itcmdr.Itcmdr')
@@ -815,6 +876,45 @@ abstract class ItcmdrServiceBase extends $grpc.Service {
             ($core.List<$core.int> value) =>
                 $0.SaveScheduleRequest.fromBuffer(value),
             ($0.PreviewScheduleResponse value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.InstallPluginRequest, $0.InstallPluginResponse>(
+            'InstallPlugin',
+            installPlugin_Pre,
+            false,
+            false,
+            ($core.List<$core.int> value) =>
+                $0.InstallPluginRequest.fromBuffer(value),
+            ($0.InstallPluginResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.PluginRef, $0.PluginActionResponse>(
+        'EnablePlugin',
+        enablePlugin_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.PluginRef.fromBuffer(value),
+        ($0.PluginActionResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.PluginRef, $0.PluginActionResponse>(
+        'DisablePlugin',
+        disablePlugin_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.PluginRef.fromBuffer(value),
+        ($0.PluginActionResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.PluginRef, $0.PluginActionResponse>(
+        'RemovePlugin',
+        removePlugin_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.PluginRef.fromBuffer(value),
+        ($0.PluginActionResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.ListQuarantineRequest,
+            $0.ListQuarantineResponse>(
+        'ListQuarantine',
+        listQuarantine_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) =>
+            $0.ListQuarantineRequest.fromBuffer(value),
+        ($0.ListQuarantineResponse value) => value.writeToBuffer()));
   }
 
   $async.Future<$0.ListMachinesResponse> listMachines_Pre(
@@ -1137,4 +1237,46 @@ abstract class ItcmdrServiceBase extends $grpc.Service {
 
   $async.Future<$0.PreviewScheduleResponse> previewSchedule(
       $grpc.ServiceCall call, $0.SaveScheduleRequest request);
+
+  $async.Future<$0.InstallPluginResponse> installPlugin_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.InstallPluginRequest> $request) async {
+    return installPlugin($call, await $request);
+  }
+
+  $async.Future<$0.InstallPluginResponse> installPlugin(
+      $grpc.ServiceCall call, $0.InstallPluginRequest request);
+
+  $async.Future<$0.PluginActionResponse> enablePlugin_Pre(
+      $grpc.ServiceCall $call, $async.Future<$0.PluginRef> $request) async {
+    return enablePlugin($call, await $request);
+  }
+
+  $async.Future<$0.PluginActionResponse> enablePlugin(
+      $grpc.ServiceCall call, $0.PluginRef request);
+
+  $async.Future<$0.PluginActionResponse> disablePlugin_Pre(
+      $grpc.ServiceCall $call, $async.Future<$0.PluginRef> $request) async {
+    return disablePlugin($call, await $request);
+  }
+
+  $async.Future<$0.PluginActionResponse> disablePlugin(
+      $grpc.ServiceCall call, $0.PluginRef request);
+
+  $async.Future<$0.PluginActionResponse> removePlugin_Pre(
+      $grpc.ServiceCall $call, $async.Future<$0.PluginRef> $request) async {
+    return removePlugin($call, await $request);
+  }
+
+  $async.Future<$0.PluginActionResponse> removePlugin(
+      $grpc.ServiceCall call, $0.PluginRef request);
+
+  $async.Future<$0.ListQuarantineResponse> listQuarantine_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.ListQuarantineRequest> $request) async {
+    return listQuarantine($call, await $request);
+  }
+
+  $async.Future<$0.ListQuarantineResponse> listQuarantine(
+      $grpc.ServiceCall call, $0.ListQuarantineRequest request);
 }

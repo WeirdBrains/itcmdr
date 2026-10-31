@@ -835,6 +835,69 @@ pub struct ListPluginsResponse {
     #[prost(message, repeated, tag = "1")]
     pub plugins: ::prost::alloc::vec::Vec<PluginInfo>,
 }
+/// v0.13.0: plugin management from the app (admin, signed only, audited). Same validation,
+/// quarantine and enable-on-install as `itcmdr-cli plugins install`. URLs are fetched by the server
+/// over HTTPS only (decision 16); agents never download plugins.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct InstallPluginRequest {
+    /// <https://...;> or
+    #[prost(string, tag = "1")]
+    pub url: ::prost::alloc::string::String,
+    /// an uploaded .tar.gz package
+    #[prost(bytes = "vec", tag = "2")]
+    pub package: ::prost::alloc::vec::Vec<u8>,
+    /// upload label (audit/quarantine)
+    #[prost(string, tag = "3")]
+    pub file_name: ::prost::alloc::string::String,
+    /// install without enabling (default: setting plugins.enable_on_install)
+    #[prost(bool, tag = "4")]
+    pub disabled: bool,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct InstallPluginResponse {
+    #[prost(message, optional, tag = "1")]
+    pub plugin: ::core::option::Option<PluginInfo>,
+    #[prost(bool, tag = "2")]
+    pub quarantined: bool,
+    #[prost(string, tag = "3")]
+    pub message: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PluginRef {
+    #[prost(string, tag = "1")]
+    pub spec: ::prost::alloc::string::String,
+    #[prost(bool, tag = "2")]
+    pub force: bool,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PluginActionResponse {
+    #[prost(string, tag = "1")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub version: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub message: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct QuarantineEntry {
+    #[prost(string, tag = "1")]
+    pub ts: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub file: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub source: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub sha256: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub reason: ::prost::alloc::string::String,
+}
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct ListQuarantineRequest {}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListQuarantineResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub entries: ::prost::alloc::vec::Vec<QuarantineEntry>,
+}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PreviewScheduleResponse {
     #[prost(int64, repeated, tag = "1")]
@@ -1857,6 +1920,127 @@ pub mod itcmdr_client {
                 .insert(GrpcMethod::new("itcmdr.Itcmdr", "PreviewSchedule"));
             self.inner.unary(req, path, codec).await
         }
+        /// v0.13.0
+        pub async fn install_plugin(
+            &mut self,
+            request: impl tonic::IntoRequest<super::InstallPluginRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::InstallPluginResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/itcmdr.Itcmdr/InstallPlugin",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("itcmdr.Itcmdr", "InstallPlugin"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn enable_plugin(
+            &mut self,
+            request: impl tonic::IntoRequest<super::PluginRef>,
+        ) -> std::result::Result<
+            tonic::Response<super::PluginActionResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/itcmdr.Itcmdr/EnablePlugin",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("itcmdr.Itcmdr", "EnablePlugin"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn disable_plugin(
+            &mut self,
+            request: impl tonic::IntoRequest<super::PluginRef>,
+        ) -> std::result::Result<
+            tonic::Response<super::PluginActionResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/itcmdr.Itcmdr/DisablePlugin",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("itcmdr.Itcmdr", "DisablePlugin"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn remove_plugin(
+            &mut self,
+            request: impl tonic::IntoRequest<super::PluginRef>,
+        ) -> std::result::Result<
+            tonic::Response<super::PluginActionResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/itcmdr.Itcmdr/RemovePlugin",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("itcmdr.Itcmdr", "RemovePlugin"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn list_quarantine(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListQuarantineRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListQuarantineResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/itcmdr.Itcmdr/ListQuarantine",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("itcmdr.Itcmdr", "ListQuarantine"));
+            self.inner.unary(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -2137,6 +2321,42 @@ pub mod itcmdr_server {
             request: tonic::Request<super::SaveScheduleRequest>,
         ) -> std::result::Result<
             tonic::Response<super::PreviewScheduleResponse>,
+            tonic::Status,
+        >;
+        /// v0.13.0
+        async fn install_plugin(
+            &self,
+            request: tonic::Request<super::InstallPluginRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::InstallPluginResponse>,
+            tonic::Status,
+        >;
+        async fn enable_plugin(
+            &self,
+            request: tonic::Request<super::PluginRef>,
+        ) -> std::result::Result<
+            tonic::Response<super::PluginActionResponse>,
+            tonic::Status,
+        >;
+        async fn disable_plugin(
+            &self,
+            request: tonic::Request<super::PluginRef>,
+        ) -> std::result::Result<
+            tonic::Response<super::PluginActionResponse>,
+            tonic::Status,
+        >;
+        async fn remove_plugin(
+            &self,
+            request: tonic::Request<super::PluginRef>,
+        ) -> std::result::Result<
+            tonic::Response<super::PluginActionResponse>,
+            tonic::Status,
+        >;
+        async fn list_quarantine(
+            &self,
+            request: tonic::Request<super::ListQuarantineRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListQuarantineResponse>,
             tonic::Status,
         >;
     }
@@ -3889,6 +4109,225 @@ pub mod itcmdr_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = PreviewScheduleSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/itcmdr.Itcmdr/InstallPlugin" => {
+                    #[allow(non_camel_case_types)]
+                    struct InstallPluginSvc<T: Itcmdr>(pub Arc<T>);
+                    impl<
+                        T: Itcmdr,
+                    > tonic::server::UnaryService<super::InstallPluginRequest>
+                    for InstallPluginSvc<T> {
+                        type Response = super::InstallPluginResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::InstallPluginRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Itcmdr>::install_plugin(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = InstallPluginSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/itcmdr.Itcmdr/EnablePlugin" => {
+                    #[allow(non_camel_case_types)]
+                    struct EnablePluginSvc<T: Itcmdr>(pub Arc<T>);
+                    impl<T: Itcmdr> tonic::server::UnaryService<super::PluginRef>
+                    for EnablePluginSvc<T> {
+                        type Response = super::PluginActionResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::PluginRef>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Itcmdr>::enable_plugin(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = EnablePluginSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/itcmdr.Itcmdr/DisablePlugin" => {
+                    #[allow(non_camel_case_types)]
+                    struct DisablePluginSvc<T: Itcmdr>(pub Arc<T>);
+                    impl<T: Itcmdr> tonic::server::UnaryService<super::PluginRef>
+                    for DisablePluginSvc<T> {
+                        type Response = super::PluginActionResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::PluginRef>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Itcmdr>::disable_plugin(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = DisablePluginSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/itcmdr.Itcmdr/RemovePlugin" => {
+                    #[allow(non_camel_case_types)]
+                    struct RemovePluginSvc<T: Itcmdr>(pub Arc<T>);
+                    impl<T: Itcmdr> tonic::server::UnaryService<super::PluginRef>
+                    for RemovePluginSvc<T> {
+                        type Response = super::PluginActionResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::PluginRef>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Itcmdr>::remove_plugin(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = RemovePluginSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/itcmdr.Itcmdr/ListQuarantine" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListQuarantineSvc<T: Itcmdr>(pub Arc<T>);
+                    impl<
+                        T: Itcmdr,
+                    > tonic::server::UnaryService<super::ListQuarantineRequest>
+                    for ListQuarantineSvc<T> {
+                        type Response = super::ListQuarantineResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListQuarantineRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Itcmdr>::list_quarantine(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListQuarantineSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

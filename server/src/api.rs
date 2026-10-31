@@ -1246,6 +1246,179 @@ impl Itcmdr for ItcmdrService {
         }))
     }
 
+    async fn install_plugin(
+        &self,
+        req: Request<InstallPluginRequest>,
+    ) -> Result<Response<InstallPluginResponse>, Status> {
+        let p = self
+            .signed_only(
+                &req,
+                "/itcmdr.Itcmdr/InstallPlugin",
+                crate::auth::Role::Admin,
+            )
+            .await?;
+        let actor = p.actor();
+        let r = req.into_inner();
+        let layout = self.cfg.layout();
+        let label = format!(
+            "upload:{}",
+            r.file_name
+                .chars()
+                .filter(|c| c.is_ascii_alphanumeric() || "._-@".contains(*c))
+                .take(80)
+                .collect::<String>()
+        );
+        let src = match (r.url.trim().is_empty(), r.package.is_empty()) {
+            (false, true) => {
+                if !crate::packages::url_allowed(r.url.trim()) {
+                    return Err(Status::invalid_argument(
+                        "only https:// URLs are accepted (the server downloads the package)",
+                    ));
+                }
+                crate::packages::Source::Url(r.url.trim())
+            }
+            (true, false) => crate::packages::Source::Bytes(&label, &r.package),
+            _ => {
+                return Err(Status::invalid_argument(
+                    "send exactly one of url or package",
+                ))
+            }
+        };
+        let enable = if r.disabled { Some(false) } else { None };
+        match crate::packages::install(&self.pool, &layout, src, enable, &actor).await {
+            Ok(ip) => Ok(Response::new(InstallPluginResponse {
+                message: format!(
+                    "installed {} {} ({})",
+                    ip.name,
+                    ip.version,
+                    if ip.enabled { "enabled" } else { "disabled" }
+                ),
+                plugin: Some(PluginInfo {
+                    name: ip.name,
+                    version: ip.version,
+                    enabled: ip.enabled,
+                    installed_at: ip.installed_at,
+                    signer: ip.signer,
+                    package_sha256: ip.package_sha256,
+                }),
+                quarantined: false,
+            })),
+            Err(crate::packages::InstallError::Quarantined { reason, file }) => {
+                Ok(Response::new(InstallPluginResponse {
+                    plugin: None,
+                    quarantined: true,
+                    message: format!("rejected and quarantined ({file}): {reason}"),
+                }))
+            }
+            Err(e) => {
+                self.audit(
+                    &actor,
+                    "plugin-install-failed",
+                    &serde_json::json!({"error": format!("{e:#}")}),
+                )
+                .await;
+                Err(Status::failed_precondition(format!("{e:#}")))
+            }
+        }
+    }
+
+    async fn enable_plugin(
+        &self,
+        req: Request<PluginRef>,
+    ) -> Result<Response<PluginActionResponse>, Status> {
+        let p = self
+            .signed_only(
+                &req,
+                "/itcmdr.Itcmdr/EnablePlugin",
+                crate::auth::Role::Admin,
+            )
+            .await?;
+        let (name, version) = crate::packages::enable(&self.pool, &req.get_ref().spec, &p.actor())
+            .await
+            .map_err(|e| Status::failed_precondition(format!("{e:#}")))?;
+        Ok(Response::new(PluginActionResponse {
+            message: format!("enabled {name} {version}"),
+            name,
+            version,
+        }))
+    }
+
+    async fn disable_plugin(
+        &self,
+        req: Request<PluginRef>,
+    ) -> Result<Response<PluginActionResponse>, Status> {
+        let p = self
+            .signed_only(
+                &req,
+                "/itcmdr.Itcmdr/DisablePlugin",
+                crate::auth::Role::Admin,
+            )
+            .await?;
+        let name = req
+            .get_ref()
+            .spec
+            .split('@')
+            .next()
+            .unwrap_or("")
+            .to_string();
+        crate::packages::disable(&self.pool, &name, &p.actor())
+            .await
+            .map_err(|e| Status::failed_precondition(format!("{e:#}")))?;
+        Ok(Response::new(PluginActionResponse {
+            message: format!("disabled {name}"),
+            name,
+            version: String::new(),
+        }))
+    }
+
+    async fn remove_plugin(
+        &self,
+        req: Request<PluginRef>,
+    ) -> Result<Response<PluginActionResponse>, Status> {
+        let p = self
+            .signed_only(
+                &req,
+                "/itcmdr.Itcmdr/RemovePlugin",
+                crate::auth::Role::Admin,
+            )
+            .await?;
+        let r = req.get_ref();
+        let (name, version) =
+            crate::packages::remove(&self.pool, &self.cfg.layout(), &r.spec, r.force, &p.actor())
+                .await
+                .map_err(|e| Status::failed_precondition(format!("{e:#}")))?;
+        Ok(Response::new(PluginActionResponse {
+            message: format!("removed {name} {version}"),
+            name,
+            version,
+        }))
+    }
+
+    async fn list_quarantine(
+        &self,
+        req: Request<ListQuarantineRequest>,
+    ) -> Result<Response<ListQuarantineResponse>, Status> {
+        self.read_guard(
+            &req,
+            "/itcmdr.Itcmdr/ListQuarantine",
+            crate::auth::Role::Admin,
+        )
+        .await?;
+        let l = crate::packages::list_quarantine(&self.cfg.layout()).map_err(internal_err)?;
+        Ok(Response::new(ListQuarantineResponse {
+            entries: l
+                .into_iter()
+                .map(|q| QuarantineEntry {
+                    ts: q.ts,
+                    file: q.file,
+                    source: q.source,
+                    sha256: q.sha256,
+                    reason: q.reason,
+                })
+                .collect(),
+        }))
+    }
+
     async fn preview_schedule(
         &self,
         req: Request<SaveScheduleRequest>,

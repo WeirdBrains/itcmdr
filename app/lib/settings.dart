@@ -1,11 +1,12 @@
 import 'package:grpc/grpc_or_grpcweb.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'key_store.dart';
 import 'proto/itcmdr.pbgrpc.dart';
 import 'signing.dart';
 
-/// Server address, the app's signing key (v0.12.0) and the legacy admin token, persisted with
-/// shared_preferences. The key's 32-byte private seed is stored on this PC only (user profile).
+/// Server address and the legacy admin token, persisted with shared_preferences. The app's
+/// signing key (32-byte seed) lives in the OS key store since v0.13.0 (key_store.dart).
 class ServerSettings {
   final String host;
   final int port;
@@ -32,15 +33,45 @@ class ServerSettings {
   static const _kActor = 'server.actor';
   static const _kKeySeed = 'auth.key_seed';
 
+  /// Where the key is kept; tests replace it with a MemoryKeyStore.
+  static Future<KeyStore> Function() keyStoreFactory = platformKeyStore;
+  static KeyStore? _store;
+  static Future<KeyStore> keyStore() async =>
+      _store ??= await keyStoreFactory();
+  static void resetKeyStore() => _store = null;
+
+  /// v0.12.0 stored the seed in shared_preferences (plaintext). Move it into the key store,
+  /// check the read-back, then remove the old copy. Returns true when something was moved.
+  static Future<bool> migrateLegacyKey(SharedPreferences p, KeyStore ks) async {
+    final legacy = (p.getString(_kKeySeed) ?? '').trim();
+    if (legacy.isEmpty) {
+      if (p.containsKey(_kKeySeed)) await p.remove(_kKeySeed);
+      return false;
+    }
+    final current = await ks.read();
+    if (current == null || current.isEmpty) {
+      await ks.write(legacy);
+      if ((await ks.read()) != legacy) {
+        throw StateError('key store read-back failed; the old key was kept');
+      }
+    }
+    // Overwrite before removing, so the rewritten preferences file never holds the old value.
+    await p.setString(_kKeySeed, '0' * legacy.length);
+    await p.remove(_kKeySeed);
+    return true;
+  }
+
   static Future<ServerSettings> load() async {
     final p = await SharedPreferences.getInstance();
+    final ks = await keyStore();
+    await migrateLegacyKey(p, ks);
     return ServerSettings(
       host: p.getString(_kHost) ?? 'localhost',
       port: p.getInt(_kPort) ?? 50051,
       tls: p.getBool(_kTls) ?? false,
       token: p.getString(_kToken) ?? '',
       actor: p.getString(_kActor) ?? '',
-      keySeed: p.getString(_kKeySeed) ?? '',
+      keySeed: (await ks.read()) ?? '',
     );
   }
 
@@ -51,7 +82,13 @@ class ServerSettings {
     await p.setBool(_kTls, tls);
     await p.setString(_kToken, token);
     await p.setString(_kActor, actor.trim());
-    await p.setString(_kKeySeed, keySeed.trim());
+    final ks = await keyStore();
+    final want = keySeed.trim();
+    if (want.isEmpty) {
+      if ((await ks.read()) != null) await ks.delete();
+    } else if ((await ks.read()) != want) {
+      await ks.write(want);
+    }
   }
 
   ServerSettings copyWith({

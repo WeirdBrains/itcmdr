@@ -6273,6 +6273,541 @@ class ListPluginsResponse extends $pb.GeneratedMessage {
   $pb.PbList<PluginInfo> get plugins => $_getList(0);
 }
 
+/// v0.13.0: plugin management from the app (admin, signed only, audited). Same validation,
+/// quarantine and enable-on-install as `itcmdr-cli plugins install`. URLs are fetched by the server
+/// over HTTPS only (decision 16); agents never download plugins.
+class InstallPluginRequest extends $pb.GeneratedMessage {
+  factory InstallPluginRequest({
+    $core.String? url,
+    $core.List<$core.int>? package,
+    $core.String? fileName,
+    $core.bool? disabled,
+  }) {
+    final result = InstallPluginRequest._();
+    if (url != null) result.url = url;
+    if (package != null) result.package = package;
+    if (fileName != null) result.fileName = fileName;
+    if (disabled != null) result.disabled = disabled;
+    return result;
+  }
+
+  InstallPluginRequest._();
+
+  factory InstallPluginRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      InstallPluginRequest()..mergeFromBuffer(data, registry);
+  factory InstallPluginRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      InstallPluginRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'InstallPluginRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: InstallPluginRequest.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'url')
+    ..a<$core.List<$core.int>>(
+        2, _omitFieldNames ? '' : 'package', $pb.PbFieldType.OY)
+    ..aOS(3, _omitFieldNames ? '' : 'fileName')
+    ..aOB(4, _omitFieldNames ? '' : 'disabled')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  InstallPluginRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  InstallPluginRequest copyWith(void Function(InstallPluginRequest) updates) =>
+      super.copyWith((message) => updates(message as InstallPluginRequest))
+          as InstallPluginRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use InstallPluginRequest() / InstallPluginRequest.new instead')
+  static InstallPluginRequest create() => InstallPluginRequest._();
+  static $pb.GeneratedMessage $_createMessage() => InstallPluginRequest._();
+  @$core.override
+  InstallPluginRequest createEmptyInstance() => InstallPluginRequest._();
+  @$core.pragma('dart2js:noInline')
+  static InstallPluginRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<InstallPluginRequest>(
+          InstallPluginRequest.$_createMessage);
+  static InstallPluginRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get url => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set url($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasUrl() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearUrl() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.List<$core.int> get package => $_getN(1);
+  @$pb.TagNumber(2)
+  set package($core.List<$core.int> value) => $_setBytes(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasPackage() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearPackage() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get fileName => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set fileName($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasFileName() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearFileName() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.bool get disabled => $_getBF(3);
+  @$pb.TagNumber(4)
+  set disabled($core.bool value) => $_setBool(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasDisabled() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearDisabled() => $_clearField(4);
+}
+
+class InstallPluginResponse extends $pb.GeneratedMessage {
+  factory InstallPluginResponse({
+    PluginInfo? plugin,
+    $core.bool? quarantined,
+    $core.String? message,
+  }) {
+    final result = InstallPluginResponse._();
+    if (plugin != null) result.plugin = plugin;
+    if (quarantined != null) result.quarantined = quarantined;
+    if (message != null) result.message = message;
+    return result;
+  }
+
+  InstallPluginResponse._();
+
+  factory InstallPluginResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      InstallPluginResponse()..mergeFromBuffer(data, registry);
+  factory InstallPluginResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      InstallPluginResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'InstallPluginResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: InstallPluginResponse.$_createMessage)
+    ..aOM<PluginInfo>(1, _omitFieldNames ? '' : 'plugin',
+        subBuilder: PluginInfo.$_createMessage)
+    ..aOB(2, _omitFieldNames ? '' : 'quarantined')
+    ..aOS(3, _omitFieldNames ? '' : 'message')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  InstallPluginResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  InstallPluginResponse copyWith(
+          void Function(InstallPluginResponse) updates) =>
+      super.copyWith((message) => updates(message as InstallPluginResponse))
+          as InstallPluginResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use InstallPluginResponse() / InstallPluginResponse.new instead')
+  static InstallPluginResponse create() => InstallPluginResponse._();
+  static $pb.GeneratedMessage $_createMessage() => InstallPluginResponse._();
+  @$core.override
+  InstallPluginResponse createEmptyInstance() => InstallPluginResponse._();
+  @$core.pragma('dart2js:noInline')
+  static InstallPluginResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<InstallPluginResponse>(
+          InstallPluginResponse.$_createMessage);
+  static InstallPluginResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  PluginInfo get plugin => $_getN(0);
+  @$pb.TagNumber(1)
+  set plugin(PluginInfo value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasPlugin() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearPlugin() => $_clearField(1);
+  @$pb.TagNumber(1)
+  PluginInfo ensurePlugin() => $_ensure(0);
+
+  @$pb.TagNumber(2)
+  $core.bool get quarantined => $_getBF(1);
+  @$pb.TagNumber(2)
+  set quarantined($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasQuarantined() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearQuarantined() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get message => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set message($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasMessage() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearMessage() => $_clearField(3);
+}
+
+class PluginRef extends $pb.GeneratedMessage {
+  factory PluginRef({
+    $core.String? spec,
+    $core.bool? force,
+  }) {
+    final result = PluginRef._();
+    if (spec != null) result.spec = spec;
+    if (force != null) result.force = force;
+    return result;
+  }
+
+  PluginRef._();
+
+  factory PluginRef.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      PluginRef()..mergeFromBuffer(data, registry);
+  factory PluginRef.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      PluginRef()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PluginRef',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: PluginRef.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'spec')
+    ..aOB(2, _omitFieldNames ? '' : 'force')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PluginRef clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PluginRef copyWith(void Function(PluginRef) updates) =>
+      super.copyWith((message) => updates(message as PluginRef)) as PluginRef;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use PluginRef() / PluginRef.new instead')
+  static PluginRef create() => PluginRef._();
+  static $pb.GeneratedMessage $_createMessage() => PluginRef._();
+  @$core.override
+  PluginRef createEmptyInstance() => PluginRef._();
+  @$core.pragma('dart2js:noInline')
+  static PluginRef getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PluginRef>(PluginRef.$_createMessage);
+  static PluginRef? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get spec => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set spec($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSpec() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSpec() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.bool get force => $_getBF(1);
+  @$pb.TagNumber(2)
+  set force($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasForce() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearForce() => $_clearField(2);
+}
+
+class PluginActionResponse extends $pb.GeneratedMessage {
+  factory PluginActionResponse({
+    $core.String? name,
+    $core.String? version,
+    $core.String? message,
+  }) {
+    final result = PluginActionResponse._();
+    if (name != null) result.name = name;
+    if (version != null) result.version = version;
+    if (message != null) result.message = message;
+    return result;
+  }
+
+  PluginActionResponse._();
+
+  factory PluginActionResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      PluginActionResponse()..mergeFromBuffer(data, registry);
+  factory PluginActionResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      PluginActionResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PluginActionResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: PluginActionResponse.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..aOS(2, _omitFieldNames ? '' : 'version')
+    ..aOS(3, _omitFieldNames ? '' : 'message')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PluginActionResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PluginActionResponse copyWith(void Function(PluginActionResponse) updates) =>
+      super.copyWith((message) => updates(message as PluginActionResponse))
+          as PluginActionResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use PluginActionResponse() / PluginActionResponse.new instead')
+  static PluginActionResponse create() => PluginActionResponse._();
+  static $pb.GeneratedMessage $_createMessage() => PluginActionResponse._();
+  @$core.override
+  PluginActionResponse createEmptyInstance() => PluginActionResponse._();
+  @$core.pragma('dart2js:noInline')
+  static PluginActionResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PluginActionResponse>(
+          PluginActionResponse.$_createMessage);
+  static PluginActionResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get name => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set name($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasName() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearName() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get version => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set version($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasVersion() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearVersion() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get message => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set message($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasMessage() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearMessage() => $_clearField(3);
+}
+
+class QuarantineEntry extends $pb.GeneratedMessage {
+  factory QuarantineEntry({
+    $core.String? ts,
+    $core.String? file,
+    $core.String? source,
+    $core.String? sha256,
+    $core.String? reason,
+  }) {
+    final result = QuarantineEntry._();
+    if (ts != null) result.ts = ts;
+    if (file != null) result.file = file;
+    if (source != null) result.source = source;
+    if (sha256 != null) result.sha256 = sha256;
+    if (reason != null) result.reason = reason;
+    return result;
+  }
+
+  QuarantineEntry._();
+
+  factory QuarantineEntry.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      QuarantineEntry()..mergeFromBuffer(data, registry);
+  factory QuarantineEntry.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      QuarantineEntry()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'QuarantineEntry',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: QuarantineEntry.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'ts')
+    ..aOS(2, _omitFieldNames ? '' : 'file')
+    ..aOS(3, _omitFieldNames ? '' : 'source')
+    ..aOS(4, _omitFieldNames ? '' : 'sha256')
+    ..aOS(5, _omitFieldNames ? '' : 'reason')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  QuarantineEntry clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  QuarantineEntry copyWith(void Function(QuarantineEntry) updates) =>
+      super.copyWith((message) => updates(message as QuarantineEntry))
+          as QuarantineEntry;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use QuarantineEntry() / QuarantineEntry.new instead')
+  static QuarantineEntry create() => QuarantineEntry._();
+  static $pb.GeneratedMessage $_createMessage() => QuarantineEntry._();
+  @$core.override
+  QuarantineEntry createEmptyInstance() => QuarantineEntry._();
+  @$core.pragma('dart2js:noInline')
+  static QuarantineEntry getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<QuarantineEntry>(
+          QuarantineEntry.$_createMessage);
+  static QuarantineEntry? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get ts => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set ts($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasTs() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearTs() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get file => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set file($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasFile() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearFile() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get source => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set source($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasSource() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearSource() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get sha256 => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set sha256($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasSha256() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearSha256() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get reason => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set reason($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasReason() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearReason() => $_clearField(5);
+}
+
+class ListQuarantineRequest extends $pb.GeneratedMessage {
+  factory ListQuarantineRequest() => ListQuarantineRequest._();
+
+  ListQuarantineRequest._();
+
+  factory ListQuarantineRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListQuarantineRequest()..mergeFromBuffer(data, registry);
+  factory ListQuarantineRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListQuarantineRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ListQuarantineRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: ListQuarantineRequest.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListQuarantineRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListQuarantineRequest copyWith(
+          void Function(ListQuarantineRequest) updates) =>
+      super.copyWith((message) => updates(message as ListQuarantineRequest))
+          as ListQuarantineRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use ListQuarantineRequest() / ListQuarantineRequest.new instead')
+  static ListQuarantineRequest create() => ListQuarantineRequest._();
+  static $pb.GeneratedMessage $_createMessage() => ListQuarantineRequest._();
+  @$core.override
+  ListQuarantineRequest createEmptyInstance() => ListQuarantineRequest._();
+  @$core.pragma('dart2js:noInline')
+  static ListQuarantineRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ListQuarantineRequest>(
+          ListQuarantineRequest.$_createMessage);
+  static ListQuarantineRequest? _defaultInstance;
+}
+
+class ListQuarantineResponse extends $pb.GeneratedMessage {
+  factory ListQuarantineResponse({
+    $core.Iterable<QuarantineEntry>? entries,
+  }) {
+    final result = ListQuarantineResponse._();
+    if (entries != null) result.entries.addAll(entries);
+    return result;
+  }
+
+  ListQuarantineResponse._();
+
+  factory ListQuarantineResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListQuarantineResponse()..mergeFromBuffer(data, registry);
+  factory ListQuarantineResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListQuarantineResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ListQuarantineResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: ListQuarantineResponse.$_createMessage)
+    ..pPM<QuarantineEntry>(1, _omitFieldNames ? '' : 'entries',
+        subBuilder: QuarantineEntry.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListQuarantineResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListQuarantineResponse copyWith(
+          void Function(ListQuarantineResponse) updates) =>
+      super.copyWith((message) => updates(message as ListQuarantineResponse))
+          as ListQuarantineResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use ListQuarantineResponse() / ListQuarantineResponse.new instead')
+  static ListQuarantineResponse create() => ListQuarantineResponse._();
+  static $pb.GeneratedMessage $_createMessage() => ListQuarantineResponse._();
+  @$core.override
+  ListQuarantineResponse createEmptyInstance() => ListQuarantineResponse._();
+  @$core.pragma('dart2js:noInline')
+  static ListQuarantineResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ListQuarantineResponse>(
+          ListQuarantineResponse.$_createMessage);
+  static ListQuarantineResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<QuarantineEntry> get entries => $_getList(0);
+}
+
 class PreviewScheduleResponse extends $pb.GeneratedMessage {
   factory PreviewScheduleResponse({
     $core.Iterable<$fixnum.Int64>? nextRuns,

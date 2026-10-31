@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:app/charts.dart';
+import 'package:app/key_store.dart';
 import 'package:app/exceptions_form.dart';
 import 'package:app/logs_page.dart';
 import 'package:app/proto/itcmdr.pbgrpc.dart';
@@ -12,7 +13,11 @@ import 'package:app/server_settings.dart';
 import 'package:app/settings.dart';
 
 void main() {
-  setUp(() => SharedPreferences.setMockInitialValues({}));
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    ServerSettings.keyStoreFactory = () async => MemoryKeyStore();
+    ServerSettings.resetKeyStore();
+  });
 
   testWidgets('app shell builds', (WidgetTester tester) async {
     // Desktop window: the navigation rail has 11 entries.

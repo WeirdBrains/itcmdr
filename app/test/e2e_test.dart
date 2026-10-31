@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:app/backup_page.dart';
+import 'package:grpc/grpc.dart';
 import 'package:app/proto/itcmdr.pbgrpc.dart';
 import 'package:app/server_settings.dart';
 import 'package:app/settings.dart';
@@ -164,6 +165,30 @@ void main() {
     );
     expect(dry.dryRunId, isNotEmpty);
     expect(dry.message, contains('dry run passed'));
+
+    // v0.13.0 plugins from the app: an upload goes through the same validation; junk is
+    // quarantined. Plain-http URLs to other hosts are refused before any download.
+    final up = await client.installPlugin(
+      InstallPluginRequest(
+        package: utf8.encode('not a package'),
+        fileName: 'junk.tar.gz',
+      ),
+    );
+    expect(up.quarantined, isTrue);
+    final q = await client.listQuarantine(ListQuarantineRequest());
+    expect(q.entries.single.source, 'upload:junk.tar.gz');
+    await expectLater(
+      client.installPlugin(
+        InstallPluginRequest(url: 'http://plugins.example.local/p.tar.gz'),
+      ),
+      throwsA(
+        isA<GrpcError>().having(
+          (e) => e.code,
+          'code',
+          StatusCode.invalidArgument,
+        ),
+      ),
+    );
   }, timeout: const Timeout(Duration(minutes: 3)));
 }
 
