@@ -20,8 +20,9 @@ String? checkWords(String w) {
       .where((x) => x.isNotEmpty)
       .toList();
   if (parts.length != 24) return 'Enter all 24 words (${parts.length} so far)';
-  if (parts.any((p) => !RegExp(r'^[a-z]+$').hasMatch(p)))
+  if (parts.any((p) => !RegExp(r'^[a-z]+$').hasMatch(p))) {
     return 'Words are letters only';
+  }
   return null;
 }
 
@@ -154,12 +155,14 @@ class _BackupPageState extends State<BackupPage> {
         );
         if (!mounted) return;
         setState(() => _status = r.hasStatus() ? r.status : null);
-        if (r.hasStatus() && restoreTerminal.contains(r.status.state))
+        if (r.hasStatus() && restoreTerminal.contains(r.status.state)) {
           _poll?.cancel();
+        }
       } catch (_) {
         // The server is restarting during the restore; keep asking.
-        if (mounted)
+        if (mounted) {
           setState(() => _info = 'Waiting for the server to come back…');
+        }
       }
     });
   }

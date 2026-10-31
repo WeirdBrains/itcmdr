@@ -10,7 +10,7 @@ Site-specific values live only in gitignored files (`config/site.json`, `C:\Prog
 | Poller (`agent/Poll-ItcmdrRequests.ps1`) | every PC, every minute as SYSTEM | runs on-demand requests from the app |
 | Rotation (`agent/Rotate-ItcmdrLogs.ps1`) | server, daily | zips logs weekly, into 4-week blocks, and yearly |
 | Server (`itcmdr-server`, Rust/tonic, SQLite) | server, Windows service | ingests logs, computes metrics, serves gRPC and gRPC-Web on port 50051 |
-| App (Flutter) | Windows desktop or web | Overview, Metrics, Logs, Exceptions, On-demand, Audit, Settings |
+| App (Flutter) | Windows desktop or web | Overview, Metrics, Logs, Exceptions, On-demand, Schedules, Plugins, Backup, Audit, Keys, Settings |
 
 The agent and poller run under Windows PowerShell 5.1 (the `powershell.exe` used by the scheduled tasks) and under PowerShell 7.
 
@@ -74,10 +74,12 @@ No WinRM or remote PowerShell is needed.
   - `block4`: block N of an ISO year covers ISO weeks 4N-3 to 4N. There are 13 blocks per year, and in 53-week years week 53 belongs to block 13.
   - `yearly`: an ISO year.
   - `daily` is also available. Calendar months and quarters are not used.
-- **Auth**: mutating calls (`TriggerRuns`, `SaveException`, `ExpireException`) need `authorization: Bearer <token>`, and the server compares the token's SHA-256 with `admin_token_hash`.
-  - If no hash is configured, those calls are refused with an explanation, and a warning is logged at startup.
+- **Auth**: calls carry an Ed25519 signature (`x-itcmdr-key`, `x-itcmdr-ts`, `x-itcmdr-nonce`, `x-itcmdr-sig`) over the canonical request bytes. See `docs/SIGNING.md`. The server checks the registered public key, a clock window and a nonce cache, then the role (owner > admin > user > client).
+  - New installs default to `auth_mode = signed` (a key is required, including for reads). An install from before v0.12.0 with no value in server.json keeps `both`: signed calls, or the legacy token for changes. `itcmdr-cli auth status` shows which. `auth set-mode signed` retires the token.
+  - The legacy token is `authorization: Bearer <token>`. The server compares its SHA-256 with `admin_token_hash`. Restore and key registration never accept the token.
+  - If no hash is configured and the mode still allows the token, changes are refused with an explanation, and a warning is logged at startup.
   - `allow_insecure_no_auth: true` is the explicit lab-only opt-out.
-  - Read calls are open on the LAN, so restrict them with the firewall rule.
+  - Restrict the listen port with the firewall rule.
 - **Audit log**: on-demand triggers and exception add, edit and expire are recorded with actor, time and detail. The actor is the app's `x-itcmdr-actor` name. Read it with `ListAudit`.
 - **Live updates**: `WatchUpdates` streams events (`run`, `check`, `incident-open`, `incident-close`, `request`, `exception-*`, `audit`). The app uses them to refresh.
 - **Retention**: runs, checks, closed incidents, rollups and finished requests older than `retention_days` (default 400) are deleted at startup and daily. The audit log and exceptions are kept.

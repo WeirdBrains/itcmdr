@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.12.0 (2026-10-31)
+App screens for keys, schedules, plugins, backup and restore, and signed requests as the default.
+Not tagged. The Windows VM pass for this version has not been run.
+- App signs every call (`app/lib/signing.dart`). Canonical bytes match `proto/signing_vectors.json`. New installs default to `auth_mode = signed`. An install from before v0.12.0 with no value keeps `both` (`itcmdr-cli auth status` / `auth set-mode`).
+- Restore words are sealed on the app for a one-time in-memory server key (`docs/SIGNING.md`). `StageRestore` refuses plaintext words and requires a dry run first. Key and restore calls accept only a signed request.
+- Screens: Keys (make, import, certify command, register, revoke), Schedules (preview, edit, pause, run now, history), Service plugins (list, run, metric charts), Backup & Restore (back up, check, dry run, restore), Settings search and bool switches.
+- `app/test/e2e_test.dart` runs init, certifies an app key, then WhoAmI, every registry setting, a schedule, a backup and a restore dry run against a local server.
+
 ## v0.11.0 (2026-10-30)
 Built-in checks as plugins and the nightly run/backup as built-in schedules (decisions 10 and 14). No
 install is switched: the SYSTEM task stays the source of truth until `itcmdr-cli cutover switch` passes its gate.
