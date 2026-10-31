@@ -100,10 +100,14 @@ Invoke-ItcmdrPlugin -Info @{ name = 'disk-free'; version = '1.0.0'; features = @
 "#;
 
 async fn install(e: &Env, name: &str, files: &[(&str, &str, &str, bool)]) {
+    install_with(e, name, files, "").await
+}
+
+async fn install_with(e: &Env, name: &str, files: &[(&str, &str, &str, bool)], extra: &str) {
     let d = e.root.join(format!("src-{name}"));
     std::fs::create_dir_all(&d).unwrap();
     let mut toml = format!(
-        "name = \"{name}\"\nversion = \"1.0.0\"\nfeatures = [\"verify\", \"execute\", \"log\"]\n"
+        "name = \"{name}\"\nversion = \"1.0.0\"\nfeatures = [\"verify\", \"execute\", \"log\"]\n{extra}"
     );
     for (f, kind, body, main) in files {
         std::fs::write(d.join(f), body).unwrap();
@@ -381,4 +385,134 @@ async fn bin_plugins_and_bad_plugins() {
             .unwrap();
         assert_eq!(r.status, "ok", "{r:?}");
     }
+}
+
+// ---- v0.15.0: the plugin error contract end to end (PS module -> itcmdr-plugin-ps -> server) ----
+const ERR_SCRIPT: &str = r#"
+Import-Module $env:ITCMDR_PS_MODULE -Force
+Invoke-ItcmdrPlugin -Info @{ name = 'err-demo'; version = '1.0.0'; features = @('execute') } `
+  -Execute { param($Ctx)
+    switch ($Ctx.args.mode) {
+      'throw' { throw (New-ItcmdrPluginError -Message 'backup share is gone' -Criticality Critical -Kind 'ShareMissing' -Context @{ share = 'maintenanceRuns' }) }
+      'uncaught' { [int]::Parse('nope') | Out-Null }
+      'warn' { Write-ItcmdrPluginError -Message 'one disk is 91% full' -Criticality Cautious; @{ ok = $true; message = 'checked' } }
+      default { @{ ok = $true; message = 'fine' } }
+    }
+  }
+"#;
+
+fn plugin_errors(p: &Path) -> Vec<serde_json::Value> {
+    let text = std::fs::read_to_string(p).unwrap();
+    for l in text.lines() {
+        itcmdr_plugin::log::validate(l).unwrap_or_else(|e| panic!("{e}: {l}"));
+    }
+    lines(p)
+        .into_iter()
+        .filter(|l| l["event"] == "plugin-error")
+        .collect()
+}
+
+#[tokio::test]
+async fn plugin_errors_reach_the_server_log_with_criticality() {
+    if pwsh().is_none() {
+        eprintln!("pwsh not found: skipped");
+        return;
+    }
+    let e = env().await;
+    install(
+        &e,
+        "err-demo",
+        &[("main.ps1", "powershell", ERR_SCRIPT, true)],
+    )
+    .await;
+    let run = |mode: &'static str| {
+        let (pool, c) = (e.pool.clone(), e.c.clone());
+        async move {
+            srv::runtime::run_plugin(&pool, &c, spec("err-demo", &[("mode", mode)]), "tester")
+                .await
+                .unwrap()
+        }
+    };
+
+    let r = run("throw").await;
+    assert_eq!(r.status, "failed");
+    assert_eq!(r.errors.len(), 1, "{r:?}");
+    let pe = &r.errors[0];
+    assert_eq!(pe.criticality, itcmdr_common::ErrorCriticality::Critical);
+    assert_eq!(pe.kind, "ShareMissing");
+    assert_eq!(pe.service_plugin, "err-demo");
+    assert_eq!(
+        pe.context.get("share").map(String::as_str),
+        Some("maintenanceRuns")
+    );
+    assert!(!pe.backtrace.is_empty());
+    let l = plugin_errors(&r.log_path);
+    assert_eq!(l.len(), 1);
+    assert_eq!(l[0]["level"], "error");
+    assert_eq!(l[0]["criticality"], "critical");
+    assert_eq!(l[0]["message"], "backup share is gone");
+    assert_eq!(l[0]["stage"], "execute");
+
+    let r = run("uncaught").await;
+    assert_eq!(r.status, "failed");
+    assert_eq!(
+        r.errors[0].criticality,
+        itcmdr_common::ErrorCriticality::Cautious
+    );
+    assert!(r.errors[0].kind.contains("Exception"), "{:?}", r.errors[0]);
+    let l = plugin_errors(&r.log_path);
+    assert_eq!(l.last().unwrap()["level"], "warn");
+
+    let r = run("warn").await;
+    assert_eq!(r.status, "ok", "{r:?}");
+    assert_eq!(r.errors.len(), 1);
+    assert_eq!(r.errors[0].error, "one disk is 91% full");
+
+    let r = run("none").await;
+    assert_eq!(r.status, "ok");
+    assert!(r.errors.is_empty());
+}
+
+#[tokio::test]
+async fn default_error_criticality_from_the_package() {
+    if pwsh().is_none() {
+        eprintln!("pwsh not found: skipped");
+        return;
+    }
+    let e = env().await;
+    install_with(
+        &e,
+        "err-demo",
+        &[("main.ps1", "powershell", ERR_SCRIPT, true)],
+        "default_error_criticality = \"informational\"\n",
+    )
+    .await;
+    let r = srv::runtime::run_plugin(
+        &e.pool,
+        &e.c,
+        spec("err-demo", &[("mode", "uncaught")]),
+        "t",
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        r.errors[0].criticality,
+        itcmdr_common::ErrorCriticality::Informational
+    );
+    assert_eq!(plugin_errors(&r.log_path).last().unwrap()["level"], "info");
+    // A thrown error keeps its own criticality.
+    let r = srv::runtime::run_plugin(&e.pool, &e.c, spec("err-demo", &[("mode", "throw")]), "t")
+        .await
+        .unwrap();
+    assert_eq!(
+        r.errors[0].criticality,
+        itcmdr_common::ErrorCriticality::Critical
+    );
+}
+
+#[test]
+fn bad_default_error_criticality_is_refused() {
+    let m = "name = \"x\"\nversion = \"1.0.0\"\ndefault_error_criticality = \"fatal\"\n[[files]]\nname = \"a\"\ntype = \"bin\"\nmain = true\nchecksum = \"\"\n";
+    let e = packages::parse_manifest(m.as_bytes()).unwrap_err();
+    assert!(e.0.contains("default_error_criticality"), "{}", e.0);
 }

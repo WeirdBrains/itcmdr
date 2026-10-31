@@ -118,9 +118,37 @@ message AuditEntry {
   string actor = 2;
   string action = 3;   // "trigger-runs", "exception-add", "exception-edit", "exception-expire", "backup-create", "backup-verify", "backup-list", "settings-update"
   string detail = 4;   // JSON
+  string call_id = 5;  // v0.15.0: the call_log row of the call that made the change (empty for CLI/jobs)
 }
 message ListAuditRequest { int32 limit = 1; }
 message ListAuditResponse { repeated AuditEntry entries = 1; }
+
+// v0.15.0: call log, one row per RPC (admin). Never bodies, words or keys.
+message CallEntry {
+  string id = 1;
+  int64 ts = 2;            // unix millis (call start)
+  string service = 3;      // itcmdr.Itcmdr
+  string method = 4;       // ListAudit
+  string kind = 5;         // unary | server_stream | client_stream | bidi
+  string peer = 6;         // ip:port
+  string principal = 7;    // "Dr A (fingerprint prefix)", "token: admin", "unverified key ...", "anonymous"
+  int32 status = 8;        // gRPC code, 0 = OK
+  string status_name = 9;  // OK, UNAUTHENTICATED, ...
+  int64 duration_ms = 10;
+  int64 req_bytes = 11;
+  int64 resp_bytes = 12;
+  string error = 13;       // status message, max 512 bytes
+}
+message ListCallsRequest {
+  int32 limit = 1;          // default 200, max 5000
+  string method = 2;        // substring
+  string principal = 3;     // substring
+  bool errors_only = 4;
+  optional int32 status = 5;
+  int64 since_ms = 6;
+  string id = 7;            // one call by id (e.g. an audit entry's call_id)
+}
+message ListCallsResponse { repeated CallEntry calls = 1; }
 
 // Live updates
 message WatchUpdatesRequest {}
@@ -334,6 +362,7 @@ service Itcmdr {
   rpc ExpireException(ExpireExceptionRequest) returns (ExpireExceptionResponse);
   rpc SearchLogs(SearchLogsRequest) returns (SearchLogsResponse);
   rpc ListAudit(ListAuditRequest) returns (ListAuditResponse);
+  rpc ListCalls(ListCallsRequest) returns (ListCallsResponse); // v0.15.0, admin
   rpc CreateBackup(CreateBackupRequest) returns (CreateBackupResponse);
   rpc ListBackups(ListBackupsRequest) returns (ListBackupsResponse);
   rpc VerifyBackup(VerifyBackupRequest) returns (VerifyBackupResponse);

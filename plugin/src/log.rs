@@ -167,6 +167,17 @@ impl Logger {
         );
         self.write(&self.line("info", "metrics", message, x))
     }
+    /// A `plugin-error` line (v0.15.0): `level` from the criticality, plus `criticality`, `error`,
+    /// `backtrace` (max 16 KiB), `kind` and `context`. Written by the server for errors in a
+    /// `StageResponse`.
+    pub fn plugin_error(&self, r: &itcmdr_common::PluginErrorRecord) -> std::io::Result<()> {
+        self.write(&self.line(
+            r.criticality.log_level(),
+            "plugin-error",
+            &r.error,
+            r.log_fields(),
+        ))
+    }
     pub fn metric(&self, m: Metric) -> std::io::Result<()> {
         let msg = format!("{} = {}", m.name, m.value);
         self.metrics(&msg, &[m])
@@ -217,6 +228,22 @@ pub fn validate(line: &str) -> Result<Map<String, Value>, String> {
         if !c.is_string() {
             return Err("check_id must be a string".into());
         }
+    }
+    if let Some(c) = m.get("criticality") {
+        if !c
+            .as_str()
+            .is_some_and(|x| itcmdr_common::ErrorCriticality::parse(x).is_some())
+        {
+            return Err("criticality must be critical, cautious or informational".into());
+        }
+    }
+    for k in ["error", "backtrace", "kind"] {
+        if m.get(k).is_some_and(|v| !v.is_string()) {
+            return Err(format!("{k} must be a string"));
+        }
+    }
+    if s("event") == "plugin-error" && !m.contains_key("criticality") {
+        return Err("a plugin-error line needs criticality".into());
     }
     if let Some(ms) = m.get("metrics") {
         let Value::Array(list) = ms else {

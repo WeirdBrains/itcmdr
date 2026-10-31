@@ -44,6 +44,8 @@ pub struct RunReport {
     pub stages: Vec<StageOutcome>,
     pub results: Vec<(String, String, String)>,
     pub log_path: PathBuf,
+    /// Plugin errors raised in this run (v0.15.0), each also written as a `plugin-error` line.
+    pub errors: Vec<itcmdr_common::PluginErrorRecord>,
 }
 
 /// Resolve `name[@version]` to an installed, enabled plugin.
@@ -105,7 +107,11 @@ pub fn ps_module() -> PathBuf {
 pub async fn command_for(
     pool: &DbPool,
     p: &InstalledPlugin,
-) -> Result<(tokio::process::Command, Vec<String>)> {
+) -> Result<(
+    tokio::process::Command,
+    Vec<String>,
+    itcmdr_common::ErrorCriticality,
+)> {
     let m = packages::parse_manifest(&std::fs::read(p.dir.join("package.toml"))?)
         .map_err(|r| anyhow!("{}: {}", p.name, r.0))?;
     let main = m
@@ -133,7 +139,12 @@ pub async fn command_for(
         other => bail!("{}: main file type {other} cannot be run", p.name),
     };
     c.current_dir(&p.dir).stderr(std::process::Stdio::null());
-    Ok((c, m.features))
+    let default = m
+        .default_error_criticality
+        .as_deref()
+        .and_then(itcmdr_common::ErrorCriticality::parse)
+        .unwrap_or_default();
+    Ok((c, m.features, default))
 }
 
 fn stage_err(s: &tonic::Status) -> String {
@@ -186,6 +197,7 @@ pub async fn run_plugin(
         stages: vec![],
         results: vec![],
         log_path: log_path.clone(),
+        errors: vec![],
     };
     let _ = srvlog("start").info("run-start", &format!("{} {} by {actor}", p.name, p.version));
     let res = run_stages(pool, &p, &ctx, timeout, &mut rep).await;
@@ -237,7 +249,12 @@ async fn run_stages(
     timeout: Duration,
     rep: &mut RunReport,
 ) -> Result<()> {
-    let (cmd, features) = command_for(pool, p).await?;
+    let (cmd, features, default_crit) = command_for(pool, p).await?;
+    let errlog = |stage: &str, r: &itcmdr_common::PluginErrorRecord| {
+        let mut l = Logger::for_ctx(&p.name, &p.version, ctx);
+        l.stage = stage.into();
+        let _ = l.plugin_error(r);
+    };
     let mut cmd = cmd;
     cmd.env(itcmdr_plugin::ENV_LOG_PATH, &ctx.log_path)
         .env("ITCMDR_RUN_ID", &ctx.run_id)
@@ -295,6 +312,37 @@ async fn run_stages(
                     (r.ok, r.message.clone(), Some(r))
                 }
             };
+            // v0.15.0: the plugin's own error, or (failed stage without one) a synthesized error at
+            // the package's default criticality. Written once, here, as a plugin-error line.
+            let perr = match resp.as_ref().and_then(|r| r.error.as_ref()) {
+                Some(e) => {
+                    let mut rec = e.to_record(default_crit);
+                    if rec.service_plugin.is_empty() {
+                        rec.service_plugin = p.name.clone();
+                    }
+                    if rec.error.is_empty() {
+                        rec.error = msg.clone();
+                    }
+                    Some(rec)
+                }
+                None if !ok => {
+                    let mut rec =
+                        itcmdr_common::PluginErrorRecord::new(&p.name, default_crit, &msg);
+                    rec.kind = if msg.contains("timed out") {
+                        "timeout"
+                    } else {
+                        "stage-failed"
+                    }
+                    .into();
+                    rec.context.insert("stage".into(), stage.into());
+                    Some(rec)
+                }
+                None => None,
+            };
+            if let Some(rec) = perr {
+                errlog(stage, &rec);
+                rep.errors.push(rec);
+            }
             if let Some(r) = &resp {
                 rep.results.extend(
                     r.results

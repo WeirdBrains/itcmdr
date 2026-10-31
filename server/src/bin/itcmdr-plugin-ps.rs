@@ -70,8 +70,11 @@ fn call(shell: &str, script: &PathBuf, req: &Value, log_path: &str) -> Result<Va
             )
         })?;
     let v: Value = serde_json::from_str(line).context("result JSON")?;
+    // A script error without a structured plugin_error (an old module) stays a plain failure.
     if let Some(e) = v.get("error").and_then(Value::as_str) {
-        bail!("{e}");
+        if v.get("plugin_error").is_none_or(Value::is_null) {
+            bail!("{e}");
+        }
     }
     Ok(v)
 }
@@ -81,14 +84,54 @@ fn ctx_json(c: &RunContext) -> Value {
            "report_only": c.report_only, "args": c.args, "stage": c.stage})
 }
 
-fn to_stage(v: Value) -> StageResponse {
-    StageResponse {
-        ok: v.get("ok").and_then(Value::as_bool).unwrap_or(false),
-        message: v
-            .get("message")
+/// `plugin_error` from the module (New-ItcmdrPluginError / an uncaught exception, v0.15.0).
+/// An empty criticality is left empty: the server applies the package default.
+fn to_plugin_error(v: &Value) -> Option<PluginError> {
+    let o = v.as_object()?;
+    let s = |k: &str| {
+        o.get(k)
             .and_then(Value::as_str)
             .unwrap_or_default()
+            .to_string()
+    };
+    let crit = s("criticality");
+    Some(PluginError {
+        service_plugin: s("service_plugin"),
+        kind: s("kind"),
+        criticality: itcmdr_plugin::ErrorCriticality::parse(&crit)
+            .map(|c| c.as_str().to_string())
+            .unwrap_or_default(),
+        error: itcmdr_common::truncate(&s("error"), itcmdr_common::MAX_ERROR),
+        backtrace: itcmdr_common::truncate(&s("backtrace"), itcmdr_common::MAX_BACKTRACE),
+        context: o
+            .get("context")
+            .and_then(Value::as_object)
+            .map(|m| {
+                m.iter()
+                    .map(|(k, v)| {
+                        (
+                            k.clone(),
+                            v.as_str()
+                                .map(String::from)
+                                .unwrap_or_else(|| v.to_string()),
+                        )
+                    })
+                    .collect()
+            })
+            .unwrap_or_default(),
+    })
+}
+
+fn to_stage(v: Value) -> StageResponse {
+    let error = v.get("plugin_error").and_then(to_plugin_error);
+    let fatal = v.get("error").and_then(Value::as_str);
+    StageResponse {
+        ok: fatal.is_none() && v.get("ok").and_then(Value::as_bool).unwrap_or(false),
+        message: fatal
+            .or_else(|| v.get("message").and_then(Value::as_str))
+            .unwrap_or_default()
             .into(),
+        error,
         results: match v.get("results") {
             // PowerShell turns a one-element array into the element itself.
             Some(Value::Array(a)) => a.clone(),

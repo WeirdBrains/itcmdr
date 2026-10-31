@@ -192,6 +192,15 @@ void main() {
         ),
       ),
     );
+
+    // v0.15.0 call log: the app's signed calls are logged with the key's name.
+    await Future<void>.delayed(const Duration(milliseconds: 500));
+    final calls = await client.listCalls(ListCallsRequest(method: 'WhoAmI'));
+    expect(calls.calls, isNotEmpty);
+    expect(calls.calls.first.statusName, 'OK');
+    expect(calls.calls.first.principal, startsWith('Front desk ('));
+    final bad = await client.listCalls(ListCallsRequest(errorsOnly: true));
+    expect(bad.calls.any((c) => c.method == 'InstallPlugin'), isTrue);
   }, timeout: const Timeout(Duration(minutes: 3)));
 }
 

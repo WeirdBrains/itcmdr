@@ -27,6 +27,7 @@ pub mod proto {
     tonic::include_proto!("itcmdr.plugin");
 }
 
+pub use itcmdr_common::{ErrorCriticality, PluginErrorRecord, ServicePluginError};
 use proto::plugin_service_server::{PluginService, PluginServiceServer};
 use proto::*;
 use std::sync::Arc;
@@ -66,7 +67,7 @@ pub fn ok(msg: &str) -> StageResponse {
     StageResponse {
         ok: true,
         message: msg.into(),
-        results: vec![],
+        ..Default::default()
     }
 }
 
@@ -74,7 +75,50 @@ pub fn fail(msg: &str) -> StageResponse {
     StageResponse {
         ok: false,
         message: msg.into(),
-        results: vec![],
+        ..Default::default()
+    }
+}
+
+/// A failed stage carrying a plugin error (v0.15.0). Return it from `verify`/`execute`:
+/// `Ok(itcmdr_plugin::plugin_error(&MyError::new("share unreachable", ErrorCriticality::Critical)))`.
+/// The server writes the `plugin-error` log line; the plugin does not.
+pub fn plugin_error(e: &dyn ServicePluginError) -> StageResponse {
+    let r = e.to_record();
+    StageResponse {
+        ok: false,
+        message: r.error.clone(),
+        error: Some(r.into()),
+        ..Default::default()
+    }
+}
+
+impl From<PluginErrorRecord> for proto::PluginError {
+    fn from(r: PluginErrorRecord) -> Self {
+        let r = r.bounded();
+        proto::PluginError {
+            service_plugin: r.service_plugin,
+            kind: r.kind,
+            criticality: r.criticality.as_str().into(),
+            error: r.error,
+            backtrace: r.backtrace,
+            context: r.context.into_iter().collect(),
+        }
+    }
+}
+
+impl proto::PluginError {
+    /// Back to a record. An unknown or empty criticality becomes `default` (cautious unless the
+    /// package sets `default_error_criticality`).
+    pub fn to_record(&self, default: ErrorCriticality) -> PluginErrorRecord {
+        PluginErrorRecord {
+            service_plugin: self.service_plugin.clone(),
+            kind: self.kind.clone(),
+            criticality: ErrorCriticality::parse(&self.criticality).unwrap_or(default),
+            error: self.error.clone(),
+            backtrace: self.backtrace.clone(),
+            context: self.context.clone().into_iter().collect(),
+        }
+        .bounded()
     }
 }
 

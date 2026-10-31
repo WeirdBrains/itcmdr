@@ -258,6 +258,9 @@ pub struct AuditEntry {
     /// JSON
     #[prost(string, tag = "4")]
     pub detail: ::prost::alloc::string::String,
+    /// v0.15.0: the call_log row of the call that made the change (empty for CLI/jobs)
+    #[prost(string, tag = "5")]
+    pub call_id: ::prost::alloc::string::String,
 }
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct ListAuditRequest {
@@ -268,6 +271,71 @@ pub struct ListAuditRequest {
 pub struct ListAuditResponse {
     #[prost(message, repeated, tag = "1")]
     pub entries: ::prost::alloc::vec::Vec<AuditEntry>,
+}
+/// v0.15.0: call log, one row per RPC (admin). Never bodies, words or keys.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CallEntry {
+    #[prost(string, tag = "1")]
+    pub id: ::prost::alloc::string::String,
+    /// unix millis (call start)
+    #[prost(int64, tag = "2")]
+    pub ts: i64,
+    /// itcmdr.Itcmdr
+    #[prost(string, tag = "3")]
+    pub service: ::prost::alloc::string::String,
+    /// ListAudit
+    #[prost(string, tag = "4")]
+    pub method: ::prost::alloc::string::String,
+    /// unary | server_stream | client_stream | bidi
+    #[prost(string, tag = "5")]
+    pub kind: ::prost::alloc::string::String,
+    /// ip:port
+    #[prost(string, tag = "6")]
+    pub peer: ::prost::alloc::string::String,
+    /// "Dr A (fingerprint prefix)", "token: admin", "unverified key ...", "anonymous"
+    #[prost(string, tag = "7")]
+    pub principal: ::prost::alloc::string::String,
+    /// gRPC code, 0 = OK
+    #[prost(int32, tag = "8")]
+    pub status: i32,
+    /// OK, UNAUTHENTICATED, ...
+    #[prost(string, tag = "9")]
+    pub status_name: ::prost::alloc::string::String,
+    #[prost(int64, tag = "10")]
+    pub duration_ms: i64,
+    #[prost(int64, tag = "11")]
+    pub req_bytes: i64,
+    #[prost(int64, tag = "12")]
+    pub resp_bytes: i64,
+    /// status message, max 512 bytes
+    #[prost(string, tag = "13")]
+    pub error: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListCallsRequest {
+    /// default 200, max 5000
+    #[prost(int32, tag = "1")]
+    pub limit: i32,
+    /// substring
+    #[prost(string, tag = "2")]
+    pub method: ::prost::alloc::string::String,
+    /// substring
+    #[prost(string, tag = "3")]
+    pub principal: ::prost::alloc::string::String,
+    #[prost(bool, tag = "4")]
+    pub errors_only: bool,
+    #[prost(int32, optional, tag = "5")]
+    pub status: ::core::option::Option<i32>,
+    #[prost(int64, tag = "6")]
+    pub since_ms: i64,
+    /// one call by id (e.g. an audit entry's call_id)
+    #[prost(string, tag = "7")]
+    pub id: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListCallsResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub calls: ::prost::alloc::vec::Vec<CallEntry>,
 }
 /// Live updates
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
@@ -1245,6 +1313,27 @@ pub mod itcmdr_client {
             req.extensions_mut().insert(GrpcMethod::new("itcmdr.Itcmdr", "ListAudit"));
             self.inner.unary(req, path, codec).await
         }
+        pub async fn list_calls(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListCallsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListCallsResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static("/itcmdr.Itcmdr/ListCalls");
+            let mut req = request.into_request();
+            req.extensions_mut().insert(GrpcMethod::new("itcmdr.Itcmdr", "ListCalls"));
+            self.inner.unary(req, path, codec).await
+        }
         pub async fn create_backup(
             &mut self,
             request: impl tonic::IntoRequest<super::CreateBackupRequest>,
@@ -2119,6 +2208,13 @@ pub mod itcmdr_server {
             tonic::Response<super::ListAuditResponse>,
             tonic::Status,
         >;
+        async fn list_calls(
+            &self,
+            request: tonic::Request<super::ListCallsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListCallsResponse>,
+            tonic::Status,
+        >;
         async fn create_backup(
             &self,
             request: tonic::Request<super::CreateBackupRequest>,
@@ -2820,6 +2916,49 @@ pub mod itcmdr_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = ListAuditSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/itcmdr.Itcmdr/ListCalls" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListCallsSvc<T: Itcmdr>(pub Arc<T>);
+                    impl<T: Itcmdr> tonic::server::UnaryService<super::ListCallsRequest>
+                    for ListCallsSvc<T> {
+                        type Response = super::ListCallsResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListCallsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Itcmdr>::list_calls(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListCallsSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

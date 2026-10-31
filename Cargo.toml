@@ -1,6 +1,8 @@
 [workspace]
 members = [
     "keys",
+    "common",
+    "common/derive",
     "server",
     "plugin",
     "tools/sample-data-gen",

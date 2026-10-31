@@ -570,6 +570,7 @@ JSON. The rest sounds good to me").
 | v0.13.0 ✅ | encrypted app key, plugins from the app, signed-only on the VM |
 | v0.14.0 ✅ | installer + first-run setup (`itcmdr-cli setup`), words shown once, first admin key, upgrade keeps settings |
 | v0.14.3 ✅ | separate packages: server, agent, CLI, app (own AppId/uninstaller each), migration from v0.14.2, keep-data uninstall, CI per package, Linux/macOS CLI tarballs, icon set |
+| v0.15.0 ✅ | plugin error contract (`itcmdr-common`, `ServicePluginError` derive, `PluginError` in plugin.proto, server-written `plugin-error` lines, PS `New-ItcmdrPluginError`), call log of every RPC (`call_log`, `ListCalls`, `itcmdr-cli calls`, Calls page, audit `call_id`, daily export + retention) |
 
 ### Notes from the v0.12.0 build
 
@@ -616,6 +617,12 @@ Recorded in docs/design/ADMINSVR.md ("Decisions"):
 - The Flutter app uses it through flutter_rust_bridge 2.13.0 (`app/rust`, a separate cargo workspace excluded from the root one; cargokit builds it per platform). Host tests need `cd app/rust && cargo build` first.
 - WASM: build with the rustup toolchain (`rustup run stable`), not Arch's system rustc, which has no wasm32 target. `flutter_rust_bridge_codegen build-web` uses nightly (installed user-level).
 - Linux desktop `flutter build linux` needs ninja and clang (system packages; not installed, not needed for tests).
+
+### Notes from the v0.15.0 build (errors and calls)
+
+- `itcmdr-common` holds the contract; the SDK re-exports it, the server and the PowerShell module implement the same fields and limits. The server alone writes `plugin-error` lines (runtime.rs), using the plugin's criticality, else the package `default_error_criticality`, else `cautious`.
+- The call log is a tower wrapper inside `tonic_web::enable`, so it sees plain gRPC trailers for web and native calls alike. A task-local call context carries the call id (picked up by `insert_audit`) and the principal (set by auth after verification). Rows are written by a batched background task (queue 10,000; drops are counted, never block a call).
+- Deviations from docs/design/SERVER-AGENT.md section 7: the export folder is `<data>/server-logs/calls/`; AgentService/AlertService and the per-minute stream aggregation come with those services (v0.16/v0.17); PluginService calls are covered through the plugin run records and plugin-error lines.
 
 ### Notes from the v0.14.3 build (packaging)
 

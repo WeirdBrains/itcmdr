@@ -85,6 +85,37 @@ enum Cmd {
     },
     /// State of the last app/StageRestore restore.
     RestoreStatus,
+    /// Call log (v0.15.0): one row per RPC, newest first. Same data as the app's Calls view.
+    #[command(subcommand)]
+    Calls(CallsCmd),
+}
+
+#[derive(Subcommand)]
+enum CallsCmd {
+    /// List calls, newest first.
+    List {
+        /// Method name contains this.
+        #[arg(long)]
+        method: Option<String>,
+        /// Principal contains this (a key name, "token", "anonymous").
+        #[arg(long)]
+        principal: Option<String>,
+        /// Exact gRPC status code (0 = OK, 16 = UNAUTHENTICATED, ...).
+        #[arg(long)]
+        status: Option<i32>,
+        /// Only failed calls.
+        #[arg(long)]
+        errors: bool,
+        /// Only calls in the last N hours.
+        #[arg(long)]
+        hours: Option<i64>,
+        #[arg(long, default_value_t = 50)]
+        limit: i64,
+    },
+    /// One call by id (an audit entry's call_id).
+    Show { id: String },
+    /// Export finished days to server-logs/calls now and prune by calllog.retention_days.
+    Prune,
 }
 
 #[derive(Subcommand)]
@@ -1523,6 +1554,82 @@ fn run(rt: &tokio::runtime::Runtime) -> Result<()> {
                     bail!("restore did not finish in 10 minutes");
                 }
                 Ok(())
+            })
+        }
+        Cmd::Calls(cc) => {
+            let cfg = load()?;
+            let json = cli.json;
+            rt.block_on(async {
+                let pool = srv::db::init_db(&cfg).await?;
+                let show = |c: &srv::calllog::CallRecord| {
+                    if json {
+                        println!("{}", serde_json::to_string(c).unwrap_or_default());
+                    } else {
+                        println!(
+                            "{}  {:<26} {:<16} {:>5}ms  {:<22} {}  {}{}",
+                            ms_local(c.ts_ms),
+                            c.method,
+                            srv::calllog::code_name(c.status),
+                            c.duration_ms,
+                            c.peer,
+                            c.principal,
+                            c.id,
+                            if c.error.is_empty() {
+                                String::new()
+                            } else {
+                                format!("  {}", c.error)
+                            }
+                        );
+                    }
+                };
+                match cc {
+                    CallsCmd::List {
+                        method,
+                        principal,
+                        status,
+                        errors,
+                        hours,
+                        limit,
+                    } => {
+                        let f = srv::calllog::Filter {
+                            method: method.clone(),
+                            principal: principal.clone(),
+                            status: *status,
+                            errors_only: *errors,
+                            since_ms: hours
+                                .map(|h| chrono::Utc::now().timestamp_millis() - h * 3_600_000),
+                            limit: *limit,
+                        };
+                        for c in srv::calllog::list(&pool, &f).await? {
+                            show(&c);
+                        }
+                    }
+                    CallsCmd::Show { id } => match srv::calllog::get(&pool, id).await? {
+                        Some(c) => show(&c),
+                        None => bail!("no call {id}"),
+                    },
+                    CallsCmd::Prune => {
+                        let days =
+                            srv::settings::get_i64(&pool, Some(&cfg), "calllog.retention_days")
+                                .await;
+                        let host = std::env::var("COMPUTERNAME")
+                            .or_else(|_| std::env::var("HOSTNAME"))
+                            .unwrap_or_else(|_| "server".into());
+                        let d = srv::calllog::export_finished_days(
+                            &pool,
+                            &srv::calllog::export_dir(&cfg.layout()),
+                            &host,
+                            days,
+                        )
+                        .await?;
+                        let n = srv::calllog::prune(&pool, days).await?;
+                        println!(
+                            "exported {} day(s), pruned {n} row(s) older than {days} days",
+                            d.len()
+                        );
+                    }
+                }
+                Ok::<(), anyhow::Error>(())
             })
         }
         Cmd::RestoreStatus => {

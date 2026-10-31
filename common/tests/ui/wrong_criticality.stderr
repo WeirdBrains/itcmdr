@@ -1,0 +1,5 @@
+error: field `criticality` must be `ErrorCriticality`
+ --> tests/ui/wrong_criticality.rs:6:18
+  |
+6 |     criticality: String,
+  |                  ^^^^^^

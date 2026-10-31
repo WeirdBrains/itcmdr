@@ -39,6 +39,7 @@ const M_TRIGGER: &str = "/itcmdr.Itcmdr/TriggerRuns";
 const M_SAVE_EXC: &str = "/itcmdr.Itcmdr/SaveException";
 const M_EXPIRE_EXC: &str = "/itcmdr.Itcmdr/ExpireException";
 const M_LIST_AUDIT: &str = "/itcmdr.Itcmdr/ListAudit";
+const M_LIST_CALLS: &str = "/itcmdr.Itcmdr/ListCalls";
 
 pub fn sha256_hex(s: &str) -> String {
     format!("{:x}", Sha256::digest(s.as_bytes()))
@@ -110,6 +111,11 @@ impl ItcmdrService {
             chrono::Utc::now().timestamp_millis(),
         )
         .await?;
+        crate::calllog::set_principal(format!(
+            "{} ({})",
+            p.name,
+            &p.fingerprint[..p.fingerprint.len().min(12)]
+        ));
         crate::auth::require(&p, min)?;
         Ok(p)
     }
@@ -143,7 +149,9 @@ impl ItcmdrService {
         {
             return Ok(self.signed(req, method, min).await?.actor());
         }
-        authorize(&self.cfg, req.metadata())
+        let actor = authorize(&self.cfg, req.metadata())?;
+        crate::calllog::set_principal(format!("token: {actor}"));
+        Ok(actor)
     }
 
     /// Read calls: open in modes token/both (a signature, if sent, must still be valid);
@@ -406,14 +414,65 @@ impl Itcmdr for ItcmdrService {
             .await
             .map_err(internal_err)?
             .into_iter()
-            .map(|(ts, actor, action, detail)| AuditEntry {
+            .map(|(ts, actor, action, detail, call_id)| AuditEntry {
                 ts,
                 actor,
                 action,
                 detail,
+                call_id,
             })
             .collect();
         Ok(Response::new(ListAuditResponse { entries }))
+    }
+
+    async fn list_calls(
+        &self,
+        req: Request<ListCallsRequest>,
+    ) -> Result<Response<ListCallsResponse>, Status> {
+        self.read_guard(&req, M_LIST_CALLS, crate::auth::Role::Admin)
+            .await?;
+        let r = req.into_inner();
+        let rows = if !r.id.is_empty() {
+            crate::calllog::get(&self.pool, &r.id)
+                .await
+                .map_err(internal_err)?
+                .into_iter()
+                .collect()
+        } else {
+            let opt = |s: String| (!s.trim().is_empty()).then(|| s.trim().to_string());
+            crate::calllog::list(
+                &self.pool,
+                &crate::calllog::Filter {
+                    method: opt(r.method),
+                    principal: opt(r.principal),
+                    status: r.status,
+                    errors_only: r.errors_only,
+                    since_ms: (r.since_ms > 0).then_some(r.since_ms),
+                    limit: r.limit as i64,
+                },
+            )
+            .await
+            .map_err(internal_err)?
+        };
+        let calls = rows
+            .into_iter()
+            .map(|c| CallEntry {
+                status_name: crate::calllog::code_name(c.status).into(),
+                id: c.id,
+                ts: c.ts_ms,
+                service: c.service,
+                method: c.method,
+                kind: c.kind,
+                peer: c.peer,
+                principal: c.principal,
+                status: c.status,
+                duration_ms: c.duration_ms,
+                req_bytes: c.req_bytes,
+                resp_bytes: c.resp_bytes,
+                error: c.error,
+            })
+            .collect();
+        Ok(Response::new(ListCallsResponse { calls }))
     }
 
     async fn create_backup(

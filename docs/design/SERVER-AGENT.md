@@ -239,6 +239,8 @@ call log (section 7) with status.
 
 ## 6. Plugin error contract
 
+> Implemented in v0.15.0 (`common/`, `common/derive/`, `proto/plugin.proto` `PluginError`, `agent/Itcmdr.Plugin.psm1`). The server writes the `plugin-error` line; packages may set `default_error_criticality`.
+
 New workspace crate **`itcmdr-common`**, with no gRPC and no server dependency, used by the server, the agent, the
 plugin SDK and plugins:
 
@@ -290,6 +292,8 @@ Mapping:
   itself could not run (e.g. access denied).
 
 ## 7. Call logging
+
+> Implemented in v0.15.0 for the itcmdr service (`server/src/calllog.rs`). The principal comes from the verified key or token. Export goes to `<data>/server-logs/calls/`. AgentService/AlertService rows and the per-minute stream counts arrive with those services (v0.16.0 alerts, v0.17.0 agent stream).
 
 Table `call_log`, written by a tonic/tower layer on **every** RPC on all services (Itcmdr, AgentService,
 AlertService), and by the plugin host for PluginService calls:
