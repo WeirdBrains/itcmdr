@@ -33,11 +33,18 @@ ALLOWED_TOKENS = {"SHA-256", "LICENSE-2"}  # LICENSE-2: apache.org LICENSE-2.0 U
 
 TEXT_EXTS = {
     ".rs", ".toml", ".md", ".yml", ".yaml", ".json", ".ps1", ".psd1", ".psm1",
-    ".dart", ".proto", ".sh", ".bat", ".iss", ".txt", ".py", ".ts", ".tsx"
+    ".dart", ".proto", ".sh", ".bat", ".iss", ".txt", ".py", ".ts", ".tsx",
+    ".xml", ".svg", ".desktop",
 }
 
-SKIP_DIRS = {".git", "third_party", "target", "build", "dist", ".dart_tool", "node_modules", "installer/out"}
-SKIP_FILES = {".gitignore", "banned.local.txt", "HANDOVER.local.md"}  # gitignored private files
+# Branding assets (v0.14.3): in .xml/.svg files the only URLs allowed are the fixed XML namespaces
+# schemas.android.com (Android resources) and www.w3.org (SVG). Any other host fails the scan.
+URL_RE = re.compile(r"https?://([A-Za-z0-9.-]+)")
+NAMESPACE_EXTS = {".xml", ".svg"}
+ALLOWED_NAMESPACE_HOSTS = {"schemas.android.com", "www.w3.org"}
+
+SKIP_DIRS = {".git", ".idea", "third_party", "target", "build", "dist", ".dart_tool", "node_modules", "installer/out"}
+SKIP_FILES = {".gitignore", "testResults.xml", "banned.local.txt", "HANDOVER.local.md"}  # gitignored private files
 
 def is_allowed_ip(s: str) -> bool:
     return any(p.search(s) for p in ALLOWED_IPS)
@@ -80,6 +87,12 @@ def scan_file(path: Path):
         if token in ALLOWED_TOKENS:
             continue
         violations.append((path, f"Suspicious hostname-like token: {token}"))
+
+    # URLs in XML/SVG assets: only the namespace hosts
+    if path.suffix.lower() in NAMESPACE_EXTS:
+        for m in URL_RE.finditer(data):
+            if m.group(1).lower() not in ALLOWED_NAMESPACE_HOSTS:
+                violations.append((path, f"Disallowed URL host in asset: {m.group(1)}"))
 
     # MACs
     for m in MAC_RE.finditer(data):

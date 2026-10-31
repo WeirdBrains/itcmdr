@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## v0.14.3 (2026-10-31)
+One package per component, and the approved icon set.
+- Installer split into `installer/itcmdr-{server,agent,cli,app}.iss` sharing `common.iss`, `common-setup.iss` and `common-code.iss`. Each package has its own AppId, uninstaller (`{pf}\itcmdr\uninstall\<part>`) and upgrade path. `installer/itcmdr.iss` is gone.
+- Packages: `itcmdr-server-Setup-<ver>.exe` (service; keeps a private `itcmdr-cli` for its setup steps so it works without the CLI package; reserved watchdog slot), `itcmdr-agent-Setup-<ver>.exe` (silent, `/SiteName= /ServerHostname= /Share= /EnrollToken=`; the token is stored ACL'd for the v0.17.0 Rust agent; `Push-Install-ItcmdrAgent.ps1` kept), `itcmdr-cli-Setup-<ver>.exe` (on PATH), `itcmdr-app-Setup-<ver>.exe` (with `itcmdr_keys_bridge.dll`). Linux/macOS: `itcmdr-cli-<ver>-<os>-<arch>.tar.gz` (`scripts/package-cli.sh`), `itcmdr-app-<ver>-linux-x86_64.tar.gz`, `itcmdr-app-<ver>-macos-<arch>.zip` (CI, unsigned).
+- Upgrade from the combined v0.14.2 installer: each split package takes over its part. Once all recorded components are installed, the old uninstall entry and `unins000.*` are removed; `server.json`, data, keys, the service and signed-only mode are kept. The extra SharedDLLs reference on `Itcmdr.Plugin.psm1` is dropped.
+- Uninstall keeps `%ProgramData%\itcmdr` by default. Removal needs a confirmation (or `/REMOVEDATA=yes`); the keys folder needs a second, default-No confirmation (or `/REMOVEKEYS=yes`); backups are never removed.
+- CI release: builds and uploads every package plus `SHA256SUMS`; Authenticode signing when the signing secret is set.
+- Branding: `branding/` (SVG masters, `build.py`, README, rendered office/admin/shared sets). Office icon wired into the Windows app (`app_icon.ico`), web favicon and Icon-192/512/maskable, the Linux bundle (hicolor icons, `itcmdr.desktop`, window icon name) and every installer (setup icon, uninstall icon). Android/iOS sets and the admin set stay in `branding/` until the mobile projects and v0.19.0. Tray icons stay in `branding/` (no tray usage yet).
+- `scripts/scan_repo.py` now scans `.xml`, `.svg` and `.desktop` files; in `.xml`/`.svg` the only URL hosts allowed are the XML namespaces `schemas.android.com` and `www.w3.org` (SVG). Ignored local files (`.idea/`, `testResults.xml`) are skipped.
+
 ## v0.14.2 (2026-10-31)
 All key code is in one shared crate, `itcmdr-keys`, and the Flutter app now signs and seals with it through flutter_rust_bridge. No behaviour change; the pinned vectors are unchanged.
 - New workspace crate `keys/` (`itcmdr-keys`): 24 words and master keys, fingerprints, certificates, escrow, sealed restore words (`itcmdr_keys::restore`), the canonical request message, `sign_request`/`sign_request_at`, `verify_request`, `key_from_seed`, `random_seed`, `sha256_hex`, `now_ms` (also on wasm32). Moved from `server/src/keys.rs` (now a re-export), the crypto half of `server/src/restore_seal.rs` (the one-time key store stays in the server) and request signing/verification in `server/src/auth.rs`. The server, `itcmdr-cli` and `itcmdr-restore` use it.

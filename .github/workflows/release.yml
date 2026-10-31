@@ -1,4 +1,9 @@
-name: Release (Windows)
+name: Release
+
+# v0.14.3: one package per component. Windows: itcmdr-{server,agent,cli,app}-Setup-<ver>.exe.
+# Linux/macOS: itcmdr-cli-<ver>-<os>-<arch>.tar.gz and itcmdr-app-<ver>-<os>-<arch>.tar.gz/.zip.
+# Everything is listed in SHA256SUMS. Windows packages are Authenticode-signed when the
+# WINDOWS_SIGN_PFX_BASE64 / WINDOWS_SIGN_PFX_PASSWORD secrets exist (unsigned otherwise).
 
 on:
   workflow_dispatch:
@@ -13,7 +18,7 @@ env:
   FLUTTER_VERSION: '3.47.8'
 
 jobs:
-  build-windows:
+  windows:
     runs-on: windows-latest
     defaults:
       run:
@@ -22,70 +27,126 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
       - name: Setup Rust (MSVC)
         run: |
           rustup toolchain install stable --profile minimal --target x86_64-pc-windows-msvc
           rustup default stable
-          cargo --version
-
-      - name: Build server (release)
-        run: cargo build -p itcmdr-server --release --locked --target x86_64-pc-windows-msvc
-      - name: Prepare server binaries for the installer path (target/release)
+      - name: Fetch pinned plugins
+        shell: bash
+        run: scripts/fetch-plugins.sh
+      - name: Build server binaries (release)
         run: |
-          New-Item -ItemType Directory -Path target\release -Force | Out-Null
-          Copy-Item target\x86_64-pc-windows-msvc\release\*.exe target\release\ -Force
-
+          cargo build -p itcmdr-server --release --locked --bins
       - name: Install Flutter ${{ env.FLUTTER_VERSION }}
         run: |
           git clone --depth 1 -b $env:FLUTTER_VERSION https://github.com/flutter/flutter.git "$env:RUNNER_TEMP\flutter"
           Add-Content -Path $env:GITHUB_PATH -Value "$env:RUNNER_TEMP\flutter\bin"
-      - name: Enable Windows desktop
+      - name: Build Flutter Windows app (cargokit builds the itcmdr-keys bridge)
+        working-directory: app
         run: |
-          flutter --version
           flutter config --enable-windows-desktop
-      - name: Flutter pub get
-        working-directory: app
-        run: flutter pub get --enforce-lockfile
-      - name: Build Flutter Windows app (release)
-        working-directory: app
-        run: flutter build windows --release
-
-      - name: Make installer
+          flutter pub get --enforce-lockfile
+          flutter build windows --release
+      - name: Packages (Inno Setup)
+        env:
+          PFX_B64: ${{ secrets.WINDOWS_SIGN_PFX_BASE64 }}
+          PFX_PASSWORD: ${{ secrets.WINDOWS_SIGN_PFX_PASSWORD }}
         run: |
-          $iscc = Get-Command iscc.exe -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source
-          if (-not $iscc) {
-            $candidates = @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\Inno Setup 6\ISCC.exe")
-            $iscc = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-          }
-          if (-not $iscc) {
-            choco install innosetup --no-progress -y
-            $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-          }
+          $iscc = @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\Inno Setup 6\ISCC.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $iscc) { choco install innosetup --no-progress -y; $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
           $version = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME.TrimStart('v') } else { '0.0.0' }
-          & $iscc "/DMyAppVersion=$version" installer\itcmdr.iss
-          if ($LASTEXITCODE -ne 0) { throw "ISCC failed with $LASTEXITCODE" }
-          Get-Item installer\out\itcmdr-Setup.exe
-
-      - name: Archive artifacts
-        uses: actions/upload-artifact@v4
+          $sign = @()
+          if ($env:PFX_B64) {
+            $pfx = "$env:RUNNER_TEMP\sign.pfx"; [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:PFX_B64))
+            $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" | Sort-Object FullName | Select-Object -Last 1
+            $sign = @('/DSign', "/Ssigntool=`"$($signtool.FullName)`" sign /f `"$pfx`" /p $env:PFX_PASSWORD /fd sha256 /tr http://timestamp.digicert.com /td sha256 `$f")
+          } else { Write-Warning 'No signing secret: Windows packages are unsigned (SHA256SUMS still published).' }
+          foreach ($p in 'server','agent','cli','app') {
+            & $iscc "/DMyAppVersion=$version" @sign "installer\itcmdr-$p.iss"
+            if ($LASTEXITCODE -ne 0) { throw "ISCC $p failed with $LASTEXITCODE" }
+          }
+          Get-ChildItem installer\out
+      - uses: actions/upload-artifact@v4
         with:
-          name: itcmdr-windows-artifacts
-          path: |
-            installer\out\itcmdr-Setup.exe
-            target\x86_64-pc-windows-msvc\release\itcmdr-server.exe
-            app\build\windows\x64\runner\Release\*
+          name: pkg-windows
+          path: installer/out/*.exe
 
-      - name: Create GitHub Release
+  cli-unix:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+          - os: macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Rust
+        run: rustup toolchain install stable --profile minimal && rustup default stable
+      - name: CLI tarball
+        run: scripts/package-cli.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pkg-cli-${{ matrix.os }}
+          path: dist/*
+
+  app-unix:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+          - os: macos-latest
+            platform: macos
+    runs-on: ${{ matrix.os }}
+    # macOS app builds are unsigned and not notarized until the Mac signing step (ADMINSVR.md).
+    continue-on-error: ${{ matrix.platform == 'macos' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Rust
+        run: rustup toolchain install stable --profile minimal && rustup default stable
+      - name: Linux build deps
+        if: matrix.platform == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y ninja-build clang cmake pkg-config libgtk-3-dev
+      - name: Install Flutter ${{ env.FLUTTER_VERSION }}
+        run: |
+          git clone --depth 1 -b "$FLUTTER_VERSION" https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+      - name: Build and pack
+        working-directory: app
+        run: |
+          version=$(sed -n 's/^version: \([0-9.]*\).*/\1/p' pubspec.yaml)
+          arch=$(uname -m)
+          flutter pub get --enforce-lockfile
+          flutter build ${{ matrix.platform }} --release
+          mkdir -p ../dist
+          if [ "${{ matrix.platform }}" = linux ]; then
+            tar -C build/linux/x64/release -czf "../dist/itcmdr-app-$version-linux-$arch.tar.gz" bundle
+          else
+            (cd build/macos/Build/Products/Release && zip -qry "$GITHUB_WORKSPACE/dist/itcmdr-app-$version-macos-$arch.zip" *.app)
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pkg-app-${{ matrix.platform }}
+          path: dist/*
+
+  publish:
+    needs: [windows, cli-unix, app-unix]
+    if: always() && needs.windows.result == 'success' && needs.cli-unix.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: pkgs
+          merge-multiple: true
+      - name: SHA256SUMS
+        run: |
+          cd pkgs && rm -f *.sha256 && sha256sum * > SHA256SUMS && cat SHA256SUMS
+      - name: GitHub release
         if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          $tag = $env:GITHUB_REF_NAME
-          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
-          if ($LASTEXITCODE -ne 0) {
-            gh release create $tag --repo $env:GITHUB_REPOSITORY --title "itcmdr $tag" --generate-notes
-            if ($LASTEXITCODE -ne 0) { throw 'gh release create failed' }
-          }
-          gh release upload $tag installer\out\itcmdr-Setup.exe --repo $env:GITHUB_REPOSITORY --clobber
-          if ($LASTEXITCODE -ne 0) { throw 'gh release upload failed' }
+          tag="$GITHUB_REF_NAME"
+          gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create "$tag" --repo "$GITHUB_REPOSITORY" --title "itcmdr $tag" --generate-notes
+          gh release upload "$tag" pkgs/* --repo "$GITHUB_REPOSITORY" --clobber

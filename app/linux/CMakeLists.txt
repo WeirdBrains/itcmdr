@@ -126,3 +126,11 @@ if(NOT CMAKE_BUILD_TYPE MATCHES "Debug")
   install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
     COMPONENT Runtime)
 endif()
+
+# Branding (v0.14.3): hicolor icons and a desktop entry inside the bundle
+# (bundle/share/icons/hicolor/<size>/apps/itcmdr.png, bundle/share/applications/itcmdr.desktop).
+# Copy them to ~/.local/share (or /usr/share) to show the icon in a desktop launcher.
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/packaging/icons/hicolor"
+  DESTINATION "${CMAKE_INSTALL_PREFIX}/share/icons" COMPONENT Runtime)
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/packaging/itcmdr.desktop"
+  DESTINATION "${CMAKE_INSTALL_PREFIX}/share/applications" COMPONENT Runtime)

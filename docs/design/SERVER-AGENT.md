@@ -379,6 +379,8 @@ Every step must be testable on the VM, and the server, agent and app keep workin
 | **v0.20.0** | Self-upgrade: `itcmdr-agent-release` package kind, rings, watchdog service, health-checked swap + rollback | Upgrade the VM agent; a deliberately broken release must roll back; kill the watchdog → restarted | Bricking agents: watchdog never self-upgrades, owner-signed releases only |
 | **v0.21.0** | Retire the poller, requests/, schedule-state, share ingest (after one release on the switched path); docs | Fresh install on the VM has no share dependency except backups | Sites not yet switched: keep the old path until switched |
 
+Packaging: since v0.14.3 the agent has its own package (`itcmdr-agent-Setup-<ver>.exe`, silent install with `/EnrollToken=`); the v0.17.0 Rust agent ships in that same package (same AppId), so the PS agent package upgrades in place to the Rust agent.
+
 A second real PC (still an open item) should join at v0.17.0 at the latest. Two agents on one VM are a weaker test.
 
 ## 11. Open questions

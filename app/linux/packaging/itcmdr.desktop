@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=itcmdr
+Comment=itcmdr office maintenance app
+Exec=app
+Icon=itcmdr
+Terminal=false
+Categories=Utility;System;
+StartupWMClass=app

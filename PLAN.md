@@ -49,6 +49,24 @@ also covered by the Windows VM test pass below.
 | v0.13.0 | App key encrypted at rest (DPAPI / keyring), plugin install/enable/disable/remove from the app, signed-only switch proven on the VM | ✅ Done | `v0.13.0` | 2026-10-31 |
 | v0.14.0 | Installer and first-run setup: site values, checks, words shown once, first admin key (signed from day one), upgrade keeps settings | ✅ Done | `v0.14.0` | 2026-10-31 |
 | v0.14.1 | Plugins moved to the itcmdr-plugins repo (pinned in `plugins.pin.json`); one-time history rewrite of itcmdr (approved) | ✅ Done | `v0.14.1` | 2026-10-31 |
+| v0.14.3 | Separate install packages per component (server, agent, CLI, app), migration from the combined installer, keep-data uninstall, CI per-package release, the icon set | ✅ Done | `v0.14.3` | 2026-10-31 |
+
+### Packaging (v0.14.3 and later)
+
+One package per component, each with its own install, upgrade and uninstall. Uninstall keeps `%ProgramData%\itcmdr` by default; removing data is opt-in (confirmation, or `/REMOVEDATA=yes`), keys only with a second explicit choice (`/REMOVEKEYS=yes`), and backups are never removed. The GitHub release publishes every artifact plus `SHA256SUMS`; Windows packages are Authenticode-signed when the signing secret is set.
+
+| Release | Package | Files |
+|---|---|---|
+| v0.14.3 | Server (Windows service; reserved slot for the v0.21.0 server watchdog; carries its own `itcmdr-cli` for setup steps so it works standalone) | `itcmdr-server-Setup-<ver>.exe` |
+| v0.14.3 | Agent (silent, push-friendly, `/EnrollToken=` stored for v0.17.0; `Push-Install-ItcmdrAgent.ps1` kept) | `itcmdr-agent-Setup-<ver>.exe` |
+| v0.14.3 | CLI (on PATH) | `itcmdr-cli-Setup-<ver>.exe`, `itcmdr-cli-<ver>-linux-x86_64.tar.gz`, `itcmdr-cli-<ver>-macos-aarch64.tar.gz` (CI) |
+| v0.14.3 | App (with `itcmdr_keys_bridge.dll`) | `itcmdr-app-Setup-<ver>.exe`, `itcmdr-app-<ver>-linux-x86_64.tar.gz`, `itcmdr-app-<ver>-macos-aarch64.zip` (CI, unsigned until the Mac signing step) |
+| v0.17.0 | The Rust agent ships in the agent package (same AppId, upgrades the PS agent package) | `itcmdr-agent-Setup-<ver>.exe` |
+| v0.19.0 | adminsvr (container image + compose file, plain binary package), admin CLI (Windows, macOS, Linux), admin app (Android/iOS store builds, desktop installers, web build served by adminsvr) | `itcmdr-adminsvr-*`, `itcmdr-admin-cli-*`, `itcmdr-admin-app-*` |
+
+Upgrading from the combined v0.14.2 installer: each split package takes over its part; once every component the old installer recorded is installed as a split package, the old uninstall entry is removed (files, data, keys, the service and signed-only mode are untouched).
+
+Branding (v0.14.3): `branding/` holds the SVG masters, `build.py` and the rendered sets. The office icon is wired into the Windows app, the web icons, the Linux bundle (hicolor icons + `itcmdr.desktop`) and every installer. Android `res/` and the iOS `AppIcon.appiconset` (office and admin) are wired when `flutter create --platforms android,ios` runs (the mobile store work); the admin set is for the v0.19.0 SRE app. Tray/notification monochrome icons stay in `branding/` (no tray usage yet).
 
 ### Proposed: server, agents and adminsvr (docs/design/SERVER-AGENT.md, docs/design/ADMINSVR.md; decisions recorded 2026-10-31; not started)
 
