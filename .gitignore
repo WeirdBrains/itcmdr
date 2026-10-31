@@ -28,3 +28,5 @@ config/banned.local.txt
 # Test output
 testResults.xml
 HANDOVER.local.md
+# Pinned itcmdr-plugins checkout (scripts/fetch-plugins.sh)
+/third_party/

@@ -46,6 +46,7 @@ also covered by the Windows VM test pass below.
 | v0.12.0 | Flutter: Service Plugins, registration, users/keys, plugin metric charts, Backup & Restore (incl. restore with the words), Schedules, signed requests | ✅ Done | `v0.12.0` (fb007b2) | 2026-10-31 |
 | v0.13.0 | App key encrypted at rest (DPAPI / keyring), plugin install/enable/disable/remove from the app, signed-only switch proven on the VM | ✅ Done | `v0.13.0` | 2026-10-31 |
 | v0.14.0 | Installer and first-run setup: site values, checks, words shown once, first admin key (signed from day one), upgrade keeps settings | ✅ Done | `v0.14.0` | 2026-10-31 |
+| v0.14.1 | Plugins moved to the itcmdr-plugins repo (pinned in `plugins.pin.json`); one-time history rewrite of itcmdr (approved) | ✅ Done | `v0.14.1` | 2026-10-31 |
 
 ## Cross-cutting items
 

@@ -498,7 +498,7 @@ JSON. The rest sounds good to me").
 - **Decision 16: agents run only the plugin copies installed with the agent** (agreed Oct 30 2026). Every PC can
   write to the maintenanceRuns share, so a share copy checked against a hash list on the same share would let one
   compromised workstation plant code that runs as SYSTEM everywhere. Agents run `{app}\agent\plugins\<name>` (or
-  `plugins/builtin/<name>` in a source tree) and never download or copy plugins. Plugin packages are fetched by the
+  `plugins/builtin/<name>` in a source tree; since v0.14.1 `third_party/itcmdr-plugins/plugins/<name>`, the pinned itcmdr-plugins tag) and never download or copy plugins. Plugin packages are fetched by the
   server only, as a plain HTTPS fetch (`ureq` in `packages.rs`; `http://` stays for loopback tests), then validated
   (exact file list, sha256, signature) before install. A signed share index for agents is deferred.
 - **Decision 10, as built:** the check library moved to `agent/Itcmdr.Checks.ps1` unchanged; five plugins
@@ -585,3 +585,10 @@ JSON. The rest sounds good to me").
 
 - `itcmdr-cli setup first-run` = `auth::init` + certify and register the first admin key with the master from the words in memory (`setup::first_run`). The words go to the console only. The command refuses when stdin or stdout is not a terminal, so they can't land in a redirected file or installer log (hidden `--no-confirm` is for tests). `--app-key-store` reads or creates `%APPDATA%\itcmdr\app-key.dpapi` with DPAPI current user and entropy `itcmdr-app-key/v1` (`storage::protect_for_app`), the same format as `app/lib/key_store.dart`.
 - The installer decides "first install" in `InitializeSetup` (server.json / site.json missing) before [Files] runs.
+
+### Notes from v0.14.1 (plugins split out)
+
+- The five check plugins live in github.com/WeirdBrains/itcmdr-plugins (v1.0.0, with their history; pinned v1.0.1). itcmdr pins a release in `plugins.pin.json` (repo, tag, commit). `scripts/fetch-plugins.sh` clones that tag into the gitignored `third_party/itcmdr-plugins` and refuses a tag that does not point to the pinned commit.
+- Uses of the pinned copy: the installer (`{app}\agent\plugins`; ISCC stops with an error when the copy is missing), `Push-Install-ItcmdrAgent.ps1` (source-tree fallback), `Get-ItcmdrBuiltinPluginSet` (source-tree fallback) and the parity tests (`agent/tests/BuiltinPlugins.Tests.ps1`, which fail with a clear message when the copy is missing). The parity/cutover flow is unchanged: agents still run only the installed copies, and the check functions in `agent/Itcmdr.Checks.ps1` are still the fallback.
+- What stays in itcmdr, and why: `agent/Itcmdr.Checks.ps1` (the task runs the same functions, which is what parity compares; the plugins bundle it at pack time), the Rust plugin SDK `plugin/` (a workspace crate the server and `itcmdr-plugin-ps` build on) and `agent/Itcmdr.Plugin.psm1` (the PowerShell host module that the server's `itcmdr-plugin-ps` and the agent runner load).
+- Server installs: `Install-Plugins.ps1` / `install.sh` in itcmdr-plugins build, sign and install through `itcmdr-cli plugins install --path` (same validation and quarantine; `-Disabled`).

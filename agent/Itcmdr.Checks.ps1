@@ -4,7 +4,7 @@
 
 .DESCRIPTION
   Dot-sourced by Invoke-ItcmdrAgent.ps1 (the nightly task) and bundled in each built-in check
-  plugin (plugins/builtin, v0.11.0), so the task and the plugins run the same code: same check
+  plugin (repo itcmdr-plugins since v0.14.1; plugins/builtin before), so the task and the plugins run the same code: same check
   ids, the same JSON Lines records, clinical guard, exceptions and report-only rules.
   Windows PowerShell 5.1 and PowerShell 7.
 #>
@@ -827,7 +827,7 @@ function Invoke-ItcmdrBackupCheck {
 }
 
 # --- Built-in checks as plugins (decision 10, v0.11.0) ---------------------------------------
-# Each built-in check plugin (plugins/builtin/<name>/main.ps1) bundles this file and calls
+# Each built-in check plugin (itcmdr-plugins: plugins/<name>/main.ps1) bundles this file and calls
 # Invoke-ItcmdrBuiltinCheckSet with one of the check functions above, so ids, records, the
 # clinical guard, exceptions and report-only rules are exactly the task's.
 

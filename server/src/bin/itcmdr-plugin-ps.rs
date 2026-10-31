@@ -160,6 +160,22 @@ impl Plugin for PsPlugin {
     }
 }
 
+/// `canonicalize` on Windows gives a verbatim path (`\\?\C:\...`). Windows PowerShell 5.1 then
+/// leaves `$PSScriptRoot` empty, which broke every plugin that loads files next to its script
+/// (found in v0.14.1). Strip the prefix when the plain form is an ordinary drive or UNC path.
+fn plain_path(p: PathBuf) -> PathBuf {
+    let s = p.to_string_lossy();
+    if let Some(rest) = s.strip_prefix(r"\\?\UNC\") {
+        return PathBuf::from(format!(r"\\{rest}"));
+    }
+    if let Some(rest) = s.strip_prefix(r"\\?\") {
+        if rest.as_bytes().get(1) == Some(&b':') {
+            return PathBuf::from(rest);
+        }
+    }
+    p
+}
+
 fn main() -> Result<()> {
     let mut args = std::env::args().skip(1);
     let mut script = std::env::var("ITCMDR_PLUGIN_SCRIPT")
@@ -173,9 +189,11 @@ fn main() -> Result<()> {
         }
     }
     let script = script.ok_or_else(|| anyhow!("usage: itcmdr-plugin-ps --script <main.ps1>"))?;
-    let script = script
-        .canonicalize()
-        .with_context(|| format!("{}", script.display()))?;
+    let script = plain_path(
+        script
+            .canonicalize()
+            .with_context(|| format!("{}", script.display()))?,
+    );
     let shell = default_shell();
     let d = call(&shell, &script, &json!({"stage": "describe"}), "")?;
     let s = |k: &str| {
@@ -203,4 +221,25 @@ fn main() -> Result<()> {
         shell,
         info,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::plain_path;
+    use std::path::PathBuf;
+
+    #[test]
+    fn verbatim_prefixes_are_removed() {
+        let t = |a: &str| plain_path(PathBuf::from(a)).to_string_lossy().to_string();
+        assert_eq!(
+            t(r"\\?\C:\ProgramData\itcmdr\x\main.ps1"),
+            r"C:\ProgramData\itcmdr\x\main.ps1"
+        );
+        assert_eq!(
+            t(r"\\?\UNC\SERVER01\share\main.ps1"),
+            r"\\SERVER01\share\main.ps1"
+        );
+        assert_eq!(t(r"\\?\Volume{abc}\main.ps1"), r"\\?\Volume{abc}\main.ps1");
+        assert_eq!(t("/opt/itcmdr/main.ps1"), "/opt/itcmdr/main.ps1");
+    }
 }
