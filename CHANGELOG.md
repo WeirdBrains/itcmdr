@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Docs: Passkeys/YubiKeys (WebAuthn) as an optional second factor, v0.19.1 (no renumbering). The 24-word key stays the signing identity. A passkey unlocks the stored key, and a fresh touch is bound to the signed request's hash for step-up actions (owner-configurable list, optional per-role enforcement). Assertions are audited, recovery is the 24 words plus an owner/admin reset, and the CLI uses a USB key via libfido2.
 - Docs: recorded Michael's server/agent/adminsvr decisions in `docs/design/ADMINSVR.md`:
   - configurable adminsvr host
   - rootless Podman for test containers

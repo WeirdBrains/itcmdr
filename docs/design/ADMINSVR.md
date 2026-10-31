@@ -46,6 +46,9 @@ These are decided and supersede the earlier recommendations and open questions i
 12. **Remote upgrades are ON by default** at every site. They roll out automatically through the rings, with
     health-gated auto-pause (a failed health check or new Critical alerts in a ring pause the rollout) and automatic
     rollback. The off switches are the global freeze and the site-local `adminsvr.enabled=false`.
+16. **Passkeys / YubiKeys (WebAuthn) as an optional second factor** (v0.19.1). The 24-word key remains the
+    signing identity. A passkey unlocks the stored key and a fresh touch is required for step-up actions (owner-
+    configurable). See "Passkeys / YubiKeys".
 15. **Shared key crate and unified onboarding:**
     - `itcmdr-keys` is used by every component, including the Flutter app on web through WASM, so web has full rights.
     - Users onboard like on the site: a key is generated, the user gets 24 words and a master key, and the key stays
@@ -330,6 +333,49 @@ every platform, so **the web app gets full rights** (no web-only restriction).
   in Rust, through the bridge in Dart, and in WASM in a headless browser test. The Dart app switches to the bridge
   in the same release only if its tests match the vectors byte for byte; otherwise it switches in v0.15.0.
 
+### Passkeys / YubiKeys as an optional second factor (decided, v0.19.1)
+
+The 24-word key stays **the identity that signs everything**. Passkeys, including YubiKeys and other FIDO2 security
+keys (which work as passkeys over WebAuthn), are an **optional second factor** on top of it. They work the same on
+web, desktop and mobile.
+
+- **Registration:**
+  - A signed, audited request starts a WebAuthn registration ceremony on the device.
+  - adminsvr verifies the attestation and stores the credential (credential id, public key, sign count, AAGUID and
+    label) against the user.
+  - Several passkeys per user are allowed (recommended: two, e.g. a phone passkey and a YubiKey).
+- **Unlock:** when enabled, a passkey assertion unlocks the locally stored device key, by wrapping its encryption key
+  with the passkey's PRF/hmac-secret output where the authenticator supports it. Otherwise the device key is gated
+  by a verified assertion.
+- **Step-up, bound to the action:**
+  - For a step-up action, the app builds the signed request first.
+  - The WebAuthn challenge is `H("itcmdr-stepup/v1" || request payload hash || nonce from adminsvr)`, so the touch
+    proves *that specific action* and can't be replayed.
+  - adminsvr verifies the request signature (the 24-word identity), the assertion (signature, challenge, origin/RP
+    id, user verification, sign-count increase) and that the nonce is fresh.
+- **Audit:** the chain entry for the action records the assertion: credential id, authenticator flags, sign count,
+  the challenge hash and the result.
+- **Step-up actions** (default list, editable by owners as the setting `auth.stepup_actions`, a signed and audited
+  change):
+  - release approvals
+  - owner and role changes
+  - CA and key operations
+  - user and device enrollment and revocation
+  - key-backup retrieval
+  - freezes and the kill switch
+- **Per-role enforcement:** `auth.passkey_required_roles` (default: empty; recommended once rolled out: `owner`).
+  When required, a user without a registered passkey can't perform step-up actions, and the app prompts them to
+  register one.
+- **Losing a passkey:** recovery is the 24 words (re-derive the identity) **plus** an owner or admin reset that
+  removes the lost credential (step-up by the resetter). The last owner's reset uses the 24 words plus
+  `adminsvr recover-owner` at the console. All of it is audited.
+- **CLI parity:** `itcmdr-admin` supports registration, step-up and management (`itcmdr-admin passkey
+  add|list|remove`) with a security key over USB/NFC, via libfido2 (`libfido2` or the `ctap-hid-fido2` crate). It
+  uses the same challenge binding. Platform passkeys (phone or Windows Hello) are app-only. The CLI needs a hardware
+  key.
+- **Libraries:** `webauthn-rs` on adminsvr; the platform WebAuthn APIs through Flutter plugins (web:
+  `navigator.credentials`).
+
 ### Signed changes and the audit chain (decided)
 
 **Every state-changing action on adminsvr is a signed request, and unsigned changes are rejected.** That includes:
@@ -532,6 +578,7 @@ releases** as the adminsvr features it uses.
 | v0.17.0 | Rust agent (also on the office server), enrollment with mTLS client certs, heartbeats (configurable per tier/machine), offline queue | as in SERVER-AGENT.md |
 | v0.18.0 | Agent runs plugins + schedules, report-only parity | as in SERVER-AGENT.md |
 | v0.19.0 | **adminsvr MVP + SRE app v1:** adminsvr container (Postgres, rootless Podman for tests), `itcmdr-admin` CLI with app parity, mTLS site certs, FCM/APNs push, `adminsvr init`, users/roles/RBAC rules, key-based signed-request auth (reused site signing code), device enrollment, rotation, revocation, 24-word onboarding, optional client-side encrypted key backup (signed retrieval), `recover-owner`; hash-chained audit log of every signed change and push, checkpoints to sites, `audit verify`; SiteLink (site enrollment, pinned TLS, signed messages, up: heartbeats/status/alerts, outbound queue). SRE app: chrome (device enrollment/unlock, settings) + Users (incl. audit/call log) + Servers (list, health, agents, alerts, alert inbox); web + Android + iOS (pending Mac signing) + Linux desktop builds. Dart packages split out of `app/` | adminsvr in a container on alien-blue; the VM site links to it; alerts raised on the VM reach the app; kill the container and check the site queues and adminsvr reports it as unreachable on restart; RBAC tests incl. the owner rules; an unsigned or wrongly signed change is rejected; a revoked key is refused at once; tampering with an `audit_chain` row is caught by `audit verify` and by the site checkpoints; app/CLI audit parity test; onboarding on web (WASM) and Android/Linux gives identical signatures; key backup round trip (adminsvr only holds ciphertext); new device from the 24 words |
+| v0.19.1 | Passkeys/YubiKeys (WebAuthn) as an optional second factor: registration, key unlock, step-up bound to the request hash, assertions in the audit chain, configurable step-up list, per-role enforcement, recovery with the 24 words plus an owner/admin reset; app on web, desktop and mobile; CLI with USB security keys (libfido2) | step-up refused without a touch and when the challenge belongs to another request; a replayed assertion is refused; owner-only enforcement; lost-passkey reset audited; a YubiKey on Linux via the CLI and the web app |
 | v0.20.0 | Config over the agent stream + gated agent switch (PS agent retired here); **adminsvr down-commands:** allowlist, preview/dry-run, two-person approval, freeze/kill switch; metrics summaries up. SRE app: Servers configs/commands + metrics explorer, and **Service Plugins** (catalog, rollout, quarantine view); adminsvr becomes the plugin source of truth, sites cache and relay | push a setting and a schedule from the app to the VM site; refused when off the allowlist; two-person flow; egress filter tests (PHI patterns dropped) |
 | v0.21.0 | Agent self-upgrade (release plugin, rings, watchdog) + **site-server self-upgrade via adminsvr** (pre-upgrade backup, server watchdog, rollback). SRE app: **Updates** (releases, rings, approvals, rollback) | broken release rolls back (agent and server); ring gating across two sites (VM + a second test site container) |
 | v0.22.0 | Retire share flows; Windows/macOS desktop builds of the SRE app; adminsvr backup/restore runbook + monthly restore test | fresh install with no share dependency; adminsvr restore drill |
