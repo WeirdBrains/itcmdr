@@ -14,6 +14,7 @@ pub struct ItcmdrService {
     cfg: ServerConfig,
     pool: DbPool,
     nonces: std::sync::Arc<crate::auth::NonceCache>,
+    restore_keys: std::sync::Arc<crate::restore_seal::RestoreKeys>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -27,8 +28,9 @@ impl AuthMode {
     pub fn from_config(s: &str) -> AuthMode {
         match s.trim().to_ascii_lowercase().as_str() {
             "token" => AuthMode::Token,
-            "signed" => AuthMode::Signed,
-            _ => AuthMode::Both,
+            "both" => AuthMode::Both,
+            // "signed", and anything unknown or unsettled: fail secure.
+            _ => AuthMode::Signed,
         }
     }
 }
@@ -84,6 +86,7 @@ impl ItcmdrService {
             cfg,
             pool,
             nonces: Default::default(),
+            restore_keys: Default::default(),
         }
     }
 
@@ -109,6 +112,21 @@ impl ItcmdrService {
         .await?;
         crate::auth::require(&p, min)?;
         Ok(p)
+    }
+
+    /// Calls that never accept the shared token (restore, keys): signed in every auth mode.
+    async fn signed_only<T: prost::Message>(
+        &self,
+        req: &Request<T>,
+        method: &str,
+        min: crate::auth::Role,
+    ) -> Result<crate::auth::Principal, Status> {
+        if !crate::auth::has_signature(req.metadata()) {
+            return Err(Status::unauthenticated(
+                "this call needs a signed request (register a key for the app; the shared token is not enough)",
+            ));
+        }
+        self.signed(req, method, min).await
     }
 
     /// Mutating calls: a signed request with at least `min`, or (modes token/both) the legacy token.
@@ -963,15 +981,82 @@ impl Itcmdr for ItcmdrService {
         &self,
         req: Request<StageRestoreRequest>,
     ) -> Result<Response<StageRestoreResponse>, Status> {
-        let actor = self
-            .authz(
+        let p = self
+            .signed_only(
                 &req,
                 "/itcmdr.Itcmdr/StageRestore",
                 crate::auth::Role::Owner,
             )
             .await?;
+        let actor = p.actor();
         let r = req.into_inner();
-        let words = zeroize::Zeroizing::new(r.words);
+        let now = chrono::Utc::now().timestamp_millis();
+        if !r.words.is_empty() {
+            self.audit(
+                &actor,
+                "restore-refused",
+                &serde_json::json!({"backup": r.backup, "reason": "plaintext words"}),
+            )
+            .await;
+            return Err(Status::invalid_argument(
+                "plaintext words are refused since v0.12.0: seal them for a GetRestoreKey key (sealed_words)",
+            ));
+        }
+        let sw = r
+            .sealed_words
+            .ok_or_else(|| Status::invalid_argument("sealed_words is required"))?;
+        let sealed = crate::restore_seal::Sealed {
+            key_id: sw.key_id,
+            eph: sw.eph,
+            nonce: sw.nonce,
+            ct: sw.ct,
+        };
+        let opened = self
+            .restore_keys
+            .open(&sealed, &p.fingerprint, &r.backup, now);
+        let words = match opened {
+            Ok(w) => w,
+            Err(e) => {
+                self.audit(&actor, "restore-refused", &serde_json::json!({"backup": r.backup, "dry_run": r.dry_run, "error": format!("{e:#}")}))
+                    .await;
+                return Err(Status::failed_precondition(format!("{e:#}")));
+            }
+        };
+        if r.dry_run {
+            let res = async {
+                let archive =
+                    crate::restore::archive_path(&self.pool, &self.cfg, &r.backup).await?;
+                crate::backup::restore(&self.cfg, &archive, &words, true).await
+            }
+            .await;
+            self.audit(
+                &actor,
+                "restore-dry-run",
+                &serde_json::json!({"backup": r.backup, "ok": res.is_ok(), "error": res.as_ref().err().map(|e| format!("{e:#}"))}),
+            )
+            .await;
+            res.map_err(|e| Status::failed_precondition(format!("{e:#}")))?;
+            let id = self
+                .restore_keys
+                .record_dry_run(&p.fingerprint, &r.backup, now);
+            return Ok(Response::new(StageRestoreResponse {
+                status: None,
+                dry_run_id: id,
+                message: "dry run passed: the words open this backup and the archive is intact; nothing was changed".into(),
+            }));
+        }
+        if let Err(e) =
+            self.restore_keys
+                .take_dry_run(&r.dry_run_id, &p.fingerprint, &r.backup, now)
+        {
+            self.audit(
+                &actor,
+                "restore-refused",
+                &serde_json::json!({"backup": r.backup, "error": format!("{e:#}")}),
+            )
+            .await;
+            return Err(Status::failed_precondition(format!("{e:#}")));
+        }
         let res = crate::restore::stage(&self.pool, &self.cfg, &r.backup, &words, &actor).await;
         self.audit(
             &actor,
@@ -982,6 +1067,213 @@ impl Itcmdr for ItcmdrService {
         let st = res.map_err(|e| Status::failed_precondition(format!("{e:#}")))?;
         Ok(Response::new(StageRestoreResponse {
             status: Some(to_proto_restore(&st)),
+            dry_run_id: String::new(),
+            message: String::new(),
+        }))
+    }
+
+    async fn get_restore_key(
+        &self,
+        req: Request<GetRestoreKeyRequest>,
+    ) -> Result<Response<RestoreKey>, Status> {
+        let p = self
+            .signed_only(
+                &req,
+                "/itcmdr.Itcmdr/GetRestoreKey",
+                crate::auth::Role::Owner,
+            )
+            .await?;
+        let (key_id, x25519_pub, expires) = self
+            .restore_keys
+            .issue(&p.fingerprint, chrono::Utc::now().timestamp_millis());
+        Ok(Response::new(RestoreKey {
+            key_id,
+            x25519_pub,
+            expires,
+        }))
+    }
+
+    async fn who_am_i(
+        &self,
+        req: Request<WhoAmIRequest>,
+    ) -> Result<Response<WhoAmIResponse>, Status> {
+        let auth_mode = self.cfg.auth_mode.clone();
+        if crate::auth::has_signature(req.metadata()) {
+            let p = self
+                .signed(&req, "/itcmdr.Itcmdr/WhoAmI", crate::auth::Role::Client)
+                .await?;
+            return Ok(Response::new(WhoAmIResponse {
+                name: p.name,
+                role: p.role.as_str().into(),
+                kind: p.kind,
+                fingerprint: p.fingerprint,
+                auth_mode,
+                signed: true,
+            }));
+        }
+        if self.mode() == AuthMode::Signed {
+            return Err(Status::unauthenticated(
+                "this server only accepts signed requests",
+            ));
+        }
+        // Token mode: the token is admin-equivalent for mutating calls (never owner).
+        let role = if authorize(&self.cfg, req.metadata()).is_ok() {
+            "admin"
+        } else {
+            "user"
+        };
+        Ok(Response::new(WhoAmIResponse {
+            name: "token".into(),
+            role: role.into(),
+            kind: "token".into(),
+            fingerprint: String::new(),
+            auth_mode,
+            signed: false,
+        }))
+    }
+
+    async fn list_keys(
+        &self,
+        req: Request<ListKeysRequest>,
+    ) -> Result<Response<ListKeysResponse>, Status> {
+        self.signed_only(&req, "/itcmdr.Itcmdr/ListKeys", crate::auth::Role::Admin)
+            .await?;
+        let keys = crate::auth::list_keys(&self.pool)
+            .await
+            .map_err(internal_err)?;
+        Ok(Response::new(ListKeysResponse {
+            keys: keys.into_iter().map(key_info).collect(),
+        }))
+    }
+
+    async fn register_key(
+        &self,
+        req: Request<RegisterKeyRequest>,
+    ) -> Result<Response<RegisterKeyResponse>, Status> {
+        let p = self
+            .signed_only(&req, "/itcmdr.Itcmdr/RegisterKey", crate::auth::Role::Owner)
+            .await?;
+        let r = req.into_inner();
+        #[derive(serde::Deserialize)]
+        struct Bundle {
+            kind: String,
+            name: String,
+            role: String,
+            public_key: String,
+            certificate: crate::keys::Certificate,
+        }
+        let b: Bundle = serde_json::from_str(&r.bundle_json)
+            .map_err(|e| Status::invalid_argument(format!("bad key bundle: {e}")))?;
+        let role = crate::auth::Role::parse(&b.role)
+            .ok_or_else(|| Status::invalid_argument("unknown role in the bundle"))?;
+        let opt = |s: &str| (!s.trim().is_empty()).then(|| s.trim().to_string());
+        let (email, phone) = (opt(&r.email), opt(&r.phone));
+        let res = crate::auth::register(
+            &self.pool,
+            crate::auth::NewKey {
+                kind: &b.kind,
+                name: &b.name,
+                role,
+                email: email.as_deref(),
+                phone: phone.as_deref(),
+                public_key_hex: &b.public_key,
+                certificate: &b.certificate,
+            },
+        )
+        .await;
+        self.audit(
+            &p.actor(),
+            "key-register",
+            &serde_json::json!({"kind": b.kind, "name": b.name, "role": b.role, "fingerprint": b.certificate.fingerprint, "ok": res.is_ok(), "error": res.as_ref().err().map(|e| format!("{e:#}"))}),
+        )
+        .await;
+        res.map_err(|e| Status::invalid_argument(format!("{e:#}")))?;
+        let k = crate::auth::list_keys(&self.pool)
+            .await
+            .map_err(internal_err)?
+            .into_iter()
+            .find(|k| k.fingerprint == b.certificate.fingerprint)
+            .map(key_info);
+        Ok(Response::new(RegisterKeyResponse { key: k }))
+    }
+
+    async fn revoke_key(
+        &self,
+        req: Request<RevokeKeyRequest>,
+    ) -> Result<Response<RevokeKeyResponse>, Status> {
+        let p = self
+            .signed_only(&req, "/itcmdr.Itcmdr/RevokeKey", crate::auth::Role::Owner)
+            .await?;
+        let fp = req.into_inner().fingerprint;
+        if fp == p.fingerprint {
+            return Err(Status::failed_precondition(
+                "you cannot revoke the key you are signing with",
+            ));
+        }
+        let revoked = crate::auth::revoke(&self.pool, &fp)
+            .await
+            .map_err(internal_err)?;
+        self.audit(
+            &p.actor(),
+            "key-revoke",
+            &serde_json::json!({"fingerprint": fp, "revoked": revoked}),
+        )
+        .await;
+        Ok(Response::new(RevokeKeyResponse { revoked }))
+    }
+
+    async fn list_plugins(
+        &self,
+        req: Request<ListPluginsRequest>,
+    ) -> Result<Response<ListPluginsResponse>, Status> {
+        self.read_guard(&req, "/itcmdr.Itcmdr/ListPlugins", crate::auth::Role::User)
+            .await?;
+        let l = crate::packages::list(&self.pool, &self.cfg.layout())
+            .await
+            .map_err(internal_err)?;
+        Ok(Response::new(ListPluginsResponse {
+            plugins: l
+                .into_iter()
+                .map(|p| PluginInfo {
+                    name: p.name,
+                    version: p.version,
+                    enabled: p.enabled,
+                    installed_at: p.installed_at,
+                    signer: p.signer,
+                    package_sha256: p.package_sha256,
+                })
+                .collect(),
+        }))
+    }
+
+    async fn preview_schedule(
+        &self,
+        req: Request<SaveScheduleRequest>,
+    ) -> Result<Response<PreviewScheduleResponse>, Status> {
+        self.read_guard(
+            &req,
+            "/itcmdr.Itcmdr/PreviewSchedule",
+            crate::auth::Role::User,
+        )
+        .await?;
+        let s = req.into_inner().schedule.unwrap_or_default();
+        let mut spec = from_proto_schedule(&s);
+        let name = if s.name.trim().is_empty() {
+            "preview".to_string()
+        } else {
+            s.name.clone()
+        };
+        let out = crate::schedule::validate(&name, &mut spec)
+            .and_then(|_| crate::schedule::next_times(&spec, chrono::Utc::now(), 5));
+        Ok(Response::new(match out {
+            Ok(v) => PreviewScheduleResponse {
+                next_runs: v.into_iter().map(|t| t.timestamp_millis()).collect(),
+                error: String::new(),
+            },
+            Err(e) => PreviewScheduleResponse {
+                next_runs: vec![],
+                error: format!("{e:#}"),
+            },
         }))
     }
 
@@ -1079,6 +1371,17 @@ fn to_proto_schedule(s: &crate::schedule::Schedule) -> Schedule {
         action: s.spec.action.clone(),
         next_runs: next,
         last_fire: s.last_fire_ms,
+    }
+}
+
+fn key_info(k: crate::auth::KeyInfo) -> KeyInfo {
+    KeyInfo {
+        kind: k.kind,
+        name: k.name,
+        role: k.role,
+        fingerprint: k.fingerprint,
+        created_at: k.created_at,
+        revoked_at: k.revoked_at.unwrap_or_default(),
     }
 }
 

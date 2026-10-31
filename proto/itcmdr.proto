@@ -262,8 +262,21 @@ message ListScheduleRunsResponse { repeated ScheduleRun runs = 1; }
 // ---- v0.10.0: app-triggered restore (decision 13). Owner only, audited.
 message StageRestoreRequest {
   string backup = 1;               // a name from ListBackups
-  string words = 2;                // the 24 words; memory only, passed to the helper on stdin
+  string words = 2;                // REFUSED since v0.12.0: plaintext words; send sealed_words
+  SealedWords sealed_words = 3;    // v0.12.0: the words sealed on the app for a GetRestoreKey key
+  bool dry_run = 4;                // check the words and the archive only; nothing changes
+  string dry_run_id = 5;           // a real restore needs the id of a passed dry run (same backup, same key, 30 min)
 }
+// v0.12.0: the 24 words never travel in plaintext. The app seals them for a one-time server key
+// (docs/SIGNING.md "Sealed restore words"): X25519 + HKDF (SHA-256) + XChaCha20-Poly1305.
+message SealedWords {
+  string key_id = 1;               // from GetRestoreKey; single use, 10 minutes
+  string eph = 2;                  // hex X25519 public key of the app's one-time key
+  string nonce = 3;                // hex, 24 bytes
+  string ct = 4;                   // hex ciphertext + tag
+}
+message GetRestoreKeyRequest {}
+message RestoreKey { string key_id = 1; string x25519_pub = 2; int64 expires = 3; }
 message RestoreStatus {
   string state = 1;                // staged, stopping, restoring, starting, health-check, rolling-back, done, rolled-back, failed
   string message = 2;
@@ -273,7 +286,26 @@ message RestoreStatus {
   int64 updated = 6;
   string safety_copy = 7;
 }
-message StageRestoreResponse { RestoreStatus status = 1; }
+message StageRestoreResponse {
+  RestoreStatus status = 1;        // unset for a dry run
+  string dry_run_id = 2;           // set when a dry run passed
+  string message = 3;
+}
+
+// ---- v0.12.0: app support
+message WhoAmIRequest {}
+message WhoAmIResponse { string name = 1; string role = 2; string kind = 3; string fingerprint = 4; string auth_mode = 5; bool signed = 6; }
+message KeyInfo { string kind = 1; string name = 2; string role = 3; string fingerprint = 4; string created_at = 5; string revoked_at = 6; }
+message ListKeysRequest {}
+message ListKeysResponse { repeated KeyInfo keys = 1; }
+message RegisterKeyRequest { string bundle_json = 1; string email = 2; string phone = 3; }   // a bundle certified offline with the words (itcmdr-cli keys certify)
+message RegisterKeyResponse { KeyInfo key = 1; }
+message RevokeKeyRequest { string fingerprint = 1; }
+message RevokeKeyResponse { bool revoked = 1; }
+message PluginInfo { string name = 1; string version = 2; bool enabled = 3; string installed_at = 4; string signer = 5; string package_sha256 = 6; }
+message ListPluginsRequest {}
+message ListPluginsResponse { repeated PluginInfo plugins = 1; }
+message PreviewScheduleResponse { repeated int64 next_runs = 1; string error = 2; }
 message GetRestoreStatusRequest {}
 message GetRestoreStatusResponse { RestoreStatus status = 1; }   // unset when no restore ever ran
 
@@ -309,5 +341,13 @@ service Itcmdr {
   rpc StageRestore(StageRestoreRequest) returns (StageRestoreResponse);
   rpc GetRestoreStatus(GetRestoreStatusRequest) returns (GetRestoreStatusResponse);
   rpc WatchUpdates(WatchUpdatesRequest) returns (stream Update);
+  // v0.12.0
+  rpc GetRestoreKey(GetRestoreKeyRequest) returns (RestoreKey);            // owner, signed only
+  rpc WhoAmI(WhoAmIRequest) returns (WhoAmIResponse);
+  rpc ListKeys(ListKeysRequest) returns (ListKeysResponse);                // admin, signed only
+  rpc RegisterKey(RegisterKeyRequest) returns (RegisterKeyResponse);       // owner, signed only
+  rpc RevokeKey(RevokeKeyRequest) returns (RevokeKeyResponse);             // owner, signed only
+  rpc ListPlugins(ListPluginsRequest) returns (ListPluginsResponse);       // admin
+  rpc PreviewSchedule(SaveScheduleRequest) returns (PreviewScheduleResponse);
 }
 

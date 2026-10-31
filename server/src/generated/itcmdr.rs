@@ -679,9 +679,46 @@ pub struct StageRestoreRequest {
     /// a name from ListBackups
     #[prost(string, tag = "1")]
     pub backup: ::prost::alloc::string::String,
-    /// the 24 words; memory only, passed to the helper on stdin
+    /// REFUSED since v0.12.0: plaintext words; send sealed_words
     #[prost(string, tag = "2")]
     pub words: ::prost::alloc::string::String,
+    /// v0.12.0: the words sealed on the app for a GetRestoreKey key
+    #[prost(message, optional, tag = "3")]
+    pub sealed_words: ::core::option::Option<SealedWords>,
+    /// check the words and the archive only; nothing changes
+    #[prost(bool, tag = "4")]
+    pub dry_run: bool,
+    /// a real restore needs the id of a passed dry run (same backup, same key, 30 min)
+    #[prost(string, tag = "5")]
+    pub dry_run_id: ::prost::alloc::string::String,
+}
+/// v0.12.0: the 24 words never travel in plaintext. The app seals them for a one-time server key
+/// (docs/SIGNING.md "Sealed restore words"): X25519 + HKDF (SHA-256) + XChaCha20-Poly1305.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SealedWords {
+    /// from GetRestoreKey; single use, 10 minutes
+    #[prost(string, tag = "1")]
+    pub key_id: ::prost::alloc::string::String,
+    /// hex X25519 public key of the app's one-time key
+    #[prost(string, tag = "2")]
+    pub eph: ::prost::alloc::string::String,
+    /// hex, 24 bytes
+    #[prost(string, tag = "3")]
+    pub nonce: ::prost::alloc::string::String,
+    /// hex ciphertext + tag
+    #[prost(string, tag = "4")]
+    pub ct: ::prost::alloc::string::String,
+}
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct GetRestoreKeyRequest {}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RestoreKey {
+    #[prost(string, tag = "1")]
+    pub key_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub x25519_pub: ::prost::alloc::string::String,
+    #[prost(int64, tag = "3")]
+    pub expires: i64,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct RestoreStatus {
@@ -703,8 +740,107 @@ pub struct RestoreStatus {
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct StageRestoreResponse {
+    /// unset for a dry run
     #[prost(message, optional, tag = "1")]
     pub status: ::core::option::Option<RestoreStatus>,
+    /// set when a dry run passed
+    #[prost(string, tag = "2")]
+    pub dry_run_id: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub message: ::prost::alloc::string::String,
+}
+/// ---- v0.12.0: app support
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct WhoAmIRequest {}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct WhoAmIResponse {
+    #[prost(string, tag = "1")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub role: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub kind: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub fingerprint: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub auth_mode: ::prost::alloc::string::String,
+    #[prost(bool, tag = "6")]
+    pub signed: bool,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct KeyInfo {
+    #[prost(string, tag = "1")]
+    pub kind: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub role: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub fingerprint: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub created_at: ::prost::alloc::string::String,
+    #[prost(string, tag = "6")]
+    pub revoked_at: ::prost::alloc::string::String,
+}
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct ListKeysRequest {}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListKeysResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub keys: ::prost::alloc::vec::Vec<KeyInfo>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RegisterKeyRequest {
+    #[prost(string, tag = "1")]
+    pub bundle_json: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub email: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub phone: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RegisterKeyResponse {
+    #[prost(message, optional, tag = "1")]
+    pub key: ::core::option::Option<KeyInfo>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct RevokeKeyRequest {
+    #[prost(string, tag = "1")]
+    pub fingerprint: ::prost::alloc::string::String,
+}
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct RevokeKeyResponse {
+    #[prost(bool, tag = "1")]
+    pub revoked: bool,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PluginInfo {
+    #[prost(string, tag = "1")]
+    pub name: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub version: ::prost::alloc::string::String,
+    #[prost(bool, tag = "3")]
+    pub enabled: bool,
+    #[prost(string, tag = "4")]
+    pub installed_at: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub signer: ::prost::alloc::string::String,
+    #[prost(string, tag = "6")]
+    pub package_sha256: ::prost::alloc::string::String,
+}
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct ListPluginsRequest {}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListPluginsResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub plugins: ::prost::alloc::vec::Vec<PluginInfo>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PreviewScheduleResponse {
+    #[prost(int64, repeated, tag = "1")]
+    pub next_runs: ::prost::alloc::vec::Vec<i64>,
+    #[prost(string, tag = "2")]
+    pub error: ::prost::alloc::string::String,
 }
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct GetRestoreStatusRequest {}
@@ -1569,6 +1705,158 @@ pub mod itcmdr_client {
                 .insert(GrpcMethod::new("itcmdr.Itcmdr", "WatchUpdates"));
             self.inner.server_streaming(req, path, codec).await
         }
+        /// v0.12.0
+        pub async fn get_restore_key(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetRestoreKeyRequest>,
+        ) -> std::result::Result<tonic::Response<super::RestoreKey>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/itcmdr.Itcmdr/GetRestoreKey",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("itcmdr.Itcmdr", "GetRestoreKey"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn who_am_i(
+            &mut self,
+            request: impl tonic::IntoRequest<super::WhoAmIRequest>,
+        ) -> std::result::Result<tonic::Response<super::WhoAmIResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static("/itcmdr.Itcmdr/WhoAmI");
+            let mut req = request.into_request();
+            req.extensions_mut().insert(GrpcMethod::new("itcmdr.Itcmdr", "WhoAmI"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn list_keys(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListKeysRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListKeysResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static("/itcmdr.Itcmdr/ListKeys");
+            let mut req = request.into_request();
+            req.extensions_mut().insert(GrpcMethod::new("itcmdr.Itcmdr", "ListKeys"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn register_key(
+            &mut self,
+            request: impl tonic::IntoRequest<super::RegisterKeyRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::RegisterKeyResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/itcmdr.Itcmdr/RegisterKey",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut().insert(GrpcMethod::new("itcmdr.Itcmdr", "RegisterKey"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn revoke_key(
+            &mut self,
+            request: impl tonic::IntoRequest<super::RevokeKeyRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::RevokeKeyResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static("/itcmdr.Itcmdr/RevokeKey");
+            let mut req = request.into_request();
+            req.extensions_mut().insert(GrpcMethod::new("itcmdr.Itcmdr", "RevokeKey"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn list_plugins(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListPluginsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListPluginsResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/itcmdr.Itcmdr/ListPlugins",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut().insert(GrpcMethod::new("itcmdr.Itcmdr", "ListPlugins"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn preview_schedule(
+            &mut self,
+            request: impl tonic::IntoRequest<super::SaveScheduleRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::PreviewScheduleResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/itcmdr.Itcmdr/PreviewSchedule",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("itcmdr.Itcmdr", "PreviewSchedule"));
+            self.inner.unary(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -1805,6 +2093,50 @@ pub mod itcmdr_server {
             request: tonic::Request<super::WatchUpdatesRequest>,
         ) -> std::result::Result<
             tonic::Response<Self::WatchUpdatesStream>,
+            tonic::Status,
+        >;
+        /// v0.12.0
+        async fn get_restore_key(
+            &self,
+            request: tonic::Request<super::GetRestoreKeyRequest>,
+        ) -> std::result::Result<tonic::Response<super::RestoreKey>, tonic::Status>;
+        async fn who_am_i(
+            &self,
+            request: tonic::Request<super::WhoAmIRequest>,
+        ) -> std::result::Result<tonic::Response<super::WhoAmIResponse>, tonic::Status>;
+        async fn list_keys(
+            &self,
+            request: tonic::Request<super::ListKeysRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListKeysResponse>,
+            tonic::Status,
+        >;
+        async fn register_key(
+            &self,
+            request: tonic::Request<super::RegisterKeyRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::RegisterKeyResponse>,
+            tonic::Status,
+        >;
+        async fn revoke_key(
+            &self,
+            request: tonic::Request<super::RevokeKeyRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::RevokeKeyResponse>,
+            tonic::Status,
+        >;
+        async fn list_plugins(
+            &self,
+            request: tonic::Request<super::ListPluginsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListPluginsResponse>,
+            tonic::Status,
+        >;
+        async fn preview_schedule(
+            &self,
+            request: tonic::Request<super::SaveScheduleRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::PreviewScheduleResponse>,
             tonic::Status,
         >;
     }
@@ -3259,6 +3591,315 @@ pub mod itcmdr_server {
                                 max_encoding_message_size,
                             );
                         let res = grpc.server_streaming(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/itcmdr.Itcmdr/GetRestoreKey" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetRestoreKeySvc<T: Itcmdr>(pub Arc<T>);
+                    impl<
+                        T: Itcmdr,
+                    > tonic::server::UnaryService<super::GetRestoreKeyRequest>
+                    for GetRestoreKeySvc<T> {
+                        type Response = super::RestoreKey;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetRestoreKeyRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Itcmdr>::get_restore_key(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetRestoreKeySvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/itcmdr.Itcmdr/WhoAmI" => {
+                    #[allow(non_camel_case_types)]
+                    struct WhoAmISvc<T: Itcmdr>(pub Arc<T>);
+                    impl<T: Itcmdr> tonic::server::UnaryService<super::WhoAmIRequest>
+                    for WhoAmISvc<T> {
+                        type Response = super::WhoAmIResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::WhoAmIRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Itcmdr>::who_am_i(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = WhoAmISvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/itcmdr.Itcmdr/ListKeys" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListKeysSvc<T: Itcmdr>(pub Arc<T>);
+                    impl<T: Itcmdr> tonic::server::UnaryService<super::ListKeysRequest>
+                    for ListKeysSvc<T> {
+                        type Response = super::ListKeysResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListKeysRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Itcmdr>::list_keys(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListKeysSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/itcmdr.Itcmdr/RegisterKey" => {
+                    #[allow(non_camel_case_types)]
+                    struct RegisterKeySvc<T: Itcmdr>(pub Arc<T>);
+                    impl<
+                        T: Itcmdr,
+                    > tonic::server::UnaryService<super::RegisterKeyRequest>
+                    for RegisterKeySvc<T> {
+                        type Response = super::RegisterKeyResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::RegisterKeyRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Itcmdr>::register_key(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = RegisterKeySvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/itcmdr.Itcmdr/RevokeKey" => {
+                    #[allow(non_camel_case_types)]
+                    struct RevokeKeySvc<T: Itcmdr>(pub Arc<T>);
+                    impl<T: Itcmdr> tonic::server::UnaryService<super::RevokeKeyRequest>
+                    for RevokeKeySvc<T> {
+                        type Response = super::RevokeKeyResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::RevokeKeyRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Itcmdr>::revoke_key(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = RevokeKeySvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/itcmdr.Itcmdr/ListPlugins" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListPluginsSvc<T: Itcmdr>(pub Arc<T>);
+                    impl<
+                        T: Itcmdr,
+                    > tonic::server::UnaryService<super::ListPluginsRequest>
+                    for ListPluginsSvc<T> {
+                        type Response = super::ListPluginsResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListPluginsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Itcmdr>::list_plugins(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListPluginsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/itcmdr.Itcmdr/PreviewSchedule" => {
+                    #[allow(non_camel_case_types)]
+                    struct PreviewScheduleSvc<T: Itcmdr>(pub Arc<T>);
+                    impl<
+                        T: Itcmdr,
+                    > tonic::server::UnaryService<super::SaveScheduleRequest>
+                    for PreviewScheduleSvc<T> {
+                        type Response = super::PreviewScheduleResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::SaveScheduleRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Itcmdr>::preview_schedule(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = PreviewScheduleSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
                         Ok(res)
                     };
                     Box::pin(fut)

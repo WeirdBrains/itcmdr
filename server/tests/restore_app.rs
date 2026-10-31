@@ -1,6 +1,7 @@
 //! v0.10.0 app-triggered restore (decision 13, server side): StageRestore (Owner only, words
 //! checked before anything changes), the itcmdr-restore helper with its pre-restore safety copy,
 //! GetRestoreStatus, and the automatic rollback when the health check fails.
+#![allow(clippy::result_large_err)]
 use ::itcmdr_server as srv;
 use prost::Message;
 use srv::config::ServerConfig;
@@ -19,6 +20,68 @@ fn signed<T: Message>(key: &ed25519_dalek::SigningKey, method: &str, msg: T) -> 
 }
 
 const SR: &str = "/itcmdr.Itcmdr/StageRestore";
+const RK: &str = "/itcmdr.Itcmdr/GetRestoreKey";
+
+async fn sealed(
+    cl: &mut ItcmdrClient<tonic::transport::Channel>,
+    key: &ed25519_dalek::SigningKey,
+    backup: &str,
+    words: &str,
+) -> Result<SealedWords, tonic::Status> {
+    let k = cl
+        .get_restore_key(signed(key, RK, GetRestoreKeyRequest {}))
+        .await?
+        .into_inner();
+    let p: [u8; 32] = hex::decode(&k.x25519_pub).unwrap().try_into().unwrap();
+    let s = srv::restore_seal::seal(&p, &k.key_id, backup, words).unwrap();
+    Ok(SealedWords {
+        key_id: s.key_id,
+        eph: s.eph,
+        nonce: s.nonce,
+        ct: s.ct,
+    })
+}
+
+/// The app's path: seal, dry run, seal again, restore.
+async fn stage(
+    cl: &mut ItcmdrClient<tonic::transport::Channel>,
+    key: &ed25519_dalek::SigningKey,
+    backup: &str,
+    words: &str,
+    dry_run: bool,
+    dry_run_id: &str,
+) -> Result<StageRestoreResponse, tonic::Status> {
+    let sw = sealed(cl, key, backup, words).await?;
+    Ok(cl
+        .stage_restore(signed(
+            key,
+            SR,
+            StageRestoreRequest {
+                backup: backup.into(),
+                sealed_words: Some(sw),
+                dry_run,
+                dry_run_id: dry_run_id.into(),
+                ..Default::default()
+            },
+        ))
+        .await?
+        .into_inner())
+}
+
+async fn dry_then_stage(
+    cl: &mut ItcmdrClient<tonic::transport::Channel>,
+    key: &ed25519_dalek::SigningKey,
+    backup: &str,
+    words: &str,
+) -> RestoreStatus {
+    let d = stage(cl, key, backup, words, true, "").await.unwrap();
+    assert!(!d.dry_run_id.is_empty() && d.status.is_none(), "{d:?}");
+    stage(cl, key, backup, words, false, &d.dry_run_id)
+        .await
+        .unwrap()
+        .status
+        .unwrap()
+}
 const GS: &str = "/itcmdr.Itcmdr/GetRestoreStatus";
 
 async fn limit(c: &ServerConfig) -> i64 {
@@ -124,19 +187,24 @@ async fn stage_restore_done_then_rolled_back_on_failed_health() {
         tokio::time::sleep(Duration::from_millis(50)).await;
     }
     let mut cl = cl.expect("server up");
-    let req = |w: &str| StageRestoreRequest {
-        backup: b.name.clone(),
-        words: w.into(),
-    };
+    let bn = b.name.clone();
 
-    // Owner only; nothing ran yet.
+    // Owner only, signed only; nothing ran yet.
     assert_eq!(
-        cl.stage_restore(signed(&admin, SR, req(&words)))
+        sealed(&mut cl, &admin, &bn, &words)
             .await
             .unwrap_err()
             .code(),
         Code::PermissionDenied
     );
+    let e = cl
+        .stage_restore(Request::new(StageRestoreRequest {
+            backup: bn.clone(),
+            ..Default::default()
+        }))
+        .await
+        .unwrap_err();
+    assert_eq!(e.code(), Code::Unauthenticated, "token/no signature: {e:?}");
     assert!(cl
         .get_restore_status(signed(&root, GS, GetRestoreStatusRequest {}))
         .await
@@ -144,35 +212,68 @@ async fn stage_restore_done_then_rolled_back_on_failed_health() {
         .into_inner()
         .status
         .is_none());
-    // Wrong words or a bad name: refused before anything changes.
-    let wrong = srv::keys::generate_words();
-    let e = cl
-        .stage_restore(signed(&root, SR, req(&wrong)))
-        .await
-        .unwrap_err();
-    assert_eq!(e.code(), Code::FailedPrecondition, "{e:?}");
+    // Plaintext words are refused outright.
     let e = cl
         .stage_restore(signed(
             &root,
             SR,
             StageRestoreRequest {
-                backup: "../server.json".into(),
+                backup: bn.clone(),
                 words: words.clone(),
+                dry_run: true,
+                ..Default::default()
             },
         ))
         .await
         .unwrap_err();
-    assert_eq!(e.code(), Code::FailedPrecondition);
-    assert_eq!(limit(&c).await, 7);
-
-    // Restore: the helper restores and the health check passes.
-    let st = cl
-        .stage_restore(signed(&root, SR, req(&words)))
+    assert_eq!(e.code(), Code::InvalidArgument, "{e:?}");
+    // Wrong words or a bad name: the dry run fails.
+    let wrong = srv::keys::generate_words();
+    let e = stage(&mut cl, &root, &bn, &wrong, true, "")
         .await
-        .unwrap()
-        .into_inner()
-        .status
+        .unwrap_err();
+    assert_eq!(e.code(), Code::FailedPrecondition, "{e:?}");
+    let e = stage(&mut cl, &root, "../server.json", &words, true, "")
+        .await
+        .unwrap_err();
+    assert_eq!(e.code(), Code::FailedPrecondition);
+    // No dry run, or a dry run for another backup: refused.
+    let e = stage(&mut cl, &root, &bn, &words, false, "")
+        .await
+        .unwrap_err();
+    assert!(e.message().contains("dry run"), "{e:?}");
+    // A sealed key is single use and bound to the backup name.
+    let sw = sealed(&mut cl, &root, &bn, &words).await.unwrap();
+    let mk = |sw: SealedWords| StageRestoreRequest {
+        backup: bn.clone(),
+        sealed_words: Some(sw),
+        dry_run: true,
+        ..Default::default()
+    };
+    cl.stage_restore(signed(&root, SR, mk(sw.clone())))
+        .await
         .unwrap();
+    let e = cl
+        .stage_restore(signed(&root, SR, mk(sw)))
+        .await
+        .unwrap_err();
+    assert!(e.message().contains("already used"), "{e:?}");
+    assert_eq!(limit(&c).await, 7);
+    {
+        let pool = srv::db::init_db(&c).await.unwrap();
+        let names: Vec<String> =
+            sqlx::query_scalar("SELECT action FROM audit_log WHERE action LIKE 'restore-%'")
+                .fetch_all(&pool)
+                .await
+                .unwrap();
+        for a in ["restore-dry-run", "restore-refused"] {
+            assert!(names.contains(&a.to_string()), "{a} audited: {names:?}");
+        }
+        pool.close().await;
+    }
+
+    // Restore: dry run, then the helper restores and the health check passes.
+    let st = dry_then_stage(&mut cl, &root, &bn, &words).await;
     assert_eq!(st.state, "staged");
     let st = wait_terminal(&mut cl, &root).await;
     assert_eq!(st.state, "done", "{st:?}");
@@ -182,9 +283,7 @@ async fn stage_restore_done_then_rolled_back_on_failed_health() {
     // Forced health failure: back to the pre-restore copy.
     set_limit(&c, "9").await;
     std::env::set_var(srv::restore::ENV_FORCE_HEALTH_FAIL, "1");
-    cl.stage_restore(signed(&root, SR, req(&words)))
-        .await
-        .unwrap();
+    dry_then_stage(&mut cl, &root, &bn, &words).await;
     let st = wait_terminal(&mut cl, &root).await;
     std::env::remove_var(srv::restore::ENV_FORCE_HEALTH_FAIL);
     assert_eq!(st.state, "rolled-back", "{st:?}");
@@ -212,5 +311,6 @@ async fn stage_restore_done_then_rolled_back_on_failed_health() {
         names.contains(&"restore-rolled-back".to_string()),
         "{names:?}"
     );
+
     let _ = tx.send(());
 }

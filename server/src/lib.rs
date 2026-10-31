@@ -15,6 +15,7 @@ pub mod packages;
 pub mod plugin_logs;
 pub mod requests;
 pub mod restore;
+pub mod restore_seal;
 pub mod runtime;
 pub mod schedule;
 pub mod search;
@@ -60,11 +61,19 @@ pub async fn tick(pool: &db::DbPool, cfg: &ServerConfig) {
 
 /// Run the gRPC server and the background ingest loop until `shutdown` resolves.
 pub async fn run(
-    cfg: ServerConfig,
+    mut cfg: ServerConfig,
     shutdown: impl Future<Output = ()> + Send + 'static,
 ) -> anyhow::Result<()> {
     events::init();
     let pool = db::init_db(&cfg).await?;
+    auth::settle_auth_mode(&pool, &mut cfg).await?;
+    tracing::info!(auth_mode = %cfg.auth_mode, source = %cfg.auth_mode_source, "auth mode");
+    if cfg.auth_mode_source == "kept-both" {
+        tracing::warn!(
+            "auth_mode is not set in server.json and this install predates v0.12.0: staying on \"both\" \
+             (shared token still accepted). Register the app's key, then run `itcmdr-cli auth set-mode signed`"
+        );
+    }
     db::apply_retention(
         &pool,
         settings::get_i64(&pool, Some(&cfg), "server.retention_days").await,

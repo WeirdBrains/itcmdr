@@ -58,6 +58,9 @@ enum Cmd {
     /// Nightly task -> default schedule cutover (v0.11.0): status, switch (gated), rollback.
     #[command(subcommand)]
     Cutover(CutoverCmd),
+    /// Auth mode (v0.12.0 migration from the shared token to signed requests).
+    #[command(subcommand)]
+    Auth(AuthCmd),
     /// Restore an archive into the data dir. Stop the server first.
     Restore {
         #[arg(long)]
@@ -337,6 +340,20 @@ enum ScheduleCmd {
         id: Option<String>,
         #[arg(long, default_value_t = 20)]
         limit: i64,
+    },
+}
+
+#[derive(Subcommand)]
+enum AuthCmd {
+    /// Effective auth mode, where it comes from, and the keys that can sign in signed mode.
+    Status,
+    /// Write `auth_mode` into server.json (restart the service afterwards). `signed` needs an
+    /// active admin/owner key besides the server's own root key, unless --force.
+    SetMode {
+        #[arg(value_parser = ["token", "both", "signed"])]
+        mode: String,
+        #[arg(long)]
+        force: bool,
     },
 }
 
@@ -1183,9 +1200,30 @@ fn run(rt: &tokio::runtime::Runtime) -> Result<()> {
             let words = read_words()?;
             rt.block_on(async {
                 let (mut c, key) = local_client(&cfg).await?;
-                let req = srv::generated::itcmdr::StageRestoreRequest {
+                use srv::generated::itcmdr::StageRestoreRequest;
+                // Same path as the app: seal the words for a one-time key, dry run, then restore.
+                let sw = seal_words_for(&mut c, &key, backup, words.trim()).await?;
+                let dry = c
+                    .stage_restore(signed_req(
+                        &key,
+                        "/itcmdr.Itcmdr/StageRestore",
+                        StageRestoreRequest {
+                            backup: backup.clone(),
+                            sealed_words: Some(sw),
+                            dry_run: true,
+                            ..Default::default()
+                        },
+                    ))
+                    .await
+                    .map_err(|e| anyhow::anyhow!("dry run: {}", e.message()))?
+                    .into_inner();
+                println!("{}", dry.message);
+                let sw = seal_words_for(&mut c, &key, backup, words.trim()).await?;
+                let req = StageRestoreRequest {
                     backup: backup.clone(),
-                    words: words.trim().to_string(),
+                    sealed_words: Some(sw),
+                    dry_run_id: dry.dry_run_id,
+                    ..Default::default()
                 };
                 let st = c
                     .stage_restore(signed_req(&key, "/itcmdr.Itcmdr/StageRestore", req))
@@ -1317,6 +1355,75 @@ fn run(rt: &tokio::runtime::Runtime) -> Result<()> {
                 Ok(())
             })
         }
+        Cmd::Auth(ac) => {
+            let mut cfg = load()?;
+            rt.block_on(async {
+                let pool = srv::db::init_db(&cfg).await?;
+                srv::auth::settle_auth_mode(&pool, &mut cfg).await?;
+                let signers: Vec<_> = srv::auth::list_keys(&pool)
+                    .await?
+                    .into_iter()
+                    .filter(|k| {
+                        k.revoked_at.is_none()
+                            && (k.role == "owner" || k.role == "admin")
+                            && !(k.kind == "client" && k.name == "root")
+                    })
+                    .collect();
+                match ac {
+                    AuthCmd::Status => {
+                        println!(
+                            "auth_mode: {} ({})",
+                            cfg.auth_mode,
+                            match cfg.auth_mode_source.as_str() {
+                                "server.json" => "set in server.json".to_string(),
+                                "kept-both" => "not set; this install predates v0.12.0, so it stays on both until you run `itcmdr-cli auth set-mode signed`".to_string(),
+                                "new-install" => "not set; default for new installs".to_string(),
+                                o => o.to_string(),
+                            }
+                        );
+                        println!(
+                            "server.json: {}",
+                            cfg.source_path
+                                .as_ref()
+                                .map(|p| p.display().to_string())
+                                .unwrap_or_else(|| "(none found; built-in defaults)".into())
+                        );
+                        println!("shared token configured: {}", cfg.token_hash().is_some());
+                        println!("admin/owner keys that can sign (besides root): {}", signers.len());
+                        for k in &signers {
+                            println!("  {:<6} {:<24} {:<6} {}", k.kind, k.name, k.role, &k.fingerprint[..16]);
+                        }
+                        if cfg.auth_mode != "signed" {
+                            println!("next: register the app's key (itcmdr-cli keys certify + keys register, or the app's Keys screen), check the app works signed, then `itcmdr-cli auth set-mode signed` and restart the service");
+                        }
+                        Ok(())
+                    }
+                    AuthCmd::SetMode { mode, force } => {
+                        if mode == "signed" && signers.is_empty() && !force {
+                            bail!("no admin/owner key besides root is registered: the app would be locked out. Register the app's key first (or --force)");
+                        }
+                        let path = cfg.source_path.clone().ok_or_else(|| {
+                            anyhow::anyhow!("no server.json in use; create one (ITCMDR_SERVER_CONFIG or %ProgramData%\\itcmdr\\server.json) first")
+                        })?;
+                        let mut v: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(&path)?)?;
+                        let old = v.get("auth_mode").cloned();
+                        v["auth_mode"] = serde_json::json!(mode);
+                        let tmp = path.with_extension("json.tmp");
+                        std::fs::write(&tmp, serde_json::to_vec_pretty(&v)?)?;
+                        std::fs::rename(&tmp, &path)?;
+                        srv::db::insert_audit(
+                            &pool,
+                            "itcmdr-cli",
+                            "auth-mode",
+                            &serde_json::json!({"from": old, "to": mode, "force": force}).to_string(),
+                        )
+                        .await?;
+                        println!("auth_mode = {mode} written to {}; restart the service (sc.exe stop itcmdr-server, then start)", path.display());
+                        Ok(())
+                    }
+                }
+            })
+        }
         Cmd::Cutover(cc) => {
             let cfg = load()?;
             let json = cli.json;
@@ -1370,4 +1477,32 @@ fn run(rt: &tokio::runtime::Runtime) -> Result<()> {
             Ok(())
         }
     }
+}
+
+/// Seal the words for a fresh one-time restore key (same as the app does).
+async fn seal_words_for(
+    c: &mut srv::generated::itcmdr::itcmdr_client::ItcmdrClient<tonic::transport::Channel>,
+    key: &ed25519_dalek::SigningKey,
+    backup: &str,
+    words: &str,
+) -> Result<srv::generated::itcmdr::SealedWords> {
+    let k = c
+        .get_restore_key(signed_req(
+            key,
+            "/itcmdr.Itcmdr/GetRestoreKey",
+            srv::generated::itcmdr::GetRestoreKeyRequest {},
+        ))
+        .await
+        .map_err(|e| anyhow::anyhow!("{}", e.message()))?
+        .into_inner();
+    let p: [u8; 32] = hex::decode(&k.x25519_pub)?
+        .try_into()
+        .map_err(|_| anyhow::anyhow!("bad restore key"))?;
+    let s = srv::restore_seal::seal(&p, &k.key_id, backup, words)?;
+    Ok(srv::generated::itcmdr::SealedWords {
+        key_id: s.key_id,
+        eph: s.eph,
+        nonce: s.nonce,
+        ct: s.ct,
+    })
 }

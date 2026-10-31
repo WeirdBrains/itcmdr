@@ -53,6 +53,8 @@ async fn grpc_end_to_end() {
         .port();
     let addr = format!("127.0.0.1:{port}");
     let cfg = ServerConfig {
+        // These tests cover the shared token (migration mode "both").
+        auth_mode: "both".into(),
         bind_addr: addr.clone(),
         logs_dir: tmp.path().join("maintenanceRuns"),
         data_dir: Some(tmp.path().join("data")),

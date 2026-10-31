@@ -42,6 +42,8 @@ async fn env() -> Env {
     let tmp = tempfile::tempdir().unwrap();
     let root = tmp.path().to_path_buf();
     let mut c = ServerConfig {
+        // These tests cover the shared token (migration mode "both").
+        auth_mode: "both".into(),
         logs_dir: root.join("maintenanceRuns"),
         data_dir: Some(root.join("data")),
         ..ServerConfig::default()
