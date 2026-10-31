@@ -132,9 +132,9 @@ untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committ
 - Server: `cutover.rs` (seed `Nightly agent run` paused + `Nightly backup`, reset-to-default, remembered deletes, gate, switch, rollback, `schedule-state.json` each pass); backup loop replaced by the backup schedule; schema 4 (`parity_runs`, `agent_state`); gRPC `ResetScheduleToDefault`, `ScheduleRef.confirm`, `Schedule.builtin_key/action` (Dart protos regenerated).
 - CLI: `schedule reset-to-default`, `schedule rm --force --confirm "<name>"`, `cutover status|vm-verified|switch|rollback`.
 
-## Done (v0.12.0, the app signs requests; released as fb007b2)
+## Done (v0.12.0, the app signs requests; released as d79a031)
 
-Base v0.11.0 = `b249612`. WIP `46bb345`, released `fb007b2` (tag v0.12.0). Linux at the WIP commit: cargo fmt/clippy -D warnings clean, Rust 93 passed,
+Base v0.11.0 = `1827b06`. WIP `0631198`, released `d79a031` (tag v0.12.0). Linux at the WIP commit: cargo fmt/clippy -D warnings clean, Rust 93 passed,
 Pester 82/82, flutter test 15 passed, flutter analyze 4 infos (curly braces in backup_page.dart, schedules_page.dart).
 Later the same day: those 4 infos fixed, widget tests added, Dart e2e green, versions set to 0.12.0. Analyzer clean.
 
@@ -158,7 +158,7 @@ Later the same day: those 4 infos fixed, widget tests added, Dart e2e green, ver
 1. Click through the installed app on the VM (connect, Keys, Schedules, Backup dry run, Settings) with a person at the screen.
 2. A real second PC as an agent.
 3. On site (Michael): the signed-only checklist in docs/INSTALL.md; a week of parity, then the gated cutover.
-4. Done in v0.14.1: plugins in itcmdr-plugins. A one-time history rewrite of itcmdr follows (approved by Michael, t427s1111).
+4. Done in v0.14.1: plugins in itcmdr-plugins. The itcmdr history was rewritten once to drop `plugins/` (approved by Michael): see docs/HISTORY-REWRITE.md for the old-to-new tag and commit map. Re-clone, or `git fetch --force --tags origin && git reset --hard origin/main`.
 
 **Commands**
 - Linux: `export PATH=$HOME/Projects/tools/flutter/bin:$HOME/Projects/tools/pwsh:$HOME/Projects/tools/protoc/bin:$HOME/.pub-cache/bin:$PATH`; `cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace`; `pwsh -NoProfile -c 'Invoke-Pester -Path agent/tests -CI'`; `cd app && flutter analyze && flutter test`.

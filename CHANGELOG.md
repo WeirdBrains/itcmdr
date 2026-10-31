@@ -27,7 +27,7 @@ App private key encrypted at rest, plugins managed from the app, and the signed-
 
 ## v0.12.0 (2026-10-31)
 App screens for keys, schedules, plugins, backup and restore, and signed requests as the default.
-Tagged `v0.12.0` (fb007b2). The Windows VM pass followed in 9484fb5.
+Tagged `v0.12.0` (d79a031). The Windows VM pass followed in 5881a22.
 - App signs every call (`app/lib/signing.dart`). Canonical bytes match `proto/signing_vectors.json`. New installs default to `auth_mode = signed`. An install from before v0.12.0 with no value keeps `both` (`itcmdr-cli auth status` / `auth set-mode`).
 - Restore words are sealed on the app for a one-time in-memory server key (`docs/SIGNING.md`). `StageRestore` refuses plaintext words and requires a dry run first. Key and restore calls accept only a signed request.
 - Screens: Keys (make, import, certify command, register, revoke), Schedules (preview, edit, pause, run now, history), Service plugins (list, run, metric charts), Backup & Restore (back up, check, dry run, restore), Settings search and bool switches.

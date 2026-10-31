@@ -42,11 +42,11 @@ also covered by the Windows VM test pass below.
 | v0.9.1 | Settings everywhere: typed Settings API, central agent settings, `docs/SETTINGS.md`, basic app Settings screen; validated plugins enabled on install | ✅ Done | `v0.9.1` (4e66a71) | 2026-10-30 |
 | v0.10.0 | Plugin runtime, log standard, scheduled runs (server, gRPC, CLI), app-triggered restore (server side) | ✅ Done | `v0.10.0` (faa2ae6) | 2026-10-30 |
 | v0.10.1 | First Windows VM pass + fixes (BOM in agent logs, installer compile, app exe name, PS 5.1 tests), `itcmdr-cli restore-stage` | ✅ Done | `v0.10.1` (2366819) | 2026-10-30 |
-| v0.11.0 | Built-in checks as plugins (parallel report-only, parity); nightly run + backup as built-in schedules; gated cutover, rollback, local fallback | ✅ Done | `v0.11.0` (b249612) | 2026-10-30 |
-| v0.12.0 | Flutter: Service Plugins, registration, users/keys, plugin metric charts, Backup & Restore (incl. restore with the words), Schedules, signed requests | ✅ Done | `v0.12.0` (fb007b2) | 2026-10-31 |
+| v0.11.0 | Built-in checks as plugins (parallel report-only, parity); nightly run + backup as built-in schedules; gated cutover, rollback, local fallback | ✅ Done | `v0.11.0` (1827b06) | 2026-10-30 |
+| v0.12.0 | Flutter: Service Plugins, registration, users/keys, plugin metric charts, Backup & Restore (incl. restore with the words), Schedules, signed requests | ✅ Done | `v0.12.0` (d79a031) | 2026-10-31 |
 | v0.13.0 | App key encrypted at rest (DPAPI / keyring), plugin install/enable/disable/remove from the app, signed-only switch proven on the VM | ✅ Done | `v0.13.0` | 2026-10-31 |
 | v0.14.0 | Installer and first-run setup: site values, checks, words shown once, first admin key (signed from day one), upgrade keeps settings | ✅ Done | `v0.14.0` | 2026-10-31 |
-| v0.14.1 | Plugins moved to the itcmdr-plugins repo (pinned in `plugins.pin.json`); one-time history rewrite of itcmdr (approved) | ✅ Done | `v0.14.1` | 2026-10-31 |
+| v0.14.1 | Plugins moved to the itcmdr-plugins repo (pinned in `plugins.pin.json`); one-time history rewrite of itcmdr (approved; map in docs/HISTORY-REWRITE.md) | ✅ Done | `v0.14.1` | 2026-10-31 |
 
 ## Cross-cutting items
 
@@ -203,7 +203,7 @@ Agreed 2026-10-30: agents run only the plugin copies shipped with the agent, nev
 - [x] Schedules screen (preview, edit, pause, run now, history)
 - [x] Settings: search, bool switches, client check of every registry key
 - [x] App signs requests; default `auth_mode` is `signed` (older installs keep `both`)
-- [x] Windows VM: Pester 82/82, installer, in-place upgrade, Dart e2e on Windows (9484fb5). App screens clicked through by Michael (passed).
+- [x] Windows VM: Pester 82/82, installer, in-place upgrade, Dart e2e on Windows (5881a22). App screens clicked through by Michael (passed).
 
 ### v0.13.0 Key storage, plugins in the app, signed-only ✅
 - [x] App private key encrypted at rest: DPAPI (Windows), Secret Service keyring or a documented 0600 file fallback (Linux), Keychain (macOS); plaintext key migrated and removed
