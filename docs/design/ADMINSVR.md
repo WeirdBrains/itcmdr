@@ -215,13 +215,35 @@ in the app bar or a notification tap. It is not a fifth category.
    - Rollout with preview and approval (two-person for pushes), and enable/disable per site.
    - **Quarantine view:** packages that sites rejected during validation, with the reason.
    - SREs can view everything, and request a push or rollout.
-3. **Servers**
-   - List of site servers with health (online / late / non-responsive), version, ring, backup age and open alerts.
-   - Drill into a server, then into its **networked agents**, each with heartbeat state, last runs and errors.
-   - Per server and per agent: alerts (ack, resolve, silence), health, the **metrics explorer**, configs (settings,
-     schedules) and allowlisted commands, all with preview, confirmation and step-up auth.
-   - The global alert inbox lives here too.
-   - SREs can act only on scoped servers.
+3. **Servers**: see every server, drill into one, and manage its plugins, updates, configs and metrics.
+   - **Overview (all servers at a glance):** one row or card per site server, showing:
+     - status (online / late / non-responsive) and last heartbeat
+     - version
+     - open alerts by level (Critical / Cautious / Informational)
+     - agent counts (healthy / late / down)
+     - pending updates and plugin rollouts
+     - freeze or kill-switch state (global freeze, or the site has disabled the link)
+     - Sortable and filterable by status, alert level, version, ring and tag. Scoped to the user's assigned sites
+       (owners and admins see all). The global alert inbox is linked from here.
+   - **Server detail page** (tabs on desktop and web, sections on mobile):
+     - **Overview:** health, backup age, link state, open alerts (ack, resolve, silence), and the agents list with
+       heartbeat state. Drill down to an agent to see its last runs, errors, version, alerts and metrics.
+     - **Plugins:** what's installed and which version, per agent where it differs. Enable or disable, push a catalog
+       version to this server, and see this server's quarantine (rejected packages with the reason). Pushes still go
+       through site validation and quarantine.
+     - **Updates:** this server's and its agents' versions. Stage or approve an update for this server only, outside
+       its ring if needed (owner approval is still required). History and rollback.
+     - **Configs:** settings and schedules, viewed and edited with a diff preview from a site dry-run.
+       - Gated by the site's allowlist: items outside it are greyed out with a reason.
+       - The never-remote items (auth mode, keys, restore, words, cutover, the allowlist itself) are shown
+         **read-only**.
+     - **Metrics:** charts for the server and each agent (disk, uptime, run durations and failures, alert counts),
+       with time range and comparison.
+   - **Relation to the other categories:** Service Plugins and Updates are **fleet-wide** (catalog, releases, rings,
+     rollouts across sites). The server page is the **per-server view and actions** on the same objects. It uses the
+     same approval rules (two-person for plugin pushes and upgrades, owner for upgrades), the same RBAC (SREs act only
+     on assigned servers, and only request code pushes) and the same audit and call log entries. A rollout started on
+     either side shows up in both.
 4. **Updates**
    - Server and agent releases.
    - Rings (test VM → one office → all) with soak status.
