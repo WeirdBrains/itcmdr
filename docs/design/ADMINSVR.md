@@ -537,6 +537,10 @@ Michael will describe this later. It is reserved as a third alert and control su
 - **Multi-site / tenancy:** one adminsvr serves many sites of **one organization** (single tenant). Multi-tenant
   (several unrelated practices) later, as separate deployments, not shared tables. Simpler and safer for HIPAA.
 
+### Packages (v0.19.0)
+
+adminsvr ships as a container image plus a Podman-compatible compose file, and as a plain binary package; the admin CLI `itcmdr-admin` for Windows, macOS and Linux; the admin app as Android and iOS store builds (iOS pending the Mac signing step), desktop installers, and the web build served by adminsvr. All are published, signed, on the GitHub release like the v0.14.3 site packages (see PLAN.md, Packaging). The admin icon set is in `branding/admin`.
+
 ## 5. Security
 
 adminsvr can push code to every office PC, so it is the highest-value target. Controls:

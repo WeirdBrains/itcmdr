@@ -2,26 +2,58 @@
 
 This repository contains placeholders only. Real values go in `C:\ProgramData\itcmdr\site.json` (start from `config/site.example.json`) and `C:\ProgramData\itcmdr\server.json`. Never commit real values.
 
+## Packages (v0.14.3)
+
+Each part has its own installer, with its own entry in Apps & features and its own uninstaller.
+They all install under `C:\Program Files\itcmdr\<part>` and share the data folder `C:\ProgramData\itcmdr`.
+
+| Package | File | What it installs |
+|---|---|---|
+| Server | `itcmdr-server-Setup-<ver>.exe` | the `itcmdr-server` service, its own copy of `itcmdr-cli`, `itcmdr-plugin-ps`, `itcmdr-restore`, log rotation, firewall rule |
+| Agent | `itcmdr-agent-Setup-<ver>.exe` | the PowerShell agent, the pinned check plugins, the nightly and poller tasks, `Push-Install-ItcmdrAgent.ps1` |
+| CLI | `itcmdr-cli-Setup-<ver>.exe`, `itcmdr-cli-<ver>-linux-x86_64.tar.gz`, `itcmdr-cli-<ver>-macos-<arch>.tar.gz` | `itcmdr-cli` on PATH (Windows: `C:\Program Files\itcmdr\cli`) |
+| App | `itcmdr-app-Setup-<ver>.exe` (plus Linux and macOS builds from CI) | the desktop app with the `itcmdr_keys_bridge.dll` crypto bridge |
+
+`SHA256SUMS` on the release page lists every file.
+
+- **The server and the CLI:** the server package always carries its own `itcmdr-cli` in `server\`. The installer
+  needs it for setup, so the server works without the CLI package. Install the CLI package where you want
+  `itcmdr-cli` on PATH (admin PCs, or the server too). Both copies have the same version.
+- **Server and app on one PC:** install both packages. On a first install the server asks *This PC also runs the
+  itcmdr app*; tick it so first-run puts the admin key into the app's DPAPI store.
+- **Upgrading from the combined installer (v0.14.2 and older):** run the new package for each part you had (usually
+  server, agent and app) over the existing install. Files, `server.json`, data, keys, the service and signed-only mode
+  are kept. When the last of them is installed, the old combined "itcmdr" uninstall entry is removed; its files now
+  belong to the new packages. Until then, don't run the old uninstaller.
+- **Uninstall** (Apps & features, or `C:\Program Files\itcmdr\uninstall\<part>\unins000.exe`):
+  - **Data is kept by default.** The uninstaller asks whether to keep this part's data (Yes is the default).
+  - If you choose to remove it, the server uninstaller asks separately about `keys\` (No is the default). Without
+    that folder a restore needs the 24 words.
+  - Silent: `/VERYSILENT` keeps everything. `/REMOVEDATA=yes` removes the part's data, and for the server
+    `/REMOVEKEYS=yes` also removes `keys\`.
+  - **Backups (`backups\` and the backup folder) are never removed.** The words are never stored, so there's
+    nothing of them to remove.
+  - The app's key in `%APPDATA%\itcmdr` and the agent's local log folder (`C:\maintenanceRuns`) are always kept.
+
 ## Server (Windows)
 
-1. Run the installer from the Releases page as an admin, at the server. Pick **Full** (server, app, agent).
-   The installer adds:
+1. Run `itcmdr-server-Setup-<ver>.exe` from the Releases page as an admin, at the server. Then run the app and agent packages if this PC needs them.
+   The server package adds:
    - the `itcmdr-server` service (`itcmdr-server.exe --service`, delayed auto-start, restart on failure)
    - `C:\ProgramData\itcmdr\server.json`, which is never overwritten
    - an inbound firewall rule for TCP 50051, limited to `/AllowSubnet=<lan cidr>`
    - the `itcmdr Log Rotation` scheduled task (daily, SYSTEM, `rotation.timeLocal`, default 02:10)
-   - with the Agent component, the agent and poller tasks
 2. On a first install the wizard asks for the **site settings**: site name, server name (for example SERVER01), the
    maintenanceRuns share (for example `\\SERVER01\DATA\maintenanceRuns`, or its local folder on the server), and
    the backup folder (a share or a second disk). It also asks for the **first admin** (a person's name). These go into
-   `server.json` (`itcmdr-cli setup apply`) and `site.json` (`Initialize-ItcmdrSite.ps1`). An upgrade keeps every value
+   `server.json` (`itcmdr-cli setup apply`). The agent package asks for its own values, which go into `site.json` (`Initialize-ItcmdrSite.ps1`). An upgrade keeps every value
    that is already set and only fills empty ones.
 3. Have paper ready, leave **Run first-run setup now** ticked, and click Finish. A console window opens
    (`itcmdr-cli setup first-run`):
    - It shows the 24 recovery words once. They are never written to a file or a log. Write them on paper and keep the
      paper off the server (for example in the office safe). They are the only way to certify keys and to open a backup.
    - Press Enter, then type the three words it asks for. On a mismatch it shows the words again.
-   - It registers the first admin's app key (role owner). With the App component, the key is created in your Windows
+   - It registers the first admin's app key (role owner). With *This PC also runs the itcmdr app* ticked, the key is created in your Windows
      DPAPI key store, so the itcmdr app on this PC signs from the first start. Signed mode works from day one, and the
      shared token is never needed.
    - The words are only shown in a real console. Redirected output is refused.
@@ -36,7 +68,7 @@ This repository contains placeholders only. Real values go in `C:\ProgramData\it
    - Errors, if any, are in `C:\ProgramData\itcmdr\server-logs\itcmdr-server.txt`.
 
 Silent install (values as parameters; never shows the words):
-`itcmdr-Setup.exe /VERYSILENT /COMPONENTS="server,app,agent" /LogsDir="D:\DATA\maintenanceRuns" /BackupDir="\\NAS01\backup\itcmdr" /SiteName="Example Office" /ServerHostname=SERVER01 /Share="\\SERVER01\DATA\maintenanceRuns" /AllowSubnet=198.51.100.0/24`, then step 4.
+`itcmdr-server-Setup-<ver>.exe /VERYSILENT /LogsDir="D:\DATA\maintenanceRuns" /BackupDir="\\NAS01\backup\itcmdr" /AllowSubnet=198.51.100.0/24`, then step 4.
 
 The shared admin token (`admin_token_hash`, `itcmdr-server.exe hash-token`) is only for `auth set-mode both` (older installs).
 
@@ -44,10 +76,10 @@ Console mode, for troubleshooting: stop the service, then run `itcmdr-server.exe
 
 ## Agents
 
-Silent agent-only install on a PC:
+Silent agent install on a PC (push-friendly; the enroll token is optional and kept for the Rust agent in v0.17.0):
 
 ```
-itcmdr-Setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /COMPONENTS="agent"
+itcmdr-agent-Setup-<ver>.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SiteName="Example Office" /ServerHostname=SERVER01 /Share="\\SERVER01\DATA\maintenanceRuns" [/EnrollToken=<token>]
 ```
 
 This registers two tasks, both running as SYSTEM:
@@ -67,8 +99,8 @@ To do a one-off test run (report-only when not SYSTEM), run `.\Invoke-ItcmdrAgen
 
 ## App
 
-- Windows: installed by the installer (Start Menu shortcut).
-- Web: `flutter build web`, then host it on an internal web server. The server speaks gRPC-Web on the same port.
+- Windows: `itcmdr-app-Setup-<ver>.exe` (Start menu shortcut; `/TASKS=desktopicon` for a desktop icon).
+- Web: not supported for the on-site app (its key store is Windows DPAPI). The web build comes with the adminsvr app.
 - Open **Settings** and enter the server host and port (default 50051) and your name for the audit log.
 - Open **Keys** and make or import a key. An owner certifies it (see the server steps above). The key seed stays in this Windows profile.
 - The shared admin token field is only for an install still in `both` or `token` mode.

@@ -569,6 +569,7 @@ JSON. The rest sounds good to me").
 | v0.12.0 | Flutter: Service Plugins section, app registration, user/key management, plugin metric charts, Backup & Restore screen, Schedules screen; app signs requests, default auth_mode -> signed |
 | v0.13.0 ✅ | encrypted app key, plugins from the app, signed-only on the VM |
 | v0.14.0 ✅ | installer + first-run setup (`itcmdr-cli setup`), words shown once, first admin key, upgrade keeps settings |
+| v0.14.3 ✅ | separate packages: server, agent, CLI, app (own AppId/uninstaller each), migration from v0.14.2, keep-data uninstall, CI per package, Linux/macOS CLI tarballs, icon set |
 
 ### Notes from the v0.12.0 build
 
@@ -615,3 +616,22 @@ Recorded in docs/design/ADMINSVR.md ("Decisions"):
 - The Flutter app uses it through flutter_rust_bridge 2.13.0 (`app/rust`, a separate cargo workspace excluded from the root one; cargokit builds it per platform). Host tests need `cd app/rust && cargo build` first.
 - WASM: build with the rustup toolchain (`rustup run stable`), not Arch's system rustc, which has no wasm32 target. `flutter_rust_bridge_codegen build-web` uses nightly (installed user-level).
 - Linux desktop `flutter build linux` needs ninja and clang (system packages; not installed, not needed for tests).
+
+### Notes from the v0.14.3 build (packaging)
+
+One package per component, each with its own install, upgrade and uninstall. Uninstall keeps `%ProgramData%\itcmdr` by default; removing data is opt-in (confirmation, or `/REMOVEDATA=yes`), keys only with a second explicit choice (`/REMOVEKEYS=yes`), and backups are never removed. The GitHub release publishes every artifact plus `SHA256SUMS`; Windows packages are Authenticode-signed when the signing secret is set.
+
+| Release | Package | Files |
+|---|---|---|
+| v0.14.3 | Server (Windows service; reserved slot for the v0.21.0 server watchdog; carries its own `itcmdr-cli` for setup steps so it works standalone) | `itcmdr-server-Setup-<ver>.exe` |
+| v0.14.3 | Agent (silent, push-friendly, `/EnrollToken=` stored for v0.17.0; `Push-Install-ItcmdrAgent.ps1` kept) | `itcmdr-agent-Setup-<ver>.exe` |
+| v0.14.3 | CLI (on PATH) | `itcmdr-cli-Setup-<ver>.exe`, `itcmdr-cli-<ver>-linux-x86_64.tar.gz`, `itcmdr-cli-<ver>-macos-aarch64.tar.gz` (CI) |
+| v0.14.3 | App (with `itcmdr_keys_bridge.dll`) | `itcmdr-app-Setup-<ver>.exe`, `itcmdr-app-<ver>-linux-x86_64.tar.gz`, `itcmdr-app-<ver>-macos-aarch64.zip` (CI, unsigned until the Mac signing step) |
+| v0.17.0 | The Rust agent ships in the agent package (same AppId, upgrades the PS agent package) | `itcmdr-agent-Setup-<ver>.exe` |
+| v0.19.0 | adminsvr (container image + compose file, plain binary package), admin CLI (Windows, macOS, Linux), admin app (Android/iOS store builds, desktop installers, web build served by adminsvr) | `itcmdr-adminsvr-*`, `itcmdr-admin-cli-*`, `itcmdr-admin-app-*` |
+
+Upgrading from the combined v0.14.2 installer: each split package takes over its part; once every component the old installer recorded is installed as a split package, the old uninstall entry is removed (files, data, keys, the service and signed-only mode are untouched).
+
+Branding (v0.14.3): `branding/` holds the SVG masters, `build.py` and the rendered sets. The office icon is wired into the Windows app, the web icons, the Linux bundle (hicolor icons + `itcmdr.desktop`) and every installer. Android `res/` and the iOS `AppIcon.appiconset` (office and admin) are wired when `flutter create --platforms android,ios` runs (the mobile store work); the admin set is for the v0.19.0 SRE app. Tray/notification monochrome icons stay in `branding/` (no tray usage yet).
+- Inno: `installer/common.iss` (version, AppIds), `common-setup.iss`, `common-code.iss` (migration, keep-data uninstall), `itcmdr-{server,agent,cli,app}.iss`. The combined installer had no `sharedfile` on `Itcmdr.Plugin.psm1`; migration drops the extra SharedDLLs reference so a full uninstall removes it.
+- The server package keeps a private `itcmdr-cli.exe` in `{app}\server` (used by the installer's `setup apply/check/first-run`); the CLI package installs `{app}\cli` and adds it to PATH. Same version, independent uninstall.
