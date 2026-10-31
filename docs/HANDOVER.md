@@ -6,7 +6,7 @@ untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committ
 
 ## Current state (updated 2026-10-31)
 
-- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.13.0** (app key encrypted at rest, plugins from the app, signed-only proven on the VM). Previous: v0.12.0 (`fb007b2`, follow-up 9484fb5). Versions in the tree: server 0.13.0, app 0.13.0+18, installer 0.13.0, agent `AgentVersion` 0.13.0.
+- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.14.0** (installer and first-run setup). Previous: v0.13.0 (`fba79ce`). Versions in the tree: server 0.14.0, app 0.14.0+19, installer 0.14.0, agent `AgentVersion` 0.14.0.
 - Linux for v0.12.0: analyzer clean. Widget tests cover the Keys, Schedules and Backup dialogs and the settings search/switches. `app/test/e2e_test.dart` runs init, certifies an app key, then WhoAmI, every registry setting, a schedule, a backup and a restore dry run.
 - Windows VM passes: v0.10.1, v0.11.0, v0.12.0 and v0.13.0. App click-through on the VM: passed (Michael). The test VM runs signed-only. See Results.
 - **No install is switched.** Every install runs the SYSTEM task as before, plus the plugin versions report-only for parity. Switching is on site: collect a week of parity, `itcmdr-cli cutover status`, then `cutover vm-verified` and `cutover switch` (Michael).
@@ -158,7 +158,7 @@ Later the same day: those 4 infos fixed, widget tests added, Dart e2e green, ver
 1. Click through the installed app on the VM (connect, Keys, Schedules, Backup dry run, Settings) with a person at the screen.
 2. A real second PC as an agent.
 3. On site (Michael): the signed-only checklist in docs/INSTALL.md; a week of parity, then the gated cutover.
-4. v0.14.0: installer first-run master setup.
+4. Next (queued, approved): plugins move to the itcmdr-plugins repo, then a one-time history rewrite of itcmdr.
 
 **Commands**
 - Linux: `export PATH=$HOME/Projects/tools/flutter/bin:$HOME/Projects/tools/pwsh:$HOME/Projects/tools/protoc/bin:$HOME/.pub-cache/bin:$PATH`; `cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace`; `pwsh -NoProfile -c 'Invoke-Pester -Path agent/tests -CI'`; `cd app && flutter analyze && flutter test`.
@@ -172,11 +172,11 @@ Later the same day: those 4 infos fixed, widget tests added, Dart e2e green, ver
 
 ## In progress
 
-Nothing. v0.13.0 is released.
+Nothing. v0.14.0 is released.
 
 ## Backlog (in order)
 
-1. Windows VM test pass: v0.10.1 to v0.13.0 done (results below). App click-through passed (Michael). Still open: a real second PC as agent.
+1. Windows VM test pass: v0.10.1 to v0.14.0 done (results below). App click-through passed (Michael). Still open: a real second PC as agent.
 2. ~~Missing agent checks~~ done in v0.3.0. Real values must be added to the site.json on Windows hosts.
 3. ~~Flapping/repeat-offender metrics, charts~~ done in v0.4.0.
 4. ~~Log search filters and paging~~ done in v0.4.0.
@@ -300,6 +300,21 @@ In-place upgrade over the v0.11.0 install. The installer is built after `flutter
 | Dart e2e against a real server on Windows (`flutter test test\e2e_test.dart`, release bins via `ITCMDR_E2E_BIN_DIR`) + signing and page tests | ✅ 14 passed |
 | Dart e2e on Windows | ❌ → fixed: the test hard-coded `../target/debug/itcmdr-server` (no `.exe`, no bin dir override) |
 | App screens clicked through on the VM | ✅ passed (Michael, 2026-10-31) |
+
+### Results: v0.14.0 VM pass (2026-10-31, Windows 11 Pro, Windows PowerShell 5.1)
+
+| Item | Result |
+|---|---|
+| Build, installer compile, Pester 88/88, PSScriptAnalyzer 0, `flutter test` 31 + 1 skipped | ✅ (3 PSSA findings in the new script, fixed) |
+| Back up `%ProgramData%\itcmdr` and `%APPDATA%\itcmdr` (robocopy, service stopped), silent uninstall, data removed | ✅ |
+| Clean silent install with `/LogsDir /BackupDir /SiteName /ServerHostname /Share` | ✅ exit 0, service Running, values in server.json and site.json, `setup-check.txt` all OK except "not initialized" (warn), agent check all OK |
+| No words in the installer log | ✅ |
+| `setup first-run` with redirected output | ✅ refused |
+| `setup first-run --app-key-store --admin-name` (headless test flag) | ✅ 24 words, first admin (owner) registered, key created in the DPAPI store |
+| The Dart app store reads the key the CLI wrote; signed WhoAmI (owner), ListSchedules, ListPlugins; token refused | ✅ signed from day one |
+| Installed app starts; agent poller result 0 | ✅ |
+| Uninstall, restore the backup, reinstall v0.13.0, upgrade to v0.14.0 with different site values | ✅ server.json byte-identical, site.json unchanged, `setup apply` not run, tasks Ready, signed calls work, token refused, cutover state unchanged |
+| Interactive console (pause, ask 3 words, re-show on mismatch, clear screen) | ✅ on Linux through a pseudo-terminal. On Windows it uses `cls`; the console window itself still needs a person at the screen |
 
 ### Results: v0.13.0 VM pass (2026-10-31, Windows 11 Pro, Windows PowerShell 5.1)
 

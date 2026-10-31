@@ -4,23 +4,41 @@ This repository contains placeholders only. Real values go in `C:\ProgramData\it
 
 ## Server (Windows)
 
-1. Create `C:\ProgramData\itcmdr\site.json` from `config/site.example.json`.
-2. Run the installer from the Releases page. It installs:
+1. Run the installer from the Releases page as an admin, at the server. Pick **Full** (server, app, agent).
+   The installer adds:
    - the `itcmdr-server` service (`itcmdr-server.exe --service`, delayed auto-start, restart on failure)
-   - a template `C:\ProgramData\itcmdr\server.json`, which is never overwritten
-   - an inbound firewall rule for TCP 50051, limited to `/DAllowSubnet=<lan cidr>`
+   - `C:\ProgramData\itcmdr\server.json`, which is never overwritten
+   - an inbound firewall rule for TCP 50051, limited to `/AllowSubnet=<lan cidr>`
    - the `itcmdr Log Rotation` scheduled task (daily, SYSTEM, `rotation.timeLocal`, default 02:10)
    - with the Agent component, the agent and poller tasks
-3. Edit `C:\ProgramData\itcmdr\server.json`:
-   - `logs_dir`: the local path of the maintenanceRuns share folder on the server.
-   - `admin_token_hash`: choose a long random token, then run `& 'C:\Program Files\itcmdr\server\itcmdr-server.exe' hash-token <token>` and paste the output. A new install (v0.12.0) ignores the token until `itcmdr-cli auth set-mode both`. Installs from before v0.12.0 keep accepting it (`auth status` shows `kept-both`).
-   - Then run `Restart-Service itcmdr-server`.
-4. First run of a new install is signed-only. On the server:
-   - `& 'C:\Program Files\itcmdr\server\itcmdr-cli.exe' init` once. Write the 24 words on paper and keep them off the server. They are not stored, and they are the only way to certify keys and open a backup.
-   - In the app, open **Keys** and choose **Make a key**. An owner runs the certify command the app shows (`itcmdr-cli keys certify …`, words on stdin), then `itcmdr-cli keys register app-key.pub.json`.
+2. On a first install the wizard asks for the **site settings**: site name, server name (for example SERVER01), the
+   maintenanceRuns share (for example `\\SERVER01\PDATA\maintenanceRuns`, or its local folder on the server), and
+   the backup folder (a share or a second disk). It also asks for the **first admin** (a person's name). These go into
+   `server.json` (`itcmdr-cli setup apply`) and `site.json` (`Initialize-ItcmdrSite.ps1`). An upgrade keeps every value
+   that is already set and only fills empty ones.
+3. Have paper ready, leave **Run first-run setup now** ticked, and click Finish. A console window opens
+   (`itcmdr-cli setup first-run`):
+   - It shows the 24 recovery words once. They are never written to a file or a log. Write them on paper and keep the
+     paper off the server (for example in the office safe). They are the only way to certify keys and to open a backup.
+   - Press Enter, then type the three words it asks for. On a mismatch it shows the words again.
+   - It registers the first admin's app key (role owner). With the App component, the key is created in your Windows
+     DPAPI key store, so the itcmdr app on this PC signs from the first start. Signed mode works from day one, and the
+     shared token is never needed.
+   - The words are only shown in a real console. Redirected output is refused.
+4. Skipped it, or a silent install? Run it later, in person, in an admin console:
+   `& 'C:\Program Files\itcmdr\server\itcmdr-cli.exe' setup first-run --admin-name "Dr Example" --app-key-store`
+   (or `--admin-public-key <hex>` from the Keys screen of an app on another PC).
 5. Check that it's working:
+   - `itcmdr-cli setup check` (also saved by the installer to `C:\ProgramData\itcmdr\setup-check.txt`). It checks
+     that the config, data dir, log share and backup folder exist and are writable, that the server is initialized,
+     and that an admin app key exists. Exit code 1 when a check fails.
    - `Get-Service itcmdr-server` shows Running.
    - Errors, if any, are in `C:\ProgramData\itcmdr\server-logs\itcmdr-server.txt`.
+
+Silent install (values as parameters; never shows the words):
+`itcmdr-Setup.exe /VERYSILENT /COMPONENTS="server,app,agent" /LogsDir="D:\PDATA\maintenanceRuns" /BackupDir="\\NAS01\backup\itcmdr" /SiteName="Example Office" /ServerHostname=SERVER01 /Share="\\SERVER01\PDATA\maintenanceRuns" /AllowSubnet=198.51.100.0/24`, then step 4.
+
+The shared admin token (`admin_token_hash`, `itcmdr-server.exe hash-token`) is only for `auth set-mode both` (older installs).
 
 Console mode, for troubleshooting: stop the service, then run `itcmdr-server.exe --console`. It reads the same config, from `ITCMDR_SERVER_CONFIG`, `.\config\server.json`, `%ProgramData%\itcmdr\server.json`, or `server.json` next to the exe.
 

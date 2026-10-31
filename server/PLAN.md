@@ -567,7 +567,8 @@ JSON. The rest sounds good to me").
 | v0.10.1 ✅ | first Windows VM pass: BOM-safe agent logs + ingest, zipped plugin logs skipped, installer compiles, app exe name, PS 5.1 test fixes, `itcmdr-cli restore-stage` / `restore-status` |
 | v0.11.0 ✅ | built-in checks as plugins: the existing agent checks/repairs rebuilt as service plugins and run through the plugin system (decision 10), logging in itcmdr.log/v1; nightly agent task and nightly backup as built-in schedules (decision 14, no-gap rule); agents run only shipped plugin copies (decision 16) |
 | v0.12.0 | Flutter: Service Plugins section, app registration, user/key management, plugin metric charts, Backup & Restore screen, Schedules screen; app signs requests, default auth_mode -> signed |
-| v0.13.0 | installer: first-run master setup showing the words once; Windows VM test items in the handover |
+| v0.13.0 ✅ | encrypted app key, plugins from the app, signed-only on the VM |
+| v0.14.0 ✅ | installer + first-run setup (`itcmdr-cli setup`), words shown once, first admin key, upgrade keeps settings |
 
 ### Notes from the v0.12.0 build
 
@@ -579,3 +580,8 @@ JSON. The rest sounds good to me").
 - App plugin RPCs (`InstallPlugin`, `EnablePlugin`, `DisablePlugin`, `RemovePlugin`, `ListQuarantine`) call the same `packages.rs` code as `itcmdr-cli plugins`. Install, enable, disable and remove need the Admin role and a signed request in every auth mode; the quarantine list is an Admin read. A URL is fetched by the server only (decision 16): `https://`, or `http://` for loopback (tests). An upload is labeled `upload:<file name>` in the audit and quarantine records. A failed install is audited as `plugin-install-failed`.
 - The gRPC maximum message size is `plugins.max_package_mib` + 1 MiB, read at start.
 - The test VM runs `auth_mode = signed`. Shared-token calls get `Unauthenticated` ("missing x-itcmdr-key"). The agent poller is unaffected.
+
+### Notes from the v0.14.0 build
+
+- `itcmdr-cli setup first-run` = `auth::init` + certify and register the first admin key with the master from the words in memory (`setup::first_run`). The words go to the console only. The command refuses when stdin or stdout is not a terminal, so they can't land in a redirected file or installer log (hidden `--no-confirm` is for tests). `--app-key-store` reads or creates `%APPDATA%\itcmdr\app-key.dpapi` with DPAPI current user and entropy `itcmdr-app-key/v1` (`storage::protect_for_app`), the same format as `app/lib/key_store.dart`.
+- The installer decides "first install" in `InitializeSetup` (server.json / site.json missing) before [Files] runs.
