@@ -1,9 +1,26 @@
-// v0.9.1 basic Settings screen for the server and agent settings (decision 15).
-// Admin only on the server side; the full Settings section comes in v0.12.0.
+// Settings screen for the server and agent settings (decision 15).
+// Admin only on the server side. Search filters the list; bool settings are switches.
 import 'package:flutter/material.dart';
 
 import 'proto/itcmdr.pbgrpc.dart';
 import 'settings.dart';
+
+/// Settings in [scope] whose key or description contains [query] (blank = all of them).
+List<SettingItem> visibleSettings(
+  List<SettingItem> items,
+  String scope,
+  String query,
+) {
+  final q = query.trim().toLowerCase();
+  return [
+    for (final s in items)
+      if (s.scope == scope &&
+          (q.isEmpty ||
+              s.key.toLowerCase().contains(q) ||
+              s.description.toLowerCase().contains(q)))
+        s,
+  ];
+}
 
 /// Client-side check mirroring the server's validation (the server stays authoritative).
 /// Returns an error message, or null when [text] is acceptable for [s].
@@ -34,10 +51,14 @@ String? validateSettingValue(SettingItem s, String text) {
 class ServerSettingsSection extends StatefulWidget {
   final ItcmdrClient client;
   final ServerSettings settings;
+
+  /// When set, shown immediately and the server is not asked. Widget tests use this.
+  final List<SettingItem>? initialItems;
   const ServerSettingsSection({
     super.key,
     required this.client,
     required this.settings,
+    this.initialItems,
   });
   @override
   State<ServerSettingsSection> createState() => _ServerSettingsSectionState();
@@ -47,18 +68,26 @@ class _ServerSettingsSectionState extends State<ServerSettingsSection> {
   List<SettingItem> _items = [];
   String _scope = 'server';
   final _machine = TextEditingController();
+  final _query = TextEditingController();
   String? _error;
   bool _loaded = false;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    final seed = widget.initialItems;
+    if (seed != null) {
+      _items = seed;
+      _loaded = true;
+    } else {
+      _load();
+    }
   }
 
   @override
   void dispose() {
     _machine.dispose();
+    _query.dispose();
     super.dispose();
   }
 
@@ -159,13 +188,24 @@ class _ServerSettingsSectionState extends State<ServerSettingsSection> {
 
   @override
   Widget build(BuildContext context) {
-    final shown = _items.where((s) => s.scope == _scope).toList();
+    final shown = visibleSettings(_items, _scope, _query.text);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Server & agent settings',
           style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          key: const Key('settings-search'),
+          controller: _query,
+          decoration: const InputDecoration(
+            labelText: 'Search settings',
+            prefixIcon: Icon(Icons.search),
+            isDense: true,
+          ),
+          onChanged: (_) => setState(() {}),
         ),
         const SizedBox(height: 8),
         Row(
@@ -223,11 +263,19 @@ class _ServerSettingsSectionState extends State<ServerSettingsSection> {
                           icon: const Icon(Icons.restart_alt),
                           onPressed: () => _update(s, unset: true),
                         ),
-                      IconButton(
-                        tooltip: 'Edit',
-                        icon: const Icon(Icons.edit),
-                        onPressed: () => _edit(s),
-                      ),
+                      if (s.type == 'bool')
+                        Switch(
+                          key: Key('setting-bool-${s.key}'),
+                          value: s.value == 'true',
+                          onChanged: (v) =>
+                              _update(s, value: v ? 'true' : 'false'),
+                        )
+                      else
+                        IconButton(
+                          tooltip: 'Edit',
+                          icon: const Icon(Icons.edit),
+                          onPressed: () => _edit(s),
+                        ),
                     ],
                   ),
           ),

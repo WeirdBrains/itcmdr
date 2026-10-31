@@ -96,8 +96,9 @@ class _SchedulesPageState extends State<SchedulesPage> {
   }
 
   void _say(String m) {
-    if (mounted)
+    if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
+    }
   }
 
   Future<void> _edit(Schedule? s) async {

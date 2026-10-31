@@ -6,8 +6,9 @@ untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committ
 
 ## Current state (updated 2026-10-31)
 
-- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.11.0** (built-in checks as plugins, default schedules, gated cutover). Previous: v0.10.1 (`2366819`).
-- Windows VM passes: v0.10.1 (installer, service, tasks, agent, plugins, schedules, backup/restore) and v0.11.0 (plugin parity, default schedules, cutover/rollback/fallback, share-offline queue). See Windows VM test plan → Results.
+- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.11.0** (built-in checks as plugins, default schedules, gated cutover). Previous: v0.10.1 (`2366819`). **v0.12.0 is in the working tree, not tagged.** Versions in the tree: server 0.12.0, app 0.12.0+17, installer 0.12.0, agent `AgentVersion` 0.12.0.
+- Linux for v0.12.0: analyzer clean. Widget tests cover the Keys, Schedules and Backup dialogs and the settings search/switches. `app/test/e2e_test.dart` runs init, certifies an app key, then WhoAmI, every registry setting, a schedule, a backup and a restore dry run.
+- Windows VM passes: v0.10.1, v0.11.0, and a v0.12.0 upgrade (Pester 82/82, installer, service, tasks, new app binary). The app screens were not clicked through. See Results.
 - **No install is switched.** Every install runs the SYSTEM task as before, plus the plugin versions report-only for parity. Switching is on site: collect a week of parity, `itcmdr-cli cutover status`, then `cutover vm-verified` and `cutover switch` (Michael).
 - GitHub release builds are blocked by org billing (see Risks), so there is no installer artifact yet.
 
@@ -135,6 +136,7 @@ untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committ
 
 Base v0.11.0 = `b249612`. Not tagged. Linux at handoff: cargo fmt/clippy -D warnings clean, Rust 93 passed,
 Pester 82/82, flutter test 15 passed, flutter analyze 4 infos (curly braces in backup_page.dart, schedules_page.dart).
+Later the same day: those 4 infos fixed, widget tests added, Dart e2e green, versions set to 0.12.0. Analyzer clean.
 
 **Done (server, tested on Linux)**
 - Sealed restore words: `server/src/restore_seal.rs` (X25519 + HKDF (SHA-256) + XChaCha20-Poly1305, one-time 10-min keys bound to the signing key, aad binds key id + backup). `GetRestoreKey` RPC; `StageRestore` refuses plaintext `words`, needs `sealed_words`, `dry_run` first, then `dry_run_id` (30 min, same key + backup). Restore/keys RPCs are signed-only (`signed_only` in `api.rs`); the shared token cannot restore. Audited: restore-dry-run, restore-refused, restore-stage. `itcmdr-cli restore-stage` uses the same path. Tests: `server/tests/restore_app.rs`.
@@ -142,24 +144,19 @@ Pester 82/82, flutter test 15 passed, flutter analyze 4 infos (curly braces in b
 - auth_mode: default `signed`. Without a value in server.json, `db::init_db` writes `server_meta.auth_mode_default` once ("both" if the DB already had tables = pre-0.12 install, else "signed"); `auth::settle_auth_mode` applies it in `lib.rs run`. Unknown/empty mode fails secure (Signed). Installer template no longer sets auth_mode (existing installs keep their explicit "both"). `itcmdr-cli auth status|set-mode MODE [--force]` (refuses `signed` without a non-root admin/owner key).
 - Vectors: `proto/signing_vectors.json` (+3 new, old ones unchanged), new `proto/app_vectors.json` (Ed25519 sig + sealed words).
 
-**Done (app, unit-tested only)**
+**Done (app, Linux)**
 - `app/lib/signing.dart`: AppKey, SigningInterceptor, `canonicalBytes` (Dart writes explicit defaults; the vector test caught it), `sealWords`. `app/test/signing_test.dart` matches the Rust vectors byte for byte.
-- Pages: `keys_page.dart`, `schedules_page.dart`, `backup_page.dart`, `plugins_page.dart`; `main.dart` now a NavigationRail with 11 entries; `settings.dart` stores the key seed (`auth.key_seed`).
+- Pages: `keys_page.dart`, `schedules_page.dart`, `backup_page.dart`, `plugins_page.dart`; `main.dart` now a NavigationRail with 11 entries; `settings.dart` stores the key seed (`auth.key_seed`). The Keys page shows the local fingerprint before the server answers.
+- Settings: search box and a switch for each bool (`server_settings.dart`). `app/test/pages_test.dart` checks every key in `docs/SETTINGS.md` plus the dialogs. `app/test/e2e_test.dart` checks the live registry against that doc.
 
-**Half-done / untested**
-- No widget tests for the new pages; never run against a real server (no Dart e2e yet).
-- Settings screen: generic over ListSettings (covers the registry) but no search/bool toggles yet.
+**Half-done / still open**
+- Plugin install and enable/disable are CLI-only. The app lists, runs and charts.
 - Key seed is stored in shared_preferences (user profile, plaintext); DPAPI later.
-- Docs not updated: CHANGELOG, SIGNING.md ("Sealed restore words" section referenced in code), SETTINGS.md (auth_mode default), INSTALL.md (new installs are signed: init + app key), ARCHITECTURE.md.
-- VM: nothing done for v0.12.0 (VM was down: port 2222 refused at start).
+- VM: v0.12.0 upgrade is installed (Pester 82/82, service Running, tasks Ready, app binary matches the build). `auth status` is `both` from server.json. The screens were not clicked through.
 
 **Next steps in order**
-1. Fix the 4 analyze infos; add widget tests for Keys/Schedules/Backup dialogs (validateScheduleForm, deleteAllowed, checkWords already pure).
-2. Dart e2e against a local server: start `itcmdr-server` with a temp data dir, `itcmdr-cli init`, certify the app key, then WhoAmI / schedules / backup / dry run from Dart.
-3. Settings screen: search + bool switches + a test over all registry keys.
-4. Docs above; versions to 0.12.0 (server/Cargo.toml, agent AgentVersion, installer MyAppVersion, app/pubspec.yaml 0.12.0+17).
-5. VM: Pester (82 incl. the AST test), build a fresh installer, reinstall and recheck the task re-registration fix, `flutter build windows`, smoke-test app against the VM server, check `itcmdr-cli auth status` shows kept-both on the upgraded install.
-6. Leak scans, commit, tag v0.12.0, push main then the tag.
+1. Click through the installed app on the VM (connect, Keys, Schedules, Backup dry run, Settings). A second PC as an agent is still open.
+2. Leak scan is clean. Commit, tag v0.12.0, push main then the tag when asked.
 
 **Commands**
 - Linux: `export PATH=$HOME/Projects/tools/flutter/bin:$HOME/Projects/tools/pwsh:$HOME/Projects/tools/protoc/bin:$HOME/.pub-cache/bin:$PATH`; `cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace`; `pwsh -NoProfile -c 'Invoke-Pester -Path agent/tests -CI'`; `cd app && flutter analyze && flutter test`.
@@ -173,11 +170,11 @@ Pester 82/82, flutter test 15 passed, flutter analyze 4 infos (curly braces in b
 
 ## In progress
 
-v0.12.0 WORK IN PROGRESS, committed as 'wip: v0.12.0 progress (handover)' (not tagged). See 'Handoff: v0.12.0 WIP' below.
+v0.12.0 is in the working tree (not tagged). See 'Handoff: v0.12.0 WIP' above.
 
 ## Backlog (in order)
 
-1. Windows VM test pass: v0.10.1 and v0.11.0 passes done (results below). Still to do: the app UI on Windows (connect, trigger, settings screen) and a real second PC as agent.
+1. Windows VM test pass: v0.10.1 and v0.11.0 passes done (results below). Still to do: the v0.12.0 app on Windows (connect, keys, schedules, backup dry run, settings) and a real second PC as agent.
 2. ~~Missing agent checks~~ done in v0.3.0. Real values must be added to the site.json on Windows hosts.
 3. ~~Flapping/repeat-offender metrics, charts~~ done in v0.4.0.
 4. ~~Log search filters and paging~~ done in v0.4.0.
@@ -281,7 +278,22 @@ Installer built on the VM and installed over v0.10.1 (in-place upgrade). Placeho
 | Server stopped → schedule state stale → poller ran the nightly locally (`trigger=fallback`, plugins mode, 17 checks) | ✅ (~150 s with serverStaleMinutes=2 for the test) |
 | Share offline (SMB share removed): log queued in `spool\outbox`; share back → flushed to the share | ✅ |
 | "local" schedule times on Windows across the fall-back day | ❌ → fixed: 02:00 showed 01:00 -08:00 on Nov 1; now uses the IANA zone |
-| App UI on Windows; a real second PC | ⏳ not done |
+| App UI on Windows; a real second PC | ⏳ app binary installed 2026-10-31; the screens were not clicked through. A second PC is still not done. |
+
+### Results: v0.12.0 VM pass (2026-10-31, Windows 11 Pro, Windows PowerShell 5.1)
+
+In-place upgrade over the v0.11.0 install. The installer is built after `flutter build windows` (the first package that morning was built before the app binary existed, so it still contained the previous app; it was rebuilt and installed again).
+
+| Item | Result |
+|---|---|
+| Release build of the server | ✅ 1m 55s, exit 0 (one duplicated warning) |
+| Installer compiles | ✅ |
+| Pester 82/82 and PSScriptAnalyzer 0 findings under PS 5.1 | ✅ |
+| `flutter build windows` | ✅ 79s |
+| Silent upgrade: exit 0, service Running, nightly / poller / rotation tasks still Ready | ✅ |
+| Installed agent `AgentVersion` 0.12.0; installed `itcmdr.exe` timestamp matches the build | ✅ |
+| `itcmdr-cli auth status` | both, because server.json still has `"auth_mode": "both"` from the v0.11.0 installer. Upgrades do not replace that file, so this install does not take the kept-both path. The shared token is still configured. One admin key (`Dr Example`) can sign. |
+| App screens clicked through on the VM | not done |
 
 ## Risks and gotchas
 
@@ -296,9 +308,8 @@ Installer built on the VM and installed over v0.10.1 (in-place upgrade). Placeho
 - **Never commit real site values** (IPs, hostnames, domains, usernames, MACs).
   `config/site.local.json`, `config/site.json` and `config/banned.local.txt` are gitignored.
 - The scanner allows only `0.0.0.0`, `TCP-<port>` and `SCAN-NN` tokens beyond the placeholders; don't widen it further.
-- Mutating RPCs need the token or (v0.7.0+) a signed request. Run `itcmdr-server init` once per server; the 24 words are
-  printed ONCE and are the only way to certify new keys and recover `db.key`. Don't set `auth_mode = signed` until
-  the app can sign (v0.12.0), or the app loses access.
+- Mutating RPCs need a signed request (v0.12.0 default) or, on an install that still has `auth_mode = both`, the legacy token. Run `itcmdr-server init` once per server; the 24 words are
+  printed ONCE and are the only way to certify new keys and recover `db.key`. New installs are `signed`. An upgrade whose server.json does not set `auth_mode` keeps `both` until `itcmdr-cli auth set-mode signed` (needs a non-root admin or owner key first). A value already in server.json wins: the v0.11.0 installer wrote `both`, and upgrades do not replace that file.
 - Never change the master derivation (`keys.rs`); the pinned test vector guards it.
 - Never edit `proto/signing_vectors.json` to make a test pass; regenerate (ITCMDR_REGEN_VECTORS=1) only for a deliberate protocol change.
 - Agent paths come from `Get-ItcmdrPath`; never hard-code `C:\maintenanceRuns` again. In tests use `[IO.Path]::Combine` (Join-Path fails on drive letters / UNC on Linux).

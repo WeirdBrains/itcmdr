@@ -20,6 +20,21 @@ official Dart `protobuf` package both do by default:
 5. Negative `int32`/`int64` are 10-byte two's-complement varints (not zigzag).
 
 Pinned vectors: `proto/signing_vectors.json` (body hex plus the exact signed message for a fixed ts and
-nonce). `server/tests/signing.rs` checks Rust against them; the app's test must match them byte for
-byte when it starts signing (v0.12.0). Never change a vector to make a test pass: a difference means
-clients and server disagree.
+nonce). `server/tests/signing.rs` and `app/test/signing_test.dart` both match them byte for byte.
+Never change a vector to make a test pass: a difference means clients and server disagree.
+
+## Sealed restore words
+
+An app-triggered restore never sends the 24 words in plaintext. `GetRestoreKey` returns a one-time
+X25519 public key that lives only in the server's memory (10 minutes, bound to the caller's signing
+key). The app seals the words (`app/lib/signing.dart` `sealWords`, `server/src/restore_seal.rs`):
+
+```
+key = HKDF (SHA-256)(salt = eph_pub || server_pub, ikm = X25519(eph, server), info = "itcmdr/restore-words/v1")
+aad = "itcmdr-restore-words/v1\n{key_id}\n{backup}"
+ct  = XChaCha20-Poly1305(key, 24-byte nonce, words encoded as UTF8, aad)
+```
+
+`StageRestore` requires `sealed_words`. A dry run must pass first; the real restore then sends that
+`dry_run_id` (30 minutes, same signing key and same backup). Plaintext `words` are refused. These
+calls, and the key RPCs, accept only a signed request. Pinned bytes: `proto/app_vectors.json`.

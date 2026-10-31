@@ -75,6 +75,8 @@ class _KeysPageState extends State<KeysPage> {
 
   Future<void> _load() async {
     final k = await widget.settings.appKey();
+    if (!mounted) return;
+    setState(() => _key = k);
     WhoAmIResponse? me;
     String? err;
     try {
