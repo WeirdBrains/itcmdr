@@ -33,6 +33,9 @@ jobs:
         run: cargo test --workspace --locked
       - name: Clippy
         run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Bridge crate (app/rust) clippy
+        working-directory: app/rust
+        run: cargo clippy --all-targets --locked -- -D warnings
 
   flutter:
     runs-on: ubuntu-latest
@@ -50,6 +53,9 @@ jobs:
       - name: Analyze
         working-directory: app
         run: flutter analyze
+      - name: Build the itcmdr-keys bridge (flutter_rust_bridge, host)
+        working-directory: app/rust
+        run: cargo build --locked
       - name: Test
         working-directory: app
         run: flutter test

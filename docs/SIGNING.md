@@ -1,5 +1,7 @@
 # Signed requests: canonical encoding
 
+Since v0.14.2 the server, the CLIs and the app all sign with the same code, the `itcmdr-keys` crate (`keys/`). The app reaches it through flutter_rust_bridge (`app/rust`).
+
 Every signed gRPC call carries `x-itcmdr-key` (key fingerprint), `x-itcmdr-ts` (unix ms),
 `x-itcmdr-nonce` (16-128 chars of `[A-Za-z0-9_-]`, never reused) and `x-itcmdr-sig` (hex Ed25519).
 The signature covers:

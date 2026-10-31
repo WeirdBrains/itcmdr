@@ -6,7 +6,7 @@ untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committ
 
 ## Current state (updated 2026-10-31)
 
-- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.14.1** (plugins moved to github.com/WeirdBrains/itcmdr-plugins, pinned in `plugins.pin.json`). Previous: v0.14.0. Versions in the tree: server 0.14.1, app 0.14.1+20, installer 0.14.1, agent `AgentVersion` 0.14.1. Run `scripts/fetch-plugins.sh` once after cloning (installer and parity tests need it).
+- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.14.2** (shared `itcmdr-keys` crate; the app signs through flutter_rust_bridge). Previous: v0.14.1. Versions in the tree: server 0.14.2, itcmdr-keys 0.14.2, app 0.14.2+21, installer 0.14.2, agent `AgentVersion` 0.14.2. Host Flutter tests need `cd app/rust && cargo build` first. Run `scripts/fetch-plugins.sh` once after cloning (installer and parity tests need it).
 - Linux for v0.12.0: analyzer clean. Widget tests cover the Keys, Schedules and Backup dialogs and the settings search/switches. `app/test/e2e_test.dart` runs init, certifies an app key, then WhoAmI, every registry setting, a schedule, a backup and a restore dry run.
 - Windows VM passes: v0.10.1, v0.11.0, v0.12.0 and v0.13.0. App click-through on the VM: passed (Michael). The test VM runs signed-only. See Results.
 - **No install is switched.** Every install runs the SYSTEM task as before, plus the plugin versions report-only for parity. Switching is on site: collect a week of parity, `itcmdr-cli cutover status`, then `cutover vm-verified` and `cutover switch` (Michael).
@@ -172,7 +172,7 @@ Later the same day: those 4 infos fixed, widget tests added, Dart e2e green, ver
 
 ## In progress
 
-Nothing in progress. Proposed next: server/agent + adminsvr architecture (docs/design/SERVER-AGENT.md, docs/design/ADMINSVR.md incl. the SRE Flutter app; roadmap v0.15.0 to v0.22.0 in PLAN.md), Michael's decisions recorded 2026-10-31 (incl. key-based adminsvr auth and the signed, hash-chained audit of every change) (ADMINSVR.md "Decisions"); next is v0.14.2 (extract `itcmdr-keys` from server/src/keys.rs, auth.rs and restore_seal.rs; app/lib/signing.dart moves to flutter_rust_bridge), then v0.15.0. Passkeys/YubiKeys (second factor) planned as v0.19.1. Key backup defaults decided (on, 24-word lock, COOP/COEP fine); building v0.14.2 now. Pending: Mac signing step for iOS/macOS, the adminsvr agent design, rootless Podman install on alien-blue (sudo needs a password: `sudo pacman -S --needed podman passt slirp4netns fuse-overlayfs podman-compose`; subuid/subgid for m3talsmith already set, 100000:65536). v0.14.1 released; itcmdr history rewritten once (plugins/ removed, tags recreated); VM tree re-synced from the new history.
+Nothing in progress. Proposed next: server/agent + adminsvr architecture (docs/design/SERVER-AGENT.md, docs/design/ADMINSVR.md incl. the SRE Flutter app; roadmap v0.15.0 to v0.22.0 in PLAN.md), Michael's decisions recorded 2026-10-31 (incl. key-based adminsvr auth and the signed, hash-chained audit of every change) (ADMINSVR.md "Decisions"); next is v0.14.2 (extract `itcmdr-keys` from server/src/keys.rs, auth.rs and restore_seal.rs; app/lib/signing.dart moves to flutter_rust_bridge), then v0.15.0. Passkeys/YubiKeys (second factor) planned as v0.19.1. Key backup defaults decided (on, 24-word lock, COOP/COEP fine); v0.14.2 released (keys crate + bridge; VM pass below). Next: v0.15.0. Pending: Mac signing step for iOS/macOS, the adminsvr agent design, rootless Podman install on alien-blue (sudo needs a password: `sudo pacman -S --needed podman passt slirp4netns fuse-overlayfs podman-compose`; subuid/subgid for m3talsmith already set, 100000:65536). v0.14.1 released; itcmdr history rewritten once (plugins/ removed, tags recreated); VM tree re-synced from the new history.
 
 ## Backlog (in order)
 
@@ -301,6 +301,21 @@ In-place upgrade over the v0.11.0 install. The installer is built after `flutter
 | Dart e2e against a real server on Windows (`flutter test test\e2e_test.dart`, release bins via `ITCMDR_E2E_BIN_DIR`) + signing and page tests | ✅ 14 passed |
 | Dart e2e on Windows | ❌ → fixed: the test hard-coded `../target/debug/itcmdr-server` (no `.exe`, no bin dir override) |
 | App screens clicked through on the VM | ✅ passed (Michael, 2026-10-31) |
+
+### Results: v0.14.2 VM pass (2026-10-31, Windows 11 Pro, Windows PowerShell 5.1)
+
+| Check | Result |
+|---|---|
+| Release build of the server bins with `itcmdr-keys` | ✅ |
+| `cargo test -p itcmdr-keys` on Windows (vectors) | ✅ 8 passed |
+| `flutter build windows` (cargokit builds the bridge; `itcmdr_keys_bridge.dll` next to `itcmdr.exe`) | ✅ |
+| Installer (ISCC) and upgrade over v0.14.1 | ✅ exit 0, service Running, `AgentVersion` 0.14.2, bridge DLL installed, signed mode kept |
+| Pester (Windows PowerShell 5.1) / PSSA | ✅ 88/88, 0 findings |
+| flutter test (incl. DPAPI and e2e against the release bins) | ✅ 31 passed, 1 skipped |
+| Installed app starts and stays up 15 s | ✅ |
+| Signed calls with the DPAPI-stored admin key through the bridge (WhoAmI, ListSchedules, ListPlugins) | ✅ |
+
+Web: the `itcmdr-keys` crate and the bridge build for wasm32 (`flutter_rust_bridge_codegen build-web`), and the crate passes the pinned vectors under WASM (`wasm-pack test --node keys`). The on-site app itself is desktop-only and does not compile for web (its `key_store.dart` imports `dart:ffi` for Windows DPAPI, as before), so no web build of the on-site app ships. A Flutter in-browser test (`flutter test --platform chrome`) hung loading `pkg/` and is a follow-up for the SRE app, which targets web.
 
 ### Results: v0.14.1 VM pass (2026-10-31, plugins from itcmdr-plugins)
 

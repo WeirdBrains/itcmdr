@@ -1,22 +1,31 @@
 # Changelog
 
 ## Unreleased
-- Docs: Key backup defaults: the client-side encrypted key backup on adminsvr is on by default (opt-out), locked with the 24 words. COOP/COEP headers on the adminsvr web host are accepted.
-- Docs: Passkeys/YubiKeys (WebAuthn) as an optional second factor, v0.19.1 (no renumbering). The 24-word key stays the signing identity. A passkey unlocks the stored key, and a fresh touch is bound to the signed request's hash for step-up actions (owner-configurable list, optional per-role enforcement). Assertions are audited, recovery is the 24 words plus an owner/admin reset, and the CLI uses a USB key via libfido2.
-- Docs: recorded Michael's server/agent/adminsvr decisions in `docs/design/ADMINSVR.md`:
-  - configurable adminsvr host
-  - rootless Podman for test containers
-  - iOS in scope
-  - alerts only through the adminsvr app, the CLI (with full parity) or the future adminsvr agent
-  - mTLS client certs on every link
-  - configurable heartbeats and ports
-  - releases owner-signed with an owner/admin second approver
-  - no PS agent fallback
-  - separate roles
-  - remote upgrades on by default through rings
-  - Users hidden from SREs
-- Docs: Shared `itcmdr-keys` crate (extracted in v0.14.2) for every component, with the Flutter app using it natively and in WASM, so web gets full rights. adminsvr users onboard like site users (24 words and master key, the key stays with the user, optional client-side-encrypted backup on adminsvr with signed retrieval). Owner recovery uses the same 24 words.
-- Docs: adminsvr users use the same key-based signed-request auth as the site (reused code, per-device keys, signed-only). Every state-changing action and every push is signed, rejected if unsigned, and logged in a hash-chained audit log with app and CLI views.
+
+## v0.14.2 (2026-10-31)
+All key code is in one shared crate, `itcmdr-keys`, and the Flutter app now signs and seals with it through flutter_rust_bridge. No behaviour change; the pinned vectors are unchanged.
+- New workspace crate `keys/` (`itcmdr-keys`): 24 words and master keys, fingerprints, certificates, escrow, sealed restore words (`itcmdr_keys::restore`), the canonical request message, `sign_request`/`sign_request_at`, `verify_request`, `key_from_seed`, `random_seed`, `sha256_hex`, `now_ms` (also on wasm32). Moved from `server/src/keys.rs` (now a re-export), the crypto half of `server/src/restore_seal.rs` (the one-time key store stays in the server) and request signing/verification in `server/src/auth.rs`. The server, `itcmdr-cli` and `itcmdr-restore` use it.
+- Parity tests: `keys/tests/vectors.rs` (request messages, Ed25519 signature, sealed words, pinned master derivation against `proto/*.json`) and `keys/tests/wasm_vectors.rs` (the same under WASM).
+- App: `app/rust` (`itcmdr_keys_bridge`, flutter_rust_bridge 2.13.0, built by cargokit via `app/rust_builder`). `app/lib/signing.dart` keeps its API (`AppKey`, `requestMessage`, `sha256Hex`, `sealWords`, `SigningInterceptor`) but all crypto now runs in Rust. The `cryptography` package is gone. `main()` calls `RustLib.init()`. `key_store.dart` (DPAPI and platform storage) is unchanged. Tests load the host build (`cd app/rust && cargo build`, or `ITCMDR_KEYS_BRIDGE_LIB`).
+- CI: builds and lints the bridge crate before `flutter test`.
+- Web: the `itcmdr-keys` crate and the bridge build for wasm32 (`flutter_rust_bridge_codegen build-web`), and the crate passes the pinned vectors under WASM (`wasm-pack test --node keys`). The on-site app itself is desktop-only and does not compile for web (its `key_store.dart` imports `dart:ffi` for Windows DPAPI, as before), so no web build of the on-site app ships. A Flutter in-browser test (`flutter test --platform chrome`) hung loading `pkg/` and is a follow-up for the SRE app, which targets web.
+- Docs (decisions recorded before the build):
+  - Key backup defaults: the client-side encrypted key backup on adminsvr is on by default (opt-out), locked with the 24 words. COOP/COEP headers on the adminsvr web host are accepted.
+  - Passkeys/YubiKeys (WebAuthn) as an optional second factor, v0.19.1 (no renumbering). The 24-word key stays the signing identity. A passkey unlocks the stored key, and a fresh touch is bound to the signed request's hash for step-up actions (owner-configurable list, optional per-role enforcement). Assertions are audited, recovery is the 24 words plus an owner/admin reset, and the CLI uses a USB key via libfido2.
+  - recorded Michael's server/agent/adminsvr decisions in `docs/design/ADMINSVR.md`:
+        - configurable adminsvr host
+        - rootless Podman for test containers
+        - iOS in scope
+        - alerts only through the adminsvr app, the CLI (with full parity) or the future adminsvr agent
+        - mTLS client certs on every link
+        - configurable heartbeats and ports
+        - releases owner-signed with an owner/admin second approver
+        - no PS agent fallback
+        - separate roles
+        - remote upgrades on by default through rings
+        - Users hidden from SREs
+  - Shared `itcmdr-keys` crate (extracted in v0.14.2) for every component, with the Flutter app using it natively and in WASM, so web gets full rights. adminsvr users onboard like site users (24 words and master key, the key stays with the user, optional client-side-encrypted backup on adminsvr with signed retrieval). Owner recovery uses the same 24 words.
+  - adminsvr users use the same key-based signed-request auth as the site (reused code, per-device keys, signed-only). Every state-changing action and every push is signed, rejected if unsigned, and logged in a hash-chained audit log with app and CLI views.
 
 ## v0.14.1 (2026-10-31)
 The check plugins moved to their own repo, github.com/WeirdBrains/itcmdr-plugins (v1.0.1, with history).

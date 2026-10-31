@@ -11,9 +11,12 @@ import 'package:app/settings.dart';
 import 'package:app/signing.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'rust_init.dart';
+
 import 'settings_doc.dart';
 
 void main() {
+  setUpAll(initRust);
   test('signed app against a local server', () async {
     final root = Directory.systemTemp.createTempSync('itcmdr-e2e-');
     addTearDown(() {

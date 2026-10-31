@@ -334,6 +334,7 @@ every platform, so **the web app gets full rights** (no web-only restriction).
   - Native: OS keystore (DPAPI, Keychain, secret-tool, Android Keystore).
   - Web: the key is encrypted locally (key wrapped by a passphrase-derived key, Argon2id in the crate) and stored in
     IndexedDB.
+- **Status (v0.14.2 shipped):** the crate and the bridge build for native and WASM, and the vectors pass under WASM. The on-site app ships desktop-only. The SRE app's web build and an in-browser Flutter test are follow-ups with the v0.19.0 SRE app.
 - **Extraction step:** v0.14.2 (before v0.15.0, so the error crate and everything after build on it). Move the code,
   no behavior change, re-export from `server` for compatibility, and run **parity tests against the existing vectors**
   in Rust, through the bridge in Dart, and in WASM in a headless browser test. The Dart app switches to the bridge

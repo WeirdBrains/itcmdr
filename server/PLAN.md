@@ -609,3 +609,9 @@ Recorded in docs/design/ADMINSVR.md ("Decisions"):
 - Shared `itcmdr-keys` crate (extracted in v0.14.2) for every component, with the Flutter app using it natively and in WASM, so web gets full rights. adminsvr users onboard like site users (24 words and master key, the key stays with the user, optional client-side-encrypted backup on adminsvr with signed retrieval). Owner recovery uses the same 24 words.
 - Passkeys/YubiKeys (WebAuthn) as an optional second factor, v0.19.1 (no renumbering). The 24-word key stays the signing identity. A passkey unlocks the stored key, and a fresh touch is bound to the signed request's hash for step-up actions (owner-configurable list, optional per-role enforcement). Assertions are audited, recovery is the 24 words plus an owner/admin reset, and the CLI uses a USB key via libfido2.
 - Key backup defaults: the client-side encrypted key backup on adminsvr is on by default (opt-out), locked with the 24 words. COOP/COEP headers on the adminsvr web host are accepted.
+
+### Notes from the v0.14.2 build
+- `itcmdr-keys` (keys/) holds all key code. The server's `keys` module re-exports it, and `restore_seal` keeps only the one-time key store. `auth::sign_request` and the signature check call the crate.
+- The Flutter app uses it through flutter_rust_bridge 2.13.0 (`app/rust`, a separate cargo workspace excluded from the root one; cargokit builds it per platform). Host tests need `cd app/rust && cargo build` first.
+- WASM: build with the rustup toolchain (`rustup run stable`), not Arch's system rustc, which has no wasm32 target. `flutter_rust_bridge_codegen build-web` uses nightly (installed user-level).
+- Linux desktop `flutter build linux` needs ninja and clang (system packages; not installed, not needed for tests).
