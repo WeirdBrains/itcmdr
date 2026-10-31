@@ -46,6 +46,12 @@ These are decided and supersede the earlier recommendations and open questions i
 12. **Remote upgrades are ON by default** at every site. They roll out automatically through the rings, with
     health-gated auto-pause (a failed health check or new Critical alerts in a ring pause the rollout) and automatic
     rollback. The off switches are the global freeze and the site-local `adminsvr.enabled=false`.
+15. **Shared key crate and unified onboarding:**
+    - `itcmdr-keys` is used by every component, including the Flutter app on web through WASM, so web has full rights.
+    - Users onboard like on the site: a key is generated, the user gets 24 words and a master key, and the key stays
+      with them.
+    - Optionally the key is encrypted client-side and stored on adminsvr.
+    - Owner recovery uses the same 24 words.
 14. **Key-based auth for adminsvr users** (same as the site server) and **every state-changing action and every push
     is signed, rejected if unsigned, and logged** in an append-only, hash-chained audit log. See "User auth" and
     "Signed changes and the audit chain".
@@ -240,15 +246,224 @@ separate; adminsvr roles do not map down.**
 
 All adminsvr users use **the same key-based signed-request auth as site server users** (`docs/SIGNING.md`), for
 security and consistency. There are no passwords, TOTP, passkeys, session cookies or refresh tokens.
-- **Same code:** the adminsvr reuses the site's request-signing code and libraries: the Rust verifier and canonical
-  form from `server/src/auth.rs`, the Dart `itcmdr_signing` and `itcmdr_keystore` packages, and the shared test
-  vectors. The two signers cannot drift apart.
+- **Same code:** everything uses the shared `itcmdr-keys` crate (below): server, adminsvr, the CLIs, the agent and both
+  Flutter apps (native and WASM). Signers cannot drift.
 - **Per-device keypair:** Ed25519, generated on the device, never exported. Where it is stored:
   - Windows: DPAPI
   - macOS and iOS: Keychain (Secure Enclave-backed where available)
   - Linux: secret-tool / libsecret
   - Android: Keystore
-  - Web: a non-extractable WebCrypto key in IndexedDB (weakest, see the open questions)
+  - Web: the same `itcmdr-keys` code in WASM, with the key encrypted locally in IndexedDB. Full rights, like every
+    other platform.
+  - The `itcmdr-admin` CLI uses the same stores as desktop.
+- **Every request is signed** (method, payload hash, timestamp, nonce, key id). adminsvr `auth_mode` is
+  **signed-only**, with no unsigned or legacy mode. Each request authenticates itself, so no session state is needed.
+  The pinned TLS + mTLS on the SiteLink stays as it is.
+- **Onboarding (same as the site):**
+  1. An owner or admin creates the user (signed, audited). The role is **sre** by default with no assigned servers;
+     only an owner can pick owner.
+  2. That produces a one-time enrollment code (24 h, single use).
+  3. On the user's device, `itcmdr-keys` generates the user's **24 words and master key** (the same derivation as
+     the site master). The words are shown once, offline-display rules as on the site, and three words are asked
+     back.
+  4. The device key is generated and **certified by the user's master key** (the same certificate format).
+     adminsvr stores only the user's master public key and the device certificate.
+  5. The creator confirms the fingerprint (a signed approval). The key is then active.
+- **The key stays with the user by default** (OS keystore, or encrypted local storage on web).
+- **Optional key backup on adminsvr:**
+  - The device key is encrypted **client-side**, with a key derived from the 24 words (HKDF, info
+    `itcmdr/user-key-wrap/v1`) or from a passphrase (Argon2id), using XChaCha20-Poly1305. The blob is stored on
+    adminsvr, which never sees the plaintext.
+  - On a new device, retrieving it is a signed, audited action. The request is signed with the master key derived
+    from the 24 words (or with an existing device key), so a stolen blob alone is useless.
+- **Adding a device:** from the 24 words (re-derive the master, certify the new device key; a signed, audited entry),
+  from an existing device, or with a new code from an owner or admin.
+- **Rotation:**
+  - Automatic renewal over the existing stream at 2/3 of the lifetime (a new key and CSR, signed with the old key).
+  - An overlap window keeps the old cert valid until the new one is in use.
+  - CA rollover publishes the new CA cert over the stream before it starts issuing.
+  - Expiry within 14 days without renewal raises a Cautious alert, and within 3 days a Critical one.
+- **Revocation:**
+  - Revoking an agent or site in the app or CLI adds its serial to a revocation list held by the issuer and checked on
+    every handshake.
+  - It also closes the live stream at once and is audited.
+  - A revoked machine must re-enroll with a new token.
+  - Lost CA key: re-issue the CA (from the master key on the site, or from the offline root on adminsvr) and
+    re-enroll.
+
+## 1. Three tiers
+
+```
+adminsvr (offsite, container)        <- SRE app (Android, iOS, web, desktop)
+   ^  one long-lived gRPC stream per site, dialed by the site
+site server (SERVER01, in the office) <- on-site app (desktop)
+   ^  one long-lived gRPC stream per agent, dialed by the agent
+agents (WS-01 ...)
+```
+
+Sites are behind NAT, so **the site server dials adminsvr**. This is the same pattern as agent → server:
+`SiteLink.Connect(stream SiteMessage) returns (stream AdminMessage)`.
+
+### Site enrollment and mutual identity
+
+1. An adminsvr owner or admin creates the site in the SRE app and gets a **one-time site enrollment token** (24 h).
+   The token holds the adminsvr URL, its TLS certificate fingerprint and a secret (only a hash is stored).
+2. On the site server, in person: `itcmdr-cli adminsvr enroll <token>`. The site generates its own Ed25519 **site
+   key** (DPAPI LocalMachine, `keys/site.key`) and sends its public key, its master public key fingerprint, version
+   and site name.
+3. adminsvr stores the site key. In return, the site stores and **pins**:
+   - adminsvr's TLS certificate fingerprint
+   - adminsvr's **command-signing public keys**: one per adminsvr user device key that may approve commands
+     (section 6), delivered and refreshed over the link, each signed by the adminsvr root key that the site
+     pinned at enrollment.
+4. Both directions carry signed messages:
+   - **Site → adminsvr:** every message is signed with the site key and has a monotonic `seq`.
+   - **adminsvr → site:** every *command* is signed by the user (or users) who approved it **and** by the adminsvr
+     root key. The site verifies both against the pinned keys. TLS alone is never trusted for authorization, so a
+     stolen adminsvr TLS key cannot issue commands.
+5. A site can **unlink** locally (`itcmdr-cli adminsvr unlink`), and adminsvr can revoke a site. Either side ends the
+   link at once.
+
+### What flows each way
+
+| Down (adminsvr → site) | Up (site → adminsvr) |
+|---|---|
+| Server upgrades (signed release packages) | Alerts (all levels, with state changes: ack/resolve made on site) |
+| Agent release packages and plugin packages, forwarded into the site's own validation/quarantine | Heartbeat + site status (version, uptime, auth mode, backup age, cutover state, agent counts by state) |
+| Commands from the allowlist (section 6): run schedule now, pause/resume a schedule, set a setting, enable/disable a plugin, start a backup, ack/resolve an alert | Metrics **summaries** (rollups, not raw logs) |
+| Config documents (settings, schedules) per site, versioned | Command results (`Applied` ok/failed, output summary) |
+| Heartbeat pings | Its own audit and call-log summaries (counts, failures) |
+
+### The push loop (symmetric at each tier)
+
+adminsvr is the **source of truth for service plugins and updates**. Site servers **cache and relay** them, and at each hop they
+still verify signatures and the local allowlist. The same four things flow down at both tiers, and heartbeats run both ways:
+
+```mermaid
+flowchart TB
+  A[adminsvr<br/>source of truth: plugins, updates] -- "updates, plugins, configs, heartbeat pings" --> S[site server<br/>caches + relays<br/>verifies signatures, allowlist, quarantine]
+  S -- "pongs, alerts, status, metrics summaries, results" --> A
+  S -- "updates, plugins, configs, heartbeat pings" --> G[agents]
+  G -- "pongs, run reports, errors, alerts" --> S
+```
+
+- **Updates:** server and agent releases. adminsvr publishes; the site applies its own server release and relays agent
+  releases to its agents in rings.
+- **Plugins:** adminsvr holds the catalog and versions. A plugin pushed down to a site goes through **the same validation
+  and quarantine at the site** as a locally installed package (master-certified signer, checksum, manifest checks,
+  quarantine on failure) before any agent receives it. Agents verify again.
+- **Configs:** settings, schedules and per-agent config, versioned. The site applies them only if allowed by its local
+  allowlist, then derives the agent configs.
+- **Heartbeats, both tiers:**
+  - adminsvr pings site servers and they pong; site servers ping agents and they pong.
+  - Each tier has its own interval and missed threshold: `adminsvr.heartbeat_secs` 60 with `site_missed` 5 by default,
+    and the agent settings in SERVER-AGENT.md.
+  - Both use the late → non-responsive states, and a non-responsive alert is raised at the tier that noticed. A
+    non-responsive agent alert also travels up to adminsvr.
+  - Each side also watches the other's pings: a site that hears nothing from adminsvr marks the link down and keeps
+    running standalone.
+
+### When adminsvr is unreachable
+
+- The site runs **fully standalone**. Nothing in the site depends on adminsvr for its function: backups, agents,
+  schedules, plugins, local alerts and the on-site app all keep working.
+- **Alerts while adminsvr is down:** there are no site-side notifiers (decision 4). Alerts stay visible locally in the
+  on-site app and `itcmdr-cli`, and are queued for adminsvr. adminsvr itself raises a Critical "site unreachable"
+  alert to SREs after the missed threshold, so the outage is still paged.
+- Upstream messages go to a durable outbound queue (`adminsvr-queue.db`, capped by `adminsvr.queue_max_mib`, oldest
+  Informational dropped first, and the drop itself is reported). The site reconnects with backoff (1 s → 5 min,
+  jitter).
+- adminsvr marks the site **late / unreachable** using the same heartbeat state machine as for agents and pages SREs
+  (a "site down" alert is Critical by default).
+
+### Site-server self-upgrade via adminsvr
+
+- **Release package:** `itcmdr-server-release`, signed by the release key. It needs owner approval in adminsvr (and
+  two-person approval, section 6).
+- **On the site:** the package is verified against the master public key, a release signer that is a pinned
+  **owner**, and the command signatures.
+- **Rings:** across sites (ring 0 = the test VM site, ring 1 = one office, ring 2 = all). Each ring must report a
+  healthy heartbeat and `setup check` OK for `adminsvr.upgrade_soak_mins` before the next starts.
+- **Apply:**
+  1. Take a fresh **pre-upgrade backup**.
+  2. Stage the release, then hand off to `itcmdr-server-watchdog`, a small service upgraded only by the installer.
+  3. The watchdog stops the service, swaps `current`/`previous`, starts it and health-checks it (gRPC up,
+     `setup check` OK, adminsvr link back) within 5 min.
+  4. If the health check fails, it **rolls back** automatically to `previous` and restores the pre-upgrade DB if the
+     schema changed.
+- Upgrades are **on by default** and roll out automatically through the rings. A failed health check or new Critical
+  alerts in a ring pause the rollout automatically, and the failing site rolls back. Off switches: the global
+  freeze, or `adminsvr.enabled=false` on the site.
+
+## 2. Data model and RBAC
+
+### Tables (adminsvr)
+
+- `users` (id, email, display name, role, status: active/disabled, created_by, created_at)
+- `credentials` (user, kind: password | totp | webauthn, data, created_at, last_used)
+- `devices` (user, app device key, platform, push token, approved_at, revoked_at)
+- `device_keys` (key id, device, public key, created, rotated_from, revoked_at)
+- `audit_chain` (append-only, hash-chained; see "Signed changes and the audit chain")
+- `sites` (id, name, site key, status, version, last_seen, ring, tags)
+- `site_scopes` (user, site): which sites an SRE can act on (empty = none)
+- `commands` (id, site, kind, payload, requested_by, approvals, state: pending/approved/sent/applied/failed/expired, results)
+- `alerts` (mirrored from sites: site, level, key, state, timestamps)
+- `metrics_rollup` (site, machine, metric, window, value)
+- `audit_log` and `call_log` (same shape as the site's, SERVER-AGENT.md section 7)
+
+### Roles
+
+| Capability | owner | admin | sre |
+|---|---|---|---|
+| Receive alerts, ack / resolve / silence (scoped sites) | ✅ all sites | ✅ all sites | ✅ scoped sites |
+| View sites, health, metrics, audit and call logs | ✅ | ✅ | ✅ scoped sites (audit: own and scoped-site entries) |
+| Push config / run allowlisted commands to a site | ✅ | ✅ | ✅ scoped sites, risky ones need approval |
+| Approve a pending risky command | ✅ | ✅ | ❌ |
+| Push plugin packages to sites | ✅ | ✅ (needs a second approver) | ❌ request only |
+| Push server or agent **upgrades** (code) | ✅ (needs a second owner/admin approver) | request only | ❌ request only |
+| Create / disable users; set role sre or admin | ✅ | ✅ (not on owners) | ❌ |
+| Grant **owner** | ✅ | ❌ | ❌ |
+| Edit, disable or remove an owner | ✅ | ❌ | ❌ |
+| Scope SREs to sites | ✅ | ✅ | ❌ |
+| Enroll / revoke sites | ✅ | ✅ | ❌ |
+| Adminsvr settings, notifier channels, kill switch | ✅ | settings and channels only, not the kill switch | ❌ |
+
+Rules and edge cases (enforced on the server; the app only mirrors them):
+- New users default to **sre**, with no site scopes until an owner or admin grants them.
+- **Admins can't grant owner**, can't change an owner's role, and can't disable or remove an owner. "Promote to
+  admin" is allowed. An admin demoting another admin is allowed. An admin promoting themselves is refused.
+- **The last owner** can't be demoted, disabled or removed, by anyone including themselves. Two owners are
+  recommended.
+- **Self-demotion** is allowed (owner → admin, admin → sre) unless it would remove the last owner. It needs
+  re-authentication and is audited.
+- Every role change, user change, scope change and approval is audited, with the call log id.
+- Bootstrap: `adminsvr init` creates the first owner from the console (an enrollment code for the first owner's device key, plus the offline recovery words
+  shown once). There is no default password.
+
+### Relation to the site roles
+
+Site roles today are `owner`, `admin`, `user`, `client` (+ the proposed `agent`). **Recommendation: keep them
+separate; adminsvr roles do not map down.**
+- A site sees adminsvr as **one principal**, the link. The link holds a site-local role (`adminsvr`), capped by the
+  site's allowlist (section 6).
+- The real user behind each command is recorded in the site's audit log (from the command signature), so the site
+  can answer "who did this", but it does not grant that user any site role.
+- Keeping them separate means a compromised adminsvr account can never act as a site owner. Site owner actions
+  (keys, restore with the words, auth mode) stay local, in person.
+
+### User auth (decided: key-based, same as the site server)
+
+All adminsvr users use **the same key-based signed-request auth as site server users** (`docs/SIGNING.md`), for
+security and consistency. There are no passwords, TOTP, passkeys, session cookies or refresh tokens.
+- **Same code:** everything uses the shared `itcmdr-keys` crate (below): server, adminsvr, the CLIs, the agent and both
+  Flutter apps (native and WASM). Signers cannot drift.
+- **Per-device keypair:** Ed25519, generated on the device, never exported. Where it is stored:
+  - Windows: DPAPI
+  - macOS and iOS: Keychain (Secure Enclave-backed where available)
+  - Linux: secret-tool / libsecret
+  - Android: Keystore
+  - Web: the same `itcmdr-keys` code in WASM, with the key encrypted locally in IndexedDB. Full rights, like every
+    other platform.
   - The `itcmdr-admin` CLI uses the same stores as desktop.
 - **Every request is signed** (method, payload hash, timestamp, nonce, key id). adminsvr `auth_mode` is
   **signed-only**, with no unsigned or legacy mode. Each request authenticates itself, so no session state is needed.
@@ -267,11 +482,51 @@ security and consistency. There are no passwords, TOTP, passkeys, session cookie
   a Cautious alert.
 - **Revocation:** revoking a device or user (signed, audited) rejects its key id at once and closes its live streams.
   Pending approvals signed by that key are voided.
-- **Lost device:** use another enrolled device to revoke it. Otherwise an owner or admin revokes it and issues a new
-  enrollment code. A lost key for the **last owner** is recovered at the adminsvr console with `adminsvr recover-owner`,
-  which needs host access and the adminsvr's offline recovery key (the same idea as the site's 24 words).
-- **Bootstrap:** `adminsvr init` (console) creates the first owner's enrollment code and the offline recovery key
-  words, shown once.
+- **Lost device:** revoke it from another device or with the 24 words; an owner or admin can also revoke it. Then
+  enroll a new device from the 24 words (or the encrypted backup).
+- **Owner recovery uses the same 24 words:** the last owner re-derives the master key and certifies a new device.
+  There is no separate adminsvr recovery key. If an owner's words are lost too, `adminsvr recover-owner` at the
+  console (host access) issues a fresh owner enrollment and is audited.
+- **Bootstrap:** `adminsvr init` (console) creates the first owner's enrollment code. That owner's device runs the
+  normal onboarding (24 words, master, device key).
+
+### Shared key crate `itcmdr-keys` (decided)
+
+**Today** (checked 2026-10-31), the key code is not in its own crate:
+- Rust, inside the `server` crate:
+  - `server/src/keys.rs`: BIP39 24 words, HKDF master Ed25519/X25519, fingerprints, certificates, escrow
+    seal/unseal, `request_message`
+  - `server/src/auth.rs`: `sign_request`, signature verification, init, register/revoke, db.key escrow and
+    recovery, root key loading
+  - `server/src/restore_seal.rs`: sealed restore words
+  - `itcmdr-cli` uses these through the server crate.
+- Dart: a **second implementation** in `app/lib/signing.dart` (`AppKey`, `requestMessage`, `canonicalBytes`,
+  `SigningInterceptor`, `sealWords`/`restoreAad`, hex helpers, on the `cryptography` package). Key storage is in
+  `app/lib/key_store.dart`.
+- The two are kept in step only by `proto/signing_vectors.json` and `proto/app_vectors.json`.
+
+**Decision:** one crate, **`itcmdr-keys`** (separate from `itcmdr-common`, so the error crate stays light and the
+crypto crate can be audited on its own). It holds:
+- key generation, the 24-word mnemonic, master key derivation, backup and recovery
+- certificates, escrow and the sealed words
+- request signing and verification (canonical form)
+- the test vectors
+
+Used by the site server, adminsvr, `itcmdr-cli`, `itcmdr-admin`, the Rust agent, and **the Flutter apps through
+flutter_rust_bridge**: native libraries on Android, iOS, macOS, Windows and Linux, and **WASM on web**. Same code on
+every platform, so **the web app gets full rights** (no web-only restriction).
+- **Replaces in Dart:** the crypto in `app/lib/signing.dart` (`AppKey`, `requestMessage`, `canonicalBytes`'s hashing
+  and signing parts, `sealWords`, `restoreAad`) and the `cryptography` dependency. Dart keeps only the gRPC
+  interceptor and proto canonicalization glue, plus `key_store.dart` for platform storage, behind
+  `itcmdr_keystore`.
+- **Storage:**
+  - Native: OS keystore (DPAPI, Keychain, secret-tool, Android Keystore).
+  - Web: the key is encrypted locally (key wrapped by a passphrase-derived key, Argon2id in the crate) and stored in
+    IndexedDB.
+- **Extraction step:** v0.14.2 (before v0.15.0, so the error crate and everything after build on it). Move the code,
+  no behavior change, re-export from `server` for compatibility, and run **parity tests against the existing vectors**
+  in Rust, through the bridge in Dart, and in WASM in a headless browser test. The Dart app switches to the bridge
+  in the same release only if its tests match the vectors byte for byte; otherwise it switches in v0.15.0.
 
 ### Signed changes and the audit chain (decided)
 
@@ -469,11 +724,12 @@ releases** as the adminsvr features it uses.
 
 | Version | Scope | VM / test plan |
 |---|---|---|
+| v0.14.2 | Extract `itcmdr-keys` crate (no behavior change); Dart app on flutter_rust_bridge (native + WASM) | vector parity in Rust, Dart and headless-browser WASM; VM signed-mode regression |
 | v0.15.0 | Error contract (`itcmdr-common` + derive), call log | as in SERVER-AGENT.md |
 | v0.16.0 | Site alerts in the on-site app and CLI (no external notifiers); the alert record is also the shape that goes up to adminsvr | as in SERVER-AGENT.md |
 | v0.17.0 | Rust agent (also on the office server), enrollment with mTLS client certs, heartbeats (configurable per tier/machine), offline queue | as in SERVER-AGENT.md |
 | v0.18.0 | Agent runs plugins + schedules, report-only parity | as in SERVER-AGENT.md |
-| v0.19.0 | **adminsvr MVP + SRE app v1:** adminsvr container (Postgres, rootless Podman for tests), `itcmdr-admin` CLI with app parity, mTLS site certs, FCM/APNs push, `adminsvr init`, users/roles/RBAC rules, key-based signed-request auth (reused site signing code), device enrollment, rotation, revocation, `recover-owner`; hash-chained audit log of every signed change and push, checkpoints to sites, `audit verify`; SiteLink (site enrollment, pinned TLS, signed messages, up: heartbeats/status/alerts, outbound queue). SRE app: chrome (device enrollment/unlock, settings) + Users (incl. audit/call log) + Servers (list, health, agents, alerts, alert inbox); web + Android + iOS (pending Mac signing) + Linux desktop builds. Dart packages split out of `app/` | adminsvr in a container on alien-blue; the VM site links to it; alerts raised on the VM reach the app; kill the container and check the site queues and adminsvr reports it as unreachable on restart; RBAC tests incl. the owner rules; an unsigned or wrongly signed change is rejected; a revoked key is refused at once; tampering with an `audit_chain` row is caught by `audit verify` and by the site checkpoints; app/CLI audit parity test |
+| v0.19.0 | **adminsvr MVP + SRE app v1:** adminsvr container (Postgres, rootless Podman for tests), `itcmdr-admin` CLI with app parity, mTLS site certs, FCM/APNs push, `adminsvr init`, users/roles/RBAC rules, key-based signed-request auth (reused site signing code), device enrollment, rotation, revocation, 24-word onboarding, optional client-side encrypted key backup (signed retrieval), `recover-owner`; hash-chained audit log of every signed change and push, checkpoints to sites, `audit verify`; SiteLink (site enrollment, pinned TLS, signed messages, up: heartbeats/status/alerts, outbound queue). SRE app: chrome (device enrollment/unlock, settings) + Users (incl. audit/call log) + Servers (list, health, agents, alerts, alert inbox); web + Android + iOS (pending Mac signing) + Linux desktop builds. Dart packages split out of `app/` | adminsvr in a container on alien-blue; the VM site links to it; alerts raised on the VM reach the app; kill the container and check the site queues and adminsvr reports it as unreachable on restart; RBAC tests incl. the owner rules; an unsigned or wrongly signed change is rejected; a revoked key is refused at once; tampering with an `audit_chain` row is caught by `audit verify` and by the site checkpoints; app/CLI audit parity test; onboarding on web (WASM) and Android/Linux gives identical signatures; key backup round trip (adminsvr only holds ciphertext); new device from the 24 words |
 | v0.20.0 | Config over the agent stream + gated agent switch (PS agent retired here); **adminsvr down-commands:** allowlist, preview/dry-run, two-person approval, freeze/kill switch; metrics summaries up. SRE app: Servers configs/commands + metrics explorer, and **Service Plugins** (catalog, rollout, quarantine view); adminsvr becomes the plugin source of truth, sites cache and relay | push a setting and a schedule from the app to the VM site; refused when off the allowlist; two-person flow; egress filter tests (PHI patterns dropped) |
 | v0.21.0 | Agent self-upgrade (release plugin, rings, watchdog) + **site-server self-upgrade via adminsvr** (pre-upgrade backup, server watchdog, rollback). SRE app: **Updates** (releases, rings, approvals, rollback) | broken release rolls back (agent and server); ring gating across two sites (VM + a second test site container) |
 | v0.22.0 | Retire share flows; Windows/macOS desktop builds of the SRE app; adminsvr backup/restore runbook + monthly restore test | fresh install with no share dependency; adminsvr restore drill |
@@ -481,10 +737,11 @@ releases** as the adminsvr features it uses.
 ## 7. Open questions
 
 All earlier questions are decided (see "Decisions" at the top). Still pending:
-- Web app keys: a WebCrypto key in the browser is weaker than an OS keystore. Recommended: the web app is
-  read-only plus alert ack/resolve/silence, and approvals, releases, users and CA operations need a desktop or
-  mobile device key.
-- Offline recovery for adminsvr: recommended 24 words like the site, held by owners only.
+- Encrypted key backup on adminsvr: opt-in per user (recommended), or on by default?
+- Wrap key for that backup: derived from the 24 words (recommended; no extra secret to forget), or a separate
+  passphrase?
+- flutter_rust_bridge on web needs WASM threads (cross-origin isolation headers on the adminsvr web host). Fine for
+  self-hosting; confirm that is acceptable.
 - The Mac build/signing step for iOS and macOS.
 - The design of the adminsvr agent (Michael, later).
 - Podman install on alien-blue (needs sudo, see HANDOVER).

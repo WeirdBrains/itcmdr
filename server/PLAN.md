@@ -606,3 +606,4 @@ Recorded in docs/design/ADMINSVR.md ("Decisions"):
 - Remote upgrades are on by default and roll through rings automatically, with auto-pause and rollback.
 - SREs see only their own account in Users.
 - adminsvr users use the same key-based signed-request auth as the site (reused code, per-device keys, signed-only). Every state-changing action and every push is signed, rejected if unsigned, and logged in a hash-chained audit log with app and CLI views.
+- Shared `itcmdr-keys` crate (extracted in v0.14.2) for every component, with the Flutter app using it natively and in WASM, so web gets full rights. adminsvr users onboard like site users (24 words and master key, the key stays with the user, optional client-side-encrypted backup on adminsvr with signed retrieval). Owner recovery uses the same 24 words.
