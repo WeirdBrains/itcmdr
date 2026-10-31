@@ -572,4 +572,4 @@ JSON. The rest sounds good to me").
 ### Notes from the v0.12.0 build (WIP)
 
 - Restore words are sealed on the app for a one-time in-memory server key (`restore_seal.rs`); plaintext words are refused; a dry run must pass first. Restore and key RPCs need a signed request in every auth mode.
-- `auth_mode` defaults to `signed`; installs from before v0.12.0 without a value keep `both` (`server_meta.auth_mode_default`), switch with `itcmdr-cli auth set-mode signed`. Status: server done and tested; app and VM pending (docs/HANDOVER.md).
+- `auth_mode` defaults to `signed`; installs from before v0.12.0 without a value keep `both` (`server_meta.auth_mode_default`), switch with `itcmdr-cli auth set-mode signed`. App signing, the screens, and a Dart run against a local server are in the working tree (`app/test/e2e_test.dart`). The Windows VM has the v0.12.0 upgrade installed; its server.json still says `both` (the v0.11.0 template wrote it). App screens were not clicked through.

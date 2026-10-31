@@ -17,7 +17,7 @@ Every tunable value in itcmdr is a typed setting with today's behaviour as its d
   each change audit-logged as `settings-update` (key, value, machine). Invalid values return `INVALID_ARGUMENT`.
 - CLI: `itcmdr-cli config list [--machine PC]`, `config get KEY [--machine PC]`, `config set KEY VALUE [--machine PC]`,
   `config unset KEY [--machine PC]`. `--machine` is accepted for agent settings only. CLI changes are audit-logged too.
-- App: Settings tab, *Server & agent settings* (v0.9.1 basic screen; the full section comes in v0.12.0).
+- App: Settings tab, *Server & agent settings*. The list can be searched by name or description. Bool settings are switches; other types use the editor. Read-only keys (`server.json` only) show a lock.
 - The older `GetSettings` / `UpdateSettings` (backup block) RPCs still work and use the same storage.
 
 ## Reference
@@ -56,7 +56,7 @@ Every tunable value in itcmdr is a typed setting with today's behaviour as its d
 | `schedule.office_hours` | server | text | `Mon-Fri 07:00-18:00` | next pass / next use | admin/owner (RPC, app, CLI) | Office hours for the schedule guard, in each schedule's timezone. |
 | `search.default_limit` | server | int 1..1000 | `100` | next pass / next use | admin/owner (RPC, app, CLI) | Log search page size when the client asks for none. |
 | `search.max_limit` | server | int 100..10000 | `1000` | next pass / next use | admin/owner (RPC, app, CLI) | Largest log search page. |
-| `server.auth_mode` | server | text | `both` | restart | nobody at runtime (server.json + restart) | token / both / signed (server.json only: security-critical). |
+| `server.auth_mode` | server | text | `signed` | restart | nobody at runtime (server.json + restart) | token / both / signed (server.json only: security-critical). Default `signed` since v0.12.0. An install from before v0.12.0 with no value keeps `both` (`itcmdr-cli auth status`). |
 | `server.bind_addr` | server | text | `127.0.0.1:50051` | restart | nobody at runtime (server.json + restart) | gRPC listen address (server.json only). |
 | `server.ingest_interval_secs` | server | int 5..3600 | `30` | next pass / next use | admin/owner (RPC, app, CLI) | Seconds between log ingest / request sync passes. |
 | `server.request_timeout_secs` | server | int 60..604800 | `10800` | next pass / next use | admin/owner (RPC, app, CLI) | On-demand requests still queued/running after this many seconds become timed_out. |

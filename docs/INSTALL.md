@@ -13,9 +13,12 @@ This repository contains placeholders only. Real values go in `C:\ProgramData\it
    - with the Agent component, the agent and poller tasks
 3. Edit `C:\ProgramData\itcmdr\server.json`:
    - `logs_dir`: the local path of the maintenanceRuns share folder on the server.
-   - `admin_token_hash`: choose a long random token, then run `& 'C:\Program Files\itcmdr\server\itcmdr-server.exe' hash-token <token>` and paste the output. Without a hash, on-demand runs and exception changes are refused.
+   - `admin_token_hash`: choose a long random token, then run `& 'C:\Program Files\itcmdr\server\itcmdr-server.exe' hash-token <token>` and paste the output. A new install (v0.12.0) ignores the token until `itcmdr-cli auth set-mode both`. Installs from before v0.12.0 keep accepting it (`auth status` shows `kept-both`).
    - Then run `Restart-Service itcmdr-server`.
-4. Check that it's working:
+4. First run of a new install is signed-only. On the server:
+   - `& 'C:\Program Files\itcmdr\server\itcmdr-cli.exe' init` once. Write the 24 words on paper and keep them off the server. They are not stored, and they are the only way to certify keys and open a backup.
+   - In the app, open **Keys** and choose **Make a key**. An owner runs the certify command the app shows (`itcmdr-cli keys certify …`, words on stdin), then `itcmdr-cli keys register app-key.pub.json`.
+5. Check that it's working:
    - `Get-Service itcmdr-server` shows Running.
    - Errors, if any, are in `C:\ProgramData\itcmdr\server-logs\itcmdr-server.txt`.
 
@@ -48,10 +51,9 @@ To do a one-off test run (report-only when not SYSTEM), run `.\Invoke-ItcmdrAgen
 
 - Windows: installed by the installer (Start Menu shortcut).
 - Web: `flutter build web`, then host it on an internal web server. The server speaks gRPC-Web on the same port.
-- Open **Settings** and enter:
-  - the server host and port (default 50051)
-  - the admin token, which the app stores locally with shared_preferences
-  - your name for the audit log
+- Open **Settings** and enter the server host and port (default 50051) and your name for the audit log.
+- Open **Keys** and make or import a key. An owner certifies it (see the server steps above). The key seed stays in this Windows profile.
+- The shared admin token field is only for an install still in `both` or `token` mode.
 
 ## Local demo (Linux or Windows dev box)
 

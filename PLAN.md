@@ -43,26 +43,26 @@ also covered by the Windows VM test pass below.
 | v0.10.0 | Plugin runtime, log standard, scheduled runs (server, gRPC, CLI), app-triggered restore (server side) | ✅ Done | `v0.10.0` (faa2ae6) | 2026-10-30 |
 | v0.10.1 | First Windows VM pass + fixes (BOM in agent logs, installer compile, app exe name, PS 5.1 tests), `itcmdr-cli restore-stage` | ✅ Done | `v0.10.1` (2366819) | 2026-10-30 |
 | v0.11.0 | Built-in checks as plugins (parallel report-only, parity); nightly run + backup as built-in schedules; gated cutover, rollback, local fallback | ✅ Done | `v0.11.0` (b249612) | 2026-10-30 |
-| v0.12.0 | Flutter: Service Plugins, registration, users/keys, plugin metric charts, Backup & Restore (incl. restore with the words), Schedules, signed requests | 🔄 WIP (server done; app screens built, untested end to end; VM not run) | — | — |
+| v0.12.0 | Flutter: Service Plugins, registration, users/keys, plugin metric charts, Backup & Restore (incl. restore with the words), Schedules, signed requests | 🔄 In progress | working tree, not tagged | 2026-10-31 |
 | v0.13.0 | Installer: first-run master setup (words shown once); VM test items | 📋 Planned | — | — |
 
 ## Cross-cutting items
 
 | Item | Status | Notes |
 |---|---|---|
-| Windows VM test pass | 🔄 Second pass done (v0.11.0) | v0.10.1: server, installer, agent, plugins, schedules, backup/restore; v0.11.0: plugin parity, default schedules, cutover/rollback/fallback, share-offline queue. Still to do: app UI on Windows, a second PC. Results in docs/HANDOVER.md |
+| Windows VM test pass | 🔄 v0.12.0 upgrade installed | v0.10.1 and v0.11.0 passes, plus a v0.12.0 in-place upgrade (Pester 82/82, installer, service, tasks, app binary). Auth stays `both` because server.json sets it. App screens not clicked through. A second PC is still open. Results in docs/HANDOVER.md |
 | GitHub Actions installer builds | ⛔ Blocked | Org billing ("payments failed / spending limit"). Workaround in use: the installer builds on the Windows test VM (v0.10.1) |
 | Real site values in site.json | 📋 Pending (on-site) | Scanners (incl. the 3D unit + exception), DNS records, drive maps, printer queues, Sirona config paths, stale patterns, backup tasks/destinations. See HANDOVER.local.md |
 | Delete the plaintext DB backup after the v0.6 migration | ✅ Done (decided) | Decision 12: deleted automatically after a verified read-back (v0.6.2); kept if verification fails |
 | DB key recovery (`keys/db.key`) | ✅ Done (v0.7.0) | Decision 12: `keys/db.key.escrow` sealed for the master key; `itcmdr-server recover-db-key` with the 24 words |
-| Backup & restore | 🔄 Core done (v0.8.0) | Decision 13: DB + escrow + config, CLI, RPCs, nightly + retention in v0.8.0; plugins in v0.9.0; app-triggered restore (`StageRestore` + restore helper + health-check rollback) server side done in v0.10.0; app Backup & Restore screen in v0.12.0 |
-| All hard-coded values as settings | ✅ Done (v0.9.1) | Decision 15 widened: 29 typed settings (`docs/SETTINGS.md`), `ListSettings`/`UpdateSetting`, `itcmdr-cli config`, central `agent-settings.json`, basic app screen; full app section in v0.12.0 |
+| Backup & restore | 🔄 App screen in the working tree (v0.12.0) | Decision 13: DB + escrow + config, CLI, RPCs, nightly + retention in v0.8.0; plugins in v0.9.0; app-triggered restore server side in v0.10.0; app Backup & Restore screen (sealed words, dry run first) exercised by `app/test/e2e_test.dart`. Windows VM pass for that screen is still open. |
+| All hard-coded values as settings | ✅ Done (v0.9.1) | Decision 15 widened: typed settings (`docs/SETTINGS.md`), `ListSettings`/`UpdateSetting`, `itcmdr-cli config`, central `agent-settings.json`. App screen searches the list; bool settings are switches (v0.12.0). |
 | Configurable paths | ✅ Done (v0.8.1) | Decision 15: agent `paths.localLogs`/`agentData`, installer LocalLogs, backup settings in the DB via RPC + `itcmdr-cli config` |
-| Scheduled runs | 🔄 Server + defaults done (v0.11.0) | Decision 14: server scheduler + RPCs + `itcmdr-cli schedule` done in v0.10.0; built-in schedules + gated cutover done in v0.11.0, app screen in v0.12.0 |
+| Scheduled runs | 🔄 App screen in the working tree (v0.12.0) | Decision 14: server scheduler + RPCs + `itcmdr-cli schedule` in v0.10.0; built-in schedules + gated cutover in v0.11.0. App Schedules screen (preview, edit, pause, run now, history) is in the working tree. Windows VM pass for that screen is still open. |
 | Backup retention by 4-week blocks | ✅ Done (v0.8.1) | 7 daily, 4 weekly, 13 four-week blocks (ISO weeks 4N-3..4N) instead of 12 months |
 | Plugins enabled on install | ✅ Done (v0.9.1) | A validated package is enabled on install (other versions disabled); `--disabled` opts out; setting `plugins.enable_on_install` (default true); failures still quarantine |
-| Signing canonical encoding | 🔄 Rust done (v0.8.0) | `docs/SIGNING.md`, `proto/signing_vectors.json`; the Dart test against the same vectors lands with app signing (v0.12.0) |
-| Retire the shared admin token | 📋 Planned | `auth_mode = signed` retires it today; the default moves from `both` to `signed` in v0.12.0 once the app signs requests |
+| Signing canonical encoding | ✅ Done (v0.12.0) | `docs/SIGNING.md`, `proto/signing_vectors.json`, `proto/app_vectors.json`. Rust and Dart tests match the same bytes. |
+| Retire the shared admin token | 🔄 Default is signed | New installs use `signed`. An install from before v0.12.0 with no value keeps `both` until `itcmdr-cli auth set-mode signed`. |
 | `docs/LOG-STANDARD.md` | ✅ Done (v0.10.0) | itcmdr.log/v1, validator, reject counts, metrics ingest, PS + Rust helpers (decision 11) |
 
 ## Phases
@@ -193,14 +193,16 @@ Agreed 2026-10-30: agents run only the plugin copies shipped with the agent, nev
 - [x] Tests: Rust (seeding, defaults, delete/reset, backup schedule, gate, switch/rollback, DST) and Pester (parity, cutover, fallback, end to end); Windows VM under PS 5.1
 - [ ] Real installs: collect a week of parity, then `cutover vm-verified` + `cutover switch` (on site, by Michael)
 
-### v0.12.0 Flutter 📋
-- [ ] Service Plugins section (import, enable/disable, view)
-- [ ] App/service registration; user and key management
-- [ ] Plugin metric charts
-- [ ] Backup & Restore screen
-- [ ] Schedules screen (cron presets, next-run preview, toggle, run now, history)
-- [ ] Full Settings section (server, agent, backup, schedules, paths, thresholds) with validation, on the v0.9.1 API
-- [ ] App signs requests; default `auth_mode` → `signed`
+### v0.12.0 Flutter 🔄
+Linux only so far (widget tests + `app/test/e2e_test.dart`). Not tagged. Windows VM not run.
+- [x] Service Plugins section: list, run, recent runs, metric charts. Install and enable/disable stay on `itcmdr-cli plugins`.
+- [x] Keys: make or import a key, WhoAmI, the offline certify command, owner register and revoke
+- [x] Plugin metric charts
+- [x] Backup & Restore screen (sealed words, dry run, then restore)
+- [x] Schedules screen (preview, edit, pause, run now, history)
+- [x] Settings: search, bool switches, client check of every registry key
+- [x] App signs requests; default `auth_mode` is `signed` (older installs keep `both`)
+- [ ] Windows VM: Pester 82/82, installer, and in-place upgrade done 2026-10-31 (service Running, tasks re-registered, app binary matches the build). `auth status` is `both` from server.json (the v0.11.0 template wrote it; upgrades do not replace the file). App screens not clicked through.
 
 ### v0.13.0 Installer 📋
 - [ ] First-run master setup in the installer, words shown once
