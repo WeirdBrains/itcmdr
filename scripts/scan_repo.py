@@ -36,7 +36,7 @@ TEXT_EXTS = {
     ".dart", ".proto", ".sh", ".bat", ".iss", ".txt", ".py", ".ts", ".tsx"
 }
 
-SKIP_DIRS = {".git", "target", "build", "dist", ".dart_tool", "node_modules", "installer/out"}
+SKIP_DIRS = {".git", "third_party", "target", "build", "dist", ".dart_tool", "node_modules", "installer/out"}
 SKIP_FILES = {".gitignore", "banned.local.txt", "HANDOVER.local.md"}  # gitignored private files
 
 def is_allowed_ip(s: str) -> bool:

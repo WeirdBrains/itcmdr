@@ -30,7 +30,7 @@ function Copy-Agent($c, $Source) {
   }
   # Built-in check plugins: the only plugin copies agents run (installed, never downloaded).
   $plugins = Join-Path $Source 'plugins'
-  if (-not (Test-Path -LiteralPath $plugins)) { $plugins = Join-Path (Join-Path (Join-Path $Source '..') 'plugins') 'builtin' }
+  if (-not (Test-Path -LiteralPath $plugins)) { $plugins = Join-Path (Join-Path (Join-Path (Join-Path $Source '..') 'third_party') 'itcmdr-plugins') 'plugins' }
   foreach ($d in @(Get-ChildItem -LiteralPath $plugins -Directory -ErrorAction SilentlyContinue)) {
     $to = Join-Path (Join-Path $dest 'plugins') $d.Name
     New-Item -ItemType Directory -Path $to -Force | Out-Null
