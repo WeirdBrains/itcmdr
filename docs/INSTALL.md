@@ -55,6 +55,33 @@ To do a one-off test run (report-only when not SYSTEM), run `.\Invoke-ItcmdrAgen
 - Open **Keys** and make or import a key. An owner certifies it (see the server steps above). The key seed stays in this Windows profile.
 - The shared admin token field is only for an install still in `both` or `token` mode.
 
+## Switch to signed-only (on site, after the app works signed)
+
+Run on SERVER01 in an admin PowerShell. Placeholders: SERVER01 (server), WS-01 (the PC with the app),
+`Dr Example` (the key name). Nothing here needs the 24 words except step 3.
+
+1. Check the starting point:
+   `& 'C:\Program Files\itcmdr\server\itcmdr-cli.exe' auth status`
+   Expect `auth_mode: both`, and note how many admin/owner keys can sign.
+2. On WS-01, open the app and go to Keys. Make a key, or keep the existing one. Check that it says
+   "Private key stored in: Windows DPAPI (current user)". Copy the certify command it shows.
+3. Certify the key offline with the words and register it on SERVER01:
+   `itcmdr-cli keys certify --kind user --name "Dr Example" --role owner --public-key <hex> --out C:\Temp\app.bundle.json`
+   (type the words when asked), then `itcmdr-cli keys register C:\Temp\app.bundle.json`, then delete the bundle file.
+   Alternatively, register the bundle from the Keys screen of an app that already has an owner key.
+4. On WS-01, check that the app works signed: Keys shows the name and role (WhoAmI), and Schedules and Plugins load.
+5. Make sure at least one admin/owner key can sign besides the root key (`auth status`). Without one,
+   `set-mode signed` refuses (`--force` overrides it; don't use it here).
+6. Switch: `itcmdr-cli auth set-mode signed`, then `sc.exe stop itcmdr-server`, then `sc.exe start itcmdr-server`.
+7. Verify:
+   - `itcmdr-cli auth status` shows `auth_mode: signed (set in server.json)`.
+   - The app on WS-01 still loads Keys, Schedules and Plugins.
+   - A shared-token call is refused with `Unauthenticated` ("missing x-itcmdr-key").
+   - The next agent poller run finishes with result 0 (`Get-ScheduledTaskInfo 'itcmdr Agent Poller'`).
+8. Rollback, if anything is wrong: `itcmdr-cli auth set-mode both`, then restart the service as in step 6.
+   Token calls work again; signed calls keep working.
+9. Record the date and the result in the handover.
+
 ## Local demo (Linux or Windows dev box)
 
 ```

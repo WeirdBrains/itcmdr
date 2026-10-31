@@ -415,6 +415,29 @@ pub fn list_quarantine(layout: &Layout) -> Result<Vec<QuarantineEntry>> {
 pub enum Source<'a> {
     Path(&'a Path),
     Url(&'a str),
+    /// v0.13.0: a package uploaded through the app (label = "upload:<file name>").
+    Bytes(&'a str, &'a [u8]),
+}
+
+/// Decision 16: packages are fetched by the server over plain HTTPS. `http://` is accepted only
+/// for loopback hosts (the tests' local file server).
+pub fn url_allowed(u: &str) -> bool {
+    if u.starts_with("https://") {
+        return true;
+    }
+    let Some(rest) = u.strip_prefix("http://") else {
+        return false;
+    };
+    let host = rest.split(['/', '?', '#']).next().unwrap_or("");
+    let host = if host.starts_with('[') {
+        host.split(']')
+            .next()
+            .map(|h| format!("{h}]"))
+            .unwrap_or_default()
+    } else {
+        host.split(':').next().unwrap_or("").to_string()
+    };
+    matches!(host.as_str(), "127.0.0.1" | "localhost" | "[::1]")
 }
 
 impl Source<'_> {
@@ -422,6 +445,7 @@ impl Source<'_> {
         match self {
             Source::Path(p) => p.display().to_string(),
             Source::Url(u) => u.to_string(),
+            Source::Bytes(l, _) => l.to_string(),
         }
     }
     fn fetch(&self, max: u64) -> Result<Vec<u8>> {
@@ -435,8 +459,8 @@ impl Source<'_> {
             }
             Source::Url(u) => {
                 ensure!(
-                    u.starts_with("https://") || u.starts_with("http://"),
-                    "only http(s) URLs are supported"
+                    url_allowed(u),
+                    "only https:// URLs are supported (http:// only for loopback tests)"
                 );
                 let r = ureq::get(u)
                     .timeout(std::time::Duration::from_secs(120))
@@ -444,6 +468,7 @@ impl Source<'_> {
                     .map_err(|e| anyhow!("download failed: {e}"))?;
                 r.into_reader().take(max + 1).read_to_end(&mut b)?;
             }
+            Source::Bytes(_, d) => b.extend_from_slice(&d[..d.len().min(max as usize + 1)]),
         }
         ensure!(
             b.len() as u64 <= max,
@@ -502,6 +527,10 @@ pub async fn install(
             let u = u.to_string();
             tokio::task::spawn_blocking(move || Source::Url(&u).fetch(max))
         }
+        Source::Bytes(..) => tokio::task::spawn_blocking({
+            let r = src.fetch(max);
+            move || r
+        }),
     }
     .await
     .map_err(|e| anyhow!("fetch task failed: {e}"))??;

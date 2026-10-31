@@ -6,9 +6,9 @@ untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committ
 
 ## Current state (updated 2026-10-31)
 
-- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.12.0** (`fb007b2`; signed app, keys, schedules, backup & restore screens, signed-by-default auth). Previous: v0.11.0 (`b249612`). Versions in the tree: server 0.12.0, app 0.12.0+17, installer 0.12.0, agent `AgentVersion` 0.12.0.
+- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.13.0** (app key encrypted at rest, plugins from the app, signed-only proven on the VM). Previous: v0.12.0 (`fb007b2`, follow-up 9484fb5). Versions in the tree: server 0.13.0, app 0.13.0+18, installer 0.13.0, agent `AgentVersion` 0.13.0.
 - Linux for v0.12.0: analyzer clean. Widget tests cover the Keys, Schedules and Backup dialogs and the settings search/switches. `app/test/e2e_test.dart` runs init, certifies an app key, then WhoAmI, every registry setting, a schedule, a backup and a restore dry run.
-- Windows VM passes: v0.10.1, v0.11.0, and a v0.12.0 upgrade (Pester 82/82, installer, service, tasks, new app binary). The app screens were not clicked through. See Results.
+- Windows VM passes: v0.10.1, v0.11.0, v0.12.0 and v0.13.0. App click-through on the VM: passed (Michael). The test VM runs signed-only. See Results.
 - **No install is switched.** Every install runs the SYSTEM task as before, plus the plugin versions report-only for parity. Switching is on site: collect a week of parity, `itcmdr-cli cutover status`, then `cutover vm-verified` and `cutover switch` (Michael).
 - GitHub release builds are blocked by org billing (see Risks), so there is no installer artifact yet.
 
@@ -157,8 +157,8 @@ Later the same day: those 4 infos fixed, widget tests added, Dart e2e green, ver
 **Next steps in order**
 1. Click through the installed app on the VM (connect, Keys, Schedules, Backup dry run, Settings) with a person at the screen.
 2. A real second PC as an agent.
-3. On site: register the app key, `itcmdr-cli auth set-mode signed`, restart; a week of parity, then the gated cutover.
-4. v0.13.0: installer first-run master setup.
+3. On site (Michael): the signed-only checklist in docs/INSTALL.md; a week of parity, then the gated cutover.
+4. v0.14.0: installer first-run master setup.
 
 **Commands**
 - Linux: `export PATH=$HOME/Projects/tools/flutter/bin:$HOME/Projects/tools/pwsh:$HOME/Projects/tools/protoc/bin:$HOME/.pub-cache/bin:$PATH`; `cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace`; `pwsh -NoProfile -c 'Invoke-Pester -Path agent/tests -CI'`; `cd app && flutter analyze && flutter test`.
@@ -172,11 +172,11 @@ Later the same day: those 4 infos fixed, widget tests added, Dart e2e green, ver
 
 ## In progress
 
-v0.12.0 released (tag on `fb007b2`); a follow-up commit adds the Windows e2e fix and the VM results. Next: VM click-through, second PC, v0.13.0.
+Nothing. v0.13.0 is released.
 
 ## Backlog (in order)
 
-1. Windows VM test pass: v0.10.1 and v0.11.0 passes done (results below). v0.12.0 pass done headless (results below). Still to do: click through the app with a person at the screen, and a real second PC as agent.
+1. Windows VM test pass: v0.10.1 to v0.13.0 done (results below). App click-through passed (Michael). Still open: a real second PC as agent.
 2. ~~Missing agent checks~~ done in v0.3.0. Real values must be added to the site.json on Windows hosts.
 3. ~~Flapping/repeat-offender metrics, charts~~ done in v0.4.0.
 4. ~~Log search filters and paging~~ done in v0.4.0.
@@ -299,7 +299,24 @@ In-place upgrade over the v0.11.0 install. The installer is built after `flutter
 | Installed `itcmdr.exe` starts and stays up (15 s, headless) | ✅ |
 | Dart e2e against a real server on Windows (`flutter test test\e2e_test.dart`, release bins via `ITCMDR_E2E_BIN_DIR`) + signing and page tests | ✅ 14 passed |
 | Dart e2e on Windows | ❌ → fixed: the test hard-coded `../target/debug/itcmdr-server` (no `.exe`, no bin dir override) |
-| App screens clicked through on the VM | not done (needs a person at the screen) |
+| App screens clicked through on the VM | ✅ passed (Michael, 2026-10-31) |
+
+### Results: v0.13.0 VM pass (2026-10-31, Windows 11 Pro, Windows PowerShell 5.1)
+
+In-place upgrade over v0.12.0.
+
+| Item | Result |
+|---|---|
+| Release build, `flutter build windows`, installer compile | ✅ |
+| Pester 82/82, PSScriptAnalyzer 0 findings (PS 5.1) | ✅ |
+| `flutter test` on Windows (all files, incl. the DPAPI round trip and tamper check; Dart e2e incl. plugin upload/quarantine against release bins) | ✅ 31 passed, 1 skipped (secret-tool, Linux only) |
+| Silent upgrade: exit 0, service Running, tasks Ready, `AgentVersion` 0.13.0 | ✅ |
+| App key in the DPAPI store (`%APPDATA%\itcmdr\app-key.dpapi`), no plaintext copy | ✅ (the VM has no words any more, so the registered `Dr Example` admin key was imported into the store) |
+| Signed WhoAmI / ListSchedules / ListPlugins in `both` | ✅ |
+| `auth set-mode signed` + restart: signed calls work; token and unauthenticated calls refused (`Unauthenticated`, "missing x-itcmdr-key") | ✅ |
+| Rollback `auth set-mode both` + restart: token calls work again, signed still work | ✅ |
+| Back to `signed`; agent poller run result 0; installed app starts and stays up | ✅ |
+| Final state | VM left in `auth_mode = signed` |
 
 ## Risks and gotchas
 

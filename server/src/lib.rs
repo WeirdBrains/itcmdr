@@ -132,9 +132,20 @@ pub async fn run(
     });
 
     let addr = cfg.bind_addr.parse().context("invalid bind_addr")?;
-    let svc = tonic_web::enable(generated::itcmdr::itcmdr_server::ItcmdrServer::new(
-        api::ItcmdrService::new(cfg.clone(), pool),
-    ));
+    // App plugin uploads (v0.13.0): allow one package of plugins.max_package_mib plus framing.
+    let max_msg = (settings::get_i64(&pool, None, "plugins.max_package_mib")
+        .await
+        .max(4) as usize
+        + 1)
+        * 1024
+        * 1024;
+    let svc = tonic_web::enable(
+        generated::itcmdr::itcmdr_server::ItcmdrServer::new(api::ItcmdrService::new(
+            cfg.clone(),
+            pool,
+        ))
+        .max_decoding_message_size(max_msg),
+    );
     tracing::info!(%addr, "starting itcmdr-server");
     tonic::transport::Server::builder()
         .accept_http1(true) // gRPC-Web
