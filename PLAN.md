@@ -48,6 +48,18 @@ also covered by the Windows VM test pass below.
 | v0.14.0 | Installer and first-run setup: site values, checks, words shown once, first admin key (signed from day one), upgrade keeps settings | ✅ Done | `v0.14.0` | 2026-10-31 |
 | v0.14.1 | Plugins moved to the itcmdr-plugins repo (pinned in `plugins.pin.json`); one-time history rewrite of itcmdr (approved) | ✅ Done | `v0.14.1` | 2026-10-31 |
 
+### Proposed: server and agents (design in docs/design/SERVER-AGENT.md, not started)
+
+| Version | Scope | Status |
+|---|---|---|
+| v0.15.0 | `itcmdr-common` (ErrorCriticality, ServicePluginError + derive, backtrace), plugin-error in plugin.proto and itcmdr.log/v1, PS `New-ItcmdrPluginError`, call log of every RPC | 💡 Proposed |
+| v0.16.0 | Alerts (Critical / Cautious / Informational; dedupe, ack, resolve, silence), AlertService, app Alerts screen, paging via SMTP, ntfy, webhook | 💡 Proposed |
+| v0.17.0 | Rust `itcmdr-agent` service: enrollment, per-agent keys, TLS (pinned), agent-initiated gRPC stream, heartbeats + non-responsive alerts, offline queue, app Agents screen | 💡 Proposed |
+| v0.18.0 | Agent runs plugins: push plugins and schedules, RunNow, run reports and artifacts, report-only parity vs the nightly | 💡 Proposed |
+| v0.19.0 | Config over the stream; gated `cutover switch --to agent` + rollback | 💡 Proposed |
+| v0.20.0 | Agent self-upgrade: release plugin, rings, watchdog service, rollback | 💡 Proposed |
+| v0.21.0 | Retire the poller, requests/, schedule-state and share ingest after a release on the switched path | 💡 Proposed |
+
 ## Cross-cutting items
 
 | Item | Status | Notes |

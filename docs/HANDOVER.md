@@ -172,7 +172,7 @@ Later the same day: those 4 infos fixed, widget tests added, Dart e2e green, ver
 
 ## In progress
 
-Nothing in progress. v0.14.1 released; itcmdr history rewritten once (plugins/ removed, tags recreated); VM tree re-synced from the new history.
+Nothing in progress. Proposed next: server/agent architecture (docs/design/SERVER-AGENT.md, roadmap v0.15.0 to v0.21.0 in PLAN.md), waiting for Michael on the open questions. v0.14.1 released; itcmdr history rewritten once (plugins/ removed, tags recreated); VM tree re-synced from the new history.
 
 ## Backlog (in order)
 
