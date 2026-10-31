@@ -7,6 +7,8 @@ Placeholders only (SERVER01, WS-01, 198.51.100.x); real site details go in the g
 
 ## Status legend
 
+💡 Proposed (designed, not started).
+
 | Status | Meaning |
 |---|---|
 | ✅ Done | Built, tested on the Linux dev box, tagged and pushed |
@@ -48,17 +50,18 @@ also covered by the Windows VM test pass below.
 | v0.14.0 | Installer and first-run setup: site values, checks, words shown once, first admin key (signed from day one), upgrade keeps settings | ✅ Done | `v0.14.0` | 2026-10-31 |
 | v0.14.1 | Plugins moved to the itcmdr-plugins repo (pinned in `plugins.pin.json`); one-time history rewrite of itcmdr (approved) | ✅ Done | `v0.14.1` | 2026-10-31 |
 
-### Proposed: server and agents (design in docs/design/SERVER-AGENT.md, not started)
+### Proposed: server, agents and adminsvr (docs/design/SERVER-AGENT.md, docs/design/ADMINSVR.md; not started)
 
 | Version | Scope | Status |
 |---|---|---|
 | v0.15.0 | `itcmdr-common` (ErrorCriticality, ServicePluginError + derive, backtrace), plugin-error in plugin.proto and itcmdr.log/v1, PS `New-ItcmdrPluginError`, call log of every RPC | 💡 Proposed |
-| v0.16.0 | Alerts (Critical / Cautious / Informational; dedupe, ack, resolve, silence), AlertService, app Alerts screen, paging via SMTP, ntfy, webhook | 💡 Proposed |
-| v0.17.0 | Rust `itcmdr-agent` service: enrollment, per-agent keys, TLS (pinned), agent-initiated gRPC stream, heartbeats + non-responsive alerts, offline queue, app Agents screen | 💡 Proposed |
-| v0.18.0 | Agent runs plugins: push plugins and schedules, RunNow, run reports and artifacts, report-only parity vs the nightly | 💡 Proposed |
-| v0.19.0 | Config over the stream; gated `cutover switch --to agent` + rollback | 💡 Proposed |
-| v0.20.0 | Agent self-upgrade: release plugin, rings, watchdog service, rollback | 💡 Proposed |
-| v0.21.0 | Retire the poller, requests/, schedule-state and share ingest after a release on the switched path | 💡 Proposed |
+| v0.16.0 | Site alerts (Critical / Cautious / Informational; dedupe, ack, resolve, silence), AlertService, app Alerts screen, paging via SMTP, ntfy, webhook | 💡 Proposed |
+| v0.17.0 | Rust `itcmdr-agent` service: enrollment, per-agent keys, pinned TLS, agent-initiated stream, heartbeats + non-responsive alerts, offline queue, app Agents screen | 💡 Proposed |
+| v0.18.0 | Agent runs plugins and schedules, RunNow, run reports and artifacts, report-only parity vs the nightly | 💡 Proposed |
+| v0.19.0 | adminsvr MVP (container, Postgres, ntfy, users/roles, passkeys + TOTP, site enrollment, alerts/status up) + SRE app v1 (sign-in, alert inbox, sites, users and roles, audit/call log, settings) | 💡 Proposed |
+| v0.20.0 | Agent config over the stream + gated switch; adminsvr commands down (allowlist, preview, two-person approval, kill switch), metrics summaries up; SRE app pushes + metrics explorer | 💡 Proposed |
+| v0.21.0 | Agent self-upgrade + site-server self-upgrade via adminsvr (rings, watchdogs, rollback); SRE app upgrade flow | 💡 Proposed |
+| v0.22.0 | Retire the share flows; SRE app Windows/iOS builds if approved; adminsvr restore drill | 💡 Proposed |
 
 ## Cross-cutting items
 
