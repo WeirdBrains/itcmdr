@@ -2,6 +2,7 @@
 pub mod api;
 pub mod auth;
 pub mod backup;
+pub mod calllog;
 pub mod config;
 pub mod cutover;
 pub mod db;
@@ -58,6 +59,12 @@ pub async fn tick(pool: &db::DbPool, cfg: &ServerConfig) {
     if let Err(e) = requests::sync_requests(pool, &cfg.responses_dir(), timeout_ms).await {
         tracing::warn!(error=%e, "request sync failed");
     }
+}
+
+fn calllog_machine() -> String {
+    std::env::var("COMPUTERNAME")
+        .or_else(|_| std::env::var("HOSTNAME"))
+        .unwrap_or_else(|_| "server".into())
 }
 
 /// Run the gRPC server and the background ingest loop until `shutdown` resolves.
@@ -128,6 +135,9 @@ pub async fn run(
                 if let Err(e) = db::apply_retention(&bg_pool, days).await {
                     tracing::warn!(error=%e, "retention failed");
                 }
+                let call_days =
+                    settings::get_i64(&bg_pool, Some(&bg_cfg), "calllog.retention_days").await;
+                calllog::daily(&bg_pool, &bg_cfg.layout(), &calllog_machine(), call_days).await;
             }
         }
     });
@@ -140,12 +150,16 @@ pub async fn run(
         + 1)
         * 1024
         * 1024;
+    // Call log (v0.15.0): inside gRPC-Web, so every call is logged as plain gRPC.
+    let calls = calllog::CallLog::start(pool.clone());
     let svc = tonic_web::enable(
-        generated::itcmdr::itcmdr_server::ItcmdrServer::new(api::ItcmdrService::new(
-            cfg.clone(),
-            pool,
-        ))
-        .max_decoding_message_size(max_msg),
+        calls.wrap(
+            generated::itcmdr::itcmdr_server::ItcmdrServer::new(api::ItcmdrService::new(
+                cfg.clone(),
+                pool,
+            ))
+            .max_decoding_message_size(max_msg),
+        ),
     );
     tracing::info!(%addr, "starting itcmdr-server");
     tonic::transport::Server::builder()

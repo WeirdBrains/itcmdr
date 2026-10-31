@@ -8,6 +8,7 @@ import 'src/rust/frb_generated.dart';
 import 'package:grpc/grpc_or_grpcweb.dart';
 
 import 'backup_page.dart';
+import 'calls_page.dart';
 import 'charts.dart';
 import 'exceptions_form.dart';
 import 'keys_page.dart';
@@ -164,6 +165,11 @@ class _HomeShellState extends State<HomeShell> {
         Icons.history,
         'Audit',
         AuditPage(key: key, client: c, updates: updates),
+      ),
+      (
+        Icons.call_split,
+        'Calls',
+        CallsPage(key: key, client: c, errText: errText),
       ),
       (
         Icons.key,
@@ -857,6 +863,12 @@ class _AuditPageState extends State<AuditPage> with LiveRefresh {
                 ListTile(
                   dense: true,
                   title: Text('${fmtTs(e.ts)}  ${e.action}  by ${e.actor}'),
+                  trailing: e.callId.isEmpty
+                      ? null
+                      : Tooltip(
+                          message: 'call ${e.callId}',
+                          child: const Icon(Icons.call_split, size: 16),
+                        ),
                   subtitle: Text(
                     e.detail,
                     maxLines: 3,

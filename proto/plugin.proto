@@ -29,10 +29,24 @@ message CheckResult {
   string message = 3;
 }
 
+// v0.15.0: the plugin error contract (itcmdr-common, docs/design/SERVER-AGENT.md section 6).
+// criticality: critical | cautious | informational. The server writes each one as an
+// itcmdr.log/v1 `plugin-error` line; v0.16.0 turns it into an alert (dedupe: plugin + kind + machine).
+message PluginError {
+  string service_plugin = 1;
+  string kind = 2;                // error type (struct name, PowerShell exception type)
+  string criticality = 3;
+  string error = 4;               // message, max 4 KiB
+  string backtrace = 5;           // max 16 KiB
+  map<string, string> context = 6;
+}
+
 message StageResponse {
   bool ok = 1;
   string message = 2;
   repeated CheckResult results = 3;
+  // Set when the stage raised a plugin error (a failed stage, or with ok = true a non-fatal one).
+  PluginError error = 4;
 }
 
 message LogRequest {

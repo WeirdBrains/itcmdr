@@ -95,6 +95,13 @@ class ItcmdrClient extends $grpc.Client {
     return $createUnaryCall(_$listAudit, request, options: options);
   }
 
+  $grpc.ResponseFuture<$0.ListCallsResponse> listCalls(
+    $0.ListCallsRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$listCalls, request, options: options);
+  }
+
   $grpc.ResponseFuture<$0.CreateBackupResponse> createBackup(
     $0.CreateBackupRequest request, {
     $grpc.CallOptions? options,
@@ -385,6 +392,11 @@ class ItcmdrClient extends $grpc.Client {
           '/itcmdr.Itcmdr/ListAudit',
           ($0.ListAuditRequest value) => value.writeToBuffer(),
           $0.ListAuditResponse.fromBuffer);
+  static final _$listCalls =
+      $grpc.ClientMethod<$0.ListCallsRequest, $0.ListCallsResponse>(
+          '/itcmdr.Itcmdr/ListCalls',
+          ($0.ListCallsRequest value) => value.writeToBuffer(),
+          $0.ListCallsResponse.fromBuffer);
   static final _$createBackup =
       $grpc.ClientMethod<$0.CreateBackupRequest, $0.CreateBackupResponse>(
           '/itcmdr.Itcmdr/CreateBackup',
@@ -637,6 +649,13 @@ abstract class ItcmdrServiceBase extends $grpc.Service {
         false,
         ($core.List<$core.int> value) => $0.ListAuditRequest.fromBuffer(value),
         ($0.ListAuditResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.ListCallsRequest, $0.ListCallsResponse>(
+        'ListCalls',
+        listCalls_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.ListCallsRequest.fromBuffer(value),
+        ($0.ListCallsResponse value) => value.writeToBuffer()));
     $addMethod(
         $grpc.ServiceMethod<$0.CreateBackupRequest, $0.CreateBackupResponse>(
             'CreateBackup',
@@ -993,6 +1012,14 @@ abstract class ItcmdrServiceBase extends $grpc.Service {
 
   $async.Future<$0.ListAuditResponse> listAudit(
       $grpc.ServiceCall call, $0.ListAuditRequest request);
+
+  $async.Future<$0.ListCallsResponse> listCalls_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.ListCallsRequest> $request) async {
+    return listCalls($call, await $request);
+  }
+
+  $async.Future<$0.ListCallsResponse> listCalls(
+      $grpc.ServiceCall call, $0.ListCallsRequest request);
 
   $async.Future<$0.CreateBackupResponse> createBackup_Pre(
       $grpc.ServiceCall $call,

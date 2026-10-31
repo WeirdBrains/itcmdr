@@ -43,8 +43,41 @@ Optional:
 | `status` | string | `ok`, `fail`, `repaired`, `skipped` or `excepted` |
 | `duration_ms` | integer | |
 | `metrics` | list | See below |
+| `criticality` | string | v0.15.0: `critical`, `cautious` or `informational` (required on `plugin-error` lines) |
+| `error` | string | v0.15.0: error message (max 4 KiB) |
+| `backtrace` | string | v0.15.0: backtrace (max 16 KiB) |
+| `kind` | string | v0.15.0: error type (struct name, PowerShell exception type) |
+| `context` | object | v0.15.0: extra fields of the error (string values) |
 
-Other fields are allowed and ignored.
+Other fields are allowed and ignored, so readers older than v0.15.0 keep working.
+
+## Plugin errors (v0.15.0)
+
+A plugin error is written by the **server** (not the plugin) as one line with `event: "plugin-error"`,
+`message` = the error, and `level` from the criticality: critical → `error`, cautious → `warn`,
+informational → `info`. Plugins raise them like this:
+
+- Rust: `#[derive(ServicePluginError)]` from `itcmdr-common` (fields `error`, `criticality`,
+  `backtrace`, `service_plugin`; extra fields go into `context`), then
+  `Ok(itcmdr_plugin::plugin_error(&e))` from a stage.
+- PowerShell: `throw (New-ItcmdrPluginError -Message ... -Criticality Critical|Cautious|Informational)`
+  fails the stage; `Write-ItcmdrPluginError` records a non-fatal one (the worst of the stage is sent).
+  An uncaught exception becomes a plugin error at the package's `default_error_criticality`
+  (`package.toml`, default `cautious`), with `$_.ScriptStackTrace` and the position as backtrace.
+- A stage that fails without one (a plain error, a timeout) also gets a plugin-error line at the
+  package default, `kind` `stage-failed` or `timeout`.
+
+```json
+{"schema":"itcmdr.log/v1","ts":"2026-10-30T02:00:07.001-04:00","level":"error","plugin":"disk-free","plugin_version":"1.2.0","run_id":"7f1c","machine":"SERVER01","stage":"execute","event":"plugin-error","message":"backup share is gone","criticality":"critical","error":"backup share is gone","backtrace":"at <ScriptBlock>, main.ps1: line 12","kind":"ShareMissing","context":{"share":"maintenanceRuns"}}
+```
+
+## Call lines (v0.15.0)
+
+The server exports its call log (one row per RPC) once a day to `<data>/server-logs/calls/calls-<date>.jsonl`
+as lines with `plugin: "itcmdr-server"`, `stage` and `event` `call`, `run_id` = the call id, `message`
+= `<method> <status>`, `duration_ms`, and `service`, `method`, `kind`, `peer`, `principal`, `grpc_status`,
+`req_bytes`, `resp_bytes`, `error`. `level` is `info` for OK, `warn` for client-side codes (auth,
+not found, invalid argument, cancelled), `error` otherwise.
 
 ## Metrics
 

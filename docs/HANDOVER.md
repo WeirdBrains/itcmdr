@@ -6,7 +6,8 @@ untracked mirror `HANDOVER.local.md` in the repo root (gitignored, never committ
 
 ## Current state (updated 2026-10-31)
 
-- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.14.3** (separate packages per component, the icon set in `branding/`). Previous: v0.14.2. Versions in the tree: server 0.14.3, itcmdr-keys 0.14.3, app 0.14.3, installer 0.14.3, agent `AgentVersion` 0.14.3. v0.14.3 Linux: fmt/clippy clean, Rust 104 passed, Pester 88/88, Flutter 31 passed (1 skipped). VM: all four packages build; upgrade from v0.14.2, fresh installs of each, server+app together, keep-data uninstalls and reinstall, full remove-data on a throwaway data dir all pass; the installed app shows the new icon. Windows app builds need a clean `build\windows` after an icon change (the resource is cached). Host Flutter tests need `cd app/rust && cargo build` first. Run `scripts/fetch-plugins.sh` once after cloning (installer and parity tests need it).
+- Branch: `main` only (no PRs, no feature branches). Latest tag: **v0.15.0** (plugin error contract in `itcmdr-common` + derive, call log of every RPC). Previous: v0.14.3. Versions in the tree: server 0.15.0, itcmdr-keys 0.15.0, itcmdr-common 0.15.0, itcmdr-plugin 0.11.0, app 0.15.0, installer 0.15.0, agent `AgentVersion` 0.15.0. DB schema 5. v0.15.0 Linux: fmt/clippy clean, Rust 120 passed, Pester 96/96, Flutter 33 passed (1 skipped), Dart e2e passed; itcmdr-plugins Pester 10/10 and e2e pass unchanged. VM: Pester 96/96, Flutter 33 (1 skipped), Dart e2e, all four 0.15.0 packages build, in-place upgrade from 0.14.3 keeps keys/config/signed-only, signed calls appear in `itcmdr-cli calls list` with the verified principal. Known: `restore_app` fails on Windows (Access is denied replacing the open DB; same on v0.14.3, Linux-only test design); `cutover` test binary crashes at process exit ~1% under load (heap corruption after all tests pass; same on v0.14.3).
+- Before v0.15.0: Latest tag was **v0.14.3** (separate packages per component, the icon set in `branding/`). Previous: v0.14.2. Versions in the tree: server 0.14.3, itcmdr-keys 0.14.3, app 0.14.3, installer 0.14.3, agent `AgentVersion` 0.14.3. v0.14.3 Linux: fmt/clippy clean, Rust 104 passed, Pester 88/88, Flutter 31 passed (1 skipped). VM: all four packages build; upgrade from v0.14.2, fresh installs of each, server+app together, keep-data uninstalls and reinstall, full remove-data on a throwaway data dir all pass; the installed app shows the new icon. Windows app builds need a clean `build\windows` after an icon change (the resource is cached). Host Flutter tests need `cd app/rust && cargo build` first. Run `scripts/fetch-plugins.sh` once after cloning (installer and parity tests need it).
 - Linux for v0.12.0: analyzer clean. Widget tests cover the Keys, Schedules and Backup dialogs and the settings search/switches. `app/test/e2e_test.dart` runs init, certifies an app key, then WhoAmI, every registry setting, a schedule, a backup and a restore dry run.
 - Windows VM passes: v0.10.1, v0.11.0, v0.12.0 and v0.13.0. App click-through on the VM: passed (Michael). The test VM runs signed-only. See Results.
 - **No install is switched.** Every install runs the SYSTEM task as before, plus the plugin versions report-only for parity. Switching is on site: collect a week of parity, `itcmdr-cli cutover status`, then `cutover vm-verified` and `cutover switch` (Michael).
@@ -172,7 +173,7 @@ Later the same day: those 4 infos fixed, widget tests added, Dart e2e green, ver
 
 ## In progress
 
-Nothing in progress. Proposed next: server/agent + adminsvr architecture (docs/design/SERVER-AGENT.md, docs/design/ADMINSVR.md incl. the SRE Flutter app; roadmap v0.15.0 to v0.22.0 in PLAN.md), Michael's decisions recorded 2026-10-31 (incl. key-based adminsvr auth and the signed, hash-chained audit of every change) (ADMINSVR.md "Decisions"); next is v0.14.2 (extract `itcmdr-keys` from server/src/keys.rs, auth.rs and restore_seal.rs; app/lib/signing.dart moves to flutter_rust_bridge), then v0.15.0. Passkeys/YubiKeys (second factor) planned as v0.19.1. Key backup defaults decided (on, 24-word lock, COOP/COEP fine); v0.14.2 released (keys crate + bridge; VM pass below). Next: v0.15.0. Pending: Mac signing step for iOS/macOS, the adminsvr agent design, rootless Podman install on alien-blue (sudo needs a password: `sudo pacman -S --needed podman passt slirp4netns fuse-overlayfs podman-compose`; subuid/subgid for m3talsmith already set, 100000:65536). v0.14.1 released; itcmdr history rewritten once (plugins/ removed, tags recreated); VM tree re-synced from the new history.
+Nothing in progress. Proposed next: server/agent + adminsvr architecture (docs/design/SERVER-AGENT.md, docs/design/ADMINSVR.md incl. the SRE Flutter app; roadmap v0.15.0 to v0.22.0 in PLAN.md), Michael's decisions recorded 2026-10-31 (incl. key-based adminsvr auth and the signed, hash-chained audit of every change) (ADMINSVR.md "Decisions"); next is v0.14.2 (extract `itcmdr-keys` from server/src/keys.rs, auth.rs and restore_seal.rs; app/lib/signing.dart moves to flutter_rust_bridge), then v0.15.0. Passkeys/YubiKeys (second factor) planned as v0.19.1. Key backup defaults decided (on, 24-word lock, COOP/COEP fine); v0.14.2 released (keys crate + bridge; VM pass below). v0.15.0 released (errors + calls). Next: v0.16.0 (alerts). Pending: Mac signing step for iOS/macOS, the adminsvr agent design, rootless Podman install on alien-blue (sudo needs a password: `sudo pacman -S --needed podman passt slirp4netns fuse-overlayfs podman-compose`; subuid/subgid for m3talsmith already set, 100000:65536). v0.14.1 released; itcmdr history rewritten once (plugins/ removed, tags recreated); VM tree re-synced from the new history.
 
 ## Backlog (in order)
 
@@ -301,6 +302,17 @@ In-place upgrade over the v0.11.0 install. The installer is built after `flutter
 | Dart e2e against a real server on Windows (`flutter test test\e2e_test.dart`, release bins via `ITCMDR_E2E_BIN_DIR`) + signing and page tests | ✅ 14 passed |
 | Dart e2e on Windows | ❌ → fixed: the test hard-coded `../target/debug/itcmdr-server` (no `.exe`, no bin dir override) |
 | App screens clicked through on the VM | ✅ passed (Michael, 2026-10-31) |
+
+### Results: v0.15.0 VM pass (2026-10-31, Windows 11 Pro, Windows PowerShell 5.1)
+
+| Check | Result |
+|---|---|
+| Release build, Pester, Flutter tests, Dart e2e (release bins) | ✅ 96/96, 33 passed (1 skipped), e2e passed |
+| `cargo test --workspace` on Windows (first time run there) | ⚠️ 118 passed, 1 failed: `restore_app` (Access is denied on the open DB; fails identically on v0.14.3) |
+| Four 0.15.0 packages build (ISCC) | ✅ |
+| In-place upgrade 0.14.3 → 0.15.0 (server, agent, app, cli) | ✅ service Running, keys/config unchanged, signed-only kept, AgentVersion 0.15.0 |
+| Signed app calls logged; `itcmdr-cli calls list/show`, `--json` | ✅ principal = key name + fingerprint |
+| Plugin run after upgrade | ✅ itcmdr-network ok |
 
 ### Results: v0.14.2 VM pass (2026-10-31, Windows 11 Pro, Windows PowerShell 5.1)
 

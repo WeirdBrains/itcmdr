@@ -1540,12 +1540,14 @@ class AuditEntry extends $pb.GeneratedMessage {
     $core.String? actor,
     $core.String? action,
     $core.String? detail,
+    $core.String? callId,
   }) {
     final result = AuditEntry._();
     if (ts != null) result.ts = ts;
     if (actor != null) result.actor = actor;
     if (action != null) result.action = action;
     if (detail != null) result.detail = detail;
+    if (callId != null) result.callId = callId;
     return result;
   }
 
@@ -1566,6 +1568,7 @@ class AuditEntry extends $pb.GeneratedMessage {
     ..aOS(2, _omitFieldNames ? '' : 'actor')
     ..aOS(3, _omitFieldNames ? '' : 'action')
     ..aOS(4, _omitFieldNames ? '' : 'detail')
+    ..aOS(5, _omitFieldNames ? '' : 'callId')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1623,6 +1626,15 @@ class AuditEntry extends $pb.GeneratedMessage {
   $core.bool hasDetail() => $_has(3);
   @$pb.TagNumber(4)
   void clearDetail() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get callId => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set callId($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasCallId() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearCallId() => $_clearField(5);
 }
 
 class ListAuditRequest extends $pb.GeneratedMessage {
@@ -1732,6 +1744,387 @@ class ListAuditResponse extends $pb.GeneratedMessage {
 
   @$pb.TagNumber(1)
   $pb.PbList<AuditEntry> get entries => $_getList(0);
+}
+
+/// v0.15.0: call log, one row per RPC (admin). Never bodies, words or keys.
+class CallEntry extends $pb.GeneratedMessage {
+  factory CallEntry({
+    $core.String? id,
+    $fixnum.Int64? ts,
+    $core.String? service,
+    $core.String? method,
+    $core.String? kind,
+    $core.String? peer,
+    $core.String? principal,
+    $core.int? status,
+    $core.String? statusName,
+    $fixnum.Int64? durationMs,
+    $fixnum.Int64? reqBytes,
+    $fixnum.Int64? respBytes,
+    $core.String? error,
+  }) {
+    final result = CallEntry._();
+    if (id != null) result.id = id;
+    if (ts != null) result.ts = ts;
+    if (service != null) result.service = service;
+    if (method != null) result.method = method;
+    if (kind != null) result.kind = kind;
+    if (peer != null) result.peer = peer;
+    if (principal != null) result.principal = principal;
+    if (status != null) result.status = status;
+    if (statusName != null) result.statusName = statusName;
+    if (durationMs != null) result.durationMs = durationMs;
+    if (reqBytes != null) result.reqBytes = reqBytes;
+    if (respBytes != null) result.respBytes = respBytes;
+    if (error != null) result.error = error;
+    return result;
+  }
+
+  CallEntry._();
+
+  factory CallEntry.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      CallEntry()..mergeFromBuffer(data, registry);
+  factory CallEntry.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      CallEntry()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CallEntry',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: CallEntry.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aInt64(2, _omitFieldNames ? '' : 'ts')
+    ..aOS(3, _omitFieldNames ? '' : 'service')
+    ..aOS(4, _omitFieldNames ? '' : 'method')
+    ..aOS(5, _omitFieldNames ? '' : 'kind')
+    ..aOS(6, _omitFieldNames ? '' : 'peer')
+    ..aOS(7, _omitFieldNames ? '' : 'principal')
+    ..aI(8, _omitFieldNames ? '' : 'status')
+    ..aOS(9, _omitFieldNames ? '' : 'statusName')
+    ..aInt64(10, _omitFieldNames ? '' : 'durationMs')
+    ..aInt64(11, _omitFieldNames ? '' : 'reqBytes')
+    ..aInt64(12, _omitFieldNames ? '' : 'respBytes')
+    ..aOS(13, _omitFieldNames ? '' : 'error')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CallEntry clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CallEntry copyWith(void Function(CallEntry) updates) =>
+      super.copyWith((message) => updates(message as CallEntry)) as CallEntry;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use CallEntry() / CallEntry.new instead')
+  static CallEntry create() => CallEntry._();
+  static $pb.GeneratedMessage $_createMessage() => CallEntry._();
+  @$core.override
+  CallEntry createEmptyInstance() => CallEntry._();
+  @$core.pragma('dart2js:noInline')
+  static CallEntry getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CallEntry>(CallEntry.$_createMessage);
+  static CallEntry? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get ts => $_getI64(1);
+  @$pb.TagNumber(2)
+  set ts($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasTs() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearTs() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get service => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set service($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasService() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearService() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get method => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set method($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasMethod() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearMethod() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get kind => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set kind($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasKind() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearKind() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get peer => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set peer($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasPeer() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearPeer() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.String get principal => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set principal($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasPrincipal() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearPrincipal() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.int get status => $_getIZ(7);
+  @$pb.TagNumber(8)
+  set status($core.int value) => $_setSignedInt32(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasStatus() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearStatus() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.String get statusName => $_getSZ(8);
+  @$pb.TagNumber(9)
+  set statusName($core.String value) => $_setString(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasStatusName() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearStatusName() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $fixnum.Int64 get durationMs => $_getI64(9);
+  @$pb.TagNumber(10)
+  set durationMs($fixnum.Int64 value) => $_setInt64(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasDurationMs() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearDurationMs() => $_clearField(10);
+
+  @$pb.TagNumber(11)
+  $fixnum.Int64 get reqBytes => $_getI64(10);
+  @$pb.TagNumber(11)
+  set reqBytes($fixnum.Int64 value) => $_setInt64(10, value);
+  @$pb.TagNumber(11)
+  $core.bool hasReqBytes() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearReqBytes() => $_clearField(11);
+
+  @$pb.TagNumber(12)
+  $fixnum.Int64 get respBytes => $_getI64(11);
+  @$pb.TagNumber(12)
+  set respBytes($fixnum.Int64 value) => $_setInt64(11, value);
+  @$pb.TagNumber(12)
+  $core.bool hasRespBytes() => $_has(11);
+  @$pb.TagNumber(12)
+  void clearRespBytes() => $_clearField(12);
+
+  @$pb.TagNumber(13)
+  $core.String get error => $_getSZ(12);
+  @$pb.TagNumber(13)
+  set error($core.String value) => $_setString(12, value);
+  @$pb.TagNumber(13)
+  $core.bool hasError() => $_has(12);
+  @$pb.TagNumber(13)
+  void clearError() => $_clearField(13);
+}
+
+class ListCallsRequest extends $pb.GeneratedMessage {
+  factory ListCallsRequest({
+    $core.int? limit,
+    $core.String? method,
+    $core.String? principal,
+    $core.bool? errorsOnly,
+    $core.int? status,
+    $fixnum.Int64? sinceMs,
+    $core.String? id,
+  }) {
+    final result = ListCallsRequest._();
+    if (limit != null) result.limit = limit;
+    if (method != null) result.method = method;
+    if (principal != null) result.principal = principal;
+    if (errorsOnly != null) result.errorsOnly = errorsOnly;
+    if (status != null) result.status = status;
+    if (sinceMs != null) result.sinceMs = sinceMs;
+    if (id != null) result.id = id;
+    return result;
+  }
+
+  ListCallsRequest._();
+
+  factory ListCallsRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListCallsRequest()..mergeFromBuffer(data, registry);
+  factory ListCallsRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListCallsRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ListCallsRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: ListCallsRequest.$_createMessage)
+    ..aI(1, _omitFieldNames ? '' : 'limit')
+    ..aOS(2, _omitFieldNames ? '' : 'method')
+    ..aOS(3, _omitFieldNames ? '' : 'principal')
+    ..aOB(4, _omitFieldNames ? '' : 'errorsOnly')
+    ..aI(5, _omitFieldNames ? '' : 'status')
+    ..aInt64(6, _omitFieldNames ? '' : 'sinceMs')
+    ..aOS(7, _omitFieldNames ? '' : 'id')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListCallsRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListCallsRequest copyWith(void Function(ListCallsRequest) updates) =>
+      super.copyWith((message) => updates(message as ListCallsRequest))
+          as ListCallsRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ListCallsRequest() / ListCallsRequest.new instead')
+  static ListCallsRequest create() => ListCallsRequest._();
+  static $pb.GeneratedMessage $_createMessage() => ListCallsRequest._();
+  @$core.override
+  ListCallsRequest createEmptyInstance() => ListCallsRequest._();
+  @$core.pragma('dart2js:noInline')
+  static ListCallsRequest getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ListCallsRequest>(
+          ListCallsRequest.$_createMessage);
+  static ListCallsRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get limit => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set limit($core.int value) => $_setSignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasLimit() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearLimit() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get method => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set method($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasMethod() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearMethod() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get principal => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set principal($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasPrincipal() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearPrincipal() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.bool get errorsOnly => $_getBF(3);
+  @$pb.TagNumber(4)
+  set errorsOnly($core.bool value) => $_setBool(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasErrorsOnly() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearErrorsOnly() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get status => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set status($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasStatus() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearStatus() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $fixnum.Int64 get sinceMs => $_getI64(5);
+  @$pb.TagNumber(6)
+  set sinceMs($fixnum.Int64 value) => $_setInt64(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasSinceMs() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearSinceMs() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.String get id => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set id($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasId() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearId() => $_clearField(7);
+}
+
+class ListCallsResponse extends $pb.GeneratedMessage {
+  factory ListCallsResponse({
+    $core.Iterable<CallEntry>? calls,
+  }) {
+    final result = ListCallsResponse._();
+    if (calls != null) result.calls.addAll(calls);
+    return result;
+  }
+
+  ListCallsResponse._();
+
+  factory ListCallsResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListCallsResponse()..mergeFromBuffer(data, registry);
+  factory ListCallsResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListCallsResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ListCallsResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: ListCallsResponse.$_createMessage)
+    ..pPM<CallEntry>(1, _omitFieldNames ? '' : 'calls',
+        subBuilder: CallEntry.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListCallsResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListCallsResponse copyWith(void Function(ListCallsResponse) updates) =>
+      super.copyWith((message) => updates(message as ListCallsResponse))
+          as ListCallsResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ListCallsResponse() / ListCallsResponse.new instead')
+  static ListCallsResponse create() => ListCallsResponse._();
+  static $pb.GeneratedMessage $_createMessage() => ListCallsResponse._();
+  @$core.override
+  ListCallsResponse createEmptyInstance() => ListCallsResponse._();
+  @$core.pragma('dart2js:noInline')
+  static ListCallsResponse getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ListCallsResponse>(
+          ListCallsResponse.$_createMessage);
+  static ListCallsResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<CallEntry> get calls => $_getList(0);
 }
 
 /// Live updates

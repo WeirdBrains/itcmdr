@@ -1,6 +1,6 @@
 [package]
 name = "itcmdr-server"
-version = "0.14.3"
+version = "0.15.0"
 edition = "2021"
 description = "itcmdr gRPC server and background ingest"
 
@@ -60,6 +60,10 @@ toml = "0.8"
 ureq = "2"
 itcmdr-plugin = { path = "../plugin" }
 itcmdr-keys = { path = "../keys" }
+itcmdr-common = { path = "../common" }
+http = "1"
+http-body = "1"
+bytes = "1"
 cron = "0.15"
 chrono-tz = "0.10"
 iana-time-zone = "0.1"

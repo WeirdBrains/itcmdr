@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## v0.15.0 (2026-10-31)
+The plugin error contract and a log of every call.
+- New workspace crate `common/` (`itcmdr-common`, no gRPC or server dependency) with `ErrorCriticality` (`critical`, `cautious` (default), `informational`; logged at error, warn and info), `PluginErrorRecord` (error up to 4 KiB, backtrace up to 16 KiB, cut on a character boundary) and the `ServicePluginError` trait. The proc-macro crate `common/derive` (`itcmdr-common-derive`) provides `#[derive(ServicePluginError)]`: the struct needs `error`, `criticality`, `backtrace` and `service_plugin` fields; `#[service_plugin(name = "..", kind = "..")]` sets the plugin and kind; other fields go into the error's context (`#[service_plugin(skip)]` leaves one out). Misuse fails to compile (trybuild tests).
+- `proto/plugin.proto`: `PluginError` (service_plugin, kind, criticality, error, backtrace, context) as `StageResponse.error`. The Rust SDK (`itcmdr-plugin` 0.11.0) re-exports the contract and adds `plugin_error(&err)`. Rust plugins that build `StageResponse { .. }` by hand need `..Default::default()`.
+- The server logs each plugin error itself as an itcmdr.log/v1 `plugin-error` line with its criticality, and synthesizes one (kind `timeout` or `stage-failed`) when a stage fails without one. Plugins never write that line. Packages can set `default_error_criticality` in `package.toml` (used when a plugin sends none). A package that sets it needs server 0.15.0 or later (older servers refuse unknown manifest keys).
+- PowerShell: `New-ItcmdrPluginError` (return it, or throw it, to fail the stage) and `Write-ItcmdrPluginError` (record without stopping; the worst one recorded is sent). An uncaught exception is sent with no criticality, so the package default applies. Existing plugins need no change.
+- Call log: every RPC on the itcmdr service is recorded in the new `call_log` table: time, method, kind, peer, verified principal (key name and fingerprint, `token: <actor>`, or `anonymous`), gRPC status, duration, request and response bytes, and the error message. Bodies, words and keys are never logged. Audit rows store the `call_id` of the call that made them. Schema 5.
+- Retention: `calllog.retention_days` (30). Each finished day is exported as `event: "call"` itcmdr.log/v1 lines to `<data>/server-logs/calls/calls-<date>.jsonl` before rows are pruned.
+- `ListCalls` RPC (admin), `itcmdr-cli calls list|show|prune`, and a Calls page in the app next to Audit. The Audit page shows each row's call id.
+
 ## v0.14.3 (2026-10-31)
 One package per component, and the approved icon set.
 - Installer split into `installer/itcmdr-{server,agent,cli,app}.iss` sharing `common.iss`, `common-setup.iss` and `common-code.iss`. Each package has its own AppId, uninstaller (`{pf}\itcmdr\uninstall\<part>`) and upgrade path. `installer/itcmdr.iss` is gone.

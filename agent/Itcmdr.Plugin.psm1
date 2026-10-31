@@ -127,9 +127,115 @@ function Write-ItcmdrMetric {
   Write-ItcmdrLog -EventName 'metrics' -Message "$Name = $Value" -Metrics @($m) -Path $Path
 }
 
+$script:ItcmdrPluginErrors = $null
+
+# ---- v0.15.0: the plugin error contract (docs/design/SERVER-AGENT.md section 6) ----
+# Criticality: Critical | Cautious | Informational. The host (itcmdr-plugin-ps) passes the error to
+# the server as PluginError; the server writes the plugin-error log line (plugins do not).
+
+function ConvertTo-ItcmdrCriticality {
+  param([string]$Value)
+  switch -Regex ($Value.Trim()) {
+    '^(?i)(critical|crit)$' { return 'critical' }
+    '^(?i)(cautious|caution|warn|warning)$' { return 'cautious' }
+    '^(?i)(informational|info)$' { return 'informational' }
+    default { return '' }
+  }
+}
+
+function Limit-ItcmdrText {
+  param([string]$Text, [int]$Max)
+  if ($null -eq $Text) { return '' }
+  if ($Text.Length -le $Max) { return $Text }
+  $mark = "`n...[truncated]"
+  return $Text.Substring(0, $Max - $mark.Length) + $mark
+}
+
+function New-ItcmdrPluginError {
+  <#
+    A plugin error. `throw (New-ItcmdrPluginError -Message 'share unreachable' -Criticality Critical)`
+    fails the stage with it; Write-ItcmdrPluginError records a non-fatal one. The backtrace is the
+    PowerShell call stack here (a thrown one also gets the catch site's ScriptStackTrace).
+  #>
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory)][string]$Message,
+    [Parameter(Mandatory)][ValidateSet('Critical', 'Cautious', 'Informational')][string]$Criticality,
+    [string]$Kind = 'ItcmdrPluginError',
+    [hashtable]$Context = @{}
+  )
+  $plugin = ''
+  if ($script:ItcmdrPluginInfo) { $plugin = [string]$script:ItcmdrPluginInfo.name }
+  $stack = (Get-PSCallStack | Select-Object -Skip 1 | ForEach-Object { "at $($_.Command), $($_.Location)" }) -join "`n"
+  $ctx = [ordered]@{}
+  foreach ($k in $Context.Keys) { $ctx[[string]$k] = [string]$Context[$k] }
+  [pscustomobject]@{
+    PSTypeName     = 'ItcmdrPluginError'
+    service_plugin = $plugin
+    kind           = $Kind
+    criticality    = (ConvertTo-ItcmdrCriticality $Criticality)
+    error          = (Limit-ItcmdrText $Message 4096)
+    backtrace      = (Limit-ItcmdrText $stack 16384)
+    context        = $ctx
+  }
+}
+
+function Write-ItcmdrPluginError {
+  <#
+    Record a non-fatal plugin error for the current stage (the stage still succeeds). The worst
+    one of the stage is sent to the server with the stage result.
+  #>
+  [CmdletBinding()]
+  param(
+    [Parameter(Mandatory, ParameterSetName = 'New')][string]$Message,
+    [Parameter(Mandatory, ParameterSetName = 'New')][ValidateSet('Critical', 'Cautious', 'Informational')][string]$Criticality,
+    [Parameter(ParameterSetName = 'New')][string]$Kind = 'ItcmdrPluginError',
+    [Parameter(ParameterSetName = 'New')][hashtable]$Context = @{},
+    [Parameter(Mandatory, ParameterSetName = 'Object')]$PluginError
+  )
+  if ($PSCmdlet.ParameterSetName -eq 'New') {
+    $PluginError = New-ItcmdrPluginError -Message $Message -Criticality $Criticality -Kind $Kind -Context $Context
+  }
+  if ($null -eq $script:ItcmdrPluginErrors) { $script:ItcmdrPluginErrors = New-Object System.Collections.ArrayList }
+  [void]$script:ItcmdrPluginErrors.Add($PluginError)
+}
+
+function Test-ItcmdrPluginError {
+  param($Value)
+  return ($null -ne $Value) -and ($Value -is [psobject]) -and ($Value.PSObject.TypeNames -contains 'ItcmdrPluginError')
+}
+
+function Get-ItcmdrWorstPluginError {
+  param($Errors)
+  $rank = @{ critical = 0; cautious = 1; informational = 2; '' = 1 }
+  return @($Errors) | Sort-Object { $rank[[string]$_.criticality] } | Select-Object -First 1
+}
+
+function ConvertTo-ItcmdrPluginErrorRecord {
+  # An exception caught by Invoke-ItcmdrPlugin. A thrown ItcmdrPluginError keeps its criticality;
+  # anything else gets an empty one, so the server applies the package's default_error_criticality
+  # (cautious unless set).
+  param($ErrorRecord)
+  $site = "$($ErrorRecord.ScriptStackTrace)`n$($ErrorRecord.InvocationInfo.PositionMessage)".Trim()
+  $t = $ErrorRecord.TargetObject
+  if (Test-ItcmdrPluginError $t) {
+    $bt = (("$($t.backtrace)`n$site").Trim())
+    return [ordered]@{ service_plugin = $t.service_plugin; kind = $t.kind; criticality = $t.criticality
+      error = $t.error; backtrace = (Limit-ItcmdrText $bt 16384); context = $t.context }
+  }
+  $plugin = ''
+  if ($script:ItcmdrPluginInfo) { $plugin = [string]$script:ItcmdrPluginInfo.name }
+  return [ordered]@{ service_plugin = $plugin; kind = $ErrorRecord.Exception.GetType().FullName; criticality = ''
+    error = (Limit-ItcmdrText $ErrorRecord.ToString() 4096); backtrace = (Limit-ItcmdrText $site 16384); context = [ordered]@{} }
+}
+
 function ConvertTo-ItcmdrStageResult {
   param($Value)
   if ($Value -is [array]) { $Value = $Value[-1] }
+  if (Test-ItcmdrPluginError $Value) {
+    # A returned (not thrown) plugin error fails the stage too.
+    return [ordered]@{ ok = $false; message = $Value.error; results = @(); plugin_error = $Value }
+  }
   if ($Value -is [bool]) { return [ordered]@{ ok = $Value; message = '' } }
   if ($Value -is [string]) { return [ordered]@{ ok = $true; message = $Value } }
   if ($Value -is [System.Collections.IDictionary]) {
@@ -171,6 +277,7 @@ function Invoke-ItcmdrPlugin {
       $out = [ordered]@{ name = [string]$Info.name; version = [string]$Info.version; features = $f; description = $d }
     } else {
       $script:ItcmdrPluginCtx = $req.ctx
+      $script:ItcmdrPluginErrors = New-Object System.Collections.ArrayList
       switch ($stage) {
         'verify' { $out = if ($Verify) { ConvertTo-ItcmdrStageResult (& $Verify $req.ctx) } else { [ordered]@{ ok = $true; message = 'no verify stage' } } }
         'execute' { $out = ConvertTo-ItcmdrStageResult (& $Execute $req.ctx) }
@@ -181,11 +288,15 @@ function Invoke-ItcmdrPlugin {
         default { throw "unknown stage '$stage'" }
       }
     }
+    if ($out -is [System.Collections.IDictionary] -and -not $out.Contains('plugin_error') -and $script:ItcmdrPluginErrors -and $script:ItcmdrPluginErrors.Count -gt 0) {
+      $out['plugin_error'] = Get-ItcmdrWorstPluginError $script:ItcmdrPluginErrors
+    }
   } catch {
-    $out = [ordered]@{ error = $_.ToString() }
+    $pe = ConvertTo-ItcmdrPluginErrorRecord $_
+    $out = [ordered]@{ error = [string]$pe.error; plugin_error = $pe }
   }
   $line = 'ITCMDR-RESULT|' + ($out | ConvertTo-Json -Depth 6 -Compress)
   Write-Output $line
 }
 
-Export-ModuleMember -Function Invoke-ItcmdrPlugin, Write-ItcmdrLog, Write-ItcmdrMetric, New-ItcmdrMetric, New-ItcmdrLogRecord, Get-ItcmdrLogTimestamp
+Export-ModuleMember -Function New-ItcmdrPluginError, Write-ItcmdrPluginError, Invoke-ItcmdrPlugin, Write-ItcmdrLog, Write-ItcmdrMetric, New-ItcmdrMetric, New-ItcmdrLogRecord, Get-ItcmdrLogTimestamp

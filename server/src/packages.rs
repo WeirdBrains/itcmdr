@@ -45,6 +45,10 @@ pub struct Manifest {
     pub features: Vec<String>,
     #[serde(default)]
     pub files: Vec<PackageFile>,
+    /// v0.15.0: criticality of an error the plugin did not classify (an uncaught exception, a
+    /// failed stage without a `PluginError`): critical | cautious | informational. Default cautious.
+    #[serde(default)]
+    pub default_error_criticality: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -134,6 +138,13 @@ pub fn parse_manifest(bytes: &[u8]) -> std::result::Result<Manifest, Reject> {
     for f in &m.features {
         if !FEATURES.contains(&f.as_str()) {
             return rej(format!("unknown feature {f:?}"));
+        }
+    }
+    if let Some(c) = &m.default_error_criticality {
+        if itcmdr_common::ErrorCriticality::parse(c).is_none() {
+            return rej(format!(
+                "default_error_criticality {c:?} must be critical, cautious or informational"
+            ));
         }
     }
     if m.files.is_empty() {

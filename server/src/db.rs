@@ -8,7 +8,7 @@ pub type DbPool = Pool<Sqlite>;
 
 /// Bumped whenever the schema changes. Stored as `PRAGMA user_version`; backups record it and
 /// restore refuses archives from a newer schema (older ones are migrated by `create_schema`).
-pub const SCHEMA_VERSION: i64 = 4;
+pub const SCHEMA_VERSION: i64 = 5;
 
 /// Open (creating if needed) the SQLCipher database. The data dir layout and DB key are created
 /// on first use. A pre-0.6 plaintext database at the target path, or `itcmdr.sqlite` next to it,
@@ -286,6 +286,24 @@ async fn create_schema(pool: &DbPool) -> anyhow::Result<()> {
         detail TEXT
     );
 
+    -- v0.15.0 call log: one row per RPC (calllog.rs). Never bodies, words or keys.
+    CREATE TABLE IF NOT EXISTS call_log (
+        id TEXT PRIMARY KEY,
+        ts_ms INTEGER NOT NULL,
+        service TEXT NOT NULL,
+        method TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        peer TEXT,
+        principal TEXT,
+        status INTEGER NOT NULL,
+        duration_ms INTEGER NOT NULL,
+        req_bytes INTEGER NOT NULL,
+        resp_bytes INTEGER NOT NULL,
+        error TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_call_log_ts ON call_log(ts_ms);
+    CREATE INDEX IF NOT EXISTS idx_call_log_method ON call_log(method, ts_ms);
+
     CREATE TABLE IF NOT EXISTS ingested_files (
         path TEXT PRIMARY KEY,
         size INTEGER NOT NULL,
@@ -415,6 +433,8 @@ async fn create_schema(pool: &DbPool) -> anyhow::Result<()> {
         "ALTER TABLE runs ADD COLUMN finished_ts_ms INTEGER",
         "ALTER TABLE runs ADD COLUMN exit_code INTEGER",
         "ALTER TABLE requests ADD COLUMN message TEXT",
+        // v0.15.0: audit rows link to the call that made them.
+        "ALTER TABLE audit_log ADD COLUMN call_id TEXT",
     ] {
         let _ = sqlx::query(m).execute(pool).await;
     }
@@ -861,23 +881,24 @@ pub async fn insert_audit(
     action: &str,
     detail: &str,
 ) -> anyhow::Result<()> {
-    sqlx::query("INSERT INTO audit_log (ts_ms, actor, action, detail) VALUES (?,?,?,?)")
+    sqlx::query("INSERT INTO audit_log (ts_ms, actor, action, detail, call_id) VALUES (?,?,?,?,?)")
         .bind(Utc::now().timestamp_millis())
         .bind(actor)
         .bind(action)
         .bind(detail)
+        .bind(crate::calllog::current_id())
         .execute(pool)
         .await?;
     crate::events::notify("audit", action, "");
     Ok(())
 }
 
-/// Newest first: (ts_ms, actor, action, detail)
+/// Newest first: (ts_ms, actor, action, detail, call_id)
 pub async fn list_audit(
     pool: &DbPool,
     limit: i64,
-) -> anyhow::Result<Vec<(i64, String, String, String)>> {
-    let rows = sqlx::query("SELECT ts_ms, COALESCE(actor,'') AS actor, action, COALESCE(detail,'') AS detail FROM audit_log ORDER BY id DESC LIMIT ?")
+) -> anyhow::Result<Vec<(i64, String, String, String, String)>> {
+    let rows = sqlx::query("SELECT ts_ms, COALESCE(actor,'') AS actor, action, COALESCE(detail,'') AS detail, COALESCE(call_id,'') AS call_id FROM audit_log ORDER BY id DESC LIMIT ?")
         .bind(limit)
         .fetch_all(pool)
         .await?;
@@ -889,6 +910,7 @@ pub async fn list_audit(
                 r.get("actor"),
                 r.get("action"),
                 r.get("detail"),
+                r.get("call_id"),
             )
         })
         .collect())

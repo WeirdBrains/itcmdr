@@ -1,0 +1,7 @@
+error: ServicePluginError needs a field `backtrace: String` on `NoBacktrace`
+ --> tests/ui/missing_backtrace.rs:3:17
+  |
+3 | #[derive(Debug, ServicePluginError)]
+  |                 ^^^^^^^^^^^^^^^^^^
+  |
+  = note: this error originates in the derive macro `ServicePluginError` (in Nightly builds, run with -Z macro-backtrace for more info)

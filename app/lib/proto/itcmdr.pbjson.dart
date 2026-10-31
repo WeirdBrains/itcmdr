@@ -425,13 +425,15 @@ const AuditEntry$json = {
     {'1': 'actor', '3': 2, '4': 1, '5': 9, '10': 'actor'},
     {'1': 'action', '3': 3, '4': 1, '5': 9, '10': 'action'},
     {'1': 'detail', '3': 4, '4': 1, '5': 9, '10': 'detail'},
+    {'1': 'call_id', '3': 5, '4': 1, '5': 9, '10': 'callId'},
   ],
 };
 
 /// Descriptor for `AuditEntry`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List auditEntryDescriptor = $convert.base64Decode(
     'CgpBdWRpdEVudHJ5Eg4KAnRzGAEgASgDUgJ0cxIUCgVhY3RvchgCIAEoCVIFYWN0b3ISFgoGYW'
-    'N0aW9uGAMgASgJUgZhY3Rpb24SFgoGZGV0YWlsGAQgASgJUgZkZXRhaWw=');
+    'N0aW9uGAMgASgJUgZhY3Rpb24SFgoGZGV0YWlsGAQgASgJUgZkZXRhaWwSFwoHY2FsbF9pZBgF'
+    'IAEoCVIGY2FsbElk');
 
 @$core.Deprecated('Use listAuditRequestDescriptor instead')
 const ListAuditRequest$json = {
@@ -464,6 +466,80 @@ const ListAuditResponse$json = {
 final $typed_data.Uint8List listAuditResponseDescriptor = $convert.base64Decode(
     'ChFMaXN0QXVkaXRSZXNwb25zZRIsCgdlbnRyaWVzGAEgAygLMhIuaXRjbWRyLkF1ZGl0RW50cn'
     'lSB2VudHJpZXM=');
+
+@$core.Deprecated('Use callEntryDescriptor instead')
+const CallEntry$json = {
+  '1': 'CallEntry',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
+    {'1': 'ts', '3': 2, '4': 1, '5': 3, '10': 'ts'},
+    {'1': 'service', '3': 3, '4': 1, '5': 9, '10': 'service'},
+    {'1': 'method', '3': 4, '4': 1, '5': 9, '10': 'method'},
+    {'1': 'kind', '3': 5, '4': 1, '5': 9, '10': 'kind'},
+    {'1': 'peer', '3': 6, '4': 1, '5': 9, '10': 'peer'},
+    {'1': 'principal', '3': 7, '4': 1, '5': 9, '10': 'principal'},
+    {'1': 'status', '3': 8, '4': 1, '5': 5, '10': 'status'},
+    {'1': 'status_name', '3': 9, '4': 1, '5': 9, '10': 'statusName'},
+    {'1': 'duration_ms', '3': 10, '4': 1, '5': 3, '10': 'durationMs'},
+    {'1': 'req_bytes', '3': 11, '4': 1, '5': 3, '10': 'reqBytes'},
+    {'1': 'resp_bytes', '3': 12, '4': 1, '5': 3, '10': 'respBytes'},
+    {'1': 'error', '3': 13, '4': 1, '5': 9, '10': 'error'},
+  ],
+};
+
+/// Descriptor for `CallEntry`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List callEntryDescriptor = $convert.base64Decode(
+    'CglDYWxsRW50cnkSDgoCaWQYASABKAlSAmlkEg4KAnRzGAIgASgDUgJ0cxIYCgdzZXJ2aWNlGA'
+    'MgASgJUgdzZXJ2aWNlEhYKBm1ldGhvZBgEIAEoCVIGbWV0aG9kEhIKBGtpbmQYBSABKAlSBGtp'
+    'bmQSEgoEcGVlchgGIAEoCVIEcGVlchIcCglwcmluY2lwYWwYByABKAlSCXByaW5jaXBhbBIWCg'
+    'ZzdGF0dXMYCCABKAVSBnN0YXR1cxIfCgtzdGF0dXNfbmFtZRgJIAEoCVIKc3RhdHVzTmFtZRIf'
+    'CgtkdXJhdGlvbl9tcxgKIAEoA1IKZHVyYXRpb25NcxIbCglyZXFfYnl0ZXMYCyABKANSCHJlcU'
+    'J5dGVzEh0KCnJlc3BfYnl0ZXMYDCABKANSCXJlc3BCeXRlcxIUCgVlcnJvchgNIAEoCVIFZXJy'
+    'b3I=');
+
+@$core.Deprecated('Use listCallsRequestDescriptor instead')
+const ListCallsRequest$json = {
+  '1': 'ListCallsRequest',
+  '2': [
+    {'1': 'limit', '3': 1, '4': 1, '5': 5, '10': 'limit'},
+    {'1': 'method', '3': 2, '4': 1, '5': 9, '10': 'method'},
+    {'1': 'principal', '3': 3, '4': 1, '5': 9, '10': 'principal'},
+    {'1': 'errors_only', '3': 4, '4': 1, '5': 8, '10': 'errorsOnly'},
+    {'1': 'status', '3': 5, '4': 1, '5': 5, '9': 0, '10': 'status', '17': true},
+    {'1': 'since_ms', '3': 6, '4': 1, '5': 3, '10': 'sinceMs'},
+    {'1': 'id', '3': 7, '4': 1, '5': 9, '10': 'id'},
+  ],
+  '8': [
+    {'1': '_status'},
+  ],
+};
+
+/// Descriptor for `ListCallsRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List listCallsRequestDescriptor = $convert.base64Decode(
+    'ChBMaXN0Q2FsbHNSZXF1ZXN0EhQKBWxpbWl0GAEgASgFUgVsaW1pdBIWCgZtZXRob2QYAiABKA'
+    'lSBm1ldGhvZBIcCglwcmluY2lwYWwYAyABKAlSCXByaW5jaXBhbBIfCgtlcnJvcnNfb25seRgE'
+    'IAEoCFIKZXJyb3JzT25seRIbCgZzdGF0dXMYBSABKAVIAFIGc3RhdHVziAEBEhkKCHNpbmNlX2'
+    '1zGAYgASgDUgdzaW5jZU1zEg4KAmlkGAcgASgJUgJpZEIJCgdfc3RhdHVz');
+
+@$core.Deprecated('Use listCallsResponseDescriptor instead')
+const ListCallsResponse$json = {
+  '1': 'ListCallsResponse',
+  '2': [
+    {
+      '1': 'calls',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.itcmdr.CallEntry',
+      '10': 'calls'
+    },
+  ],
+};
+
+/// Descriptor for `ListCallsResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List listCallsResponseDescriptor = $convert.base64Decode(
+    'ChFMaXN0Q2FsbHNSZXNwb25zZRInCgVjYWxscxgBIAMoCzIRLml0Y21kci5DYWxsRW50cnlSBW'
+    'NhbGxz');
 
 @$core.Deprecated('Use watchUpdatesRequestDescriptor instead')
 const WatchUpdatesRequest$json = {
