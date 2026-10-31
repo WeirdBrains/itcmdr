@@ -592,3 +592,16 @@ JSON. The rest sounds good to me").
 - Uses of the pinned copy: the installer (`{app}\agent\plugins`; ISCC stops with an error when the copy is missing), `Push-Install-ItcmdrAgent.ps1` (source-tree fallback), `Get-ItcmdrBuiltinPluginSet` (source-tree fallback) and the parity tests (`agent/tests/BuiltinPlugins.Tests.ps1`, which fail with a clear message when the copy is missing). The parity/cutover flow is unchanged: agents still run only the installed copies, and the check functions in `agent/Itcmdr.Checks.ps1` are still the fallback.
 - What stays in itcmdr, and why: `agent/Itcmdr.Checks.ps1` (the task runs the same functions, which is what parity compares; the plugins bundle it at pack time), the Rust plugin SDK `plugin/` (a workspace crate the server and `itcmdr-plugin-ps` build on) and `agent/Itcmdr.Plugin.psm1` (the PowerShell host module that the server's `itcmdr-plugin-ps` and the agent runner load).
 - Server installs: `Install-Plugins.ps1` / `install.sh` in itcmdr-plugins build, sign and install through `itcmdr-cli plugins install --path` (same validation and quarantine; `-Disabled`).
+
+### Server/agent/adminsvr decisions (2026-10-31)
+Recorded in docs/design/ADMINSVR.md ("Decisions"):
+- adminsvr can run on any host; test containers use rootless Podman.
+- iOS is in scope (Mac signing step pending).
+- No external notifiers: alerts go through the adminsvr app, `itcmdr-admin` CLI (full parity) or the future adminsvr agent. All levels are delivered, with per-level settings.
+- mTLS from the start, with rotation and revocation.
+- Heartbeat, port and ring defaults are kept, all configurable.
+- Only owners and admins can second-approve a release.
+- No PS agent fallback, and the office server runs the Rust agent.
+- Roles stay separate.
+- Remote upgrades are on by default and roll through rings automatically, with auto-pause and rollback.
+- SREs see only their own account in Users.
