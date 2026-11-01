@@ -223,10 +223,40 @@ pub struct Redactor {
 
 /// Alert code words that may go up unchanged. Anything else in a key is replaced by an opaque id.
 pub const VOCAB: &[&str] = &[
-    "agent", "agent-online", "agent-nonresponsive", "agent-late", "agent-cert", "agent-clock", "agent-run",
-    "agent-plugin", "agent-queue", "plugin", "repair", "quarantine", "backup", "nightly", "manual", "remote",
-    "check", "fail", "failed", "error", "errors", "exception", "timeout", "verify", "execute", "log",
-    "disk-low", "disk-full", "service-down", "cert-expiry", "restore", "schedule", "missed", "site-unreachable",
+    "agent",
+    "agent-online",
+    "agent-nonresponsive",
+    "agent-late",
+    "agent-cert",
+    "agent-clock",
+    "agent-run",
+    "agent-plugin",
+    "agent-queue",
+    "plugin",
+    "repair",
+    "quarantine",
+    "backup",
+    "nightly",
+    "manual",
+    "remote",
+    "check",
+    "fail",
+    "failed",
+    "error",
+    "errors",
+    "exception",
+    "timeout",
+    "verify",
+    "execute",
+    "log",
+    "disk-low",
+    "disk-full",
+    "service-down",
+    "cert-expiry",
+    "restore",
+    "schedule",
+    "missed",
+    "site-unreachable",
 ];
 
 const SOURCES: &[&str] = &[
@@ -404,7 +434,9 @@ impl Redactor {
                 if self.machines.contains(&seg.to_lowercase()) {
                     self.pid("machine", seg)
                 } else if seg.len() <= 40
-                    && seg.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.')
+                    && seg
+                        .chars()
+                        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.')
                     && self.vocab.contains(&seg.to_lowercase())
                     && !self.is_sensitive(seg)
                 {
@@ -708,6 +740,8 @@ async fn session(pool: &DbPool, cfg: &ServerConfig, st: &State) -> Result<()> {
                     Some(pb::admin_message::Body::Ping(_)) => out.send(pb::site_message::Body::Pong(pb::Pong { ts_ms: now_ms() })).await?,
                     Some(pb::admin_message::Body::Command(cmd)) => {
                         let (pool, cfg, st, done) = (pool.clone(), cfg.clone(), st.clone(), done_tx.clone());
+                        // allowlist and opt-in as they are now on disk (the site owner may have changed them)
+                        let st = load(&cfg).unwrap_or(st);
                         let red = Redactor::for_site(&pool, &cfg, &st).await;
                         tokio::spawn(async move {
                             let (ok, code) = apply(&pool, &cfg, &st, &red, &cmd).await;
