@@ -18,6 +18,7 @@ pub mod metrics;
 pub mod packages;
 pub mod plugin_logs;
 pub mod requests;
+pub mod remote;
 pub mod restore;
 pub mod restore_seal;
 pub mod runtime;

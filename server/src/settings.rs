@@ -108,6 +108,7 @@ pub fn registry() -> Vec<Def> {
         Def { from_cfg: Some(|c| json!(c.retention_days)), ..d("server.retention_days", Server, int(30, 3650), json!(400), "Days of run/check data kept in the database.") },
         d("agent.certLifetimeMins", Server, int(10, 5 * 365 * 1440), json!(90 * 1440), "Lifetime of agent client certificates in minutes (default 90 days); agents renew at 2/3 of it (v0.17.1)."),
         d("adminsvr.enabled", Server, Kind::Bool, json!(true), "Kill switch for the adminsvr link: false closes it and nothing from adminsvr is accepted. Only matters once linked (itcmdr-cli adminsvr enroll) (v0.19.0)."),
+        d("adminsvr.requireTwoPerson", Server, Kind::Bool, json!(true), "Plugin enable/disable/install from adminsvr need a second owner or admin's signature (v0.20.0). Local only: never settable from adminsvr."),
         d("adminsvr.heartbeatSecs", Server, int(0, 3600), json!(0), "Seconds between status messages to adminsvr; 0 = adminsvr's value from enrollment (default 60) (v0.19.0)."),
         d("alerts.dedupe_window_mins", Server, int(0, 7 * 24 * 60), json!(60), "A resolved alert raised again within this many minutes reopens instead of starting a new one (v0.16.0)."),
         d("calllog.retention_days", Server, int(1, 3650), json!(30), "Days of the call log (every RPC) kept in the database; finished days are exported to server-logs/calls first (v0.15.0)."),
