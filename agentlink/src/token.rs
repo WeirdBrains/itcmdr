@@ -17,6 +17,9 @@ pub struct Token {
     pub secret: String,
     /// machine the token is for ("" = any)
     pub machine: String,
+    /// v0.17.1: hex public key of the server root key that certifies the site CA ("" = not checked)
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub root: String,
 }
 
 impl Token {
@@ -60,6 +63,7 @@ mod tests {
             pin: "ab".repeat(32),
             secret: "00ff".into(),
             machine: "WS-01".into(),
+            root: "cd".repeat(32),
         };
         assert_eq!(Token::decode(&t.encode()).unwrap(), t);
         assert!(Token::decode("junk").is_err());

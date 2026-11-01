@@ -39,6 +39,9 @@ Every tunable value in itcmdr is a typed setting with today's behaviour as its d
 | `agent.nonresponsiveLevel` | agent | text: critical, cautious, informational | `critical` | next pass | admin/owner (RPC, app, CLI) | Level of the non-responsive alert (v0.17.0). |
 | `agent.serverNonresponsiveLevel` | agent | text: critical, cautious, informational | `critical` | next pass | admin/owner (RPC, app, CLI) | Level of the non-responsive alert for agents enrolled as role server (v0.17.0). |
 | `agent.reconnectMaxSecs` | agent | int 5..3600 | `300` | next link | admin/owner (RPC, app, CLI) | Longest wait between agent reconnect attempts (backoff cap, seconds) (v0.17.0). |
+| `agent.officeHours` | agent | text (`Mon-Fri 07:00-18:00`, or empty) | (empty) | next pass | admin/owner (RPC, app, CLI) | Heartbeat office-hours profile in server local time: outside the hours a missing agent raises no alert; misses count from the start of the hours. Empty: always (v0.17.1). |
+| `agent.queueMaxMib` | agent | int 1..4096 | `256` | next link | admin/owner (RPC, app, CLI) | Rust agent offline alert queue cap (MiB); oldest informational items are dropped first and the drop is reported (v0.17.1). |
+| `agent.certLifetimeMins` | server | int 10..2628000 | `129600` | next enroll/renewal | admin/owner (RPC, app, CLI) | Agent client certificate lifetime in minutes (90 days); agents renew over the link at 2/3 of it (v0.17.1). |
 | `agent.tcpTimeoutMs` | agent | int 100..60000 | `3000` | next run | admin/owner (RPC, app, CLI) | TCP probe timeout (ms). |
 | `auth.max_skew_secs` | server | int 30..3600 | `300` | next pass / next use | admin/owner (RPC, app, CLI) | Allowed clock difference for signed requests (seconds). |
 | `backup.dir` | server | path (must exist, writable; empty allowed) | `(empty = <data_dir>/backups)` | next pass / next use | admin/owner (RPC, app, CLI) | Backup archive folder (e.g. the share). Empty = <data_dir>/backups. |

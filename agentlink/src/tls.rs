@@ -127,7 +127,7 @@ pub fn sign_csr(
     csr_pem: &str,
     agent_id: &str,
     machine: &str,
-    days: i64,
+    lifetime_mins: i64,
 ) -> Result<Issued> {
     let (ca_cert, ca_key) = load_ca(ca)?;
     let mut csr = CertificateSigningRequestParams::from_pem(csr_pem).context("invalid CSR")?;
@@ -144,7 +144,7 @@ pub fn sign_csr(
     p.extended_key_usages = vec![ExtendedKeyUsagePurpose::ClientAuth];
     p.key_usages = vec![KeyUsagePurpose::DigitalSignature];
     p.is_ca = IsCa::ExplicitNoCa;
-    let not_after = days_from_now(days);
+    let not_after = time::OffsetDateTime::now_utc() + time::Duration::minutes(lifetime_mins);
     p.not_before = days_from_now(-1);
     p.not_after = not_after;
     let serial = rand_serial();
@@ -164,6 +164,13 @@ pub fn pem_to_der(pem: &str) -> Result<CertificateDer<'static>> {
     let (_, p) =
         x509_parser::pem::parse_x509_pem(pem.as_bytes()).map_err(|e| anyhow!("PEM: {e}"))?;
     Ok(CertificateDer::from(p.contents))
+}
+
+/// Serial number (hex) of a DER certificate, as stored at issue time.
+pub fn serial_of(der: &[u8]) -> Result<String> {
+    let (_, c) =
+        x509_parser::parse_x509_certificate(der).map_err(|e| anyhow!("certificate: {e}"))?;
+    Ok(hex::encode(c.tbs_certificate.raw_serial()))
 }
 
 /// SHA-256 hex of the first certificate in a PEM string.
@@ -290,14 +297,135 @@ pub async fn connect(
 
 /// tonic server TLS: the server identity, and client certificates verified against the site CA
 /// (optional at the TLS layer so `Enroll` works; `Link` requires one).
-pub fn server_tls(server: &Pem, ca_cert_pem: &str) -> tonic::transport::ServerTlsConfig {
-    tonic::transport::ServerTlsConfig::new()
-        .identity(tonic::transport::Identity::from_pem(
-            &server.cert,
-            &server.key,
-        ))
-        .client_ca_root(tonic::transport::Certificate::from_pem(ca_cert_pem))
-        .client_auth_optional(true)
+/// Decides whether a client certificate serial (hex) is refused in the handshake.
+pub type SerialCheck = Arc<dyn Fn(&str) -> bool + Send + Sync>;
+
+/// Client verifier: chain to the site CA (WebPKI), then refuse revoked/replaced serials, so a
+/// revoked agent cannot even finish the TLS handshake. Client auth stays optional (Enroll).
+#[derive(Debug)]
+struct SerialVerifier {
+    inner: Arc<dyn rustls::server::danger::ClientCertVerifier>,
+    revoked: Revoked,
+}
+
+struct Revoked(SerialCheck);
+impl std::fmt::Debug for Revoked {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("SerialCheck")
+    }
+}
+
+impl rustls::server::danger::ClientCertVerifier for SerialVerifier {
+    fn offer_client_auth(&self) -> bool {
+        true
+    }
+    fn client_auth_mandatory(&self) -> bool {
+        false
+    }
+    fn root_hint_subjects(&self) -> &[rustls::DistinguishedName] {
+        self.inner.root_hint_subjects()
+    }
+    fn verify_client_cert(
+        &self,
+        end: &CertificateDer<'_>,
+        inter: &[CertificateDer<'_>],
+        now: UnixTime,
+    ) -> Result<rustls::server::danger::ClientCertVerified, rustls::Error> {
+        let ok = self.inner.verify_client_cert(end, inter, now)?;
+        let serial = serial_of(end.as_ref()).map_err(|_| {
+            rustls::Error::InvalidCertificate(rustls::CertificateError::BadEncoding)
+        })?;
+        if (self.revoked.0)(&serial) {
+            return Err(rustls::Error::InvalidCertificate(
+                rustls::CertificateError::Revoked,
+            ));
+        }
+        Ok(ok)
+    }
+    fn verify_tls12_signature(
+        &self,
+        m: &[u8],
+        c: &CertificateDer<'_>,
+        d: &DigitallySignedStruct,
+    ) -> Result<HandshakeSignatureValid, rustls::Error> {
+        self.inner.verify_tls12_signature(m, c, d)
+    }
+    fn verify_tls13_signature(
+        &self,
+        m: &[u8],
+        c: &CertificateDer<'_>,
+        d: &DigitallySignedStruct,
+    ) -> Result<HandshakeSignatureValid, rustls::Error> {
+        self.inner.verify_tls13_signature(m, c, d)
+    }
+    fn supported_verify_schemes(&self) -> Vec<SignatureScheme> {
+        self.inner.supported_verify_schemes()
+    }
+}
+
+/// Server TLS config for the agent link (TLS 1.3, h2, optional client certs checked by serial).
+pub fn server_config(
+    server: &Pem,
+    ca_cert_pem: &str,
+    revoked: SerialCheck,
+) -> Result<rustls::ServerConfig> {
+    let prov = provider();
+    let mut roots = rustls::RootCertStore::empty();
+    roots.add(pem_to_der(ca_cert_pem)?)?;
+    let inner =
+        rustls::server::WebPkiClientVerifier::builder_with_provider(Arc::new(roots), prov.clone())
+            .allow_unauthenticated()
+            .build()
+            .map_err(|e| anyhow!("client verifier: {e}"))?;
+    let mut c = rustls::ServerConfig::builder_with_provider(prov)
+        .with_protocol_versions(&[&rustls::version::TLS13])?
+        .with_client_cert_verifier(Arc::new(SerialVerifier {
+            inner,
+            revoked: Revoked(revoked),
+        }))
+        .with_single_cert(vec![pem_to_der(&server.cert)?], key_der(&server.key)?)?;
+    c.alpn_protocols = vec![b"h2".to_vec()];
+    Ok(c)
+}
+
+/// TLS connections accepted on `listener` (each handshake runs in its own task, with a timeout;
+/// failed handshakes are logged by the caller-supplied hook and dropped).
+pub fn incoming(
+    listener: tokio::net::TcpListener,
+    cfg: rustls::ServerConfig,
+    on_fail: Arc<dyn Fn(std::net::SocketAddr, String) + Send + Sync>,
+) -> impl tokio_stream::Stream<
+    Item = std::io::Result<tokio_rustls::server::TlsStream<tokio::net::TcpStream>>,
+> {
+    let acc = tokio_rustls::TlsAcceptor::from(Arc::new(cfg));
+    let (tx, rx) = tokio::sync::mpsc::channel(64);
+    tokio::spawn(async move {
+        loop {
+            let (tcp, addr) = match listener.accept().await {
+                Ok(x) => x,
+                Err(_) => {
+                    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                    continue;
+                }
+            };
+            let (acc, tx2, on_fail) = (acc.clone(), tx.clone(), on_fail.clone());
+            tokio::spawn(async move {
+                let r =
+                    tokio::time::timeout(std::time::Duration::from_secs(20), acc.accept(tcp)).await;
+                match r {
+                    Ok(Ok(s)) => {
+                        let _ = tx2.send(Ok(s)).await;
+                    }
+                    Ok(Err(e)) => on_fail(addr, e.to_string()),
+                    Err(_) => on_fail(addr, "handshake timeout".into()),
+                }
+            });
+            if tx.is_closed() {
+                break;
+            }
+        }
+    });
+    tokio_stream::wrappers::ReceiverStream::new(rx)
 }
 
 mod http_uri {
@@ -313,9 +441,13 @@ mod tests {
         let s = issue_server(&ca, &["localhost".into(), "127.0.0.1".into()], 30).unwrap();
         assert_eq!(pem_fingerprint(&s.cert).unwrap().len(), 64);
         let (csr, _key) = new_csr("WS-01").unwrap();
-        let i = sign_csr(&ca, &csr, "agent-1", "WS-01", 90).unwrap();
+        let i = sign_csr(&ca, &csr, "agent-1", "WS-01", 90 * 1440).unwrap();
         assert_eq!(i.fingerprint, pem_fingerprint(&i.cert_pem).unwrap());
         assert!(i.not_after_ms > 0);
         assert!(sign_csr(&ca, "junk", "a", "WS-01", 90).is_err());
+        assert_eq!(
+            serial_of(&pem_to_der(&i.cert_pem).unwrap()).unwrap(),
+            i.serial
+        );
     }
 }

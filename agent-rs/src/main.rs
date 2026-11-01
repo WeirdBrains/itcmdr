@@ -41,6 +41,19 @@ enum Cmd {
     },
     /// Show the enrollment.
     Status,
+    /// Queue an alert for the server; delivered by the service, also after an outage (v0.17.1).
+    Alert {
+        /// Alert key (raised on the server as agent:<machine>:<key>; same key = same alert).
+        key: String,
+        title: String,
+        #[arg(long, default_value = "cautious", value_parser = ["critical", "cautious", "informational"])]
+        level: String,
+        #[arg(long, default_value = "")]
+        detail: String,
+        /// Resolve the open alert with this key instead of raising one.
+        #[arg(long)]
+        resolve: bool,
+    },
 }
 
 fn init_tracing(file: Option<PathBuf>) {
@@ -110,6 +123,28 @@ fn real_main() -> Result<()> {
             }
             Ok(())
         }
+        Some(Cmd::Alert {
+            key,
+            title,
+            level,
+            detail,
+            resolve,
+        }) => {
+            let p = itcmdr_agent::queue::spool(
+                &dir,
+                &itcmdr_agent::queue::Item {
+                    seq: 0,
+                    key,
+                    level,
+                    title,
+                    detail,
+                    ts_ms: chrono::Utc::now().timestamp_millis(),
+                    resolve,
+                },
+            )?;
+            println!("queued {}", p.display());
+            Ok(())
+        }
         Some(Cmd::Run { token_file }) => {
             init_tracing(None);
             let tf = token_file.unwrap_or_else(|| state::default_token_file(&dir));
@@ -123,7 +158,7 @@ fn real_main() -> Result<()> {
             })
         }
         None => {
-            eprintln!("use enroll, run or status (--help)");
+            eprintln!("use enroll, run, status or alert (--help)");
             std::process::exit(2);
         }
     }

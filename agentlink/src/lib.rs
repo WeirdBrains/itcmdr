@@ -7,14 +7,28 @@ pub mod pb {
     tonic::include_proto!("itcmdr.agent");
 }
 pub mod tls;
+pub use rustls;
+pub use tokio_rustls;
 pub mod token;
 
 pub use token::Token;
 
 /// Default agent link port (the app/CLI port is 50051).
 pub const DEFAULT_PORT: u16 = 50052;
-/// Agent client certificates live this long; renewal comes with the stream (later point release).
+/// Default agent client certificate lifetime (setting `agent.certLifetimeMins`).
 pub const CERT_DAYS: i64 = 90;
+
+/// Bytes the server root key signs to certify the site CA: SHA-256 of the CA certificate DER.
+pub fn ca_cert_bytes(ca_der: &[u8]) -> Vec<u8> {
+    let mut v = b"itcmdr-site-ca/v1\n".to_vec();
+    v.extend_from_slice(sha256_hex(ca_der).as_bytes());
+    v
+}
+
+/// Renew at 2/3 of the lifetime.
+pub fn renew_due(issued_ms: i64, expires_ms: i64, now_ms: i64) -> bool {
+    expires_ms > issued_ms && now_ms >= issued_ms + (expires_ms - issued_ms) * 2 / 3
+}
 
 /// Bytes an agent signs for its `Hello` (Ed25519, key registered at enrollment).
 /// `cert_fp` is the SHA-256 (hex) of the TLS client certificate on the same connection, so a
@@ -53,6 +67,7 @@ mod tests {
         let a = hello_bytes("a", "WS-01", 1, "n", "fp");
         assert_ne!(a, hello_bytes("a", "WS-02", 1, "n", "fp"));
         assert_ne!(a, hello_bytes("a", "WS-01", 1, "n", "fp2"));
+        assert!(!renew_due(0, 300, 199) && renew_due(0, 300, 200));
         assert!(valid_machine("WS-01") && !valid_machine("a b") && !valid_machine(""));
     }
 }

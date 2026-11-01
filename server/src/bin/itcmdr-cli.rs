@@ -118,6 +118,8 @@ enum AgentCmd {
     },
     /// Revoke a machine's agent: its certificate is refused and it must be enrolled again.
     Revoke { machine: String },
+    /// Ask a machine's agent to renew its certificate at its next heartbeat (v0.17.1).
+    Renew { machine: String },
     /// Maintenance on/off for a machine (no heartbeat alerts while on).
     Maintenance {
         machine: String,
@@ -1735,6 +1737,11 @@ fn run(rt: &tokio::runtime::Runtime) -> Result<()> {
                     AgentCmd::Revoke { machine } => {
                         let a = srv::agents::revoke(&pool, machine).await?.ok_or_else(|| anyhow::anyhow!("no enrolled agent on {machine}"))?;
                         audit("agent-revoke", serde_json::json!({"machine": a.machine, "agent": a.id})).await?;
+                        show(&a);
+                    }
+                    AgentCmd::Renew { machine } => {
+                        let a = srv::agents::request_renew(&pool, machine).await?.ok_or_else(|| anyhow::anyhow!("no enrolled agent on {machine}"))?;
+                        audit("agent-renew-request", serde_json::json!({"machine": a.machine, "agent": a.id})).await?;
                         show(&a);
                     }
                     AgentCmd::Maintenance { machine, mode } => {

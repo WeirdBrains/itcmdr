@@ -18,6 +18,16 @@ pub struct State {
     pub ca_pem: String,
     pub cert_expires_ms: i64,
     pub enrolled_ms: i64,
+    /// v0.17.1: when the current certificate was issued (renewal at 2/3 of its life).
+    #[serde(default)]
+    pub cert_issued_ms: i64,
+    /// v0.17.1: offline queue cap from the server's Welcome.
+    #[serde(default = "default_queue_mib")]
+    pub queue_max_mib: u64,
+}
+
+fn default_queue_mib() -> u64 {
+    256
 }
 
 pub fn default_dir() -> PathBuf {
