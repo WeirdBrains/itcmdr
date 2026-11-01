@@ -1,4 +1,4 @@
-# itcmdr-agent (Rust, v0.17.0)
+# itcmdr-agent (Rust, v0.17.1)
 
 A Windows service (`itcmdr-agent`, LocalSystem) on every PC **and on the office server**. In v0.17.0 it
 enrolls with the site server and keeps a heartbeat link; the PowerShell agent keeps running the checks
@@ -54,9 +54,48 @@ audit log (`agent-state`). Missed beats are counted from the last Pong/Hello:
 Coming back resolves the alert and leaves a closed Informational "back online" note. A Pong with the
 clock off by more than 5 minutes raises a Cautious `agent-clock:<machine>` alert.
 
+**Office hours (v0.17.1).** `agent.officeHours` (per machine, e.g. `Mon-Fri 07:00-18:00`, server local
+time; empty = always) is for PCs that are switched off at night. Outside the hours a missing agent goes
+no further than `late` and raises no alert; inside them, missed beats count from the later of the last
+beat and the start of today's hours, so a PC switched on at 07:10 is not reported as lost.
+`itcmdr-cli config set agent.officeHours "Mon-Fri 07:00-18:00" --machine WS-01`.
+
+## Certificates (v0.17.1)
+
+- **Site CA certified.** The server root key (itcmdr-cli init: itself certified by the master key, docs/SIGNING.md) signs
+  the site CA certificate once (`keys/agent-ca.sig`). Enrollment tokens carry the root public key; at
+  enrollment the agent checks that the server sent that key and a valid signature over the CA, so a
+  token only works with the server that made it. Tokens from a v0.17.0 server (no root) still work.
+  (The server has used the token by then: an enrollment the agent refused shows as `enrolled`, never
+  seen, in `agent list`; revoke it.)
+- **Lifetime and renewal.** Client certificates live `agent.certLifetimeMins` (server setting, default
+  129600 = 90 days). At 2/3 of its life the agent sends a new CSR over the link (new TLS key; the
+  Ed25519 key stays), saves the certificate and reconnects. The replaced certificate keeps working for
+  24 h. `itcmdr-cli agent renew WS-01` asks the agent to renew at its next heartbeat.
+- **Expiry alerts.** `agent-cert:<machine>`: Cautious under 14 days left, Critical under 3 days;
+  resolved by the renewal.
+- **Revocation in the handshake.** The link's TLS layer only accepts client certificates whose serial is
+  the current one of a non-revoked agent (or the one just replaced, during the 24 h overlap). A revoked
+  or superseded certificate fails the TLS handshake itself (logged as `agent link handshake refused`);
+  the agent reports it as refused and stops retrying until it is enrolled again. The set is reloaded on
+  every heartbeat pass and right after an enroll, renewal or revoke.
+
+## Offline queue (v0.17.1)
+
+`itcmdr-agent alert <key> <title> [--level critical|cautious|informational] [--detail ..] [--resolve]`
+(any local script, run as an administrator) drops the alert into `spool\` in the agent's data folder.
+The service moves it into `queue\` with a durable sequence number (also while the server is unreachable), sends it when linked and deletes it
+when the server acks it; the server raises `agent:<machine>:<key>` (or resolves it with `--resolve`) and
+ignores a sequence number it has already seen, so a reconnect never duplicates an alert. Alerts queued
+while the server was down are delivered after the reconnect, with the time they were queued. The queue
+is capped at `agent.queueMaxMib` (default 256 MiB, sent by the server on connect): the oldest
+informational items go first, then the oldest of any level, and the drop is reported as a Cautious
+`agent:<machine>:queue-dropped` alert.
+
 ## Admin
 
-- `itcmdr-cli agent list [--all]`, `agent revoke WS-01`, `agent maintenance WS-01 on|off`; the same in the
+- `itcmdr-cli agent list [--all]`, `agent revoke WS-01`, `agent renew WS-01` (v0.17.1, CLI only),
+  `agent maintenance WS-01 on|off`; the same (except renew) in the
   app's Agents page (`ListAgents`, `CreateEnrollToken`, `RevokeAgent`, `SetAgentMaintenance`, admin only,
   audited).
 - Revoking closes an open link at once (from the app) or at the next heartbeat (from `itcmdr-cli`); the
@@ -68,6 +107,5 @@ clock off by more than 5 minutes raises a Cautious `agent-clock:<machine>` alert
 
 ## Not yet (later point releases)
 
-Certificate renewal over the link and expiry alerts, a revocation list by serial checked in the
-handshake itself, the site CA certified by the master key, the office-hours profile, the offline queue,
-and running plugins/schedules in this agent (the PowerShell tasks still do that).
+Running plugins and schedules in this agent (v0.18.0; the PowerShell tasks still do that), a Renew
+button in the app, and queue items from the PowerShell agent.

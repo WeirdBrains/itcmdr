@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## v0.17.1 (2026-11-01)
+Agent certificates renewed over the link, revocation in the handshake, office hours, offline queue.
+- Site CA certified: the server root key (certified by the master key) signs the agent site CA (`keys/agent-ca.sig`); enrollment tokens carry the root public key and the agent verifies the server's key and the signature before trusting the CA. v0.17.0 tokens still work.
+- Certificate renewal over the link: new setting `agent.certLifetimeMins` (server, default 129600 = 90 days); the agent renews at 2/3 of the lifetime with a new CSR (new TLS key), saves the certificate and reconnects; the replaced certificate is accepted for 24 h. `itcmdr-cli agent renew <machine>` asks for a renewal at the next heartbeat.
+- Expiry alerts `agent-cert:<machine>`: Cautious under 14 days, Critical under 3 days, resolved by the renewal.
+- Revoked or replaced client certificates are refused in the TLS handshake (own acceptor with a client verifier that checks the serial against the agents table, reloaded every heartbeat pass and on enroll/renew/revoke).
+- Office-hours heartbeat profile: `agent.officeHours` (per machine, e.g. `Mon-Fri 07:00-18:00`): no alert outside the hours, misses counted from the start of the hours.
+- Offline queue: `itcmdr-agent alert <key> <title> [--level] [--detail] [--resolve]` spools an alert; the service queues it with a durable sequence number and delivers it once (server dedupe + ack), also after an outage; cap `agent.queueMaxMib` (default 256), informational items dropped first and the drop reported.
+- agent.proto: `Renew`/`AgentAlert` from the agent, `RenewNow`/`Renewed`/bare acks from the server, `Welcome.queue_max_mib`, `EnrollResponse.ca_signature`/`root_public_key`. Schema 8 (agents: `cert_issued_ms`, `prev_cert_fp`, `prev_serial`, `prev_until_ms`, `renew_requested`, `last_seq`).
+
 ## v0.17.0 (2026-11-01)
 The Rust agent: enrollment, pinned TLS + client certificates, heartbeats.
 - New `itcmdr-agent` (Windows service, also runs in the foreground on Linux/macOS) in the agent package, next to the PowerShell agent, which keeps running the checks. See docs/AGENT.md.
