@@ -1,0 +1,69 @@
+// v0.17.0: agent <-> server link. Agents dial the server over pinned TLS; Link needs the client
+// certificate issued at enrollment (mTLS) and a signed Hello. Placeholders only in comments.
+syntax = "proto3";
+package itcmdr.agent;
+
+service AgentService {
+  // One-time: the token's secret, a fresh agent key and a CSR. No client certificate needed.
+  rpc Enroll(EnrollRequest) returns (EnrollResponse);
+  // Long-lived stream: Hello first, then Pong for every Ping.
+  rpc Link(stream AgentMessage) returns (stream ServerMessage);
+}
+
+message EnrollRequest {
+  string token_secret = 1;
+  string machine = 2;
+  string public_key = 3;     // Ed25519, hex (signs every Hello)
+  string csr_pem = 4;        // TLS client key CSR (the key never leaves the PC)
+  string os = 5;
+  string agent_version = 6;
+  string role = 7;           // workstation | server
+}
+message EnrollResponse {
+  string agent_id = 1;
+  string client_cert_pem = 2;
+  string ca_cert_pem = 3;
+  int64 cert_expires_ms = 4;
+  int32 heartbeat_secs = 5;
+}
+
+message AgentMessage {
+  uint64 seq = 1;
+  oneof body {
+    Hello hello = 2;
+    Pong pong = 3;
+  }
+}
+message Hello {
+  string agent_id = 1;
+  string machine = 2;
+  string agent_version = 3;
+  string os = 4;
+  string role = 5;
+  int64 ts_ms = 6;
+  string nonce = 7;
+  string signature = 8;      // hex Ed25519 over itcmdr_agentlink::hello_bytes
+}
+message Pong {
+  string nonce = 1;
+  int64 agent_ts_ms = 2;
+}
+
+message ServerMessage {
+  uint64 ack_seq = 1;
+  oneof body {
+    Welcome welcome = 2;
+    Ping ping = 3;
+    Bye bye = 4;
+  }
+}
+message Welcome {
+  int64 server_ts_ms = 1;
+  int32 heartbeat_secs = 2;
+  int32 reconnect_max_secs = 3;
+}
+message Ping {
+  string nonce = 1;
+  int64 server_ts_ms = 2;
+}
+message Bye { string reason = 1; }   // revoked, replaced, shutting down

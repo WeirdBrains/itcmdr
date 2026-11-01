@@ -132,6 +132,12 @@ pub fn registry() -> Vec<Def> {
         d("agent.printerStuckMinutes", Agent, int(5, 10080), json!(60), "A print job older than this counts as stuck."),
         d("agent.backupMaxAgeHours", Agent, int(1, 720), json!(26), "Default max age of a backup task run / newest backup file (per-item maxAgeHours wins)."),
         d("agent.backupMinBytes", Agent, int(0, 1_000_000_000_000), json!(1), "Default minimum size of the newest backup file (per-item minBytes wins)."),
+        d("agent.heartbeatSecs", Agent, int(10, 3600), json!(60), "Rust agent heartbeat (ping) interval in seconds (v0.17.0)."),
+        d("agent.lateHeartbeats", Agent, int(1, 1000), json!(2), "Missed heartbeats before an agent shows as late (no alert) (v0.17.0)."),
+        d("agent.missedHeartbeats", Agent, int(1, 1000), json!(5), "Missed heartbeats before an agent is non-responsive and an alert is raised (v0.17.0)."),
+        d("agent.nonresponsiveLevel", Agent, Kind::Text, json!("critical"), "Level of the non-responsive alert: critical, cautious or informational (v0.17.0)."),
+        d("agent.serverNonresponsiveLevel", Agent, Kind::Text, json!("critical"), "Level of the non-responsive alert for agents enrolled as role server (v0.17.0)."),
+        d("agent.reconnectMaxSecs", Agent, int(5, 3600), json!(300), "Longest wait between agent reconnect attempts (backoff cap, seconds) (v0.17.0)."),
         d("agent.tcpTimeoutMs", Agent, int(100, 60000), json!(3000), "TCP probe timeout (ms)."),
         d("agent.staleLockMinutes", Agent, int(10, 1440), json!(150), "Poller: a request lock older than this was left by a crashed run."),
         Def { applies: "agent reinstall", ..d("agent.nightlyTime", Agent, Kind::Time, json!("01:30"), "Nightly maintenance task time (before stagger); also the default time of the built-in nightly-agent-run schedule.") },
@@ -417,6 +423,13 @@ pub async fn set(pool: &DbPool, key: &str, text: &str, machine: Option<&str>) ->
         if let Some(t) = v.as_str() {
             crate::schedule::parse_hours(t)?;
         }
+    }
+    if key.ends_with("onresponsiveLevel") {
+        ensure!(
+            v.as_str()
+                .is_some_and(|t| crate::alerts::LEVELS.contains(&t)),
+            "{key} must be critical, cautious or informational"
+        );
     }
     if key == "plugins.powershell" {
         ensure!(

@@ -1,6 +1,6 @@
 [package]
 name = "itcmdr-server"
-version = "0.16.0"
+version = "0.17.0"
 edition = "2021"
 description = "itcmdr gRPC server and background ingest"
 
@@ -22,7 +22,7 @@ path = "src/bin/itcmdr-restore.rs"
 
 [dependencies]
 tokio = { version = "1.40", features = ["rt-multi-thread", "macros", "signal", "time", "process", "io-util"] }
-tonic = { version = "0.12", features = ["transport"] }
+tonic = { version = "0.12", features = ["transport", "tls"] }
 tonic-web = "0.12"
 prost = "0.13"
 serde = { version = "1.0", features = ["derive"] }
@@ -61,6 +61,7 @@ ureq = "2"
 itcmdr-plugin = { path = "../plugin" }
 itcmdr-keys = { path = "../keys" }
 itcmdr-common = { path = "../common" }
+itcmdr-agentlink = { path = "../agentlink" }
 http = "1"
 http-body = "1"
 bytes = "1"
@@ -88,6 +89,8 @@ ed25519-dalek = "2.1"
 hex = "0.4"
 prost = "0.13"
 itcmdr-sample-data-gen = { path = "../tools/sample-data-gen" }
+itcmdr-agent = { path = "../agent-rs" }
+itcmdr-agentlink = { path = "../agentlink" }
 tempfile = "3.10"
 assert_cmd = "2.0"
 predicates = "3.1"

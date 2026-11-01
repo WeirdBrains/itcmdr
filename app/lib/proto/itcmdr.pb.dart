@@ -8021,6 +8021,603 @@ class GetRestoreStatusResponse extends $pb.GeneratedMessage {
   RestoreStatus ensureStatus() => $_ensure(0);
 }
 
+/// v0.17.0: Rust agents.
+class AgentInfo extends $pb.GeneratedMessage {
+  factory AgentInfo({
+    $core.String? id,
+    $core.String? machine,
+    $core.String? role,
+    $core.String? state,
+    $fixnum.Int64? enrolledMs,
+    $fixnum.Int64? lastSeenMs,
+    $core.String? version,
+    $core.String? os,
+    $core.String? peer,
+    $fixnum.Int64? certExpiresMs,
+    $core.String? certFingerprint,
+  }) {
+    final result = AgentInfo._();
+    if (id != null) result.id = id;
+    if (machine != null) result.machine = machine;
+    if (role != null) result.role = role;
+    if (state != null) result.state = state;
+    if (enrolledMs != null) result.enrolledMs = enrolledMs;
+    if (lastSeenMs != null) result.lastSeenMs = lastSeenMs;
+    if (version != null) result.version = version;
+    if (os != null) result.os = os;
+    if (peer != null) result.peer = peer;
+    if (certExpiresMs != null) result.certExpiresMs = certExpiresMs;
+    if (certFingerprint != null) result.certFingerprint = certFingerprint;
+    return result;
+  }
+
+  AgentInfo._();
+
+  factory AgentInfo.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      AgentInfo()..mergeFromBuffer(data, registry);
+  factory AgentInfo.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      AgentInfo()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'AgentInfo',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: AgentInfo.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'machine')
+    ..aOS(3, _omitFieldNames ? '' : 'role')
+    ..aOS(4, _omitFieldNames ? '' : 'state')
+    ..aInt64(5, _omitFieldNames ? '' : 'enrolledMs')
+    ..aInt64(6, _omitFieldNames ? '' : 'lastSeenMs')
+    ..aOS(7, _omitFieldNames ? '' : 'version')
+    ..aOS(8, _omitFieldNames ? '' : 'os')
+    ..aOS(9, _omitFieldNames ? '' : 'peer')
+    ..aInt64(10, _omitFieldNames ? '' : 'certExpiresMs')
+    ..aOS(11, _omitFieldNames ? '' : 'certFingerprint')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AgentInfo clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AgentInfo copyWith(void Function(AgentInfo) updates) =>
+      super.copyWith((message) => updates(message as AgentInfo)) as AgentInfo;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use AgentInfo() / AgentInfo.new instead')
+  static AgentInfo create() => AgentInfo._();
+  static $pb.GeneratedMessage $_createMessage() => AgentInfo._();
+  @$core.override
+  AgentInfo createEmptyInstance() => AgentInfo._();
+  @$core.pragma('dart2js:noInline')
+  static AgentInfo getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<AgentInfo>(AgentInfo.$_createMessage);
+  static AgentInfo? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get machine => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set machine($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasMachine() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearMachine() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get role => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set role($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasRole() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearRole() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get state => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set state($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasState() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearState() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $fixnum.Int64 get enrolledMs => $_getI64(4);
+  @$pb.TagNumber(5)
+  set enrolledMs($fixnum.Int64 value) => $_setInt64(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasEnrolledMs() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearEnrolledMs() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $fixnum.Int64 get lastSeenMs => $_getI64(5);
+  @$pb.TagNumber(6)
+  set lastSeenMs($fixnum.Int64 value) => $_setInt64(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasLastSeenMs() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearLastSeenMs() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.String get version => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set version($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasVersion() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearVersion() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.String get os => $_getSZ(7);
+  @$pb.TagNumber(8)
+  set os($core.String value) => $_setString(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasOs() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearOs() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.String get peer => $_getSZ(8);
+  @$pb.TagNumber(9)
+  set peer($core.String value) => $_setString(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasPeer() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearPeer() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $fixnum.Int64 get certExpiresMs => $_getI64(9);
+  @$pb.TagNumber(10)
+  set certExpiresMs($fixnum.Int64 value) => $_setInt64(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasCertExpiresMs() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearCertExpiresMs() => $_clearField(10);
+
+  @$pb.TagNumber(11)
+  $core.String get certFingerprint => $_getSZ(10);
+  @$pb.TagNumber(11)
+  set certFingerprint($core.String value) => $_setString(10, value);
+  @$pb.TagNumber(11)
+  $core.bool hasCertFingerprint() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearCertFingerprint() => $_clearField(11);
+}
+
+class ListAgentsRequest extends $pb.GeneratedMessage {
+  factory ListAgentsRequest({
+    $core.bool? includeRevoked,
+  }) {
+    final result = ListAgentsRequest._();
+    if (includeRevoked != null) result.includeRevoked = includeRevoked;
+    return result;
+  }
+
+  ListAgentsRequest._();
+
+  factory ListAgentsRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListAgentsRequest()..mergeFromBuffer(data, registry);
+  factory ListAgentsRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListAgentsRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ListAgentsRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: ListAgentsRequest.$_createMessage)
+    ..aOB(1, _omitFieldNames ? '' : 'includeRevoked')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListAgentsRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListAgentsRequest copyWith(void Function(ListAgentsRequest) updates) =>
+      super.copyWith((message) => updates(message as ListAgentsRequest))
+          as ListAgentsRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ListAgentsRequest() / ListAgentsRequest.new instead')
+  static ListAgentsRequest create() => ListAgentsRequest._();
+  static $pb.GeneratedMessage $_createMessage() => ListAgentsRequest._();
+  @$core.override
+  ListAgentsRequest createEmptyInstance() => ListAgentsRequest._();
+  @$core.pragma('dart2js:noInline')
+  static ListAgentsRequest getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ListAgentsRequest>(
+          ListAgentsRequest.$_createMessage);
+  static ListAgentsRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.bool get includeRevoked => $_getBF(0);
+  @$pb.TagNumber(1)
+  set includeRevoked($core.bool value) => $_setBool(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasIncludeRevoked() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearIncludeRevoked() => $_clearField(1);
+}
+
+class ListAgentsResponse extends $pb.GeneratedMessage {
+  factory ListAgentsResponse({
+    $core.Iterable<AgentInfo>? agents,
+  }) {
+    final result = ListAgentsResponse._();
+    if (agents != null) result.agents.addAll(agents);
+    return result;
+  }
+
+  ListAgentsResponse._();
+
+  factory ListAgentsResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListAgentsResponse()..mergeFromBuffer(data, registry);
+  factory ListAgentsResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListAgentsResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ListAgentsResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: ListAgentsResponse.$_createMessage)
+    ..pPM<AgentInfo>(1, _omitFieldNames ? '' : 'agents',
+        subBuilder: AgentInfo.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListAgentsResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListAgentsResponse copyWith(void Function(ListAgentsResponse) updates) =>
+      super.copyWith((message) => updates(message as ListAgentsResponse))
+          as ListAgentsResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ListAgentsResponse() / ListAgentsResponse.new instead')
+  static ListAgentsResponse create() => ListAgentsResponse._();
+  static $pb.GeneratedMessage $_createMessage() => ListAgentsResponse._();
+  @$core.override
+  ListAgentsResponse createEmptyInstance() => ListAgentsResponse._();
+  @$core.pragma('dart2js:noInline')
+  static ListAgentsResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ListAgentsResponse>(
+          ListAgentsResponse.$_createMessage);
+  static ListAgentsResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<AgentInfo> get agents => $_getList(0);
+}
+
+class CreateEnrollTokenRequest extends $pb.GeneratedMessage {
+  factory CreateEnrollTokenRequest({
+    $core.String? machine,
+    $fixnum.Int64? ttlMins,
+    $core.String? address,
+  }) {
+    final result = CreateEnrollTokenRequest._();
+    if (machine != null) result.machine = machine;
+    if (ttlMins != null) result.ttlMins = ttlMins;
+    if (address != null) result.address = address;
+    return result;
+  }
+
+  CreateEnrollTokenRequest._();
+
+  factory CreateEnrollTokenRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      CreateEnrollTokenRequest()..mergeFromBuffer(data, registry);
+  factory CreateEnrollTokenRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      CreateEnrollTokenRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateEnrollTokenRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: CreateEnrollTokenRequest.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'machine')
+    ..aInt64(2, _omitFieldNames ? '' : 'ttlMins')
+    ..aOS(3, _omitFieldNames ? '' : 'address')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateEnrollTokenRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateEnrollTokenRequest copyWith(
+          void Function(CreateEnrollTokenRequest) updates) =>
+      super.copyWith((message) => updates(message as CreateEnrollTokenRequest))
+          as CreateEnrollTokenRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use CreateEnrollTokenRequest() / CreateEnrollTokenRequest.new instead')
+  static CreateEnrollTokenRequest create() => CreateEnrollTokenRequest._();
+  static $pb.GeneratedMessage $_createMessage() => CreateEnrollTokenRequest._();
+  @$core.override
+  CreateEnrollTokenRequest createEmptyInstance() =>
+      CreateEnrollTokenRequest._();
+  @$core.pragma('dart2js:noInline')
+  static CreateEnrollTokenRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateEnrollTokenRequest>(
+          CreateEnrollTokenRequest.$_createMessage);
+  static CreateEnrollTokenRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get machine => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set machine($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasMachine() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearMachine() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get ttlMins => $_getI64(1);
+  @$pb.TagNumber(2)
+  set ttlMins($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasTtlMins() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearTtlMins() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get address => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set address($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasAddress() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearAddress() => $_clearField(3);
+}
+
+class CreateEnrollTokenResponse extends $pb.GeneratedMessage {
+  factory CreateEnrollTokenResponse({
+    $core.String? token,
+    $fixnum.Int64? expiresMs,
+    $core.String? address,
+    $core.String? serverFingerprint,
+  }) {
+    final result = CreateEnrollTokenResponse._();
+    if (token != null) result.token = token;
+    if (expiresMs != null) result.expiresMs = expiresMs;
+    if (address != null) result.address = address;
+    if (serverFingerprint != null) result.serverFingerprint = serverFingerprint;
+    return result;
+  }
+
+  CreateEnrollTokenResponse._();
+
+  factory CreateEnrollTokenResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      CreateEnrollTokenResponse()..mergeFromBuffer(data, registry);
+  factory CreateEnrollTokenResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      CreateEnrollTokenResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'CreateEnrollTokenResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: CreateEnrollTokenResponse.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'token')
+    ..aInt64(2, _omitFieldNames ? '' : 'expiresMs')
+    ..aOS(3, _omitFieldNames ? '' : 'address')
+    ..aOS(4, _omitFieldNames ? '' : 'serverFingerprint')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateEnrollTokenResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  CreateEnrollTokenResponse copyWith(
+          void Function(CreateEnrollTokenResponse) updates) =>
+      super.copyWith((message) => updates(message as CreateEnrollTokenResponse))
+          as CreateEnrollTokenResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use CreateEnrollTokenResponse() / CreateEnrollTokenResponse.new instead')
+  static CreateEnrollTokenResponse create() => CreateEnrollTokenResponse._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      CreateEnrollTokenResponse._();
+  @$core.override
+  CreateEnrollTokenResponse createEmptyInstance() =>
+      CreateEnrollTokenResponse._();
+  @$core.pragma('dart2js:noInline')
+  static CreateEnrollTokenResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<CreateEnrollTokenResponse>(
+          CreateEnrollTokenResponse.$_createMessage);
+  static CreateEnrollTokenResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get token => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set token($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasToken() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearToken() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get expiresMs => $_getI64(1);
+  @$pb.TagNumber(2)
+  set expiresMs($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasExpiresMs() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearExpiresMs() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get address => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set address($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasAddress() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearAddress() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get serverFingerprint => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set serverFingerprint($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasServerFingerprint() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearServerFingerprint() => $_clearField(4);
+}
+
+class AgentMachineRef extends $pb.GeneratedMessage {
+  factory AgentMachineRef({
+    $core.String? machine,
+  }) {
+    final result = AgentMachineRef._();
+    if (machine != null) result.machine = machine;
+    return result;
+  }
+
+  AgentMachineRef._();
+
+  factory AgentMachineRef.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      AgentMachineRef()..mergeFromBuffer(data, registry);
+  factory AgentMachineRef.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      AgentMachineRef()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'AgentMachineRef',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: AgentMachineRef.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'machine')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AgentMachineRef clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AgentMachineRef copyWith(void Function(AgentMachineRef) updates) =>
+      super.copyWith((message) => updates(message as AgentMachineRef))
+          as AgentMachineRef;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use AgentMachineRef() / AgentMachineRef.new instead')
+  static AgentMachineRef create() => AgentMachineRef._();
+  static $pb.GeneratedMessage $_createMessage() => AgentMachineRef._();
+  @$core.override
+  AgentMachineRef createEmptyInstance() => AgentMachineRef._();
+  @$core.pragma('dart2js:noInline')
+  static AgentMachineRef getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<AgentMachineRef>(
+          AgentMachineRef.$_createMessage);
+  static AgentMachineRef? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get machine => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set machine($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasMachine() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearMachine() => $_clearField(1);
+}
+
+class SetAgentMaintenanceRequest extends $pb.GeneratedMessage {
+  factory SetAgentMaintenanceRequest({
+    $core.String? machine,
+    $core.bool? on,
+  }) {
+    final result = SetAgentMaintenanceRequest._();
+    if (machine != null) result.machine = machine;
+    if (on != null) result.on = on;
+    return result;
+  }
+
+  SetAgentMaintenanceRequest._();
+
+  factory SetAgentMaintenanceRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SetAgentMaintenanceRequest()..mergeFromBuffer(data, registry);
+  factory SetAgentMaintenanceRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SetAgentMaintenanceRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SetAgentMaintenanceRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: SetAgentMaintenanceRequest.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'machine')
+    ..aOB(2, _omitFieldNames ? '' : 'on')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetAgentMaintenanceRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetAgentMaintenanceRequest copyWith(
+          void Function(SetAgentMaintenanceRequest) updates) =>
+      super.copyWith(
+              (message) => updates(message as SetAgentMaintenanceRequest))
+          as SetAgentMaintenanceRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use SetAgentMaintenanceRequest() / SetAgentMaintenanceRequest.new instead')
+  static SetAgentMaintenanceRequest create() => SetAgentMaintenanceRequest._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      SetAgentMaintenanceRequest._();
+  @$core.override
+  SetAgentMaintenanceRequest createEmptyInstance() =>
+      SetAgentMaintenanceRequest._();
+  @$core.pragma('dart2js:noInline')
+  static SetAgentMaintenanceRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SetAgentMaintenanceRequest>(
+          SetAgentMaintenanceRequest.$_createMessage);
+  static SetAgentMaintenanceRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get machine => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set machine($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasMachine() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearMachine() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.bool get on => $_getBF(1);
+  @$pb.TagNumber(2)
+  set on($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasOn() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearOn() => $_clearField(2);
+}
+
 const $core.bool _omitFieldNames =
     $core.bool.fromEnvironment('protobuf.omit_field_names');
 const $core.bool _omitMessageNames =

@@ -1073,6 +1073,79 @@ pub struct GetRestoreStatusResponse {
     #[prost(message, optional, tag = "1")]
     pub status: ::core::option::Option<RestoreStatus>,
 }
+/// v0.17.0: Rust agents.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AgentInfo {
+    #[prost(string, tag = "1")]
+    pub id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub machine: ::prost::alloc::string::String,
+    /// workstation | server
+    #[prost(string, tag = "3")]
+    pub role: ::prost::alloc::string::String,
+    /// enrolled | online | late | non_responsive | maintenance | revoked
+    #[prost(string, tag = "4")]
+    pub state: ::prost::alloc::string::String,
+    #[prost(int64, tag = "5")]
+    pub enrolled_ms: i64,
+    #[prost(int64, tag = "6")]
+    pub last_seen_ms: i64,
+    #[prost(string, tag = "7")]
+    pub version: ::prost::alloc::string::String,
+    #[prost(string, tag = "8")]
+    pub os: ::prost::alloc::string::String,
+    #[prost(string, tag = "9")]
+    pub peer: ::prost::alloc::string::String,
+    #[prost(int64, tag = "10")]
+    pub cert_expires_ms: i64,
+    #[prost(string, tag = "11")]
+    pub cert_fingerprint: ::prost::alloc::string::String,
+}
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct ListAgentsRequest {
+    #[prost(bool, tag = "1")]
+    pub include_revoked: bool,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListAgentsResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub agents: ::prost::alloc::vec::Vec<AgentInfo>,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CreateEnrollTokenRequest {
+    /// "" = any machine
+    #[prost(string, tag = "1")]
+    pub machine: ::prost::alloc::string::String,
+    /// default 1440 (24 h), max 30 days
+    #[prost(int64, tag = "2")]
+    pub ttl_mins: i64,
+    /// host:port agents dial; default this server's name + agent port
+    #[prost(string, tag = "3")]
+    pub address: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CreateEnrollTokenResponse {
+    #[prost(string, tag = "1")]
+    pub token: ::prost::alloc::string::String,
+    #[prost(int64, tag = "2")]
+    pub expires_ms: i64,
+    #[prost(string, tag = "3")]
+    pub address: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub server_fingerprint: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AgentMachineRef {
+    #[prost(string, tag = "1")]
+    pub machine: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SetAgentMaintenanceRequest {
+    #[prost(string, tag = "1")]
+    pub machine: ::prost::alloc::string::String,
+    #[prost(bool, tag = "2")]
+    pub on: bool,
+}
 /// Metrics and rollups
 /// Buckets are aligned to ISO weeks: weekly = ISO week (Mon-Sun);
 /// block4 = 4-ISO-week block N covering weeks 4N-3..4N (13 per ISO year,
@@ -1509,6 +1582,93 @@ pub mod itcmdr_client {
             let mut req = request.into_request();
             req.extensions_mut()
                 .insert(GrpcMethod::new("itcmdr.Itcmdr", "SilenceAlerts"));
+            self.inner.unary(req, path, codec).await
+        }
+        /// v0.17.0: Rust agents (admin). Enrollment and the heartbeat stream are on the agent link (agent.proto).
+        pub async fn list_agents(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListAgentsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListAgentsResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static("/itcmdr.Itcmdr/ListAgents");
+            let mut req = request.into_request();
+            req.extensions_mut().insert(GrpcMethod::new("itcmdr.Itcmdr", "ListAgents"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn create_enroll_token(
+            &mut self,
+            request: impl tonic::IntoRequest<super::CreateEnrollTokenRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::CreateEnrollTokenResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/itcmdr.Itcmdr/CreateEnrollToken",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("itcmdr.Itcmdr", "CreateEnrollToken"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn revoke_agent(
+            &mut self,
+            request: impl tonic::IntoRequest<super::AgentMachineRef>,
+        ) -> std::result::Result<tonic::Response<super::AgentInfo>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/itcmdr.Itcmdr/RevokeAgent",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut().insert(GrpcMethod::new("itcmdr.Itcmdr", "RevokeAgent"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn set_agent_maintenance(
+            &mut self,
+            request: impl tonic::IntoRequest<super::SetAgentMaintenanceRequest>,
+        ) -> std::result::Result<tonic::Response<super::AgentInfo>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/itcmdr.Itcmdr/SetAgentMaintenance",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("itcmdr.Itcmdr", "SetAgentMaintenance"));
             self.inner.unary(req, path, codec).await
         }
         pub async fn create_backup(
@@ -2414,6 +2574,29 @@ pub mod itcmdr_server {
             tonic::Response<super::SilenceAlertsResponse>,
             tonic::Status,
         >;
+        /// v0.17.0: Rust agents (admin). Enrollment and the heartbeat stream are on the agent link (agent.proto).
+        async fn list_agents(
+            &self,
+            request: tonic::Request<super::ListAgentsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListAgentsResponse>,
+            tonic::Status,
+        >;
+        async fn create_enroll_token(
+            &self,
+            request: tonic::Request<super::CreateEnrollTokenRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::CreateEnrollTokenResponse>,
+            tonic::Status,
+        >;
+        async fn revoke_agent(
+            &self,
+            request: tonic::Request<super::AgentMachineRef>,
+        ) -> std::result::Result<tonic::Response<super::AgentInfo>, tonic::Status>;
+        async fn set_agent_maintenance(
+            &self,
+            request: tonic::Request<super::SetAgentMaintenanceRequest>,
+        ) -> std::result::Result<tonic::Response<super::AgentInfo>, tonic::Status>;
         async fn create_backup(
             &self,
             request: tonic::Request<super::CreateBackupRequest>,
@@ -3332,6 +3515,182 @@ pub mod itcmdr_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = SilenceAlertsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/itcmdr.Itcmdr/ListAgents" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListAgentsSvc<T: Itcmdr>(pub Arc<T>);
+                    impl<T: Itcmdr> tonic::server::UnaryService<super::ListAgentsRequest>
+                    for ListAgentsSvc<T> {
+                        type Response = super::ListAgentsResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListAgentsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Itcmdr>::list_agents(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListAgentsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/itcmdr.Itcmdr/CreateEnrollToken" => {
+                    #[allow(non_camel_case_types)]
+                    struct CreateEnrollTokenSvc<T: Itcmdr>(pub Arc<T>);
+                    impl<
+                        T: Itcmdr,
+                    > tonic::server::UnaryService<super::CreateEnrollTokenRequest>
+                    for CreateEnrollTokenSvc<T> {
+                        type Response = super::CreateEnrollTokenResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::CreateEnrollTokenRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Itcmdr>::create_enroll_token(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = CreateEnrollTokenSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/itcmdr.Itcmdr/RevokeAgent" => {
+                    #[allow(non_camel_case_types)]
+                    struct RevokeAgentSvc<T: Itcmdr>(pub Arc<T>);
+                    impl<T: Itcmdr> tonic::server::UnaryService<super::AgentMachineRef>
+                    for RevokeAgentSvc<T> {
+                        type Response = super::AgentInfo;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::AgentMachineRef>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Itcmdr>::revoke_agent(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = RevokeAgentSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/itcmdr.Itcmdr/SetAgentMaintenance" => {
+                    #[allow(non_camel_case_types)]
+                    struct SetAgentMaintenanceSvc<T: Itcmdr>(pub Arc<T>);
+                    impl<
+                        T: Itcmdr,
+                    > tonic::server::UnaryService<super::SetAgentMaintenanceRequest>
+                    for SetAgentMaintenanceSvc<T> {
+                        type Response = super::AgentInfo;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::SetAgentMaintenanceRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Itcmdr>::set_agent_maintenance(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = SetAgentMaintenanceSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

@@ -110,8 +110,8 @@ void main() {
     'every documented setting default is accepted, and search finds them',
     () {
       final all = settingsFromReference();
-      expect(all, hasLength(39));
-      expect(all.map((s) => s.key).toSet(), hasLength(39));
+      expect(all, hasLength(45));
+      expect(all.map((s) => s.key).toSet(), hasLength(45));
       for (final s in all) {
         if (s.readOnly) {
           expect(validateSettingValue(s, s.value), isNotNull, reason: s.key);

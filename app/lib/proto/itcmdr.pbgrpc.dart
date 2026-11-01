@@ -130,6 +130,35 @@ class ItcmdrClient extends $grpc.Client {
     return $createUnaryCall(_$silenceAlerts, request, options: options);
   }
 
+  /// v0.17.0: Rust agents (admin). Enrollment and the heartbeat stream are on the agent link (agent.proto).
+  $grpc.ResponseFuture<$0.ListAgentsResponse> listAgents(
+    $0.ListAgentsRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$listAgents, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.CreateEnrollTokenResponse> createEnrollToken(
+    $0.CreateEnrollTokenRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$createEnrollToken, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.AgentInfo> revokeAgent(
+    $0.AgentMachineRef request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$revokeAgent, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.AgentInfo> setAgentMaintenance(
+    $0.SetAgentMaintenanceRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$setAgentMaintenance, request, options: options);
+  }
+
   $grpc.ResponseFuture<$0.CreateBackupResponse> createBackup(
     $0.CreateBackupRequest request, {
     $grpc.CallOptions? options,
@@ -443,6 +472,26 @@ class ItcmdrClient extends $grpc.Client {
           '/itcmdr.Itcmdr/SilenceAlerts',
           ($0.SilenceAlertsRequest value) => value.writeToBuffer(),
           $0.SilenceAlertsResponse.fromBuffer);
+  static final _$listAgents =
+      $grpc.ClientMethod<$0.ListAgentsRequest, $0.ListAgentsResponse>(
+          '/itcmdr.Itcmdr/ListAgents',
+          ($0.ListAgentsRequest value) => value.writeToBuffer(),
+          $0.ListAgentsResponse.fromBuffer);
+  static final _$createEnrollToken = $grpc.ClientMethod<
+          $0.CreateEnrollTokenRequest, $0.CreateEnrollTokenResponse>(
+      '/itcmdr.Itcmdr/CreateEnrollToken',
+      ($0.CreateEnrollTokenRequest value) => value.writeToBuffer(),
+      $0.CreateEnrollTokenResponse.fromBuffer);
+  static final _$revokeAgent =
+      $grpc.ClientMethod<$0.AgentMachineRef, $0.AgentInfo>(
+          '/itcmdr.Itcmdr/RevokeAgent',
+          ($0.AgentMachineRef value) => value.writeToBuffer(),
+          $0.AgentInfo.fromBuffer);
+  static final _$setAgentMaintenance =
+      $grpc.ClientMethod<$0.SetAgentMaintenanceRequest, $0.AgentInfo>(
+          '/itcmdr.Itcmdr/SetAgentMaintenance',
+          ($0.SetAgentMaintenanceRequest value) => value.writeToBuffer(),
+          $0.AgentInfo.fromBuffer);
   static final _$createBackup =
       $grpc.ClientMethod<$0.CreateBackupRequest, $0.CreateBackupResponse>(
           '/itcmdr.Itcmdr/CreateBackup',
@@ -732,6 +781,37 @@ abstract class ItcmdrServiceBase extends $grpc.Service {
             ($core.List<$core.int> value) =>
                 $0.SilenceAlertsRequest.fromBuffer(value),
             ($0.SilenceAlertsResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.ListAgentsRequest, $0.ListAgentsResponse>(
+        'ListAgents',
+        listAgents_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.ListAgentsRequest.fromBuffer(value),
+        ($0.ListAgentsResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.CreateEnrollTokenRequest,
+            $0.CreateEnrollTokenResponse>(
+        'CreateEnrollToken',
+        createEnrollToken_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) =>
+            $0.CreateEnrollTokenRequest.fromBuffer(value),
+        ($0.CreateEnrollTokenResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.AgentMachineRef, $0.AgentInfo>(
+        'RevokeAgent',
+        revokeAgent_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.AgentMachineRef.fromBuffer(value),
+        ($0.AgentInfo value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.SetAgentMaintenanceRequest, $0.AgentInfo>(
+        'SetAgentMaintenance',
+        setAgentMaintenance_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) =>
+            $0.SetAgentMaintenanceRequest.fromBuffer(value),
+        ($0.AgentInfo value) => value.writeToBuffer()));
     $addMethod(
         $grpc.ServiceMethod<$0.CreateBackupRequest, $0.CreateBackupResponse>(
             'CreateBackup',
@@ -1128,6 +1208,39 @@ abstract class ItcmdrServiceBase extends $grpc.Service {
 
   $async.Future<$0.SilenceAlertsResponse> silenceAlerts(
       $grpc.ServiceCall call, $0.SilenceAlertsRequest request);
+
+  $async.Future<$0.ListAgentsResponse> listAgents_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.ListAgentsRequest> $request) async {
+    return listAgents($call, await $request);
+  }
+
+  $async.Future<$0.ListAgentsResponse> listAgents(
+      $grpc.ServiceCall call, $0.ListAgentsRequest request);
+
+  $async.Future<$0.CreateEnrollTokenResponse> createEnrollToken_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.CreateEnrollTokenRequest> $request) async {
+    return createEnrollToken($call, await $request);
+  }
+
+  $async.Future<$0.CreateEnrollTokenResponse> createEnrollToken(
+      $grpc.ServiceCall call, $0.CreateEnrollTokenRequest request);
+
+  $async.Future<$0.AgentInfo> revokeAgent_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.AgentMachineRef> $request) async {
+    return revokeAgent($call, await $request);
+  }
+
+  $async.Future<$0.AgentInfo> revokeAgent(
+      $grpc.ServiceCall call, $0.AgentMachineRef request);
+
+  $async.Future<$0.AgentInfo> setAgentMaintenance_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.SetAgentMaintenanceRequest> $request) async {
+    return setAgentMaintenance($call, await $request);
+  }
+
+  $async.Future<$0.AgentInfo> setAgentMaintenance(
+      $grpc.ServiceCall call, $0.SetAgentMaintenanceRequest request);
 
   $async.Future<$0.CreateBackupResponse> createBackup_Pre(
       $grpc.ServiceCall $call,

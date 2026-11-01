@@ -1,0 +1,33 @@
+[package]
+name = "itcmdr-agent"
+version = "0.17.0"
+edition.workspace = true
+license.workspace = true
+description = "itcmdr agent: enrolls with the site server and keeps a heartbeat stream over pinned TLS + mTLS"
+
+[[bin]]
+name = "itcmdr-agent"
+path = "src/main.rs"
+
+[dependencies]
+itcmdr-agentlink = { path = "../agentlink" }
+anyhow = "1.0"
+clap = { version = "4.5", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.40", features = ["rt-multi-thread", "macros", "time", "sync", "signal", "fs"] }
+tokio-stream = "0.1"
+tonic = { version = "0.12", features = ["transport", "tls"] }
+ed25519-dalek = { version = "2.1", features = ["rand_core"] }
+rand = "0.8"
+hex = "0.4"
+chrono = "0.4"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-service = "0.7"
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Security_Cryptography"] }
+
+[lints]
+workspace = true

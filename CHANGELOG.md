@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## v0.17.0 (2026-11-01)
+The Rust agent: enrollment, pinned TLS + client certificates, heartbeats.
+- New `itcmdr-agent` (Windows service, also runs in the foreground on Linux/macOS) in the agent package, next to the PowerShell agent, which keeps running the checks. See docs/AGENT.md.
+- Enrollment: `itcmdr-cli agent enroll-token` (or the app's Agents page) makes a one-time token with the server address and the pinned server certificate fingerprint; `itcmdr-agent enroll <token>` or the agent installer's `/EnrollToken=`. The agent's Ed25519 key and TLS key stay on the PC (DPAPI); the server signs its CSR with a new site CA (90-day client certificate).
+- Agent link on `agent_bind_addr` (server.json, default `0.0.0.0:50052`, firewall rule added by the server installer): TLS with the server certificate pinned by the agent, client certificate required and matched to the agent (mTLS), signed Hello, then Ping/Pong. Backoff with jitter up to `agent.reconnectMaxSecs`.
+- Heartbeats: `agent.heartbeatSecs` (60), `agent.lateHeartbeats` (2), `agent.missedHeartbeats` (5), `agent.nonresponsiveLevel` / `agent.serverNonresponsiveLevel` (critical), all per machine overridable. Non-responsive raises `agent-nonresponsive:<machine>`; coming back resolves it. Clock skew over 5 minutes raises a Cautious alert.
+- Admin: `ListAgents`, `CreateEnrollToken`, `RevokeAgent`, `SetAgentMaintenance` (admin, audited; the token itself is never logged), `itcmdr-cli agent list|enroll-token|revoke|maintenance`, app Agents page.
+- Schema 7 (`agents`, `enroll_tokens`). New crates: `agentlink` (agent.proto, tokens, certificates, pinned TLS) and `agent-rs`.
+- Not yet: certificate renewal and expiry alerts, a serial revocation list, the office-hours profile, the offline queue, and plugins/schedules in the Rust agent (v0.17.1 and later).
+
 ## v0.16.0 (2026-10-31)
 Site alerts.
 - New `alerts` and `alert_silences` tables (schema 6). An alert has a level (critical, cautious, informational), a source (check, plugin, backup, package), a machine and a dedupe key. Repeats bump the count and can only raise the level; a resolved alert raised again within `alerts.dedupe_window_mins` (new setting, default 60) reopens instead of adding a row.

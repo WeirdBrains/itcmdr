@@ -1,5 +1,6 @@
 {
   "bind_addr": "0.0.0.0:50051",
+  "agent_bind_addr": "0.0.0.0:50052",
   "logs_dir": "C:\\ProgramData\\itcmdr\\maintenanceRuns",
   "admin_token_hash": "",
   "allow_insecure_no_auth": false,

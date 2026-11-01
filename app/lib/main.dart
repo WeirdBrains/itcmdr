@@ -8,6 +8,7 @@ import 'src/rust/frb_generated.dart';
 import 'package:grpc/grpc_or_grpcweb.dart';
 
 import 'backup_page.dart';
+import 'agents_page.dart';
 import 'alerts_page.dart';
 import 'calls_page.dart';
 import 'charts.dart';
@@ -163,6 +164,11 @@ class _HomeShellState extends State<HomeShell> {
           errText: errText,
           onChanged: _pollAlerts,
         ),
+      ),
+      (
+        Icons.devices,
+        'Agents',
+        AgentsPage(key: key, client: c, errText: errText),
       ),
       (Icons.query_stats, 'Metrics', MetricsPage(key: key, client: c)),
       (
