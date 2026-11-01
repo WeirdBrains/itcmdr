@@ -77,7 +77,11 @@ async fn done(o: &Client, id: &str) -> pb::CommandInfo {
 
 both!(commands_down_documents_up, remote_sqlite, remote_postgres);
 
+/// The wire tap is process-wide: one backend at a time.
+static TAP: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 async fn commands_down_documents_up(db: String) {
+    let _one = TAP.lock().await;
     let a = common::start(&db).await;
     let (o, _) = common::owner(&a).await;
     let adm = user(&o, "admin@example.com", "admin").await;
