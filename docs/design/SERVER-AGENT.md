@@ -101,6 +101,16 @@ LocalMachine file, `keys/agent.key`) and never copied.
 
 mTLS is not needed on top of per-message signatures. It stays an option (open question 3).
 
+> **v0.17.0 as built** (docs/AGENT.md): `AgentService.Enroll` and `AgentService.Link` (renamed from
+> `Connect`, which clashes with the generated client constructor) with Hello/Pong up and
+> Welcome/Ping/Bye down; no RunReport, config, schedule or plugin messages yet. mTLS client certificates
+> from a site CA are used from the start (ADMINSVR.md decision 6), in addition to the signed Hello.
+> Agent admin RPCs (ListAgents, CreateEnrollToken, RevokeAgent, SetAgentMaintenance) are on the Itcmdr
+> service. Heartbeat settings use the agent setting names `agent.heartbeatSecs`, `agent.lateHeartbeats`,
+> `agent.missedHeartbeats`, `agent.nonresponsiveLevel`, `agent.serverNonresponsiveLevel` and
+> `agent.reconnectMaxSecs` (per machine overridable). Agents are their own registry (the `agents` table),
+> not `kind=agent` rows in the key table.
+
 ## 3. Proto sketch (`proto/agent.proto`)
 
 ```proto

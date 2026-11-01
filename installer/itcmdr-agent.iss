@@ -2,9 +2,10 @@
 ; and poller tasks). Push-friendly: silent install with site values and an enroll token, e.g.
 ;   itcmdr-agent-Setup-<ver>.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SiteName=... /ServerHostname=SERVER01
 ;     /Share=\\SERVER01\maintenanceRuns [/LocalLogs=C:\maintenanceRuns] [/EnrollToken=<one-time token>]
-; The enroll token is kept in %ProgramData%\itcmdr\agent-enroll.token (Administrators and SYSTEM
-; only) for the Rust agent (v0.17.0), which will ship in this package; the PowerShell agent does
-; not use it. Push-Install-ItcmdrAgent.ps1 (copy-over-SMB push) still works and is included.
+; v0.17.0: also the Rust agent (itcmdr-agent.exe, Windows service "itcmdr-agent", LocalSystem). The
+; enroll token is kept in %ProgramData%\itcmdr\agent-enroll.token (Administrators and SYSTEM only);
+; the service enrolls with it on start (pinned TLS, client certificate) and deletes it. The
+; PowerShell agent keeps running its tasks unchanged. Push-Install-ItcmdrAgent.ps1 (copy-over-SMB push) still works and is included.
 ; Uninstall keeps %ProgramData%\itcmdr; /REMOVEDATA=yes removes the agent's files there.
 #include "common.iss"
 #ifndef LocalLogs
@@ -21,6 +22,7 @@ UninstallDisplayIcon={app}\uninstall\agent\itcmdr.ico
 #include "common-setup.iss"
 
 [Files]
+Source: "..\target\release\itcmdr-agent.exe"; DestDir: "{app}\agent"; Flags: ignoreversion
 Source: "..\branding\office\windows\app_icon.ico"; DestDir: "{app}\uninstall\agent"; DestName: "itcmdr.ico"; Flags: ignoreversion
 Source: "..\agent\Invoke-ItcmdrAgent.ps1"; DestDir: "{app}\agent"; Flags: ignoreversion
 Source: "..\agent\Install-ItcmdrAgent.ps1"; DestDir: "{app}\agent"; Flags: ignoreversion
@@ -42,8 +44,16 @@ Name: "{param:LocalLogs|{#LocalLogs}}"; Permissions: users-full; Flags: uninsnev
 [Run]
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\agent\Initialize-ItcmdrSite.ps1"" {code:AgentSiteArgs} -Report ""{commonappdata}\itcmdr\agent-setup-check.txt"""; Flags: runhidden; StatusMsg: "Writing agent site settings..."
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\agent\Install-ItcmdrAgent.ps1"""; Flags: runhidden; StatusMsg: "Installing agent scheduled tasks..."
+Filename: "{sys}\sc.exe"; Parameters: "create itcmdr-agent binPath= ""\""{app}\agent\itcmdr-agent.exe\"" --service"" start= auto DisplayName= ""itcmdr-agent"""; Flags: runhidden; StatusMsg: "Creating Windows service itcmdr-agent..."; Check: not ServiceExists('itcmdr-agent')
+Filename: "{sys}\sc.exe"; Parameters: "config itcmdr-agent binPath= ""\""{app}\agent\itcmdr-agent.exe\"" --service"""; Flags: runhidden; Check: ServiceExists('itcmdr-agent')
+Filename: "{sys}\sc.exe"; Parameters: "description itcmdr-agent ""itcmdr agent: heartbeat link to the site server"""; Flags: runhidden
+Filename: "{sys}\sc.exe"; Parameters: "failure itcmdr-agent reset= 86400 actions= restart/60000/restart/60000/restart/300000"; Flags: runhidden
+Filename: "{sys}\sc.exe"; Parameters: "start itcmdr-agent"; Flags: runhidden; StatusMsg: "Starting itcmdr-agent..."
 
 [UninstallRun]
+Filename: "{sys}\sc.exe"; Parameters: "stop itcmdr-agent"; Flags: runhidden; RunOnceId: "StopAgentService"
+Filename: "powershell.exe"; Parameters: "-NoProfile -Command ""Start-Sleep -Seconds 3"""; Flags: runhidden; RunOnceId: "WaitAgentService"
+Filename: "{sys}\sc.exe"; Parameters: "delete itcmdr-agent"; Flags: runhidden; RunOnceId: "DeleteAgentService"
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""Unregister-ScheduledTask -TaskName 'itcmdr Agent Nightly' -Confirm:$false -ErrorAction SilentlyContinue; Unregister-ScheduledTask -TaskName 'itcmdr Agent Poller' -Confirm:$false -ErrorAction SilentlyContinue"""; Flags: runhidden; RunOnceId: "AgentTasks"
 
 [Code]
@@ -52,6 +62,18 @@ Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Com
 var
   SitePage: TInputQueryWizardPage;
   WasFreshAgent: Boolean;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  RC: Integer;
+begin
+  if ServiceExists('itcmdr-agent') then
+  begin
+    Exec(ExpandConstant('{sys}\sc.exe'), 'stop itcmdr-agent', '', SW_HIDE, ewWaitUntilTerminated, RC);
+    Sleep(3000);
+  end;
+  Result := '';
+end;
 
 function InitializeSetup(): Boolean;
 begin
@@ -98,7 +120,7 @@ begin
   begin
     // Administrators and SYSTEM only (no inheritance).
     Exec(ExpandConstant('{sys}\icacls.exe'), Q(P) + ' /inheritance:r /grant:r *S-1-5-32-544:F *S-1-5-18:F', '', SW_HIDE, ewWaitUntilTerminated, RC);
-    Log('enroll token stored (for the v0.17.0 Rust agent)');
+    Log('enroll token stored (the itcmdr-agent service enrolls with it)');
   end;
 end;
 
@@ -121,7 +143,7 @@ procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   if (CurUninstallStep = usPostUninstall) and RemoveDataChosen then
   begin
-    RemoveItem('site.json'); RemoveItem('agent-setup-check.txt'); RemoveItem('agent-enroll.token');
+    RemoveItem('site.json'); RemoveItem('agent-setup-check.txt'); RemoveItem('agent-enroll.token'); RemoveItem('agent');
     RemoveItem('exceptions.json'); RemoveItem('spool');
     RemoveDataDirIfEmpty();
   end;

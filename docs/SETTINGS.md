@@ -33,6 +33,12 @@ Every tunable value in itcmdr is a typed setting with today's behaviour as its d
 | `agent.printerStuckMinutes` | agent | int 5..10080 | `60` | next run | admin/owner (RPC, app, CLI) | A print job older than this counts as stuck. |
 | `agent.quietMinutes` | agent | int 0..240 | `10` | next run | admin/owner (RPC, app, CLI) | Clinical guard: no user input for this many minutes before disruptive repairs. |
 | `agent.staleLockMinutes` | agent | int 10..1440 | `150` | next run | admin/owner (RPC, app, CLI) | Poller: a request lock older than this was left by a crashed run. |
+| `agent.heartbeatSecs` | agent | int 10..3600 | `60` | next link | admin/owner (RPC, app, CLI) | Rust agent heartbeat (ping) interval in seconds (v0.17.0). |
+| `agent.lateHeartbeats` | agent | int 1..1000 | `2` | next pass | admin/owner (RPC, app, CLI) | Missed heartbeats before an agent shows as late (no alert) (v0.17.0). |
+| `agent.missedHeartbeats` | agent | int 1..1000 | `5` | next pass | admin/owner (RPC, app, CLI) | Missed heartbeats before an agent is non-responsive and an alert is raised (v0.17.0). |
+| `agent.nonresponsiveLevel` | agent | text: critical, cautious, informational | `critical` | next pass | admin/owner (RPC, app, CLI) | Level of the non-responsive alert (v0.17.0). |
+| `agent.serverNonresponsiveLevel` | agent | text: critical, cautious, informational | `critical` | next pass | admin/owner (RPC, app, CLI) | Level of the non-responsive alert for agents enrolled as role server (v0.17.0). |
+| `agent.reconnectMaxSecs` | agent | int 5..3600 | `300` | next link | admin/owner (RPC, app, CLI) | Longest wait between agent reconnect attempts (backoff cap, seconds) (v0.17.0). |
 | `agent.tcpTimeoutMs` | agent | int 100..60000 | `3000` | next run | admin/owner (RPC, app, CLI) | TCP probe timeout (ms). |
 | `auth.max_skew_secs` | server | int 30..3600 | `300` | next pass / next use | admin/owner (RPC, app, CLI) | Allowed clock difference for signed requests (seconds). |
 | `backup.dir` | server | path (must exist, writable; empty allowed) | `(empty = <data_dir>/backups)` | next pass / next use | admin/owner (RPC, app, CLI) | Backup archive folder (e.g. the share). Empty = <data_dir>/backups. |

@@ -43,7 +43,7 @@ Filename: "{sys}\sc.exe"; Parameters: "failure itcmdr-server reset= 86400 action
 Filename: "{app}\server\itcmdr-cli.exe"; Parameters: "setup apply --config ""{commonappdata}\itcmdr\server.json"" {code:ServerApplyArgs}"; Flags: runhidden; StatusMsg: "Writing site settings..."; Check: FreshServer
 Filename: "{sys}\sc.exe"; Parameters: "start itcmdr-server"; Flags: runhidden; StatusMsg: "Starting itcmdr-server..."
 Filename: "{app}\server\itcmdr-cli.exe"; Parameters: "setup check --report ""{commonappdata}\itcmdr\setup-check.txt"""; Flags: runhidden; StatusMsg: "Checking the server setup..."
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$s = '{code:GetAllowSubnet}'; if ($s) {{ netsh advfirewall firewall delete rule name='itcmdr-server' | Out-Null; netsh advfirewall firewall add rule name='itcmdr-server' dir=in action=allow enable=yes profile=any localport=50051 protocol=TCP remoteip=$s }"""; Flags: runhidden; StatusMsg: "Adding firewall rule..."
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$s = '{code:GetAllowSubnet}'; if ($s) {{ netsh advfirewall firewall delete rule name='itcmdr-server' | Out-Null; netsh advfirewall firewall add rule name='itcmdr-server' dir=in action=allow enable=yes profile=any localport=50051 protocol=TCP remoteip=$s; netsh advfirewall firewall delete rule name='itcmdr-agent-link' | Out-Null; netsh advfirewall firewall add rule name='itcmdr-agent-link' dir=in action=allow enable=yes profile=any localport=50052 protocol=TCP remoteip=$s }"""; Flags: runhidden; StatusMsg: "Adding firewall rule..."
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\agent\Install-ItcmdrRotationTask.ps1"""; Flags: runhidden; StatusMsg: "Installing log rotation task..."
 Filename: "{app}\server\itcmdr-cli.exe"; Parameters: "setup first-run {code:FirstRunArgs}"; Description: "Run first-run setup now (shows the 24 recovery words once; have paper ready)"; Flags: postinstall skipifsilent runascurrentuser; Check: FreshServer
 
@@ -51,7 +51,7 @@ Filename: "{app}\server\itcmdr-cli.exe"; Parameters: "setup first-run {code:Firs
 Filename: "{sys}\sc.exe"; Parameters: "stop itcmdr-server"; Flags: runhidden; RunOnceId: "StopService"
 Filename: "powershell.exe"; Parameters: "-NoProfile -Command ""Start-Sleep -Seconds 3"""; Flags: runhidden; RunOnceId: "WaitService"
 Filename: "{sys}\sc.exe"; Parameters: "delete itcmdr-server"; Flags: runhidden; RunOnceId: "DeleteService"
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""Unregister-ScheduledTask -TaskName 'itcmdr Log Rotation' -Confirm:$false -ErrorAction SilentlyContinue; netsh advfirewall firewall delete rule name='itcmdr-server'"""; Flags: runhidden; RunOnceId: "RotationFirewall"
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""Unregister-ScheduledTask -TaskName 'itcmdr Log Rotation' -Confirm:$false -ErrorAction SilentlyContinue; netsh advfirewall firewall delete rule name='itcmdr-server'; netsh advfirewall firewall delete rule name='itcmdr-agent-link'"""; Flags: runhidden; RunOnceId: "RotationFirewall"
 
 [Code]
 #include "common-code.iss"

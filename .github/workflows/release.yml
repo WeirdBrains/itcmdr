@@ -36,7 +36,7 @@ jobs:
         run: scripts/fetch-plugins.sh
       - name: Build server binaries (release)
         run: |
-          cargo build -p itcmdr-server --release --locked --bins
+          cargo build -p itcmdr-server -p itcmdr-agent --release --locked --bins
       - name: Install Flutter ${{ env.FLUTTER_VERSION }}
         run: |
           git clone --depth 1 -b $env:FLUTTER_VERSION https://github.com/flutter/flutter.git "$env:RUNNER_TEMP\flutter"

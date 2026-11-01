@@ -408,6 +408,11 @@ service Itcmdr {
   rpc AckAlert(AlertRef) returns (Alert);                         // v0.16.0, user
   rpc ResolveAlert(AlertRef) returns (Alert);                     // v0.16.0, admin
   rpc SilenceAlerts(SilenceAlertsRequest) returns (SilenceAlertsResponse); // v0.16.0, admin
+  // v0.17.0: Rust agents (admin). Enrollment and the heartbeat stream are on the agent link (agent.proto).
+  rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse);
+  rpc CreateEnrollToken(CreateEnrollTokenRequest) returns (CreateEnrollTokenResponse);
+  rpc RevokeAgent(AgentMachineRef) returns (AgentInfo);
+  rpc SetAgentMaintenance(SetAgentMaintenanceRequest) returns (AgentInfo);
   rpc CreateBackup(CreateBackupRequest) returns (CreateBackupResponse);
   rpc ListBackups(ListBackupsRequest) returns (ListBackupsResponse);
   rpc VerifyBackup(VerifyBackupRequest) returns (VerifyBackupResponse);
@@ -446,3 +451,33 @@ service Itcmdr {
   rpc ListQuarantine(ListQuarantineRequest) returns (ListQuarantineResponse); // admin
 }
 
+
+// v0.17.0: Rust agents.
+message AgentInfo {
+  string id = 1;
+  string machine = 2;
+  string role = 3;            // workstation | server
+  string state = 4;           // enrolled | online | late | non_responsive | maintenance | revoked
+  int64 enrolled_ms = 5;
+  int64 last_seen_ms = 6;
+  string version = 7;
+  string os = 8;
+  string peer = 9;
+  int64 cert_expires_ms = 10;
+  string cert_fingerprint = 11;
+}
+message ListAgentsRequest { bool include_revoked = 1; }
+message ListAgentsResponse { repeated AgentInfo agents = 1; }
+message CreateEnrollTokenRequest {
+  string machine = 1;         // "" = any machine
+  int64 ttl_mins = 2;         // default 1440 (24 h), max 30 days
+  string address = 3;         // host:port agents dial; default this server's name + agent port
+}
+message CreateEnrollTokenResponse {
+  string token = 1;
+  int64 expires_ms = 2;
+  string address = 3;
+  string server_fingerprint = 4;
+}
+message AgentMachineRef { string machine = 1; }
+message SetAgentMaintenanceRequest { string machine = 1; bool on = 2; }

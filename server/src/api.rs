@@ -487,6 +487,106 @@ impl Itcmdr for ItcmdrService {
         }))
     }
 
+    async fn list_agents(
+        &self,
+        req: Request<ListAgentsRequest>,
+    ) -> Result<Response<ListAgentsResponse>, Status> {
+        self.authz(&req, "/itcmdr.Itcmdr/ListAgents", crate::auth::Role::Admin)
+            .await?;
+        let all = req.into_inner().include_revoked;
+        let agents = crate::agents::list(&self.pool, all)
+            .await
+            .map_err(internal_err)?
+            .into_iter()
+            .map(agent_pb)
+            .collect();
+        Ok(Response::new(ListAgentsResponse { agents }))
+    }
+
+    async fn create_enroll_token(
+        &self,
+        req: Request<CreateEnrollTokenRequest>,
+    ) -> Result<Response<CreateEnrollTokenResponse>, Status> {
+        let actor = self
+            .authz(
+                &req,
+                "/itcmdr.Itcmdr/CreateEnrollToken",
+                crate::auth::Role::Admin,
+            )
+            .await?;
+        let r = req.into_inner();
+        let t = crate::agents::create_token(
+            &self.pool,
+            &self.cfg.layout(),
+            &self.cfg,
+            r.machine.trim(),
+            r.ttl_mins,
+            &r.address,
+            &actor,
+        )
+        .await
+        .map_err(|e| Status::invalid_argument(format!("{e:#}")))?;
+        // Never the token itself in the audit log.
+        self.audit(
+            &actor,
+            "agent-enroll-token",
+            &serde_json::json!({ "machine": r.machine, "expires_ms": t.expires_ms, "address": t.address }),
+        )
+        .await;
+        Ok(Response::new(CreateEnrollTokenResponse {
+            token: t.token,
+            expires_ms: t.expires_ms,
+            address: t.address,
+            server_fingerprint: t.fingerprint,
+        }))
+    }
+
+    async fn revoke_agent(
+        &self,
+        req: Request<AgentMachineRef>,
+    ) -> Result<Response<AgentInfo>, Status> {
+        let actor = self
+            .authz(&req, "/itcmdr.Itcmdr/RevokeAgent", crate::auth::Role::Admin)
+            .await?;
+        let m = req.into_inner().machine;
+        let a = crate::agents::revoke(&self.pool, m.trim())
+            .await
+            .map_err(internal_err)?
+            .ok_or_else(|| Status::not_found("no enrolled agent on that machine"))?;
+        self.audit(
+            &actor,
+            "agent-revoke",
+            &serde_json::json!({ "machine": a.machine, "agent": a.id }),
+        )
+        .await;
+        Ok(Response::new(agent_pb(a)))
+    }
+
+    async fn set_agent_maintenance(
+        &self,
+        req: Request<SetAgentMaintenanceRequest>,
+    ) -> Result<Response<AgentInfo>, Status> {
+        let actor = self
+            .authz(
+                &req,
+                "/itcmdr.Itcmdr/SetAgentMaintenance",
+                crate::auth::Role::Admin,
+            )
+            .await?;
+        let r = req.into_inner();
+        let a = crate::agents::set_maintenance(&self.pool, r.machine.trim(), r.on)
+            .await
+            .map_err(internal_err)?
+            .ok_or_else(|| Status::not_found("no enrolled agent on that machine"))?;
+        self.audit(
+            &actor,
+            "agent-maintenance",
+            &serde_json::json!({ "machine": a.machine, "on": r.on }),
+        )
+        .await;
+        Ok(Response::new(agent_pb(a)))
+    }
+
     async fn search_logs(
         &self,
         req: Request<SearchLogsRequest>,
@@ -1787,6 +1887,22 @@ fn to_proto_backup(b: &crate::config::BackupConfig) -> BackupSettings {
         keep_daily: b.keep_daily as u32,
         keep_weekly: b.keep_weekly as u32,
         keep_blocks: b.keep_blocks as u32,
+    }
+}
+
+fn agent_pb(a: crate::agents::Agent) -> AgentInfo {
+    AgentInfo {
+        id: a.id,
+        machine: a.machine,
+        role: a.role,
+        state: a.state,
+        enrolled_ms: a.enrolled_ms,
+        last_seen_ms: a.last_seen_ms,
+        version: a.version,
+        os: a.os,
+        peer: a.peer,
+        cert_expires_ms: a.cert_expires_ms,
+        cert_fingerprint: a.cert_fp,
     }
 }
 

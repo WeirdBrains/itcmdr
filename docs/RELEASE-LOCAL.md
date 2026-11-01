@@ -22,7 +22,7 @@ desktop project (not yet; it is unsigned and not notarized until the Mac signing
 ## Windows VM step
 
 1. `git archive --format=zip -o <share>/src-rX.zip vX.Y.Z` plus `third_party/` (as `sync.sh` does).
-2. On the VM: expand it, `cargo build --release --locked -p itcmdr-server --bins`, `flutter build windows --release`,
+2. On the VM: expand it, `cargo build --release --locked -p itcmdr-server -p itcmdr-agent --bins`, `flutter build windows --release`,
    then `ISCC itcmdr-{server,agent,cli,app}.iss`.
 3. Copy `installer\out\*.exe` back into `dist/X.Y.Z/`.
 4. Scan the uncompressed payload (release exes, the Flutter runner folder, agent and installer files) for the

@@ -3,6 +3,8 @@ members = [
     "keys",
     "common",
     "common/derive",
+    "agentlink",
+    "agent-rs",
     "server",
     "plugin",
     "tools/sample-data-gen",

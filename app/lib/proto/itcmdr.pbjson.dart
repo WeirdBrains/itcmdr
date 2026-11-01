@@ -1882,3 +1882,129 @@ final $typed_data.Uint8List getRestoreStatusResponseDescriptor =
     $convert.base64Decode(
         'ChhHZXRSZXN0b3JlU3RhdHVzUmVzcG9uc2USLQoGc3RhdHVzGAEgASgLMhUuaXRjbWRyLlJlc3'
         'RvcmVTdGF0dXNSBnN0YXR1cw==');
+
+@$core.Deprecated('Use agentInfoDescriptor instead')
+const AgentInfo$json = {
+  '1': 'AgentInfo',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
+    {'1': 'machine', '3': 2, '4': 1, '5': 9, '10': 'machine'},
+    {'1': 'role', '3': 3, '4': 1, '5': 9, '10': 'role'},
+    {'1': 'state', '3': 4, '4': 1, '5': 9, '10': 'state'},
+    {'1': 'enrolled_ms', '3': 5, '4': 1, '5': 3, '10': 'enrolledMs'},
+    {'1': 'last_seen_ms', '3': 6, '4': 1, '5': 3, '10': 'lastSeenMs'},
+    {'1': 'version', '3': 7, '4': 1, '5': 9, '10': 'version'},
+    {'1': 'os', '3': 8, '4': 1, '5': 9, '10': 'os'},
+    {'1': 'peer', '3': 9, '4': 1, '5': 9, '10': 'peer'},
+    {'1': 'cert_expires_ms', '3': 10, '4': 1, '5': 3, '10': 'certExpiresMs'},
+    {'1': 'cert_fingerprint', '3': 11, '4': 1, '5': 9, '10': 'certFingerprint'},
+  ],
+};
+
+/// Descriptor for `AgentInfo`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List agentInfoDescriptor = $convert.base64Decode(
+    'CglBZ2VudEluZm8SDgoCaWQYASABKAlSAmlkEhgKB21hY2hpbmUYAiABKAlSB21hY2hpbmUSEg'
+    'oEcm9sZRgDIAEoCVIEcm9sZRIUCgVzdGF0ZRgEIAEoCVIFc3RhdGUSHwoLZW5yb2xsZWRfbXMY'
+    'BSABKANSCmVucm9sbGVkTXMSIAoMbGFzdF9zZWVuX21zGAYgASgDUgpsYXN0U2Vlbk1zEhgKB3'
+    'ZlcnNpb24YByABKAlSB3ZlcnNpb24SDgoCb3MYCCABKAlSAm9zEhIKBHBlZXIYCSABKAlSBHBl'
+    'ZXISJgoPY2VydF9leHBpcmVzX21zGAogASgDUg1jZXJ0RXhwaXJlc01zEikKEGNlcnRfZmluZ2'
+    'VycHJpbnQYCyABKAlSD2NlcnRGaW5nZXJwcmludA==');
+
+@$core.Deprecated('Use listAgentsRequestDescriptor instead')
+const ListAgentsRequest$json = {
+  '1': 'ListAgentsRequest',
+  '2': [
+    {'1': 'include_revoked', '3': 1, '4': 1, '5': 8, '10': 'includeRevoked'},
+  ],
+};
+
+/// Descriptor for `ListAgentsRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List listAgentsRequestDescriptor = $convert.base64Decode(
+    'ChFMaXN0QWdlbnRzUmVxdWVzdBInCg9pbmNsdWRlX3Jldm9rZWQYASABKAhSDmluY2x1ZGVSZX'
+    'Zva2Vk');
+
+@$core.Deprecated('Use listAgentsResponseDescriptor instead')
+const ListAgentsResponse$json = {
+  '1': 'ListAgentsResponse',
+  '2': [
+    {
+      '1': 'agents',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.itcmdr.AgentInfo',
+      '10': 'agents'
+    },
+  ],
+};
+
+/// Descriptor for `ListAgentsResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List listAgentsResponseDescriptor = $convert.base64Decode(
+    'ChJMaXN0QWdlbnRzUmVzcG9uc2USKQoGYWdlbnRzGAEgAygLMhEuaXRjbWRyLkFnZW50SW5mb1'
+    'IGYWdlbnRz');
+
+@$core.Deprecated('Use createEnrollTokenRequestDescriptor instead')
+const CreateEnrollTokenRequest$json = {
+  '1': 'CreateEnrollTokenRequest',
+  '2': [
+    {'1': 'machine', '3': 1, '4': 1, '5': 9, '10': 'machine'},
+    {'1': 'ttl_mins', '3': 2, '4': 1, '5': 3, '10': 'ttlMins'},
+    {'1': 'address', '3': 3, '4': 1, '5': 9, '10': 'address'},
+  ],
+};
+
+/// Descriptor for `CreateEnrollTokenRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List createEnrollTokenRequestDescriptor =
+    $convert.base64Decode(
+        'ChhDcmVhdGVFbnJvbGxUb2tlblJlcXVlc3QSGAoHbWFjaGluZRgBIAEoCVIHbWFjaGluZRIZCg'
+        'h0dGxfbWlucxgCIAEoA1IHdHRsTWlucxIYCgdhZGRyZXNzGAMgASgJUgdhZGRyZXNz');
+
+@$core.Deprecated('Use createEnrollTokenResponseDescriptor instead')
+const CreateEnrollTokenResponse$json = {
+  '1': 'CreateEnrollTokenResponse',
+  '2': [
+    {'1': 'token', '3': 1, '4': 1, '5': 9, '10': 'token'},
+    {'1': 'expires_ms', '3': 2, '4': 1, '5': 3, '10': 'expiresMs'},
+    {'1': 'address', '3': 3, '4': 1, '5': 9, '10': 'address'},
+    {
+      '1': 'server_fingerprint',
+      '3': 4,
+      '4': 1,
+      '5': 9,
+      '10': 'serverFingerprint'
+    },
+  ],
+};
+
+/// Descriptor for `CreateEnrollTokenResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List createEnrollTokenResponseDescriptor = $convert.base64Decode(
+    'ChlDcmVhdGVFbnJvbGxUb2tlblJlc3BvbnNlEhQKBXRva2VuGAEgASgJUgV0b2tlbhIdCgpleH'
+    'BpcmVzX21zGAIgASgDUglleHBpcmVzTXMSGAoHYWRkcmVzcxgDIAEoCVIHYWRkcmVzcxItChJz'
+    'ZXJ2ZXJfZmluZ2VycHJpbnQYBCABKAlSEXNlcnZlckZpbmdlcnByaW50');
+
+@$core.Deprecated('Use agentMachineRefDescriptor instead')
+const AgentMachineRef$json = {
+  '1': 'AgentMachineRef',
+  '2': [
+    {'1': 'machine', '3': 1, '4': 1, '5': 9, '10': 'machine'},
+  ],
+};
+
+/// Descriptor for `AgentMachineRef`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List agentMachineRefDescriptor = $convert.base64Decode(
+    'Cg9BZ2VudE1hY2hpbmVSZWYSGAoHbWFjaGluZRgBIAEoCVIHbWFjaGluZQ==');
+
+@$core.Deprecated('Use setAgentMaintenanceRequestDescriptor instead')
+const SetAgentMaintenanceRequest$json = {
+  '1': 'SetAgentMaintenanceRequest',
+  '2': [
+    {'1': 'machine', '3': 1, '4': 1, '5': 9, '10': 'machine'},
+    {'1': 'on', '3': 2, '4': 1, '5': 8, '10': 'on'},
+  ],
+};
+
+/// Descriptor for `SetAgentMaintenanceRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List setAgentMaintenanceRequestDescriptor =
+    $convert.base64Decode(
+        'ChpTZXRBZ2VudE1haW50ZW5hbmNlUmVxdWVzdBIYCgdtYWNoaW5lGAEgASgJUgdtYWNoaW5lEg'
+        '4KAm9uGAIgASgIUgJvbg==');

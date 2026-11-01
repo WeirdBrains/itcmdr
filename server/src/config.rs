@@ -13,6 +13,10 @@ const DEFAULT_REQUEST_TIMEOUT_SECS: u64 = 3 * 3600;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerConfig {
     pub bind_addr: String,
+    /// v0.17.0 agent link (TLS + client certificates). "" turns it off; missing in server.json
+    /// means `0.0.0.0:50052`.
+    #[serde(default = "default_agent_bind")]
+    pub agent_bind_addr: String,
     /// Folder holding JSON Lines agent logs (the share's maintenanceRuns folder).
     pub logs_dir: PathBuf,
     /// Data dir (service_plugins/, quarantine/, keys/, itcmdr.database). See `storage` for precedence.
@@ -203,12 +207,17 @@ fn default_ingest_interval() -> u64 {
     DEFAULT_INGEST_INTERVAL_SECS
 }
 
+fn default_agent_bind() -> String {
+    format!("0.0.0.0:{}", itcmdr_agentlink::DEFAULT_PORT)
+}
+
 impl Default for ServerConfig {
     fn default() -> Self {
         let proj = project_dirs();
         let data_dir = proj.data_dir().to_path_buf();
         Self {
             bind_addr: DEFAULT_BIND.to_string(),
+            agent_bind_addr: String::new(),
             logs_dir: data_dir.join("maintenanceRuns"),
             data_dir: None,
             data_dir_flag: None,

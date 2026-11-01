@@ -91,6 +91,39 @@ enum Cmd {
     /// Site alerts (v0.16.0): list, ack, resolve, silence. Same data as the app's Alerts screen.
     #[command(subcommand)]
     Alerts(AlertsCmd),
+    /// Rust agents (v0.17.0): enrollment tokens, list, revoke, maintenance.
+    #[command(subcommand)]
+    Agent(AgentCmd),
+}
+
+#[derive(Subcommand)]
+enum AgentCmd {
+    /// Create a one-time enrollment token (give it to `itcmdr-agent enroll` or the agent installer's /EnrollToken=).
+    EnrollToken {
+        /// Machine the token is for (empty: any one machine).
+        #[arg(long, default_value = "")]
+        machine: String,
+        /// Lifetime in hours (default 24, max 720).
+        #[arg(long, default_value_t = 24)]
+        ttl_hours: i64,
+        /// host:port agents dial (default: this server's name and the agent link port).
+        #[arg(long, default_value = "")]
+        address: String,
+    },
+    /// List enrolled agents and their heartbeat state.
+    List {
+        /// Also old (replaced) and revoked enrollments.
+        #[arg(long)]
+        all: bool,
+    },
+    /// Revoke a machine's agent: its certificate is refused and it must be enrolled again.
+    Revoke { machine: String },
+    /// Maintenance on/off for a machine (no heartbeat alerts while on).
+    Maintenance {
+        machine: String,
+        #[arg(value_parser = ["on", "off"])]
+        mode: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -1653,6 +1686,62 @@ fn run(rt: &tokio::runtime::Runtime) -> Result<()> {
                         let (sid, n) = srv::alerts::silence(&pool, machine, source, until, reason, "itcmdr-cli").await?;
                         audit("alert-silence", serde_json::json!({"silence_id": sid, "machine": machine, "source": source, "until_ms": until, "reason": reason, "silenced": n})).await?;
                         println!("silence {sid} until {}; {n} open alert(s) silenced", ms_local(until));
+                    }
+                }
+                Ok::<(), anyhow::Error>(())
+            })
+        }
+        Cmd::Agent(ac) => {
+            let cfg = load()?;
+            let json = cli.json;
+            rt.block_on(async {
+                let pool = srv::db::init_db(&cfg).await?;
+                let show = |a: &srv::agents::Agent| {
+                    if json {
+                        println!("{}", serde_json::to_string(a).unwrap_or_default());
+                    } else {
+                        println!(
+                            "{:<16} {:<15} {:<11} last {}  v{}  cert until {}  {}",
+                            a.machine,
+                            a.state,
+                            a.role,
+                            if a.last_seen_ms == 0 { "never".to_string() } else { ms_local(a.last_seen_ms) },
+                            a.version,
+                            ms_local(a.cert_expires_ms),
+                            a.id
+                        );
+                    }
+                };
+                let audit = |action: &'static str, d: serde_json::Value| {
+                    let pool = pool.clone();
+                    async move { srv::db::insert_audit(&pool, "itcmdr-cli", action, &d.to_string()).await }
+                };
+                match ac {
+                    AgentCmd::EnrollToken { machine, ttl_hours, address } => {
+                        let t = srv::agents::create_token(&pool, &cfg.layout(), &cfg, machine.trim(), ttl_hours * 60, address, "itcmdr-cli").await?;
+                        audit("agent-enroll-token", serde_json::json!({"machine": machine, "expires_ms": t.expires_ms, "address": t.address})).await?;
+                        if json {
+                            println!("{}", serde_json::json!({"token": t.token, "expires_ms": t.expires_ms, "address": t.address, "server_fingerprint": t.fingerprint}));
+                        } else {
+                            println!("{}", t.token);
+                            eprintln!("one-time token for {} until {}; agents dial {} and pin {}", if machine.is_empty() { "any machine" } else { machine }, ms_local(t.expires_ms), t.address, t.fingerprint);
+                        }
+                    }
+                    AgentCmd::List { all } => {
+                        for a in srv::agents::list(&pool, *all).await? {
+                            show(&a);
+                        }
+                    }
+                    AgentCmd::Revoke { machine } => {
+                        let a = srv::agents::revoke(&pool, machine).await?.ok_or_else(|| anyhow::anyhow!("no enrolled agent on {machine}"))?;
+                        audit("agent-revoke", serde_json::json!({"machine": a.machine, "agent": a.id})).await?;
+                        show(&a);
+                    }
+                    AgentCmd::Maintenance { machine, mode } => {
+                        let on = mode == "on";
+                        let a = srv::agents::set_maintenance(&pool, machine, on).await?.ok_or_else(|| anyhow::anyhow!("no enrolled agent on {machine}"))?;
+                        audit("agent-maintenance", serde_json::json!({"machine": a.machine, "on": on})).await?;
+                        show(&a);
                     }
                 }
                 Ok::<(), anyhow::Error>(())

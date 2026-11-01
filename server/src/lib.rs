@@ -1,4 +1,5 @@
 #![allow(clippy::result_large_err, clippy::field_reassign_with_default)]
+pub mod agents;
 pub mod alerts;
 pub mod api;
 pub mod auth;
@@ -146,6 +147,35 @@ pub async fn run(
         }
     });
 
+    // One shutdown signal for both listeners.
+    let (stop_tx, stop_rx) = tokio::sync::watch::channel(false);
+    tokio::spawn(async move {
+        shutdown.await;
+        let _ = stop_tx.send(true);
+    });
+    let wait = |mut rx: tokio::sync::watch::Receiver<bool>| async move {
+        while !*rx.borrow() {
+            if rx.changed().await.is_err() {
+                break;
+            }
+        }
+    };
+    // v0.17.0: agent link (TLS + client certs) and the heartbeat state machine.
+    tokio::spawn(agents::serve(
+        pool.clone(),
+        cfg.clone(),
+        wait(stop_rx.clone()),
+    ));
+    let hb_pool = pool.clone();
+    tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(Duration::from_secs(5)).await;
+            if let Err(e) = agents::tick(&hb_pool).await {
+                tracing::warn!(error=%e, "agent heartbeat pass failed");
+            }
+        }
+    });
+
     let addr = cfg.bind_addr.parse().context("invalid bind_addr")?;
     // App plugin uploads (v0.13.0): allow one package of plugins.max_package_mib plus framing.
     let max_msg = (settings::get_i64(&pool, None, "plugins.max_package_mib")
@@ -169,7 +199,7 @@ pub async fn run(
     tonic::transport::Server::builder()
         .accept_http1(true) // gRPC-Web
         .add_service(svc)
-        .serve_with_shutdown(addr, shutdown)
+        .serve_with_shutdown(addr, wait(stop_rx))
         .await?;
     tracing::info!("itcmdr-server stopped");
     Ok(())
