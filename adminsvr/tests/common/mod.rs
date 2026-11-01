@@ -25,15 +25,8 @@ impl Drop for Pg {
 
 static PG: OnceLock<Option<Pg>> = OnceLock::new();
 
-fn free_port() -> u16 {
-    std::net::TcpListener::bind("127.0.0.1:0")
-        .unwrap()
-        .local_addr()
-        .unwrap()
-        .port()
-}
 
-fn start() -> Option<Pg> {
+fn start_pg() -> Option<Pg> {
     if let Ok(u) = std::env::var("ITCMDR_TEST_PG_URL") {
         return Some(Pg {
             admin_url: u,
@@ -95,7 +88,7 @@ fn start() -> Option<Pg> {
 
 /// A fresh database URL, or None (tests skip) when no Postgres is available.
 pub async fn db() -> Option<String> {
-    let pg = PG.get_or_init(start).as_ref()?;
+    let pg = PG.get_or_init(start_pg).as_ref()?;
     let name = format!("t{}", uuid::Uuid::new_v4().simple());
     let pool = sqlx::PgPool::connect(&format!("{}/postgres", pg.admin_url))
         .await
@@ -107,3 +100,63 @@ pub async fn db() -> Option<String> {
     pool.close().await;
     Some(format!("{}/{name}", pg.admin_url))
 }
+
+use itcmdr_admin::Client;
+use itcmdr_adminsvr::config::Config;
+use std::time::Duration;
+
+pub fn free_port() -> u16 {
+    std::net::TcpListener::bind("127.0.0.1:0")
+        .unwrap()
+        .local_addr()
+        .unwrap()
+        .port()
+}
+
+pub struct Srv {
+    pub cfg: Config,
+    pub _tmp: tempfile::TempDir,
+    pub stop: Option<tokio::sync::oneshot::Sender<()>>,
+}
+
+pub async fn start(db: &str) -> Srv {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut cfg = Config::for_test(tmp.path().join("data"), db, free_port(), free_port());
+    cfg.heartbeat_secs = 1;
+    cfg.site_missed = 3;
+    let (tx, rx) = tokio::sync::oneshot::channel::<()>();
+    let c = cfg.clone();
+    tokio::spawn(async move {
+        if let Err(e) = itcmdr_adminsvr::run(c, async move {
+            let _ = rx.await;
+        })
+        .await
+        {
+            eprintln!("adminsvr: {e:#}");
+        }
+    });
+    for _ in 0..100 {
+        if tokio::net::TcpStream::connect(&cfg.api_addr).await.is_ok() {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    Srv {
+        cfg,
+        _tmp: tmp,
+        stop: Some(tx),
+    }
+}
+
+pub async fn owner(s: &Srv) -> (Client, itcmdr_admin::Enrolled) {
+    let code = itcmdr_adminsvr::api::init(&s.cfg, "owner@example.com", "Owner O")
+        .await
+        .unwrap();
+    let e = itcmdr_admin::enroll(&code, "test", false, None)
+        .await
+        .unwrap();
+    assert_eq!(e.user.role, "owner");
+    assert_eq!(e.user.devices[0].status, "active");
+    (Client::connect(&e.identity).await.unwrap(), e)
+}
+
