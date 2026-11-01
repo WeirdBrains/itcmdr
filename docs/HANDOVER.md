@@ -322,7 +322,7 @@ In-place upgrade over the v0.11.0 install. The installer is built after `flutter
 |---|---|
 | Release build of the server bins with `itcmdr-keys` | ✅ |
 | `cargo test -p itcmdr-keys` on Windows (vectors) | ✅ 8 passed |
-| `flutter build windows` (cargokit builds the bridge; `itcmdr_keys_bridge.dll` next to `itcmdr.exe`) | ✅ |
+| `flutter build windows` (native assets build the bridge (v0.20.0; cargokit before); `itcmdr_keys_bridge.dll` next to `itcmdr.exe`) | ✅ |
 | Installer (ISCC) and upgrade over v0.14.1 | ✅ exit 0, service Running, `AgentVersion` 0.14.2, bridge DLL installed, signed mode kept |
 | Pester (Windows PowerShell 5.1) / PSSA | ✅ 88/88, 0 findings |
 | flutter test (incl. DPAPI and e2e against the release bins) | ✅ 31 passed, 1 skipped |

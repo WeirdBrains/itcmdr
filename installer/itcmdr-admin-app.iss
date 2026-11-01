@@ -1,5 +1,5 @@
 ; itcmdr Admin app package (v0.19.2): the Flutter Windows app for adminsvr (owners, admins, SREs)
-; with its bridge (itcmdr_admin_bridge.dll, built by cargokit). The device identity lives in the
+; with its bridge (itcmdr_admin_bridge.dll, built by the flutter_rust_bridge native-assets hook). The device identity lives in the
 ; user's app data folder and is kept on uninstall.
 ; Silent: itcmdr-admin-app-Setup-<ver>.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART [/TASKS=desktopicon]
 #include "common.iss"
@@ -15,7 +15,7 @@ UninstallDisplayIcon={app}\admin-app\itcmdr-admin-app.exe
 
 [Files]
 #if !FileExists(AddBackslash(SourcePath) + "..\admin-app\build\windows\x64\runner\Release\itcmdr_admin_bridge.dll")
-  #error "itcmdr_admin_bridge.dll missing: run flutter build windows in admin-app (cargokit builds the bridge)"
+  #error "itcmdr_admin_bridge.dll missing: run flutter build windows in admin-app (its native-assets hook builds the bridge)"
 #endif
 Source: "..\admin-app\build\windows\x64\runner\Release\*"; DestDir: "{app}\admin-app"; Flags: recursesubdirs ignoreversion
 

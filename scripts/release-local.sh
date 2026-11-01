@@ -9,11 +9,20 @@
 #   scripts/release-local.sh publish         # gh release create vX.Y.Z (tag must exist on origin; never moves it)
 # Environment: ITCMDR_LEAK_PATTERNS=file with one extra fixed string per line (e.g. the VM hostname);
 # config/banned.local.txt is always used when present. NINJA_DIR is prepended to PATH for Linux builds.
+# (v0.20.0) No CocoaPods: the Rust bridges build through flutter_rust_bridge native assets (hook/build.dart,
+# rust/rust-toolchain.toml via rustup) and iOS/macOS use Swift Package Manager (once per user:
+# `flutter config --enable-swift-package-manager`). no_pods stops a build that would call `pod`.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ver=$(sed -n 's/^version = "\(.*\)"/\1/p' server/Cargo.toml | head -1)
 out="dist/$ver"
 step="${1:-}"
+no_pods() {
+  [[ "$(uname)" == Darwin ]] || return 0
+  local p; p=$(git ls-files '*Podfile' '*Podfile.lock'; ls -d app/macos/Pods admin-app/ios/Pods admin-app/macos/Pods 2>/dev/null || true)
+  [[ -z "$p" ]] || { echo "CocoaPods files present (use Swift Package Manager): $p" >&2; exit 1; }
+  flutter config 2>/dev/null | grep -q "enable-swift-package-manager: true" || flutter config --enable-swift-package-manager >/dev/null
+}
 case "$step" in
 unix)
   [[ -z "$(git status --porcelain --untracked-files=no)" ]] || { echo "tree not clean" >&2; exit 1; }
@@ -24,7 +33,7 @@ unix)
   scripts/package-admin.sh
   mv dist/itcmdr-admin*-"$ver"-*.tar.gz "$out"/; rm -f dist/itcmdr-admin*-"$ver"-*.sha256
   arch=$(uname -m); [[ "$arch" == arm64 ]] && arch=aarch64
-  (cd app/rust && cargo build --release)
+  no_pods
   cd app; flutter pub get --enforce-lockfile >/dev/null
   if [[ "$(uname)" == Linux ]]; then
     flutter build linux --release
@@ -48,7 +57,7 @@ android)
   flutter build apk --release
   cp build/app/outputs/flutter-apk/app-release.apk "../$out/itcmdr-admin-app-$ver-android.apk"; ls -l "../$out" ;;
 ios-check)
-  cd admin-app; flutter pub get --enforce-lockfile >/dev/null
+  no_pods; cd admin-app; flutter pub get --enforce-lockfile >/dev/null
   flutter build ios --release --no-codesign ;;
 windows-notes) sed -n '/^## Windows VM step/,/^## /p' docs/RELEASE-LOCAL.md ;;
 check)
