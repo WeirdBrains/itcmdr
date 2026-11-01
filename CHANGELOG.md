@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- adminsvr package README: says SQLite is the default (the v0.19.1 tarball README still says "Needs Postgres 14+").
 
 ## v0.19.1 (2026-11-01)
 adminsvr on Diesel with SQLite or Postgres, and passkeys / security keys as an optional second factor.

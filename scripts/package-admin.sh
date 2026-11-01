@@ -30,7 +30,7 @@ if [[ $os == linux ]]; then
   cp target/release/itcmdr-adminsvr "$stage/$n/"; strip "$stage/$n/itcmdr-adminsvr" 2>/dev/null || true
   cp packaging/adminsvr/* "$stage/$n/"
   cat > "$stage/$n/README.txt" <<TXT
-itcmdr-adminsvr $version (linux $arch): the offsite admin server. Needs Postgres 14+.
+itcmdr-adminsvr $version (linux $arch): the offsite admin server. Uses SQLite in its data folder by default, or Postgres 14+ via ITCMDR_ADMINSVR_DB_URL.
 Install:   sudo ./install.sh   (then follow what it prints)
 Uninstall: sudo ./uninstall.sh [--purge]
 Container: Containerfile and compose.yaml (untested in this release).
