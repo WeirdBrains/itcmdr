@@ -2,8 +2,8 @@
 //! replay, revoked, disabled refused), device approval, the audit hash chain (tamper caught),
 //! client-side encrypted key backup and new devices from the 24 words, CLI parity.
 mod common;
-use itcmdr_admin::{proto as pb, Client};
 use common::{owner, start};
+use itcmdr_admin::{proto as pb, Client};
 
 /// Create + enroll + approve a user; returns their client.
 async fn user(o: &Client, email: &str, role: &str) -> (Client, itcmdr_admin::Enrolled) {

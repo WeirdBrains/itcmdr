@@ -25,7 +25,6 @@ impl Drop for Pg {
 
 static PG: OnceLock<Option<Pg>> = OnceLock::new();
 
-
 fn start_pg() -> Option<Pg> {
     if let Ok(u) = std::env::var("ITCMDR_TEST_PG_URL") {
         return Some(Pg {
@@ -159,4 +158,3 @@ pub async fn owner(s: &Srv) -> (Client, itcmdr_admin::Enrolled) {
     assert_eq!(e.user.devices[0].status, "active");
     (Client::connect(&e.identity).await.unwrap(), e)
 }
-
