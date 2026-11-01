@@ -39,6 +39,10 @@ pub const DEFAULT_ACTIONS: &[&str] = &[
     "FinishPasskeyRegistration",
     "RemovePasskey",
     "SetAuthPolicy",
+    // v0.20.0
+    "ApproveCommand",
+    "SetFreeze",
+    "UploadPlugin",
 ];
 
 /// Every AdminApi method a policy may name.
@@ -75,6 +79,20 @@ pub const METHODS: &[&str] = &[
     "BeginStepUp",
     "GetAuthPolicy",
     "SetAuthPolicy",
+    "ListSiteMetrics",
+    "RegisterPush",
+    "UnregisterPush",
+    "TestPush",
+    "SendCommand",
+    "GetCommand",
+    "ApproveCommand",
+    "RejectCommand",
+    "GetSiteConfig",
+    "GetSitePlugins",
+    "UploadPlugin",
+    "ListCatalog",
+    "GetFreeze",
+    "SetFreeze",
 ];
 /// Never on the step-up list (they are how a step-up happens, or how the list is read).
 const NEVER: &[&str] = &[
@@ -182,7 +200,7 @@ pub fn load_policy(c: &mut Db) -> Result<Policy> {
     })
 }
 
-fn put_meta(c: &mut Db, key: &str, val: &str) -> Result<()> {
+pub(crate) fn put_meta(c: &mut Db, key: &str, val: &str) -> Result<()> {
     let n = diesel::update(meta::table.filter(meta::k.eq(key)))
         .set(meta::v.eq(val))
         .execute(c)?;

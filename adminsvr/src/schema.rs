@@ -20,6 +20,7 @@ diesel::table! {
         id -> Text, name -> Text, status -> Text, site_pub -> Nullable<Text>, cert_serial -> Nullable<Text>,
         version -> Text, last_seen_ms -> BigInt, share_names -> Bool, last_status -> Nullable<Binary>,
         last_seq -> BigInt, created_ms -> BigInt,
+        config -> Nullable<Binary>, config_ms -> BigInt, plugins -> Nullable<Binary>, plugins_ms -> BigInt,
     }
 }
 diesel::table! { site_tokens (secret_hash) { secret_hash -> Text, site_id -> Text, expires_ms -> BigInt, used_ms -> Nullable<BigInt>, } }
@@ -34,6 +35,7 @@ diesel::table! {
     commands (id) {
         id -> Text, site_id -> Text, kind -> Text, requested_by -> Text, state -> Text,
         result_code -> Text, created_ms -> BigInt, body -> Binary,
+        dry_run -> Bool, preview -> Nullable<Binary>, approved_by -> Text,
     }
 }
 diesel::table! {
@@ -56,7 +58,14 @@ diesel::table! {
         created_ms -> BigInt,
     }
 }
+diesel::table! {
+    catalog (sha256) {
+        sha256 -> Text, name -> Text, version -> Text, size -> BigInt, description -> Text,
+        uploaded_by -> Text, uploaded_ms -> BigInt, body -> Binary,
+    }
+}
 diesel::allow_tables_to_appear_in_same_query!(
+    catalog,
     site_metrics,
     push_tokens,
     passkeys,

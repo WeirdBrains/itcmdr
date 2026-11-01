@@ -17,6 +17,23 @@ use tonic::{Request, Response, Status};
 
 pub const CODE_TTL_MS: i64 = 24 * 3600 * 1000;
 pub const CMD_TTL_MS: i64 = 15 * 60 * 1000;
+/// Two-person commands wait for the second person: they may live a day (v0.20.0).
+pub const APPROVAL_TTL_MS: i64 = 24 * 3600 * 1000;
+/// Kinds SendCommand takes (the alert and backup kinds keep their own RPCs too).
+pub const SEND_KINDS: &[&str] = &[
+    "setting.set",
+    "schedule.run",
+    "schedule.pause",
+    "schedule.resume",
+    "plugin.enable",
+    "plugin.disable",
+    "plugin.install",
+    "backup.start",
+    "alert.ack",
+    "alert.resolve",
+];
+/// Largest catalog package (MiB).
+pub const MAX_PACKAGE_MIB: usize = 256;
 
 #[derive(Clone)]
 pub struct Api {
@@ -435,30 +452,77 @@ impl Api {
         Ok(())
     }
 
+    async fn command_by_id(&self, id: &str) -> Result<CommandRow, Status> {
+        let i = id.to_string();
+        self.pool
+            .run(move |c| {
+                Ok(commands::table
+                    .filter(commands::id.eq(i))
+                    .select(command_cols())
+                    .first(c)
+                    .optional()?)
+            })
+            .await
+            .map_err(dberr)?
+            .ok_or_else(|| Status::not_found("no such command"))
+    }
+
+    async fn freeze_state(&self) -> Result<pb::FreezeState, Status> {
+        let v: Option<String> = self
+            .pool
+            .run(|c| {
+                Ok(meta::table
+                    .filter(meta::k.eq("freeze"))
+                    .select(meta::v)
+                    .first(c)
+                    .optional()?)
+            })
+            .await
+            .map_err(dberr)?;
+        let v = v.unwrap_or_default();
+        let mut it = v.split('|');
+        Ok(pb::FreezeState {
+            frozen: it.next() == Some("1"),
+            by: it.next().unwrap_or("").to_string(),
+            since_ms: it.next().and_then(|x| x.parse().ok()).unwrap_or(0),
+        })
+    }
+
     async fn command(
         &self,
         req: Request<pb::CommandRequest>,
         method: &str,
-        kind: &str,
+        kinds: &[&str],
     ) -> Result<Response<pb::CommandInfo>, Status> {
         let p = self.signed(&req, method).await?;
         let mut c = req
             .into_inner()
             .command
             .ok_or_else(|| Status::invalid_argument("command missing"))?;
-        if c.kind != kind {
+        if !kinds.contains(&c.kind.as_str()) {
             return Err(Status::invalid_argument(format!(
-                "command kind must be {kind}"
+                "command kind must be one of {}",
+                kinds.join(", ")
             )));
         }
+        let kind = c.kind.clone();
+        let kind = kind.as_str();
+        if crate::link::frozen(&self.pool).await.map_err(dberr)? {
+            return Err(Status::failed_precondition("frozen: an owner has frozen all commands (GetFreeze)"));
+        }
+        if !c.approver_id.is_empty() || !c.approver_sig.is_empty() {
+            return Err(Status::invalid_argument("approver fields are filled by ApproveCommand"));
+        }
+        let two = !c.dry_run && itcmdr_adminlink::TWO_PERSON.contains(&kind);
         self.may_site(&p, &c.site_id).await?;
         let now = crate::now_ms();
         if c.user_id != p.user_id || c.user_role != p.role.as_str() || c.user_key != p.key_hex {
             return Err(denied("command is not yours (user, role or key differ)"));
         }
+        let ttl = if two { APPROVAL_TTL_MS } else { CMD_TTL_MS };
         if (c.issued_ms - now).abs() > self.cfg.max_skew_secs * 1000
             || c.expires_ms <= now
-            || c.expires_ms - c.issued_ms > CMD_TTL_MS
+            || c.expires_ms - c.issued_ms > ttl
         {
             return Err(Status::invalid_argument("command times are out of range"));
         }
@@ -467,6 +531,28 @@ impl Api {
         }
         if kind.starts_with("alert.") && c.args.get("alert_id").is_none_or(|a| a.is_empty()) {
             return Err(Status::invalid_argument("alert_id missing"));
+        }
+        let need = |k: &str| c.args.get(k).is_none_or(|a| a.is_empty() || a.len() > 512);
+        let missing = match kind {
+            "setting.set" => need("key") || c.args.get("value").is_none(),
+            "schedule.run" | "schedule.pause" | "schedule.resume" => need("schedule"),
+            "plugin.enable" | "plugin.disable" => need("name"),
+            "plugin.install" => need("sha256"),
+            _ => false,
+        };
+        if missing || c.args.len() > 8 {
+            return Err(Status::invalid_argument(format!("arguments for {kind} are missing or too long")));
+        }
+        if kind == "plugin.install" {
+            let sha = c.args["sha256"].to_lowercase();
+            let n: i64 = self
+                .pool
+                .run(move |db| Ok(catalog::table.filter(catalog::sha256.eq(sha)).count().get_result(db)?))
+                .await
+                .map_err(dberr)?;
+            if n == 0 {
+                return Err(Status::not_found("no such package in the catalog"));
+            }
         }
         let sid = c.site_id.clone();
         let st: Option<String> = self
@@ -510,31 +596,49 @@ impl Api {
                         commands::site_id.eq(&cc.site_id),
                         commands::kind.eq(&cc.kind),
                         commands::requested_by.eq(uid),
-                        commands::state.eq("pending"),
+                        commands::state.eq(if two { "awaiting-approval" } else { "pending" }),
                         commands::created_ms.eq(now),
                         commands::body.eq(cc.encode_to_vec()),
+                        commands::dry_run.eq(cc.dry_run),
                     ))
                     .execute(db)?;
                 Ok(())
             })
             .await
             .map_err(dberr)?;
-        self.audit(&p, &format!("command.{kind}"), &c.site_id, &c)
-            .await?;
-        self.hub.kick(&c.site_id);
+        let action = format!("command.{kind}{}", if c.dry_run { ".dry-run" } else { "" });
+        self.audit(&p, &action, &c.site_id, &c).await?;
+        if !two {
+            self.hub.kick(&c.site_id);
+        }
         Ok(Response::new(pb::CommandInfo {
             id: c.id,
             site: c.site_id,
             kind: c.kind,
-            state: "pending".into(),
+            state: if two { "awaiting-approval" } else { "pending" }.into(),
             result_code: String::new(),
             requested_by: p.user_id,
             created_ms: now,
+            dry_run: c.dry_run,
+            args: c.args,
+            ..Default::default()
         }))
     }
 }
 
-pub type CommandRow = (String, String, String, String, String, String, i64);
+pub type CommandRow = (
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    i64,
+    bool,
+    Option<Vec<u8>>,
+    String,
+    Vec<u8>,
+);
 pub fn command_cols() -> (
     commands::id,
     commands::site_id,
@@ -543,6 +647,10 @@ pub fn command_cols() -> (
     commands::result_code,
     commands::requested_by,
     commands::created_ms,
+    commands::dry_run,
+    commands::preview,
+    commands::approved_by,
+    commands::body,
 ) {
     (
         commands::id,
@@ -552,6 +660,10 @@ pub fn command_cols() -> (
         commands::result_code,
         commands::requested_by,
         commands::created_ms,
+        commands::dry_run,
+        commands::preview,
+        commands::approved_by,
+        commands::body,
     )
 }
 pub fn command_row(r: CommandRow) -> pb::CommandInfo {
@@ -563,6 +675,16 @@ pub fn command_row(r: CommandRow) -> pb::CommandInfo {
         result_code: r.4,
         requested_by: r.5,
         created_ms: r.6,
+        dry_run: r.7,
+        preview: r
+            .8
+            .and_then(|b| pb::CommandResult::decode(b.as_slice()).ok())
+            .map(|x| x.preview)
+            .unwrap_or_default(),
+        approved_by: r.9,
+        args: pb::Command::decode(r.10.as_slice())
+            .map(|c| c.args)
+            .unwrap_or_default(),
     }
 }
 
@@ -1392,25 +1514,331 @@ impl pb::admin_api_server::AdminApi for Api {
         Ok(Response::new(pb::AlertList { alerts }))
     }
 
+    async fn send_command(
+        &self,
+        req: Request<pb::CommandRequest>,
+    ) -> Result<Response<pb::CommandInfo>, Status> {
+        self.command(req, "/itcmdr.admin.AdminApi/SendCommand", SEND_KINDS)
+            .await
+    }
+
+    async fn get_command(
+        &self,
+        req: Request<pb::CommandRef>,
+    ) -> Result<Response<pb::CommandDetail>, Status> {
+        let p = self.signed(&req, "/itcmdr.admin.AdminApi/GetCommand").await?;
+        let id = req.get_ref().id.clone();
+        let row = self.command_by_id(&id).await?;
+        self.may_site(&p, &row.1).await?;
+        let command = pb::Command::decode(row.10.as_slice()).ok();
+        Ok(Response::new(pb::CommandDetail {
+            info: Some(command_row(row)),
+            command,
+        }))
+    }
+
+    async fn approve_command(
+        &self,
+        req: Request<pb::ApproveRequest>,
+    ) -> Result<Response<pb::CommandInfo>, Status> {
+        let p = self
+            .signed(&req, "/itcmdr.admin.AdminApi/ApproveCommand")
+            .await?;
+        let r = req.get_ref().clone();
+        if p.role < Role::Admin {
+            return Err(denied("only owners and admins can approve"));
+        }
+        if crate::link::frozen(&self.pool).await.map_err(dberr)? {
+            return Err(Status::failed_precondition("frozen"));
+        }
+        let row = self.command_by_id(&r.id).await?;
+        self.may_site(&p, &row.1).await?;
+        if row.3 != "awaiting-approval" {
+            return Err(Status::failed_precondition(format!("command is {}", row.3)));
+        }
+        if row.5 == p.user_id {
+            return Err(denied("the second person must be someone other than the requester"));
+        }
+        if r.approver_key != p.key_hex {
+            return Err(Status::invalid_argument("approver_key must be the calling device's key"));
+        }
+        let mut c = pb::Command::decode(row.10.as_slice()).map_err(|_| Status::internal("command body"))?;
+        if c.expires_ms <= crate::now_ms() {
+            return Err(Status::failed_precondition("command expired"));
+        }
+        c.approver_id = p.user_id.clone();
+        c.approver_role = p.role.as_str().into();
+        c.approver_key = p.key_hex.clone();
+        c.approver_sig = r.approver_sig.clone();
+        itcmdr_adminlink::endorse_approver(&self.m.root, &mut c);
+        let root = self.m.root.verifying_key();
+        if !matches!(itcmdr_adminlink::check_approver(&root, &c), Ok(true)) {
+            return Err(Status::unauthenticated("bad approval signature"));
+        }
+        let (cc, uid, id) = (c.clone(), p.user_id.clone(), r.id.clone());
+        let n = self
+            .pool
+            .run(move |db| {
+                Ok(diesel::update(
+                    commands::table.filter(commands::id.eq(id).and(commands::state.eq("awaiting-approval"))),
+                )
+                .set((
+                    commands::state.eq("pending"),
+                    commands::approved_by.eq(uid),
+                    commands::body.eq(cc.encode_to_vec()),
+                ))
+                .execute(db)?)
+            })
+            .await
+            .map_err(dberr)?;
+        if n == 0 {
+            return Err(Status::failed_precondition("command was changed meanwhile"));
+        }
+        self.audit(&p, &format!("command.approve.{}", c.kind), &c.site_id, &r)
+            .await?;
+        self.hub.kick(&c.site_id);
+        let row = self.command_by_id(&r.id).await?;
+        Ok(Response::new(command_row(row)))
+    }
+
+    async fn reject_command(
+        &self,
+        req: Request<pb::CommandRef>,
+    ) -> Result<Response<pb::CommandInfo>, Status> {
+        let p = self
+            .signed(&req, "/itcmdr.admin.AdminApi/RejectCommand")
+            .await?;
+        let id = req.get_ref().id.clone();
+        let row = self.command_by_id(&id).await?;
+        self.may_site(&p, &row.1).await?;
+        if row.5 != p.user_id && p.role < Role::Admin {
+            return Err(denied("only the requester, an owner or an admin can reject"));
+        }
+        let i = id.clone();
+        let n = self
+            .pool
+            .run(move |db| {
+                Ok(diesel::update(
+                    commands::table.filter(commands::id.eq(i).and(commands::state.eq("awaiting-approval"))),
+                )
+                .set(commands::state.eq("rejected"))
+                .execute(db)?)
+            })
+            .await
+            .map_err(dberr)?;
+        if n == 0 {
+            return Err(Status::failed_precondition(format!("command is {}", row.3)));
+        }
+        self.audit(&p, &format!("command.reject.{}", row.2), &row.1, req.get_ref())
+            .await?;
+        Ok(Response::new(command_row(self.command_by_id(&id).await?)))
+    }
+
+    async fn get_site_config(
+        &self,
+        req: Request<pb::SiteRef>,
+    ) -> Result<Response<pb::SiteConfigInfo>, Status> {
+        let p = self
+            .signed(&req, "/itcmdr.admin.AdminApi/GetSiteConfig")
+            .await?;
+        let site = req.get_ref().site.clone();
+        self.may_site(&p, &site).await?;
+        let s = site.clone();
+        let (b, ms): (Option<Vec<u8>>, i64) = self
+            .pool
+            .run(move |c| {
+                Ok(sites::table
+                    .filter(sites::id.eq(s))
+                    .select((sites::config, sites::config_ms))
+                    .first(c)
+                    .optional()?
+                    .unwrap_or((None, 0)))
+            })
+            .await
+            .map_err(dberr)?;
+        Ok(Response::new(pb::SiteConfigInfo {
+            site,
+            config: b.and_then(|b| pb::SiteConfig::decode(b.as_slice()).ok()),
+            received_ms: ms,
+        }))
+    }
+
+    async fn get_site_plugins(
+        &self,
+        req: Request<pb::SiteRef>,
+    ) -> Result<Response<pb::SitePluginsInfo>, Status> {
+        let p = self
+            .signed(&req, "/itcmdr.admin.AdminApi/GetSitePlugins")
+            .await?;
+        let site = req.get_ref().site.clone();
+        self.may_site(&p, &site).await?;
+        let s = site.clone();
+        let (b, ms): (Option<Vec<u8>>, i64) = self
+            .pool
+            .run(move |c| {
+                Ok(sites::table
+                    .filter(sites::id.eq(s))
+                    .select((sites::plugins, sites::plugins_ms))
+                    .first(c)
+                    .optional()?
+                    .unwrap_or((None, 0)))
+            })
+            .await
+            .map_err(dberr)?;
+        Ok(Response::new(pb::SitePluginsInfo {
+            site,
+            plugins: b.and_then(|b| pb::SitePlugins::decode(b.as_slice()).ok()),
+            received_ms: ms,
+        }))
+    }
+
+    async fn upload_plugin(
+        &self,
+        req: Request<pb::PluginUpload>,
+    ) -> Result<Response<pb::CatalogEntry>, Status> {
+        let p = self
+            .signed(&req, "/itcmdr.admin.AdminApi/UploadPlugin")
+            .await?;
+        if p.role < Role::Admin {
+            return Err(denied("only owners and admins can add packages"));
+        }
+        let bytes = req.get_ref().package.clone();
+        if bytes.len() > MAX_PACKAGE_MIB * 1024 * 1024 {
+            return Err(Status::invalid_argument("package too large"));
+        }
+        let (name, version) = package_name_version(&bytes)
+            .map_err(|e| Status::invalid_argument(format!("not a plugin package: {e}")))?;
+        let sha = itcmdr_adminlink::sha256_hex(&bytes);
+        let e = pb::CatalogEntry {
+            sha256: sha.clone(),
+            name,
+            version,
+            size: bytes.len() as i64,
+            uploaded_by: p.user_id.clone(),
+            uploaded_ms: crate::now_ms(),
+            description: String::new(),
+        };
+        let ee = e.clone();
+        self.pool
+            .run(move |c| {
+                let have: i64 = catalog::table.filter(catalog::sha256.eq(&ee.sha256)).count().get_result(c)?;
+                if have == 0 {
+                    diesel::insert_into(catalog::table)
+                        .values((
+                            catalog::sha256.eq(&ee.sha256),
+                            catalog::name.eq(&ee.name),
+                            catalog::version.eq(&ee.version),
+                            catalog::size.eq(ee.size),
+                            catalog::description.eq(""),
+                            catalog::uploaded_by.eq(&ee.uploaded_by),
+                            catalog::uploaded_ms.eq(ee.uploaded_ms),
+                            catalog::body.eq(&bytes),
+                        ))
+                        .execute(c)?;
+                }
+                Ok(())
+            })
+            .await
+            .map_err(dberr)?;
+        // The package bytes are not in the audit, only what identifies them.
+        self.audit(&p, "catalog.upload", &sha, &pb::CatalogEntry { ..e.clone() })
+            .await?;
+        Ok(Response::new(e))
+    }
+
+    async fn list_catalog(
+        &self,
+        req: Request<pb::Empty>,
+    ) -> Result<Response<pb::Catalog>, Status> {
+        self.signed(&req, "/itcmdr.admin.AdminApi/ListCatalog").await?;
+        type Row = (String, String, String, i64, String, String, i64);
+        let rows: Vec<Row> = self
+            .pool
+            .run(|c| {
+                Ok(catalog::table
+                    .order((catalog::name, catalog::uploaded_ms.desc()))
+                    .select((
+                        catalog::sha256,
+                        catalog::name,
+                        catalog::version,
+                        catalog::size,
+                        catalog::description,
+                        catalog::uploaded_by,
+                        catalog::uploaded_ms,
+                    ))
+                    .load(c)?)
+            })
+            .await
+            .map_err(dberr)?;
+        Ok(Response::new(pb::Catalog {
+            packages: rows
+                .into_iter()
+                .map(|r| pb::CatalogEntry {
+                    sha256: r.0,
+                    name: r.1,
+                    version: r.2,
+                    size: r.3,
+                    description: r.4,
+                    uploaded_by: r.5,
+                    uploaded_ms: r.6,
+                })
+                .collect(),
+        }))
+    }
+
+    async fn get_freeze(
+        &self,
+        req: Request<pb::Empty>,
+    ) -> Result<Response<pb::FreezeState>, Status> {
+        self.signed(&req, "/itcmdr.admin.AdminApi/GetFreeze").await?;
+        Ok(Response::new(self.freeze_state().await?))
+    }
+
+    async fn set_freeze(
+        &self,
+        req: Request<pb::FreezeState>,
+    ) -> Result<Response<pb::FreezeState>, Status> {
+        let p = self.signed(&req, "/itcmdr.admin.AdminApi/SetFreeze").await?;
+        if p.role != Role::Owner {
+            return Err(denied("only owners can freeze or unfreeze"));
+        }
+        let v = if req.get_ref().frozen {
+            format!("1|{}|{}", p.user_id, crate::now_ms())
+        } else {
+            "0".to_string()
+        };
+        self.pool
+            .run(move |c| crate::passkeys::put_meta(c, "freeze", &v))
+            .await
+            .map_err(dberr)?;
+        let st = self.freeze_state().await?;
+        self.audit(&p, if st.frozen { "freeze.on" } else { "freeze.off" }, "", req.get_ref())
+            .await?;
+        if !st.frozen {
+            self.hub.kick_all();
+        }
+        Ok(Response::new(st))
+    }
+
     async fn ack_alert(
         &self,
         req: Request<pb::CommandRequest>,
     ) -> Result<Response<pb::CommandInfo>, Status> {
-        self.command(req, "/itcmdr.admin.AdminApi/AckAlert", "alert.ack")
+        self.command(req, "/itcmdr.admin.AdminApi/AckAlert", &["alert.ack"])
             .await
     }
     async fn resolve_alert(
         &self,
         req: Request<pb::CommandRequest>,
     ) -> Result<Response<pb::CommandInfo>, Status> {
-        self.command(req, "/itcmdr.admin.AdminApi/ResolveAlert", "alert.resolve")
+        self.command(req, "/itcmdr.admin.AdminApi/ResolveAlert", &["alert.resolve"])
             .await
     }
     async fn start_backup(
         &self,
         req: Request<pb::CommandRequest>,
     ) -> Result<Response<pb::CommandInfo>, Status> {
-        self.command(req, "/itcmdr.admin.AdminApi/StartBackup", "backup.start")
+        self.command(req, "/itcmdr.admin.AdminApi/StartBackup", &["backup.start"])
             .await
     }
 
@@ -1782,4 +2210,32 @@ pub async fn serve(
         )
         .await?;
     Ok(())
+}
+
+/// name and version from an uploaded package's package.toml (the site validates the rest).
+pub fn package_name_version(bytes: &[u8]) -> anyhow::Result<(String, String)> {
+    use std::io::Read;
+    let mut ar = tar::Archive::new(flate2::read::GzDecoder::new(bytes));
+    for e in ar.entries()? {
+        let mut e = e?;
+        let path = e.path()?.to_string_lossy().trim_start_matches("./").to_string();
+        if path == "package.toml" {
+            let mut s = String::new();
+            e.take(1024 * 1024).read_to_string(&mut s)?;
+            #[derive(serde::Deserialize)]
+            struct M {
+                name: String,
+                version: String,
+            }
+            let m: M = toml::from_str(&s)?;
+            let ok = |v: &str| {
+                !v.is_empty()
+                    && v.len() <= 64
+                    && v.chars().all(|c| c.is_ascii_alphanumeric() || "-_.".contains(c))
+            };
+            anyhow::ensure!(ok(&m.name) && ok(&m.version), "bad name or version");
+            return Ok((m.name, m.version));
+        }
+    }
+    anyhow::bail!("package.toml is missing")
 }
