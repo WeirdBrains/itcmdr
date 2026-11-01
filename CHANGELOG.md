@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## v0.20.1 (2026-11-01)
+The Rust agent takes over: agent config over the link and a gated `cutover switch --to agent`.
+- Agent config over the link (`ConfigUpdate`): the cutover state and the machine's agent settings, endorsed by the server root key. The agent stores it in `config.json` only when the endorsement checks and re-checks it on every load; a tampered or broken file is deleted, the agent stays report-only, raises `config-rejected` and the server resends the config. The server records each agent's acknowledged version (`agent_config`).
+- `itcmdr-cli cutover switch --to agent`: refused until the existing gate passes and every machine active in the last two days has a non-revoked Rust agent seen in the last 10 minutes that acknowledged the current config and has Rust-agent parity results with no mismatch. After it, the Rust agent runs plugins for real (not report-only) and the PowerShell agent is retired for scheduled runs, with no fallback (on-demand runs still work until v0.22.0).
+- Self-heal: in the agent state the Rust agent (and the PowerShell poller) keep the `itcmdr Agent Nightly` task disabled; re-enabling it by hand is undone and alerted (`nightly-task-reenabled`). `itcmdr-cli cutover rollback` hands the nightly back to the task, and the agent re-enables it.
+- PowerShell: `agent` cutover state in `cutover.json`, `Set-ItcmdrCutover.ps1 -To agent`; upgrades keep the task disabled.
+
 ## v0.20.0 (2026-11-01)
 Commands, configs and plugins from adminsvr with preview and two-person approval; no CocoaPods.
 - Commands down from adminsvr: `setting.set` (numbers, switches and times only; never link, auth, path or text settings), `schedule.run`/`pause`/`resume` (opaque schedule ids), `plugin.install`/`enable`/`disable`. Every command can be a dry run: the site answers with before/after and changes nothing. All kinds stay off until the site owner allows them (`itcmdr-cli adminsvr allow`); restore, keys and auth are never remote.

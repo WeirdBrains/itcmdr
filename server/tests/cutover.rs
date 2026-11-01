@@ -252,6 +252,75 @@ async fn the_switch_needs_a_clean_week_the_vm_flag_and_agents_that_see_schedules
     assert_eq!(st["nightly"]["enabled"], true);
     assert!(st["nightly"]["next"].is_string());
 
+    // v0.20.1: switch --to agent is refused until every active machine has a live Rust agent
+    // that acknowledged the current config and has clean agent parity.
+    let e = cutover::switch_agent(&pool, &c, "t", Utc::now())
+        .await
+        .unwrap_err()
+        .to_string();
+    assert!(e.contains("WS-01: no enrolled Rust agent"), "{e}");
+    let now = Utc::now().timestamp_millis();
+    for (i, m) in ["WS-01", "WS-02"].iter().enumerate() {
+        sqlx::query("INSERT INTO agents(id, machine, role, public_key, cert_fp, cert_serial, cert_expires_ms, state, enrolled_ms, version, os, peer, cert_issued_ms, last_seen_ms) VALUES (?,?,'workstation','','','',0,'online',?,'0.20.1','windows','',0,?)")
+            .bind(format!("a{i}")).bind(m).bind(now).bind(now).execute(&pool).await.unwrap();
+    }
+    let e = cutover::switch_agent(&pool, &c, "t", Utc::now())
+        .await
+        .unwrap_err()
+        .to_string();
+    assert!(
+        e.contains("WS-01: the Rust agent has not acknowledged its config"),
+        "{e}"
+    );
+    assert!(e.contains("WS-02: no Rust agent run with parity"), "{e}");
+    for (i, m) in ["WS-01", "WS-02"].iter().enumerate() {
+        let (v, _) = srv::agent_plugins::config_doc(&pool, m).await.unwrap();
+        sqlx::query(
+            "INSERT INTO agent_config(machine, version, ok, error, ts_ms) VALUES (?,?,1,'',?)",
+        )
+        .bind(m)
+        .bind(&v)
+        .bind(now)
+        .execute(&pool)
+        .await
+        .unwrap();
+        sqlx::query("INSERT INTO agent_runs(run_id, agent_id, machine, plugin, version, trigger, started_ms, finished_ms, status, message, report_only, results, errors, artifacts, parity_matched, parity_mismatched, parity_detail, received_ms) VALUES (?,?,?,'itcmdr-network','1','schedule:x',?,?,'ok','',1,'[]','[]','[]',12,?,'',?)")
+            .bind(format!("r{i}")).bind(format!("a{i}")).bind(m).bind(now).bind(now)
+            .bind(if i == 1 { 1 } else { 0 }).bind(now).execute(&pool).await.unwrap();
+    }
+    let e = cutover::switch_agent(&pool, &c, "t", Utc::now())
+        .await
+        .unwrap_err()
+        .to_string();
+    assert!(
+        e.contains("WS-02: 1 Rust agent run(s) with parity mismatches"),
+        "{e}"
+    );
+    assert!(!e.contains("WS-01"), "{e}");
+    sqlx::query("UPDATE agent_runs SET parity_mismatched = 0")
+        .execute(&pool)
+        .await
+        .unwrap();
+    let g = cutover::switch_agent(&pool, &c, "t", Utc::now())
+        .await
+        .unwrap();
+    assert_eq!(g.state, "agent");
+    let st: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(cutover::state_path(&c)).unwrap()).unwrap();
+    assert_eq!(st["cutover"], "agent");
+    // The config the agents get now says agent (new version, so it is resent).
+    let (v2, j2) = srv::agent_plugins::config_doc(&pool, "WS-01")
+        .await
+        .unwrap();
+    assert!(j2.contains("\"cutover\":\"agent\""), "{j2}");
+    assert_ne!(
+        srv::agent_plugins::config_acked(&pool, "WS-01")
+            .await
+            .unwrap()
+            .unwrap(),
+        v2
+    );
+
     // One-command rollback.
     cutover::rollback(&pool, &c, "t").await.unwrap();
     assert_eq!(cutover::state(&pool).await.unwrap(), "task");
@@ -276,6 +345,11 @@ async fn the_switch_needs_a_clean_week_the_vm_flag_and_agents_that_see_schedules
     .unwrap();
     assert_eq!(
         audit,
-        ["cutover-vm-verified", "cutover-switch", "cutover-rollback"]
+        [
+            "cutover-vm-verified",
+            "cutover-switch",
+            "cutover-switch",
+            "cutover-rollback"
+        ]
     );
 }

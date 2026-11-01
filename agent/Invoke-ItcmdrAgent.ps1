@@ -47,7 +47,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-$script:AgentVersion = '0.20.0'
+$script:AgentVersion = '0.20.1'
 
 # The check library (shared with the built-in check plugins).
 . (Join-Path $PSScriptRoot 'Itcmdr.Checks.ps1')
@@ -66,6 +66,12 @@ if (-not $env:ITCMDR_IMPORT_ONLY) {
   $schedState = $null; $cut = $null
   try { $schedState = Get-ItcmdrScheduleState -Site $site } catch { Write-Verbose "schedule state: $_" }
   try { $cut = Sync-ItcmdrCutover -Site $site -ScheduleState $schedState } catch { $cut = Get-ItcmdrCutoverState -Site $site }
+  # v0.20.1: after `cutover switch --to agent` the Rust agent runs the nightly; this agent is
+  # retired for scheduled runs (no fallback). On-demand runs still work until v0.22.0.
+  if ($cut -and $cut.State -eq 'agent' -and $Trigger -in @('task', 'schedule', 'fallback')) {
+    Write-Output "itcmdr: the Rust agent owns the nightly (cutover agent); not running ($Trigger)."
+    return
+  }
   $pluginMode = Resolve-ItcmdrPluginMode -Site $site -CutoverState $cut.State
   $ssTs = if ($schedState -and $schedState.Ts) { $schedState.Ts.ToString('o') } else { $null }
 

@@ -8,9 +8,9 @@
 
 use anyhow::{anyhow, ensure, Context, Result};
 use itcmdr_agentlink::pb;
-use std::sync::Mutex;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 pub const FILE: &str = "config.json";
 pub const TASK: &str = "itcmdr Agent Nightly";
@@ -38,14 +38,17 @@ pub fn take_alerts() -> Vec<pb::AgentAlert> {
 }
 
 pub fn alert(key: &str, level: &str, title: &str, detail: &str, resolve: bool) {
-    ALERTS.lock().unwrap_or_else(|e| e.into_inner()).push(pb::AgentAlert {
-        key: key.into(),
-        level: level.into(),
-        title: title.into(),
-        detail: detail.into(),
-        ts_ms: chrono::Utc::now().timestamp_millis(),
-        resolve,
-    });
+    ALERTS
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .push(pb::AgentAlert {
+            key: key.into(),
+            level: level.into(),
+            title: title.into(),
+            detail: detail.into(),
+            ts_ms: chrono::Utc::now().timestamp_millis(),
+            resolve,
+        });
 }
 
 fn path(dir: &Path) -> PathBuf {
@@ -163,7 +166,11 @@ pub fn heal_task(dir: &Path, state: &str) -> Option<String> {
         return None;
     }
     if !set_task(want_enabled) {
-        tracing::error!(task = TASK, enable = want_enabled, "could not change the nightly task");
+        tracing::error!(
+            task = TASK,
+            enable = want_enabled,
+            "could not change the nightly task"
+        );
         return None;
     }
     if want_enabled {

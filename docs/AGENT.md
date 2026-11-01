@@ -120,3 +120,18 @@ button in the app, and queue items from the PowerShell agent.
 - Runs are report-only (`ITCMDR_REPORT_ONLY=1`). Reports go through the offline queue; artifacts land in `<data>/agent-artifacts/<run>/`, logs in `plugin-logs/<plugin>/agents/<machine>.jsonl`, parity as `agent:<run>`.
 - Alerts: `agent-plugin:<machine>:<name>` (install refused), `agent-run:<machine>:<plugin>` (run failed).
 - Enrollment calls `Prepare` first (CA and root key verified before the token is used); a disconnected agent calls `Check` and, when revoked, stops reconnecting (logs "enroll it again", checks every 15 min).
+
+## Config and the switch to the agent (v0.20.1)
+The server sends each agent a config document over the link (`ConfigUpdate`): the cutover
+state and the machine's agent settings, signed by the server root key. The agent keeps it in
+`config.json` only when the signature checks, and checks it again whenever it reads it. A broken
+or edited file is deleted: the agent stays report-only, raises a `config-rejected` alert and gets
+the config again from the server within a minute.
+
+`itcmdr-cli cutover switch --to agent` hands the nightly run to the Rust agent. It is refused
+until the normal gate passes (`cutover status`) and every machine active in the last two days has
+a Rust agent that is enrolled, not revoked, seen in the last 10 minutes, holds the current config
+and has clean parity. After the switch the agent runs plugins for real and keeps the PowerShell
+`itcmdr Agent Nightly` task disabled (it disables it again and alerts if someone turns it back
+on). There is no PowerShell fallback. `itcmdr-cli cutover rollback` undoes it: the agents
+re-enable the task and go back to report-only.

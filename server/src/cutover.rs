@@ -488,7 +488,9 @@ pub async fn agent_problems(pool: &DbPool, now: DateTime<Utc>) -> Result<Vec<Str
             Some(v) => problems.push(format!(
                 "{m}: the Rust agent holds config {v}, not the current {want}"
             )),
-            None => problems.push(format!("{m}: the Rust agent has not acknowledged its config")),
+            None => problems.push(format!(
+                "{m}: the Rust agent has not acknowledged its config"
+            )),
         }
         let (runs, bad): (i64, i64) = sqlx::query_as(
             "SELECT COUNT(*), COALESCE(SUM(CASE WHEN parity_mismatched > 0 THEN 1 ELSE 0 END), 0) FROM agent_runs WHERE machine = ? COLLATE NOCASE AND received_ms >= ? AND parity_matched IS NOT NULL",
@@ -498,9 +500,13 @@ pub async fn agent_problems(pool: &DbPool, now: DateTime<Utc>) -> Result<Vec<Str
         .fetch_one(pool)
         .await?;
         if runs == 0 {
-            problems.push(format!("{m}: no Rust agent run with parity in the last {SEEN_WINDOW_H} h"));
+            problems.push(format!(
+                "{m}: no Rust agent run with parity in the last {SEEN_WINDOW_H} h"
+            ));
         } else if bad > 0 {
-            problems.push(format!("{m}: {bad} Rust agent run(s) with parity mismatches"));
+            problems.push(format!(
+                "{m}: {bad} Rust agent run(s) with parity mismatches"
+            ));
         }
     }
     Ok(problems)
@@ -517,7 +523,10 @@ pub async fn switch_agent(
     let mut g = gate(pool, now).await?;
     g.problems.extend(agent_problems(pool, now).await?);
     if !g.problems.is_empty() {
-        bail!("not safe to switch to the agent yet:\n  - {}", g.problems.join("\n  - "));
+        bail!(
+            "not safe to switch to the agent yet:\n  - {}",
+            g.problems.join("\n  - ")
+        );
     }
     let s = find_builtin(pool, AGENT_KEY)
         .await?

@@ -32,7 +32,11 @@ pub fn plugin_bytes(name: &str, version: &str, manifest_sha256: &str) -> Vec<u8>
 
 /// v0.20.1: bytes the server root key signs for a ConfigUpdate (the agent checks them).
 pub fn config_bytes(version: &str, json: &str) -> Vec<u8> {
-    format!("itcmdr-agent-config/v1\n{version}\n{}", sha256_hex(json.as_bytes())).into_bytes()
+    format!(
+        "itcmdr-agent-config/v1\n{version}\n{}",
+        sha256_hex(json.as_bytes())
+    )
+    .into_bytes()
 }
 
 /// v0.20.1: version of a config document (first 16 hex of its sha256).

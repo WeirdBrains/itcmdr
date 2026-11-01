@@ -46,9 +46,9 @@ if ($PSCmdlet.ShouldProcess($taskName, 'Register-ScheduledTask')) {
     # v0.11.0: after the cutover the task is a disabled fallback; an upgrade must keep it disabled.
     $cutState = 'task'
     try { if ($site) { $cutState = (Get-ItcmdrCutoverState -Site $site).State } } catch { $cutState = 'task' }
-    if ($cutState -eq 'schedule') {
+    if ($cutState -in @('schedule', 'agent')) {
       Disable-ScheduledTask -TaskName $taskName | Out-Null
-      Write-Output "Kept '$taskName' disabled (cutover: the default schedule runs the nightly)"
+      Write-Output "Kept '$taskName' disabled (cutover ${cutState}: the task is not the nightly runner)"
     }
   } catch {
     throw "Failed to register scheduled task: $_"
