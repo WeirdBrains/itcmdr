@@ -247,6 +247,13 @@ async fn site_link_is_redacted_and_commands_are_checked(db: String) {
     let ls = site_info.last_status.clone().unwrap();
     assert_eq!((ls.agents_online, ls.agents_late), (3, 1));
     assert_eq!(ls.machines.len(), 4);
+    // v0.19.2 metrics history: the same numbers, oldest first, nothing but numbers/enums/ids.
+    let ms = o.site_metrics(&st.site_id, 0, 0).await.unwrap();
+    assert!(!ms.samples.is_empty());
+    let last = ms.samples.last().unwrap().status.clone().unwrap();
+    assert_eq!((last.agents_online, last.agents_late), (3, 1));
+    assert!(ms.samples.windows(2).all(|w| w[0].ts_ms <= w[1].ts_ms));
+    assert!(o.site_metrics("", 0, 0).await.is_err());
     assert!(ls
         .machines
         .iter()
@@ -295,6 +302,18 @@ async fn site_link_is_redacted_and_commands_are_checked(db: String) {
         .await
         .unwrap();
     clean("adminsvr status", &stat, "", &bad_all);
+    let hist: Vec<Vec<u8>> = apool
+        .run(|c| {
+            use diesel::prelude::*;
+            use itcmdr_adminsvr::schema::site_metrics::dsl::*;
+            Ok(site_metrics.select(body).load(c)?)
+        })
+        .await
+        .unwrap();
+    assert!(!hist.is_empty());
+    for b in &hist {
+        clean("adminsvr metrics", b, "", &bad_all);
+    }
 
     // Remote start of a local backup: the archive stays on the site; no bytes or keys go up.
     let c = o.command(&st.site_id, "backup.start", &[]).await.unwrap();

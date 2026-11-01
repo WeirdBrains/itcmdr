@@ -1622,13 +1622,21 @@ impl pb::admin_api_server::AdminApi for Api {
             return Err(Status::invalid_argument("site required"));
         }
         self.may_site(&p, &f.site).await?;
-        let limit = if f.limit <= 0 { 1440 } else { f.limit.min(20000) } as i64;
+        let limit = if f.limit <= 0 {
+            1440
+        } else {
+            f.limit.min(20000)
+        } as i64;
         let (site, since) = (f.site.clone(), f.since_ms);
         let mut rows: Vec<(i64, Vec<u8>)> = self
             .pool
             .run(move |c| {
                 Ok(site_metrics::table
-                    .filter(site_metrics::site_id.eq(site).and(site_metrics::ts_ms.ge(since)))
+                    .filter(
+                        site_metrics::site_id
+                            .eq(site)
+                            .and(site_metrics::ts_ms.ge(since)),
+                    )
                     .order(site_metrics::ts_ms.desc())
                     .limit(limit)
                     .select((site_metrics::ts_ms, site_metrics::body))
@@ -1640,13 +1648,18 @@ impl pb::admin_api_server::AdminApi for Api {
         let samples = rows
             .into_iter()
             .filter_map(|(ts, b)| {
-                pb::SiteStatus::decode(b.as_slice()).ok().map(|st| pb::MetricsSample {
-                    ts_ms: ts,
-                    status: Some(st),
-                })
+                pb::SiteStatus::decode(b.as_slice())
+                    .ok()
+                    .map(|st| pb::MetricsSample {
+                        ts_ms: ts,
+                        status: Some(st),
+                    })
             })
             .collect();
-        Ok(Response::new(pb::MetricsSeries { site: f.site, samples }))
+        Ok(Response::new(pb::MetricsSeries {
+            site: f.site,
+            samples,
+        }))
     }
 
     async fn register_push(
@@ -1702,8 +1715,10 @@ impl pb::admin_api_server::AdminApi for Api {
             .run(move |c| {
                 let mine = push_tokens::user_id.eq(u);
                 Ok(if t.is_empty() {
-                    diesel::delete(push_tokens::table.filter(mine.and(push_tokens::device_fp.eq(fp))))
-                        .execute(c)?
+                    diesel::delete(
+                        push_tokens::table.filter(mine.and(push_tokens::device_fp.eq(fp))),
+                    )
+                    .execute(c)?
                 } else {
                     diesel::delete(push_tokens::table.filter(mine.and(push_tokens::token.eq(t))))
                         .execute(c)?
@@ -1728,10 +1743,15 @@ impl pb::admin_api_server::AdminApi for Api {
             alert: String::new(),
             severity: "informational".into(),
         };
-        let (sent, failed) = crate::push::deliver(&push, &self.pool, targets, &pl, &p.user_id).await;
-        Ok(Response::new(pb::PushResult { sent, failed, devices, providers: push.providers() }))
+        let (sent, failed) =
+            crate::push::deliver(&push, &self.pool, targets, &pl, &p.user_id).await;
+        Ok(Response::new(pb::PushResult {
+            sent,
+            failed,
+            devices,
+            providers: push.providers(),
+        }))
     }
-
 }
 
 /// Serve the admin API over pinned TLS on `cfg.api_addr`.

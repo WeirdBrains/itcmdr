@@ -70,6 +70,29 @@ enum Cmd {
     /// Which actions need a passkey touch, and for which roles a passkey is required (owners set it)
     #[command(subcommand)]
     Policy(PolicyCmd),
+    /// Push notifications for alerts on this device (FCM / APNs token; the admin app does this itself)
+    #[command(subcommand)]
+    Push(PushCmd),
+}
+
+#[derive(Subcommand)]
+enum PushCmd {
+    Register {
+        /// fcm | apns
+        #[arg(long)]
+        provider: String,
+        #[arg(long)]
+        token: String,
+        #[arg(long, default_value = "")]
+        platform: String,
+    },
+    /// Remove a token (no token: every token of this device)
+    Unregister {
+        #[arg(long, default_value = "")]
+        token: String,
+    },
+    /// Send a test push to your own devices
+    Test,
 }
 
 #[derive(Subcommand)]
@@ -183,6 +206,13 @@ enum SiteCmd {
     List,
     Revoke {
         site: String,
+    },
+    /// Status history (numbers only), oldest first
+    Metrics {
+        site: String,
+        /// hours back
+        #[arg(long, default_value_t = 24)]
+        hours: i64,
     },
 }
 
@@ -455,6 +485,30 @@ async fn main() -> Result<()> {
                         }
                     }
                 }
+                Cmd::Push(pc) => match pc {
+                    PushCmd::Register {
+                        provider,
+                        token,
+                        platform,
+                    } => {
+                        c.register_push(&provider, &token, &platform).await?;
+                        println!("registered");
+                    }
+                    PushCmd::Unregister { token } => {
+                        c.unregister_push(&token).await?;
+                        println!("unregistered");
+                    }
+                    PushCmd::Test => {
+                        let r = c.test_push().await?;
+                        println!(
+                            "devices={} sent={} failed={} providers={}",
+                            r.devices,
+                            r.sent,
+                            r.failed,
+                            r.providers.join(",")
+                        );
+                    }
+                },
                 Cmd::Policy(pc) => {
                     let p = match pc {
                         PolicyCmd::Show => c.get_auth_policy().await?,
@@ -557,6 +611,14 @@ async fn main() -> Result<()> {
                     }
                     SiteCmd::Revoke { site } => {
                         println!("{} {}", site, c.revoke_site(&site).await?.status)
+                    }
+                    SiteCmd::Metrics { site, hours } => {
+                        let since = itcmdr_keys::now_ms() - hours * 3600 * 1000;
+                        for m in c.site_metrics(&site, since, 0).await?.samples {
+                            let st = m.status.unwrap_or_default();
+                            let oa = |i: usize| st.open_alerts.get(i).copied().unwrap_or(0);
+                            println!("{}  agents online/late/nr/other={}/{}/{}/{}  alerts c/w/i={}/{}/{}  backup_age={}s ({})  uptime={}s  v{}", ts(m.ts_ms), st.agents_online, st.agents_late, st.agents_non_responsive, st.agents_other, oa(0), oa(1), oa(2), st.backup_age_secs, st.backup_last_result, st.uptime_secs, st.version);
+                        }
                     }
                 },
                 Cmd::Alert(a) => match a {
