@@ -25,6 +25,7 @@ pub struct Api {
     m: Material,
     hub: Hub,
     nonces: Arc<Nonces>,
+    pk: Arc<crate::passkeys::Passkeys>,
 }
 
 fn internal(e: impl std::fmt::Display) -> Status {
@@ -110,7 +111,7 @@ pub async fn active_owners(pool: &Pool) -> Result<i64> {
 
 pub async fn user_info(pool: &Pool, id: &str) -> Result<pb::UserInfo> {
     let i = id.to_string();
-    let (u, kb, sites) = pool
+    let (u, kb, sites, pks) = pool
         .run(move |c| {
             let u: (
                 String,
@@ -140,12 +141,16 @@ pub async fn user_info(pool: &Pool, id: &str) -> Result<pb::UserInfo> {
                 .filter(key_backups::user_id.eq(&i))
                 .count()
                 .get_result(c)?;
+            let pks: i64 = passkeys::table
+                .filter(passkeys::user_id.eq(&i))
+                .count()
+                .get_result(c)?;
             let sites: Vec<String> = site_scopes::table
                 .filter(site_scopes::user_id.eq(&i))
                 .select(site_scopes::site_id)
                 .order(site_scopes::site_id)
                 .load(c)?;
-            Ok((u, kb, sites))
+            Ok((u, kb, sites, pks))
         })
         .await?;
     Ok(pb::UserInfo {
@@ -160,6 +165,7 @@ pub async fn user_info(pool: &Pool, id: &str) -> Result<pb::UserInfo> {
         created_ms: u.7,
         devices: devices(pool, id).await?,
         master_fingerprint: u.5.unwrap_or_default(),
+        passkeys: pks as i32,
     })
 }
 
@@ -285,6 +291,8 @@ pub async fn recover_owner(cfg: &Config, email: &str) -> Result<String> {
             diesel::update(devices::table.filter(devices::user_id.eq(&i)))
                 .set(devices::status.eq("revoked"))
                 .execute(c)?;
+            // The lost owner's passkeys go too (24 words + console = the last owner's reset).
+            crate::passkeys::remove_all(c, &i)?;
             Ok(())
         })
     })
@@ -306,6 +314,11 @@ pub async fn recover_owner(cfg: &Config, email: &str) -> Result<String> {
 impl Api {
     pub fn new(pool: Pool, cfg: Config, m: Material, hub: Hub) -> Self {
         Api {
+            pk: Arc::new(crate::passkeys::Passkeys {
+                pool: pool.clone(),
+                cfg: cfg.clone(),
+                ch: Arc::default(),
+            }),
             pool,
             cfg,
             m,
@@ -330,7 +343,7 @@ impl Api {
         pending: bool,
     ) -> Result<Principal, Status> {
         let body = req.get_ref().encode_to_vec();
-        auth::verify(
+        let p = auth::verify(
             &self.pool,
             &self.nonces,
             req.metadata(),
@@ -340,7 +353,9 @@ impl Api {
             master,
             pending,
         )
-        .await
+        .await?;
+        self.pk.check(req.metadata(), method, &body, &p).await?;
+        Ok(p)
     }
 
     async fn audit<T: Message>(
@@ -1475,6 +1490,124 @@ impl pb::admin_api_server::AdminApi for Api {
             .await
             .map(Response::new)
             .map_err(internal)
+    }
+
+    async fn begin_passkey_registration(
+        &self,
+        req: Request<pb::Empty>,
+    ) -> Result<Response<pb::PasskeyChallenge>, Status> {
+        let p = self
+            .signed(&req, "/itcmdr.admin.AdminApi/BeginPasskeyRegistration")
+            .await?;
+        self.pk.begin(&p, true).await.map(Response::new)
+    }
+
+    async fn finish_passkey_registration(
+        &self,
+        req: Request<pb::PasskeyRegistration>,
+    ) -> Result<Response<pb::PasskeyList>, Status> {
+        let p = self
+            .signed(&req, "/itcmdr.admin.AdminApi/FinishPasskeyRegistration")
+            .await?;
+        let l = self.pk.finish(&p, req.get_ref()).await?;
+        let mut r = req.get_ref().clone();
+        r.nonce.clear();
+        self.audit(&p, "passkey.add", &p.user_id, &r).await?;
+        Ok(Response::new(l))
+    }
+
+    async fn list_passkeys(
+        &self,
+        req: Request<pb::UserRef>,
+    ) -> Result<Response<pb::PasskeyList>, Status> {
+        let p = self
+            .signed(&req, "/itcmdr.admin.AdminApi/ListPasskeys")
+            .await?;
+        let id = self.target(&req.get_ref().user, &p).await?;
+        if id != p.user_id {
+            rbac::require(p.role, Role::Admin).map_err(denied)?;
+        }
+        crate::passkeys::list(&self.pool, &id)
+            .await
+            .map(Response::new)
+            .map_err(internal)
+    }
+
+    async fn remove_passkey(
+        &self,
+        req: Request<pb::PasskeyRef>,
+    ) -> Result<Response<pb::PasskeyList>, Status> {
+        let p = self
+            .signed(&req, "/itcmdr.admin.AdminApi/RemovePasskey")
+            .await?;
+        let r = req.get_ref();
+        let id = self.target(&r.user, &p).await?;
+        let other = id != p.user_id;
+        if other {
+            // Lost passkey: an owner or admin resets it (with their own step-up); admins not for owners.
+            rbac::require(p.role, Role::Admin).map_err(denied)?;
+            rbac::can_edit(p.role, false, self.role_of(&id).await?).map_err(denied)?;
+        }
+        if !self.pk.remove(&id, &r.credential_id).await? {
+            return Err(Status::not_found("no such passkey"));
+        }
+        self.audit(
+            &p,
+            if other {
+                "passkey.reset"
+            } else {
+                "passkey.remove"
+            },
+            &id,
+            r,
+        )
+        .await?;
+        crate::passkeys::list(&self.pool, &id)
+            .await
+            .map(Response::new)
+            .map_err(internal)
+    }
+
+    async fn begin_step_up(
+        &self,
+        req: Request<pb::Empty>,
+    ) -> Result<Response<pb::PasskeyChallenge>, Status> {
+        let p = self
+            .signed_opts(&req, "/itcmdr.admin.AdminApi/BeginStepUp", true, false)
+            .await?;
+        self.pk.begin(&p, false).await.map(Response::new)
+    }
+
+    async fn get_auth_policy(
+        &self,
+        req: Request<pb::Empty>,
+    ) -> Result<Response<pb::AuthPolicy>, Status> {
+        self.signed_opts(&req, "/itcmdr.admin.AdminApi/GetAuthPolicy", true, false)
+            .await?;
+        self.pool
+            .run(crate::passkeys::load_policy)
+            .await
+            .map(|p| Response::new(p.to_pb()))
+            .map_err(internal)
+    }
+
+    async fn set_auth_policy(
+        &self,
+        req: Request<pb::AuthPolicy>,
+    ) -> Result<Response<pb::AuthPolicy>, Status> {
+        let p = self
+            .signed(&req, "/itcmdr.admin.AdminApi/SetAuthPolicy")
+            .await?;
+        rbac::require(p.role, Role::Owner).map_err(denied)?;
+        let r = req.get_ref().clone();
+        let pol = self
+            .pool
+            .run(move |c| Ok(crate::passkeys::save_policy(c, &r)))
+            .await
+            .map_err(internal)?
+            .map_err(Status::invalid_argument)?;
+        self.audit(&p, "auth.policy", "auth", req.get_ref()).await?;
+        Ok(Response::new(pol.to_pb()))
     }
 }
 

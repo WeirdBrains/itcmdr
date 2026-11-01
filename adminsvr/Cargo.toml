@@ -16,6 +16,7 @@ serde_json = "1.0"
 hex = "0.4"
 sha2 = "0.10"
 rand = "0.8"
+base64 = "0.22"
 ed25519-dalek = { version = "2.1", features = ["rand_core"] }
 tokio = { version = "1.40", features = ["rt-multi-thread", "macros", "signal", "time", "sync", "net", "fs", "process"] }
 tokio-stream = { version = "0.1", features = ["net"] }
@@ -38,7 +39,7 @@ itcmdr-agentlink = { path = "../agentlink" }
 [dev-dependencies]
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite"] }
 tempfile = "3.10"
-itcmdr-admin-cli = { path = "../admin-cli" }
+itcmdr-admin-cli = { path = "../admin-cli", features = ["soft-authenticator"] }
 itcmdr-server = { path = "../server" }
 chrono = "0.4"
 

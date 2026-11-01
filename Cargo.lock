@@ -1540,16 +1540,25 @@ name = "itcmdr-admin-cli"
 version = "0.19.0"
 dependencies = [
  "anyhow",
+ "base64",
+ "chacha20poly1305",
+ "ciborium",
  "clap",
  "directories",
  "ed25519-dalek",
  "hex",
+ "hkdf",
+ "hmac",
  "itcmdr-adminlink",
  "itcmdr-agentlink",
  "itcmdr-keys",
+ "p256",
  "prost",
+ "rand",
  "serde",
  "serde_json",
+ "sha2",
+ "tempfile",
  "tokio",
  "tonic",
  "uuid",
@@ -1582,6 +1591,7 @@ name = "itcmdr-adminsvr"
 version = "0.19.0"
 dependencies = [
  "anyhow",
+ "base64",
  "chrono",
  "clap",
  "diesel",
