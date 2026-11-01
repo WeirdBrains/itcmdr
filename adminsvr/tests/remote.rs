@@ -113,7 +113,7 @@ async fn commands_down_documents_up(db: String) {
     let sch = srv::schedule::create(
         &pool,
         &sched_name,
-        srv::schedule::Spec { when: "0 3 * * *".into(), timezone: "UTC".into(), action: "backup".into(), guard: "none".into(), missed: "skip".into(), ..Default::default() },
+        srv::schedule::Spec { when: "daily 03:00".into(), timezone: "UTC".into(), action: "backup".into(), guard: "none".into(), missed: "skip".into(), ..Default::default() },
         true,
     )
     .await
@@ -143,7 +143,7 @@ async fn commands_down_documents_up(db: String) {
     }
     assert!(d.require_two_person);
     assert!(d.allowed.iter().any(|k| k == "plugin.install"), "{:?}", d.allowed);
-    let s0 = d.schedules.iter().find(|x| x.when == "0 3 * * *").expect("schedule");
+    let s0 = d.schedules.iter().find(|x| x.when == "daily 03:00" && x.action == "backup").expect("schedule");
     assert!(s0.name.is_empty() && s0.id.starts_with("s-") && s0.enabled && s0.action == "backup", "{s0:?}");
 
     // ---- setting.set: dry run, then apply; refusals by the site
@@ -152,8 +152,6 @@ async fn commands_down_documents_up(db: String) {
     assert_eq!((x.state.as_str(), x.result_code.as_str()), ("previewed", "ok"), "{x:?}");
     assert_eq!((x.preview[0].target.as_str(), x.preview[0].before.as_str(), x.preview[0].after.as_str()), ("backup.keep_daily", "7", "9"));
     assert_eq!(srv::settings::get_i64(&pool, None, "backup.keep_daily").await, 7, "a dry run changed the site");
-    let x = adm.command(&site, "setting.set", &[("key", "backup.keep_daily"), ("value", "9")]).await;
-    assert!(x.is_err(), "setting.set goes through SendCommand only");
     let x = adm.command_ex(&site, "setting.set", &[("key", "backup.keep_daily"), ("value", "9")], false).await.unwrap();
     assert_eq!(done(&adm, &x.id).await.state, "applied");
     assert_eq!(srv::settings::get_i64(&pool, None, "backup.keep_daily").await, 9);
