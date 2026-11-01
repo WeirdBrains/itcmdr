@@ -15,18 +15,6 @@ use prost::Message;
 use rand::Rng;
 use std::time::Duration;
 
-macro_rules! need_pg {
-    () => {
-        match common::db().await {
-            Some(u) => u,
-            None => {
-                eprintln!("no Postgres (ITCMDR_PG_BIN / ITCMDR_TEST_PG_URL): skipped");
-                return;
-            }
-        }
-    };
-}
-
 struct Secrets {
     machines: Vec<String>,
     other: Vec<String>, // IPs, paths, usernames, domains, message text
@@ -153,9 +141,13 @@ async fn raise(
     .unwrap();
 }
 
-#[tokio::test]
-async fn site_link_is_redacted_and_commands_are_checked() {
-    let db = need_pg!();
+both!(
+    site_link_is_redacted_and_commands_are_checked,
+    site_link_sqlite,
+    site_link_postgres
+);
+
+async fn site_link_is_redacted_and_commands_are_checked(db: String) {
     let a = common::start(&db).await;
     let (o, _) = common::owner(&a).await;
     let s = site().await;
@@ -283,15 +275,23 @@ async fn site_link_is_redacted_and_commands_are_checked() {
     }
     assert!(!wire.is_empty());
     let apool = itcmdr_adminsvr::store::connect(&db).await.unwrap();
-    let bodies: Vec<Vec<u8>> = sqlx::query_scalar("SELECT body FROM alerts")
-        .fetch_all(&apool)
+    let bodies: Vec<Vec<u8>> = apool
+        .run(|c| {
+            use diesel::prelude::*;
+            use itcmdr_adminsvr::schema::alerts::dsl::*;
+            Ok(alerts.select(body).load(c)?)
+        })
         .await
         .unwrap();
     for b in &bodies {
         clean("adminsvr alerts", b, "", &bad_all);
     }
-    let stat: Vec<u8> = sqlx::query_scalar("SELECT last_status FROM sites")
-        .fetch_one(&apool)
+    let stat: Vec<u8> = apool
+        .run(|c| {
+            use diesel::prelude::*;
+            use itcmdr_adminsvr::schema::sites::dsl::*;
+            Ok(sites.select(last_status.assume_not_null()).first(c)?)
+        })
         .await
         .unwrap();
     clean("adminsvr status", &stat, "", &bad_all);
@@ -413,8 +413,26 @@ async fn site_link_is_redacted_and_commands_are_checked() {
     let queue = |c: pb::Command| {
         let apool = apool.clone();
         async move {
-            sqlx::query("INSERT INTO commands (id, site_id, kind, requested_by, state, created_ms, body) VALUES ($1,$2,$3,'test','pending',$4,$5)")
-                .bind(&c.id).bind(&c.site_id).bind(&c.kind).bind(c.issued_ms).bind(c.encode_to_vec()).execute(&apool).await.unwrap();
+            let cc = c.clone();
+            apool
+                .run(move |db| {
+                    use diesel::prelude::*;
+                    use itcmdr_adminsvr::schema::commands::dsl::*;
+                    diesel::insert_into(commands)
+                        .values((
+                            id.eq(&cc.id),
+                            site_id.eq(&cc.site_id),
+                            kind.eq(&cc.kind),
+                            requested_by.eq("test"),
+                            state.eq("pending"),
+                            created_ms.eq(cc.issued_ms),
+                            body.eq(cc.encode_to_vec()),
+                        ))
+                        .execute(db)?;
+                    Ok(())
+                })
+                .await
+                .unwrap();
             c.id
         }
     };
@@ -424,16 +442,20 @@ async fn site_link_is_redacted_and_commands_are_checked() {
         .await
         .unwrap();
     let r3 = queue(forge("alert.resolve", &root)).await;
-    let result = |id: String| {
+    let result = |cid: String| {
         let apool = apool.clone();
         async move {
-            sqlx::query_as::<_, (String, String)>(
-                "SELECT state, result_code FROM commands WHERE id = $1",
-            )
-            .bind(id)
-            .fetch_one(&apool)
-            .await
-            .unwrap()
+            apool
+                .run(move |db| {
+                    use diesel::prelude::*;
+                    use itcmdr_adminsvr::schema::commands::dsl::*;
+                    Ok(commands
+                        .filter(id.eq(cid))
+                        .select((state, result_code))
+                        .first::<(String, String)>(db)?)
+                })
+                .await
+                .unwrap()
         }
     };
     until("forged commands answered", 30, || async {

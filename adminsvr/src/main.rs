@@ -10,7 +10,8 @@ use std::path::PathBuf;
     about = "itcmdr offsite admin server"
 )]
 struct Cli {
-    #[arg(long, env = "ITCMDR_ADMINSVR_DB_URL")]
+    /// Database: postgres://user:pass@host/db, or sqlite://<path> (default: SQLite in the data dir)
+    #[arg(long, env = "ITCMDR_ADMINSVR_DB_URL", default_value = "")]
     db_url: String,
     #[arg(
         long,
@@ -84,7 +85,11 @@ async fn main() -> anyhow::Result<()> {
         }
     };
     let cfg = Config {
-        db_url: c.db_url,
+        db_url: if c.db_url.trim().is_empty() {
+            format!("sqlite://{}", c.data_dir.join("adminsvr.db").display())
+        } else {
+            c.db_url
+        },
         data_dir: c.data_dir,
         public_api: host(&c.api_addr, &c.public_api),
         public_site: host(&c.site_addr, &c.public_site),

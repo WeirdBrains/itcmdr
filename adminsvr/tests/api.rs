@@ -17,22 +17,9 @@ async fn user(o: &Client, email: &str, role: &str) -> (Client, itcmdr_admin::Enr
     (Client::connect(&e.identity).await.unwrap(), e)
 }
 
-#[allow(unused_macros)]
-macro_rules! need_pg {
-    () => {
-        match common::db().await {
-            Some(u) => u,
-            None => {
-                eprintln!("no Postgres (ITCMDR_PG_BIN / ITCMDR_TEST_PG_URL): skipped");
-                return;
-            }
-        }
-    };
-}
+both!(roles_and_signed_requests, roles_sqlite, roles_postgres);
 
-#[tokio::test]
-async fn roles_and_signed_requests() {
-    let db = need_pg!();
+async fn roles_and_signed_requests(db: String) {
     let s = start(&db).await;
     let (o, oe) = owner(&s).await;
     assert!(
@@ -209,9 +196,13 @@ async fn roles_and_signed_requests() {
         .all(|x| x.actor == e3.user.id));
 }
 
-#[tokio::test]
-async fn audit_tamper_is_caught() {
-    let db = need_pg!();
+both!(
+    audit_tamper_is_caught,
+    audit_tamper_sqlite,
+    audit_tamper_postgres
+);
+
+async fn audit_tamper_is_caught(db: String) {
     let s = start(&db).await;
     let (o, _) = owner(&s).await;
     for i in 0..4 {
@@ -221,24 +212,52 @@ async fn audit_tamper_is_caught() {
     }
     assert!(o.verify_audit().await.unwrap().ok);
     let pool = itcmdr_adminsvr::store::connect(&db).await.unwrap();
-    sqlx::query("UPDATE audit_chain SET action = 'user.nothing' WHERE seq = 3")
-        .execute(&pool)
+    pool.exec("UPDATE audit_chain SET action = 'user.nothing' WHERE seq = 3")
         .await
         .unwrap();
     let v = o.verify_audit().await.unwrap();
     assert!(!v.ok && v.first_bad_seq == 3, "{v:?}");
     // recompute that row's hash: the next row's prev_hash no longer matches
-    let r: (i64, String, String, String, String, String, String, String, String) = sqlx::query_as("SELECT ts_ms, actor, actor_key, action, target, payload_sha256, request_sig, prev_hash, hash FROM audit_chain WHERE seq = 3").fetch_one(&pool).await.unwrap();
-    let h = itcmdr_adminsvr::audit::link_hash(&r.7, 3, r.0, &r.1, &r.2, &r.3, &r.4, &r.5, &r.6);
-    sqlx::query("UPDATE audit_chain SET hash = $1 WHERE seq = 3")
-        .bind(&h)
-        .execute(&pool)
+    let r: (
+        i64,
+        String,
+        String,
+        String,
+        String,
+        String,
+        String,
+        String,
+        String,
+    ) = pool
+        .run(|c| {
+            use diesel::prelude::*;
+            use itcmdr_adminsvr::schema::audit_chain::dsl::*;
+            Ok(audit_chain
+                .filter(seq.eq(3i64))
+                .select((
+                    ts_ms,
+                    actor,
+                    actor_key,
+                    action,
+                    target,
+                    payload_sha256,
+                    request_sig,
+                    prev_hash,
+                    hash,
+                ))
+                .first(c)?)
+        })
         .await
         .unwrap();
+    let h = itcmdr_adminsvr::audit::link_hash(&r.7, 3, r.0, &r.1, &r.2, &r.3, &r.4, &r.5, &r.6);
+    pool.exec(&format!(
+        "UPDATE audit_chain SET hash = '{h}' WHERE seq = 3"
+    ))
+    .await
+    .unwrap();
     let v = o.verify_audit().await.unwrap();
     assert!(!v.ok && v.first_bad_seq == 4, "{v:?}");
-    sqlx::query("DELETE FROM audit_chain WHERE seq = 2")
-        .execute(&pool)
+    pool.exec("DELETE FROM audit_chain WHERE seq = 2")
         .await
         .unwrap();
     let v = itcmdr_adminsvr::audit::verify(&pool).await.unwrap();
@@ -248,17 +267,25 @@ async fn audit_tamper_is_caught() {
     );
 }
 
-#[tokio::test]
-async fn key_backup_and_new_devices_from_words() {
-    let db = need_pg!();
+both!(
+    key_backup_and_new_devices_from_words,
+    key_backup_sqlite,
+    key_backup_postgres
+);
+
+async fn key_backup_and_new_devices_from_words(db: String) {
     let s = start(&db).await;
     let (o, oe) = owner(&s).await;
     let pool = itcmdr_adminsvr::store::connect(&db).await.unwrap();
     // On by default: only ciphertext on adminsvr.
     let me = o.whoami().await.unwrap();
     assert!(me.key_backup && !me.key_backup_opt_out);
-    let blob: String = sqlx::query_scalar("SELECT blob FROM key_backups")
-        .fetch_one(&pool)
+    let blob: String = pool
+        .run(|c| {
+            use diesel::prelude::*;
+            use itcmdr_adminsvr::schema::key_backups::dsl::*;
+            Ok(key_backups.select(blob).first(c)?)
+        })
         .await
         .unwrap();
     assert!(!blob.contains(&oe.identity.device_seed));
@@ -315,8 +342,13 @@ async fn key_backup_and_new_devices_from_words() {
     // Opt out: the blob is deleted, audited.
     let u = o.key_backup_opt_out(true).await.unwrap();
     assert!(u.key_backup_opt_out && !u.key_backup);
-    let n: i64 = sqlx::query_scalar("SELECT count(*) FROM key_backups")
-        .fetch_one(&pool)
+    let n: i64 = pool
+        .run(|c| {
+            use diesel::prelude::*;
+            Ok(itcmdr_adminsvr::schema::key_backups::table
+                .count()
+                .get_result(c)?)
+        })
         .await
         .unwrap();
     assert_eq!(n, 0);

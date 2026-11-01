@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
 pub struct Config {
-    /// Postgres URL, e.g. postgres://itcmdr@localhost/itcmdr_admin
+    /// Database URL: postgres://… (Postgres) or sqlite://<path> (SQLite)
     pub db_url: String,
     /// Data dir: keys/root.key, tls/ (0700)
     pub data_dir: PathBuf,

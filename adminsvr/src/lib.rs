@@ -15,6 +15,7 @@ pub mod config;
 pub mod link;
 pub mod material;
 pub mod rbac;
+pub mod schema;
 pub mod store;
 
 pub use itcmdr_adminlink::pb;
