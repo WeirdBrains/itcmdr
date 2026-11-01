@@ -27,7 +27,21 @@ use std::time::Duration;
 use tokio::sync::mpsc;
 
 /// Commands allowed by default (the site owner can narrow this locally).
-pub const DEFAULT_ALLOWED: &[&str] = &["backup.start", "alert.ack", "alert.resolve"];
+/// v0.20.0 adds the schedule, setting and plugin kinds (ADMINSVR.md section 5 defaults).
+pub const DEFAULT_ALLOWED: &[&str] = &[
+    "backup.start",
+    "alert.ack",
+    "alert.resolve",
+    "setting.set",
+    "schedule.run",
+    "schedule.pause",
+    "schedule.resume",
+    "plugin.enable",
+    "plugin.disable",
+    "plugin.install",
+];
+/// The v0.19 default: a site still on exactly this list gets the v0.20.0 default on load.
+const DEFAULT_ALLOWED_V019: &[&str] = &["backup.start", "alert.ack", "alert.resolve"];
 
 /// Link state, in the keys folder (never sent anywhere except the public key and the CSR).
 #[derive(Serialize, Deserialize, Clone)]
@@ -65,6 +79,15 @@ pub fn state_path(cfg: &ServerConfig) -> PathBuf {
 }
 
 pub fn load(cfg: &ServerConfig) -> Option<State> {
+    load_raw(cfg).map(|mut s| {
+        if s.allowed.iter().map(String::as_str).eq(DEFAULT_ALLOWED_V019.iter().copied()) {
+            s.allowed = default_allowed();
+        }
+        s
+    })
+}
+
+fn load_raw(cfg: &ServerConfig) -> Option<State> {
     serde_json::from_slice(&std::fs::read(state_path(cfg)).ok()?).ok()
 }
 
@@ -290,7 +313,7 @@ fn pick(v: &str, allowed: &[&str], other: &str) -> String {
     }
 }
 
-fn plain_token(s: &str) -> bool {
+pub(crate) fn plain_token(s: &str) -> bool {
     let b = s.as_bytes();
     !b.is_empty()
         && b.len() <= 40
@@ -299,7 +322,7 @@ fn plain_token(s: &str) -> bool {
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == b'-' || *c == b'_')
 }
 
-fn version_token(s: &str) -> String {
+pub(crate) fn version_token(s: &str) -> String {
     if s.len() <= 32
         && s.chars()
             .all(|c| c.is_ascii_digit() || c == '.' || c == '-' || c.is_ascii_lowercase())
@@ -417,6 +440,19 @@ impl Redactor {
             &kind[..1],
             &hex::encode(sha2::Sha256::digest(k.as_ref()))[..16]
         )
+    }
+
+    /// An installed plugin's package name as it may go up (names of other things: opaque).
+    pub fn plugin(&self, name: &str) -> String {
+        if self.plugins.iter().any(|x| x == name) && plain_token(name) && !self.is_sensitive(name) {
+            name.to_string()
+        } else {
+            self.pid("plugin", name)
+        }
+    }
+
+    pub fn share_names(&self) -> bool {
+        self.share_names
     }
 
     fn is_sensitive(&self, seg: &str) -> bool {
@@ -564,6 +600,42 @@ pub async fn status(pool: &DbPool, cfg: &ServerConfig, r: &Redactor) -> pb::Site
         open_alerts: counts.to_vec(),
         machines: agents.iter().map(|a| r.machine(a)).collect(),
         cutover_state: String::new(),
+        ..summaries(pool, cfg).await
+    }
+}
+
+/// v0.20.0 metrics summaries: counts and durations of the last 24 h, the data volume. Numbers only.
+pub async fn summaries(pool: &DbPool, cfg: &ServerConfig) -> pb::SiteStatus {
+    let since = now_ms() - 86_400_000;
+    // agent_runs (Rust agent) and plugin_runs (on the server): finished, failed, durations
+    let q = "SELECT count(*), sum(CASE WHEN status <> 'ok' THEN 1 ELSE 0 END), \
+             sum(CASE WHEN status = 'error' THEN 1 ELSE 0 END), \
+             coalesce(avg(finished_ms - started_ms), 0), coalesce(max(finished_ms - started_ms), 0) \
+             FROM (SELECT status, started_ms, finished_ms FROM agent_runs WHERE finished_ms >= ? \
+                   UNION ALL SELECT status, started_ms, finished_ms FROM plugin_runs WHERE finished_ms >= ?)";
+    let row: Option<(i64, Option<i64>, Option<i64>, f64, i64)> =
+        sqlx::query_as(q).bind(since).bind(since).fetch_optional(pool).await.ok().flatten();
+    let (n, failed, errors, avg, max) = row.unwrap_or((0, None, None, 0.0, 0));
+    let opened: i64 = sqlx::query_scalar("SELECT count(*) FROM alerts WHERE first_seen_ms >= ?")
+        .bind(since)
+        .fetch_one(pool)
+        .await
+        .unwrap_or(0);
+    let dir = cfg.layout().root;
+    let (free, total) = (
+        fs4::available_space(&dir).map(|v| v as i64).unwrap_or(-1),
+        fs4::total_space(&dir).map(|v| v as i64).unwrap_or(-1),
+    );
+    pb::SiteStatus {
+        disk_free_bytes: free,
+        disk_total_bytes: total,
+        runs_24h: n as i32,
+        runs_failed_24h: failed.unwrap_or(0) as i32,
+        run_secs_avg_24h: (avg / 1000.0).round() as i64,
+        run_secs_max_24h: max / 1000,
+        plugin_errors_24h: errors.unwrap_or(0) as i32,
+        alerts_opened_24h: opened as i32,
+        ..Default::default()
     }
 }
 
@@ -607,10 +679,11 @@ pub async fn apply(
     st: &State,
     r: &Redactor,
     c: &pb::Command,
-) -> (bool, String) {
+    fetch: Option<&crate::remote::Fetcher>,
+) -> (bool, String, Vec<pb::ConfigChange>) {
     let root = match itcmdr_keys::parse_public_key(&st.root_public_key) {
         Ok(k) => k,
-        Err(_) => return (false, "refused".into()),
+        Err(_) => return (false, "refused".into(), vec![]),
     };
     let mut code = itcmdr_adminlink::check_command(&root, c, now_ms()).to_string();
     if code == "ok" && c.site_id != st.site_id {
@@ -618,6 +691,15 @@ pub async fn apply(
     }
     if code == "ok" && !st.allowed.iter().any(|k| k == &c.kind) {
         code = "not-allowed".into();
+    }
+    // v0.20.0 two-person rule, checked here whatever adminsvr did (a dry run changes nothing).
+    if code == "ok"
+        && !c.dry_run
+        && itcmdr_adminlink::TWO_PERSON.contains(&c.kind.as_str())
+        && crate::settings::get_bool(pool, None, "adminsvr.requireTwoPerson").await
+        && !matches!(itcmdr_adminlink::check_approver(&root, c), Ok(true))
+    {
+        code = "needs-approval".into();
     }
     let actor = format!("adminsvr:{}:{}", st.site_id, c.user_id);
     let kind: String = c
@@ -634,9 +716,15 @@ pub async fn apply(
             &format!("{kind} id={} code={code}", c.id),
         )
         .await;
-        return (false, code);
+        return (false, code, vec![]);
     }
+    let mut preview = Vec::new();
+    let mut code_out: Option<&'static str> = None;
     let res: Result<()> = async {
+        if c.dry_run && matches!(c.kind.as_str(), "backup.start" | "alert.ack" | "alert.resolve") {
+            preview.push(pb::ConfigChange { target: c.kind.clone(), before: String::new(), after: "would run".into() });
+            return Ok(());
+        }
         match c.kind.as_str() {
             "backup.start" => {
                 let out = crate::backup::create(pool, cfg, "manual", None).await;
@@ -670,13 +758,22 @@ pub async fn apply(
                 }
                 Ok(())
             }
+            k if k.contains('.') => {
+                let o = crate::remote::run(pool, cfg, r, c, fetch, &actor).await?;
+                preview = o.preview;
+                if o.code != "ok" {
+                    code_out = Some(o.code);
+                }
+                Ok(())
+            }
             _ => bail!("unknown"),
         }
     }
     .await;
-    let (ok, code) = match &res {
-        Ok(()) => (true, "ok".to_string()),
-        Err(e) => {
+    let (ok, code) = match (&res, code_out) {
+        (Ok(()), Some(c)) => (false, c.to_string()),
+        (Ok(()), None) => (true, "ok".to_string()),
+        (Err(e), _) => {
             tracing::warn!(error=%e, kind=%kind, "adminsvr command failed");
             (false, "failed".to_string())
         }
@@ -684,15 +781,16 @@ pub async fn apply(
     let _ = crate::db::insert_audit(
         pool,
         &actor,
-        &format!("adminsvr.command.{kind}"),
+        &format!("adminsvr.command.{kind}{}", if c.dry_run { ".dry-run" } else { "" }),
         &format!(
-            "id={} code={code} user_key={}",
+            "id={} code={code} user_key={} approver={}",
             c.id,
-            &c.user_key[..c.user_key.len().min(16)]
+            &c.user_key[..c.user_key.len().min(16)],
+            &c.approver_id[..c.approver_id.len().min(40)]
         ),
     )
     .await;
-    (ok, code)
+    (ok, code, preview)
 }
 
 // ---------------------------------------------------------------- the link loop
@@ -731,7 +829,11 @@ async fn session(pool: &DbPool, cfg: &ServerConfig, st: &State) -> Result<()> {
         if hb > 0 { hb } else { st.heartbeat_secs }.max(5) as u64,
     ));
     let mut alert_t = tokio::time::interval(Duration::from_secs(3));
-    let (done_tx, mut done_rx) = mpsc::channel::<(String, bool, String)>(16);
+    let (done_tx, mut done_rx) = mpsc::channel::<(String, bool, String, Vec<pb::ConfigChange>)>(16);
+    let fetcher = crate::remote::Fetcher { client: c.clone(), key: out.key.clone(), site_id: st.site_id.clone() };
+    // v0.20.0 config and plugin documents: on link-up, then whenever they change.
+    let (mut cfg_v, mut plug_v) = (String::new(), String::new());
+    let mut docs_t = tokio::time::interval(Duration::from_secs(15));
     loop {
         tokio::select! {
             m = inbound.message() => {
@@ -743,15 +845,33 @@ async fn session(pool: &DbPool, cfg: &ServerConfig, st: &State) -> Result<()> {
                         // allowlist and opt-in as they are now on disk (the site owner may have changed them)
                         let st = load(&cfg).unwrap_or(st);
                         let red = Redactor::for_site(&pool, &cfg, &st).await;
+                        let f = fetcher.clone();
                         tokio::spawn(async move {
-                            let (ok, code) = apply(&pool, &cfg, &st, &red, &cmd).await;
-                            let _ = done.send((cmd.id, ok, code)).await;
+                            let (ok, code, preview) = apply(&pool, &cfg, &st, &red, &cmd, Some(&f)).await;
+                            let _ = done.send((cmd.id, ok, code, preview)).await;
                         });
                     }
                     None => {}
                 }
             }
-            Some((id, ok, code)) = done_rx.recv() => out.send(pb::site_message::Body::Result(pb::CommandResult { command_id: id, ok, code })).await?,
+            Some((id, ok, code, preview)) = done_rx.recv() => {
+                out.send(pb::site_message::Body::Result(pb::CommandResult { command_id: id, ok, code, preview })).await?;
+                docs_t.reset_immediately();
+            }
+            _ = docs_t.tick() => {
+                let st = load(cfg).unwrap_or_else(|| st.clone());
+                let r = Redactor::for_site(pool, cfg, &st).await;
+                let d = crate::remote::config_doc(pool, cfg, &st, &r).await;
+                if d.version != cfg_v {
+                    cfg_v = d.version.clone();
+                    out.send(pb::site_message::Body::Config(d)).await?;
+                }
+                let d = crate::remote::plugins_doc(pool, cfg, &r).await;
+                if d.version != plug_v {
+                    plug_v = d.version.clone();
+                    out.send(pb::site_message::Body::Plugins(d)).await?;
+                }
+            }
             _ = status_t.tick() => {
                 if !crate::settings::get_bool(pool, None, "adminsvr.enabled").await || load(cfg).is_none() {
                     tracing::info!("adminsvr link closed (adminsvr.enabled=false or unlinked)");
