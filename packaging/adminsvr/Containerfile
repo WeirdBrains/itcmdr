@@ -1,0 +1,14 @@
+# itcmdr-adminsvr container (v0.19.0; not tested yet: no container runtime on the build host).
+# Build from the repo root: podman build -f packaging/adminsvr/Containerfile -t itcmdr-adminsvr .
+FROM docker.io/library/rust:1-bookworm AS build
+WORKDIR /src
+COPY . .
+RUN cargo build --release --locked -p itcmdr-adminsvr
+FROM docker.io/library/debian:bookworm-slim
+RUN useradd --system --home /var/lib/itcmdr-adminsvr itcmdr-adminsvr && install -d -m 0700 -o itcmdr-adminsvr /var/lib/itcmdr-adminsvr
+COPY --from=build /src/target/release/itcmdr-adminsvr /usr/local/bin/itcmdr-adminsvr
+USER itcmdr-adminsvr
+VOLUME /var/lib/itcmdr-adminsvr
+EXPOSE 8443 8444
+ENTRYPOINT ["/usr/local/bin/itcmdr-adminsvr"]
+CMD ["serve"]

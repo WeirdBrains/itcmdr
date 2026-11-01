@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Local release builds (v0.15.0), used instead of .github/workflows/release.yml while Actions is
 # unavailable. Uses no Actions minutes. Steps, run from the repo root at the tagged commit:
-#   scripts/release-local.sh unix            # Linux or macOS host: CLI tarball + app archive into dist/<ver>/
+#   scripts/release-local.sh unix            # Linux or macOS host: CLI, admin CLI (+ adminsvr on Linux) tarballs + app archive into dist/<ver>/
 #   scripts/release-local.sh windows-notes   # print the Windows VM step (see docs/RELEASE-LOCAL.md)
 #   scripts/release-local.sh check           # SHA256SUMS + leak check of every artifact (unpacked)
 #   scripts/release-local.sh publish         # gh release create vX.Y.Z (tag must exist on origin; never moves it)
@@ -19,6 +19,8 @@ unix)
   mkdir -p "$out"
   scripts/package-cli.sh
   mv dist/itcmdr-cli-"$ver"-*.tar.gz "$out"/; rm -f dist/itcmdr-cli-"$ver"-*.sha256
+  scripts/package-admin.sh
+  mv dist/itcmdr-admin*-"$ver"-*.tar.gz "$out"/; rm -f dist/itcmdr-admin*-"$ver"-*.sha256
   arch=$(uname -m); [[ "$arch" == arm64 ]] && arch=aarch64
   (cd app/rust && cargo build --release)
   cd app; flutter pub get --enforce-lockfile >/dev/null

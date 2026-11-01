@@ -1,0 +1,21 @@
+# itcmdr-adminsvr + Postgres (v0.19.0; not tested yet). podman compose up -d, then
+#   podman compose run --rm adminsvr init --email you@example.com --name "Your Name"
+services:
+  db:
+    image: docker.io/library/postgres:16
+    environment:
+      POSTGRES_USER: itcmdr_adminsvr
+      POSTGRES_PASSWORD: ${ADMINSVR_DB_PASSWORD:?set ADMINSVR_DB_PASSWORD}
+      POSTGRES_DB: itcmdr_adminsvr
+    volumes: [db:/var/lib/postgresql/data]
+  adminsvr:
+    build: { context: ../.., dockerfile: packaging/adminsvr/Containerfile }
+    depends_on: [db]
+    environment:
+      ITCMDR_ADMINSVR_DB_URL: postgres://itcmdr_adminsvr:${ADMINSVR_DB_PASSWORD}@db:5432/itcmdr_adminsvr
+      ITCMDR_ADMINSVR_PUBLIC_API: ${ADMINSVR_PUBLIC_API:-}
+      ITCMDR_ADMINSVR_PUBLIC_SITE: ${ADMINSVR_PUBLIC_SITE:-}
+      ITCMDR_ADMINSVR_TLS_NAMES: ${ADMINSVR_TLS_NAMES:-}
+    ports: ["8443:8443", "8444:8444"]
+    volumes: [data:/var/lib/itcmdr-adminsvr]
+volumes: { db: {}, data: {} }
