@@ -25,6 +25,28 @@ pub struct Config {
     pub rp_id: String,
     /// Extra WebAuthn origins (the web app's https://…); the CLI origin is always allowed
     pub web_origins: Vec<String>,
+    /// Push notifications (v0.19.2); off unless configured
+    pub push: PushConfig,
+}
+
+/// FCM (Android, via a Firebase service account) and APNs (iOS/macOS, token auth with a .p8 key).
+/// Each provider is on when its key file is set. The URLs can point at a relay or a test stub.
+#[derive(Debug, Clone, Default)]
+pub struct PushConfig {
+    /// Firebase service account JSON (project_id, client_email, private_key, token_uri)
+    pub fcm_service_account: Option<PathBuf>,
+    /// FCM API base (default https://fcm.googleapis.com)
+    pub fcm_url: String,
+    /// APNs auth key (.p8)
+    pub apns_key: Option<PathBuf>,
+    pub apns_key_id: String,
+    pub apns_team_id: String,
+    /// The app's bundle id
+    pub apns_topic: String,
+    /// APNs base (default https://api.push.apple.com; https://api.sandbox.push.apple.com for development builds)
+    pub apns_url: String,
+    /// Lowest severity that is pushed: critical | cautious | informational (default cautious)
+    pub min_severity: String,
 }
 
 impl Config {
@@ -73,6 +95,7 @@ impl Config {
             max_skew_secs: 300,
             rp_id: String::new(),
             web_origins: vec![],
+            push: PushConfig::default(),
         }
     }
 }

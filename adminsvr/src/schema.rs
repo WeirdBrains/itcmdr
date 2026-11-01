@@ -49,7 +49,16 @@ diesel::table! {
         created_ms -> BigInt, last_used_ms -> BigInt,
     }
 }
+diesel::table! { site_metrics (site_id, ts_ms) { site_id -> Text, ts_ms -> BigInt, body -> Binary, } }
+diesel::table! {
+    push_tokens (token) {
+        token -> Text, provider -> Text, user_id -> Text, device_fp -> Text, platform -> Text,
+        created_ms -> BigInt,
+    }
+}
 diesel::allow_tables_to_appear_in_same_query!(
+    site_metrics,
+    push_tokens,
     passkeys,
     meta,
     users,

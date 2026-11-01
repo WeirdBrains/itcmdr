@@ -56,6 +56,26 @@ struct Cli {
         value_delimiter = ','
     )]
     web_origins: Vec<String>,
+    /// Push (FCM): Firebase service account JSON file
+    #[arg(long, env = "ITCMDR_ADMINSVR_FCM_SERVICE_ACCOUNT")]
+    fcm_service_account: Option<PathBuf>,
+    #[arg(long, env = "ITCMDR_ADMINSVR_FCM_URL", default_value = "")]
+    fcm_url: String,
+    /// Push (APNs): the .p8 auth key file
+    #[arg(long, env = "ITCMDR_ADMINSVR_APNS_KEY")]
+    apns_key: Option<PathBuf>,
+    #[arg(long, env = "ITCMDR_ADMINSVR_APNS_KEY_ID", default_value = "")]
+    apns_key_id: String,
+    #[arg(long, env = "ITCMDR_ADMINSVR_APNS_TEAM_ID", default_value = "")]
+    apns_team_id: String,
+    /// The admin app's bundle id
+    #[arg(long, env = "ITCMDR_ADMINSVR_APNS_TOPIC", default_value = "")]
+    apns_topic: String,
+    #[arg(long, env = "ITCMDR_ADMINSVR_APNS_URL", default_value = "")]
+    apns_url: String,
+    /// Lowest alert severity that is pushed: critical | cautious | informational
+    #[arg(long, env = "ITCMDR_ADMINSVR_PUSH_MIN_SEVERITY", default_value = "cautious")]
+    push_min_severity: String,
     #[command(subcommand)]
     cmd: Cmd,
 }
@@ -116,6 +136,16 @@ async fn main() -> anyhow::Result<()> {
             .into_iter()
             .filter(|o| !o.trim().is_empty())
             .collect(),
+        push: itcmdr_adminsvr::config::PushConfig {
+            fcm_service_account: c.fcm_service_account.filter(|p| !p.as_os_str().is_empty()),
+            fcm_url: c.fcm_url,
+            apns_key: c.apns_key.filter(|p| !p.as_os_str().is_empty()),
+            apns_key_id: c.apns_key_id,
+            apns_team_id: c.apns_team_id,
+            apns_topic: c.apns_topic,
+            apns_url: c.apns_url,
+            min_severity: c.push_min_severity,
+        },
     };
     match c.cmd {
         Cmd::Serve => {
