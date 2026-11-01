@@ -1,7 +1,15 @@
 # Changelog
 
 ## Unreleased
-- adminsvr package README: says SQLite is the default (the v0.19.1 tarball README still says "Needs Postgres 14+").
+
+## v0.19.2 (2026-11-01)
+The itcmdr Admin app, push notifications for alerts, service scripts for every platform and a tested container image.
+- itcmdr Admin (Flutter; Linux, macOS, Windows, Android): onboarding with a one-time code and the 24 words, every request signed by the device key over pinned TLS (the CLI's client through a Rust bridge), passkey touch prompt for step-up actions (desktop security keys via libfido2's tools), alert inbox with acknowledge/resolve, servers with status, configuration, per-machine versions and "update available", metrics history (6 h to 30 days), commands and remote backup start, user management per role (create, roles, disable, SRE scopes, device approval/revocation, passkey reset), step-up policy (owners), audit verify. No web build (gRPC over TLS sockets needs gRPC-web in browsers). The Android APK is signed with a debug key; iOS builds without signing and is not published.
+- Push notifications: adminsvr pushes newly opened alerts (cautious and critical by default) over FCM (Android) and APNs (iOS/macOS) to the devices of users who may see the site. Payloads carry only the opaque site and alert ids and the severity; every send is audited; gone tokens are removed. Off until configured (`ITCMDR_ADMINSVR_FCM_SERVICE_ACCOUNT`, `ITCMDR_ADMINSVR_APNS_*`, `ITCMDR_ADMINSVR_PUSH_MIN_SEVERITY`); tested against a local stub, not against Google or Apple (no accounts yet). The app shows in-app banners for new alerts; a push-enabled app build needs the Firebase/Apple setup listed in docs/ADMINSVR.md.
+- Metrics history: adminsvr keeps the status each site sends (numbers and enums only) for 30 days; `ListSiteMetrics`, `itcmdr-admin site metrics`.
+- Services: systemd (kept), SysV init script (LSB headers, pidfile, start/stop/restart/status) and OpenRC script, chosen by `install.sh --init`; macOS LaunchDaemon with install/uninstall scripts in a new `itcmdr-adminsvr-<ver>-macos-aarch64.tar.gz`; Windows service `itcmdr-adminsvr` with restart-on-failure in the new `itcmdr-adminsvr-Setup-<ver>.exe`. New `--env-file` / `ITCMDR_ADMINSVR_ENV_FILE`.
+- Container: the Containerfile and compose file (SQLite by default, Postgres profile) are tested with rootless Podman (`scripts/container-smoke.sh`).
+- Fixes: adminsvr now stops on SIGTERM (it only handled Ctrl-C, so service managers had to kill it); empty push/env-file values no longer fail flag parsing; log files are plain text (no color codes); the container image includes libssl3 (needed by the built-in libpq); the adminsvr package README says SQLite is the default.
 
 ## v0.19.1 (2026-11-01)
 adminsvr on Diesel with SQLite or Postgres, and passkeys / security keys as an optional second factor.
