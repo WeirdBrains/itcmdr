@@ -23,6 +23,7 @@ UninstallDisplayIcon={app}\uninstall\agent\itcmdr.ico
 
 [Files]
 Source: "..\target\release\itcmdr-agent.exe"; DestDir: "{app}\agent"; Flags: ignoreversion
+Source: "..\target\release\itcmdr-plugin-ps.exe"; DestDir: "{app}\agent"; Flags: ignoreversion
 Source: "..\branding\office\windows\app_icon.ico"; DestDir: "{app}\uninstall\agent"; DestName: "itcmdr.ico"; Flags: ignoreversion
 Source: "..\agent\Invoke-ItcmdrAgent.ps1"; DestDir: "{app}\agent"; Flags: ignoreversion
 Source: "..\agent\Install-ItcmdrAgent.ps1"; DestDir: "{app}\agent"; Flags: ignoreversion
