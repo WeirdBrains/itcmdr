@@ -11,3 +11,4 @@
 #define AgentAppId  "5d38141d-801e-4730-8294-c4bdfe8b3af1"
 #define CliAppId    "bf8d258c-96b2-465f-81f0-d95d83d06cc6"
 #define AppAppId    "61fbffb5-44e6-4c75-bc85-a397d58b9de8"
+#define AdminAppId  "baf17c7c-c912-46da-afd6-0283f3615a97"

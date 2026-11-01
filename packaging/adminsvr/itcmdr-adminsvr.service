@@ -1,0 +1,23 @@
+# itcmdr-adminsvr (v0.19.0). Settings: /etc/itcmdr-adminsvr/adminsvr.env (see adminsvr.env.example).
+[Unit]
+Description=itcmdr offsite admin server
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=itcmdr-adminsvr
+Group=itcmdr-adminsvr
+EnvironmentFile=/etc/itcmdr-adminsvr/adminsvr.env
+ExecStart=/usr/local/bin/itcmdr-adminsvr serve
+Restart=on-failure
+RestartSec=5
+StateDirectory=itcmdr-adminsvr
+StateDirectoryMode=0700
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target
