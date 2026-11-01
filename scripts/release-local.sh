@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Local release builds (v0.15.0), used instead of .github/workflows/release.yml while Actions is
 # unavailable. Uses no Actions minutes. Steps, run from the repo root at the tagged commit:
-#   scripts/release-local.sh unix            # Linux or macOS host: CLI, admin CLI (+ adminsvr on Linux) tarballs + app archive into dist/<ver>/
+#   scripts/release-local.sh unix            # Linux or macOS host: CLI, admin CLI, adminsvr tarballs + app and admin app archives into dist/<ver>/
+#   scripts/release-local.sh android         # (v0.19.2) admin app APK into dist/<ver>/ (Android SDK + NDK; debug-key signed until a release key exists)
+#   scripts/release-local.sh ios-check       # (v0.19.2) admin app iOS build without code signing (no artifact: needs an Apple team to sign)
 #   scripts/release-local.sh windows-notes   # print the Windows VM step (see docs/RELEASE-LOCAL.md)
 #   scripts/release-local.sh check           # SHA256SUMS + leak check of every artifact (unpacked)
 #   scripts/release-local.sh publish         # gh release create vX.Y.Z (tag must exist on origin; never moves it)
@@ -31,7 +33,23 @@ unix)
     flutter build macos --release
     (cd build/macos/Build/Products/Release && zip -qry "$OLDPWD/../$out/itcmdr-app-$ver-macos-$arch.zip" ./*.app)
   fi
+  cd ../admin-app; flutter pub get --enforce-lockfile >/dev/null
+  if [[ "$(uname)" == Linux ]]; then
+    flutter build linux --release
+    rm -rf build/itcmdr-admin-app && cp -r build/linux/x64/release/bundle build/itcmdr-admin-app
+    tar -C build -czf "../$out/itcmdr-admin-app-$ver-linux-$arch.tar.gz" itcmdr-admin-app
+  else
+    flutter build macos --release
+    (cd build/macos/Build/Products/Release && zip -qry "$OLDPWD/../$out/itcmdr-admin-app-$ver-macos-$arch.zip" ./*.app)
+  fi
   ls -l "../$out" ;;
+android)
+  mkdir -p "$out"; cd admin-app; flutter pub get --enforce-lockfile >/dev/null
+  flutter build apk --release
+  cp build/app/outputs/flutter-apk/app-release.apk "../$out/itcmdr-admin-app-$ver-android.apk"; ls -l "../$out" ;;
+ios-check)
+  cd admin-app; flutter pub get --enforce-lockfile >/dev/null
+  flutter build ios --release --no-codesign ;;
 windows-notes) sed -n '/^## Windows VM step/,/^## /p' docs/RELEASE-LOCAL.md ;;
 check)
   cd "$out"; rm -f SHA256SUMS
