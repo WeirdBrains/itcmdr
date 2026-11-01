@@ -62,6 +62,13 @@ pub const SCHEMA: &str = r#"
         ts_ms INTEGER NOT NULL,
         PRIMARY KEY (machine, name)
     );
+    CREATE TABLE IF NOT EXISTS agent_config (
+        machine TEXT PRIMARY KEY,
+        version TEXT NOT NULL,
+        ok INTEGER NOT NULL,
+        error TEXT NOT NULL,
+        ts_ms INTEGER NOT NULL
+    );
 "#;
 
 fn now() -> i64 {
@@ -184,6 +191,47 @@ pub fn update_for(layout: &Layout, w: &Want, p: &InstalledPlugin) -> Result<pb::
     })
 }
 
+/// v0.20.1: the agent's config document: the cutover state and the agent-scoped settings
+/// (global values with this machine's overrides), endorsed by the server root key.
+pub async fn config_update(pool: &DbPool, layout: &Layout, machine: &str) -> Result<pb::ConfigUpdate> {
+    let (version, json) = config_doc(pool, machine).await?;
+    let root = crate::auth::load_root_key(layout)?;
+    use ed25519_dalek::Signer;
+    let sig = root.sign(&itcmdr_agentlink::config_bytes(&version, &json));
+    Ok(pb::ConfigUpdate {
+        version,
+        json,
+        endorsement: hex::encode(sig.to_bytes()),
+    })
+}
+
+/// The unsigned config document and its version.
+pub async fn config_doc(pool: &DbPool, machine: &str) -> Result<(String, String)> {
+    let mut settings = serde_json::Map::new();
+    for r in crate::settings::resolve_all(pool, None, Some(machine)).await? {
+        if r.def.scope == crate::settings::Scope::Agent {
+            settings.insert(r.def.key.to_string(), r.value);
+        }
+    }
+    let doc = serde_json::json!({
+        "v": 1,
+        "cutover": crate::cutover::state(pool).await?,
+        "settings": settings,
+    });
+    let json = serde_json::to_string(&doc)?;
+    Ok((itcmdr_agentlink::config_version(&json), json))
+}
+
+/// v0.20.1: the config version each machine's agent acknowledged (ok only).
+pub async fn config_acked(pool: &DbPool, machine: &str) -> Result<Option<String>> {
+    Ok(sqlx::query_scalar(
+        "SELECT version FROM agent_config WHERE machine = ? COLLATE NOCASE AND ok = 1",
+    )
+    .bind(machine)
+    .fetch_optional(pool)
+    .await?)
+}
+
 /// Schedules for this machine, with a version (hash of the set).
 pub async fn schedule_set(pool: &DbPool, machine: &str) -> Result<pb::ScheduleSet> {
     let mut out = vec![];
@@ -288,6 +336,16 @@ pub async fn take_requests(pool: &DbPool, machine: &str) -> Result<Vec<pb::RunNo
 
 /// Record an Applied from the agent; a failed plugin install raises a Cautious alert.
 pub async fn applied(pool: &DbPool, a: &Agent, ap: &pb::Applied) -> Result<()> {
+    if ap.kind == "config" {
+        sqlx::query("INSERT INTO agent_config(machine, version, ok, error, ts_ms) VALUES (?,?,?,?,?) ON CONFLICT(machine) DO UPDATE SET version = excluded.version, ok = excluded.ok, error = excluded.error, ts_ms = excluded.ts_ms")
+            .bind(&a.machine)
+            .bind(&ap.version)
+            .bind(ap.ok)
+            .bind(ap.error.chars().take(2000).collect::<String>())
+            .bind(now())
+            .execute(pool)
+            .await?;
+    }
     if ap.kind == "plugin" || ap.kind == "plugin-remove" {
         if ap.kind == "plugin-remove" && ap.ok {
             sqlx::query("DELETE FROM agent_plugins WHERE machine = ? AND name = ?")
@@ -580,8 +638,14 @@ pub async fn sync_messages(
     machine: &str,
     have: &mut BTreeMap<String, String>,
     schedule_version: &mut String,
+    config_version: &mut String,
 ) -> Result<Vec<pb::server_message::Body>> {
     let mut out = vec![];
+    let cu = config_update(pool, layout, machine).await?;
+    if *config_version != cu.version {
+        *config_version = cu.version.clone();
+        out.push(pb::server_message::Body::Config(cu));
+    }
     let want = desired(pool, layout, machine).await?;
     for (w, p) in &want {
         if have.get(&w.name) != Some(&w.key()) {

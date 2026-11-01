@@ -1084,6 +1084,7 @@ impl pb::agent_service_server::AgentService for AgentLink {
         let agent = a.clone();
         let mut have = crate::agent_plugins::parse_have(&h.plugins);
         let mut sched_ver = h.schedule_version.clone();
+        let mut cfg_ver = h.config_version.clone();
         tokio::spawn(async move {
             let mut ticker = tokio::time::interval(Duration::from_secs(hb as u64));
             ticker.tick().await;
@@ -1094,7 +1095,7 @@ impl pb::agent_service_server::AgentService for AgentLink {
             loop {
                 tokio::select! {
                     _ = sync_t.tick() => {
-                        match crate::agent_plugins::sync_messages(&pool, &layout, &agent.machine, &mut have, &mut sched_ver).await {
+                        match crate::agent_plugins::sync_messages(&pool, &layout, &agent.machine, &mut have, &mut sched_ver, &mut cfg_ver).await {
                             Ok(msgs) => for b in msgs {
                                 if tx.send(Ok(pb::ServerMessage { ack_seq: last_seq, body: Some(b) })).await.is_err() { break; }
                             },
