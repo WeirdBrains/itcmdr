@@ -30,7 +30,9 @@ Name: "{commonappdata}\itcmdr-adminsvr\logs"; Flags: uninsneveruninstall
 
 [Run]
 ; Only Administrators and SYSTEM may read the settings, keys and database (this folder only).
-Filename: "{sys}\icacls.exe"; Parameters: """{commonappdata}\itcmdr-adminsvr"" /inheritance:r /grant:r *S-1-5-32-544:(OI)(CI)F *S-1-5-18:(OI)(CI)F /T /Q"; Flags: runhidden; StatusMsg: "Securing the adminsvr data folder..."
+Filename: "{sys}\icacls.exe"; Parameters: """{commonappdata}\itcmdr-adminsvr"" /inheritance:r /grant:r *S-1-5-32-544:(OI)(CI)F *S-1-5-18:(OI)(CI)F /Q"; Flags: runhidden; StatusMsg: "Securing the adminsvr data folder..."
+; ...and everything in it inherits that (no /T above: (OI)(CI) on a file leaves it with no access).
+Filename: "{sys}\icacls.exe"; Parameters: """{commonappdata}\itcmdr-adminsvr\*"" /reset /T /C /Q"; Flags: runhidden
 Filename: "{sys}\sc.exe"; Parameters: "create itcmdr-adminsvr binPath= ""\""{app}\adminsvr\itcmdr-adminsvr.exe\"" service"" start= auto DisplayName= ""itcmdr-adminsvr"""; Flags: runhidden; StatusMsg: "Creating Windows service itcmdr-adminsvr..."; Check: not ServiceExists('itcmdr-adminsvr')
 Filename: "{sys}\sc.exe"; Parameters: "config itcmdr-adminsvr binPath= ""\""{app}\adminsvr\itcmdr-adminsvr.exe\"" service"" start= auto"; Flags: runhidden; Check: ServiceExists('itcmdr-adminsvr')
 Filename: "{sys}\sc.exe"; Parameters: "description itcmdr-adminsvr ""itcmdr offsite admin server (admin API and SiteLink)"""; Flags: runhidden
