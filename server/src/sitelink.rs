@@ -773,7 +773,7 @@ async fn session(pool: &DbPool, cfg: &ServerConfig, st: &State) -> Result<()> {
                 }
             }
         }
-        if out.seq % 50 == 0 {
+        if out.seq.is_multiple_of(50) {
             let s = out.seq;
             let _ = update(cfg, |x| x.seq = s);
         }

@@ -3,8 +3,11 @@
 //!   owner/admin/sre RBAC (`rbac`), hash-chained audit of every signed change (`audit`).
 //! - SiteLink (`link`): sites dial in over pinned TLS + mTLS and send redacted status and alerts;
 //!   adminsvr sends commands signed by the user and the adminsvr root key.
+//!
 //! Backups never come here: adminsvr only sees backup age/size/result and may ask a site to start
 //! one; there is no restore.
+// tonic::Status is the error type of every handler.
+#![allow(clippy::result_large_err)]
 pub mod api;
 pub mod audit;
 pub mod auth;

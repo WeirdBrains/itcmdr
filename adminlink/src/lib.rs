@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 pub mod pb {
+    #![allow(clippy::all)]
     tonic::include_proto!("itcmdr.admin");
 }
 
