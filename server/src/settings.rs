@@ -140,6 +140,7 @@ pub fn registry() -> Vec<Def> {
         d("agent.serverNonresponsiveLevel", Agent, Kind::Text, json!("critical"), "Level of the non-responsive alert for agents enrolled as role server (v0.17.0)."),
         d("agent.reconnectMaxSecs", Agent, int(5, 3600), json!(300), "Longest wait between agent reconnect attempts (backoff cap, seconds) (v0.17.0)."),
         d("agent.officeHours", Agent, Kind::Text, json!(""), "Heartbeat office-hours profile, e.g. \"Mon-Fri 07:00-18:00\" (server local time): outside it a missing agent raises no alert, and misses count from the start of the hours. Empty: always (v0.17.1)."),
+        d("agent.plugins", Agent, Kind::Text, json!("all"), "Plugins the Rust agent receives and runs report-only: all (every enabled plugin), none, or a comma-separated list of names (v0.18.0)."),
         d("agent.queueMaxMib", Agent, int(1, 4096), json!(256), "Rust agent offline queue cap (MiB); oldest informational items are dropped first (v0.17.1)."),
         d("agent.tcpTimeoutMs", Agent, int(100, 60000), json!(3000), "TCP probe timeout (ms)."),
         d("agent.staleLockMinutes", Agent, int(10, 1440), json!(150), "Poller: a request lock older than this was left by a crashed run."),
@@ -428,6 +429,9 @@ pub async fn set(pool: &DbPool, key: &str, text: &str, machine: Option<&str>) ->
         if let Some(t) = v.as_str() {
             crate::schedule::parse_hours(t)?;
         }
+    }
+    if key == "agent.plugins" {
+        crate::agent_plugins::valid_selection(v.as_str().unwrap_or_default())?;
     }
     if key == "agent.officeHours" {
         if let Some(t) = v.as_str().filter(|t| !t.trim().is_empty()) {

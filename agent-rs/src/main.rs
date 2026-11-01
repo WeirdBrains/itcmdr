@@ -140,6 +140,7 @@ fn real_main() -> Result<()> {
                     detail,
                     ts_ms: chrono::Utc::now().timestamp_millis(),
                     resolve,
+                    report: None,
                 },
             )?;
             println!("queued {}", p.display());

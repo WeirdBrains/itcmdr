@@ -25,6 +25,11 @@ pub fn ca_cert_bytes(ca_der: &[u8]) -> Vec<u8> {
     v
 }
 
+/// Bytes the server root key signs to endorse a plugin package for agents (v0.18.0).
+pub fn plugin_bytes(name: &str, version: &str, manifest_sha256: &str) -> Vec<u8> {
+    format!("itcmdr-agent-plugin/v1\n{name}\n{version}\n{manifest_sha256}").into_bytes()
+}
+
 /// Renew at 2/3 of the lifetime.
 pub fn renew_due(issued_ms: i64, expires_ms: i64, now_ms: i64) -> bool {
     expires_ms > issued_ms && now_ms >= issued_ms + (expires_ms - issued_ms) * 2 / 3

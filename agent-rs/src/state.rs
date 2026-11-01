@@ -24,6 +24,10 @@ pub struct State {
     /// v0.17.1: offline queue cap from the server's Welcome.
     #[serde(default = "default_queue_mib")]
     pub queue_max_mib: u64,
+    /// v0.18.0: server root public key (hex), from the token, or the first Welcome for agents
+    /// enrolled before tokens carried it. Checks plugin endorsements.
+    #[serde(default)]
+    pub root_public_key: String,
 }
 
 fn default_queue_mib() -> u64 {

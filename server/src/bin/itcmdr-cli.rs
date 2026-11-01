@@ -120,6 +120,26 @@ enum AgentCmd {
     Revoke { machine: String },
     /// Ask a machine's agent to renew its certificate at its next heartbeat (v0.17.1).
     Renew { machine: String },
+    /// Run a plugin on a machine's agent now, report-only (v0.18.0); the report arrives in `agent runs`.
+    Run {
+        machine: String,
+        plugin: String,
+        /// key=value arguments for the plugin.
+        #[arg(long = "arg")]
+        args: Vec<String>,
+    },
+    /// Plugin runs reported by agents, newest first, with parity against the nightly (v0.18.0).
+    Runs {
+        #[arg(long)]
+        machine: Option<String>,
+        #[arg(long, default_value_t = 20)]
+        limit: i64,
+    },
+    /// Plugins each agent reported as applied (v0.18.0).
+    Plugins {
+        #[arg(long)]
+        machine: Option<String>,
+    },
     /// Maintenance on/off for a machine (no heartbeat alerts while on).
     Maintenance {
         machine: String,
@@ -1738,6 +1758,34 @@ fn run(rt: &tokio::runtime::Runtime) -> Result<()> {
                         let a = srv::agents::revoke(&pool, machine).await?.ok_or_else(|| anyhow::anyhow!("no enrolled agent on {machine}"))?;
                         audit("agent-revoke", serde_json::json!({"machine": a.machine, "agent": a.id})).await?;
                         show(&a);
+                    }
+                    AgentCmd::Run { machine, plugin, args } => {
+                        let mut m = std::collections::BTreeMap::new();
+                        for a in args {
+                            let (k, v) = a.split_once('=').ok_or_else(|| anyhow::anyhow!("--arg needs key=value"))?;
+                            m.insert(k.to_string(), v.to_string());
+                        }
+                        let id = srv::agent_plugins::request_run(&pool, machine, plugin, &m, "itcmdr-cli").await?;
+                        audit("agent-run-request", serde_json::json!({"machine": machine, "plugin": plugin, "request_id": id})).await?;
+                        if json { println!("{}", serde_json::json!({"request_id": id})); } else { println!("queued {id}: {plugin} on {machine} (sent at its next 2 s poll while linked)"); }
+                    }
+                    AgentCmd::Runs { machine, limit } => {
+                        for r in srv::agent_plugins::list_runs(&pool, machine.as_deref(), *limit).await? {
+                            if json {
+                                println!("{}", serde_json::to_string(&r).unwrap_or_default());
+                            } else {
+                                let par = match (r.parity_matched, r.parity_mismatched) {
+                                    (Some(m), Some(x)) => format!("parity {m} matched / {x} mismatched"),
+                                    _ => "no nightly to compare".into(),
+                                };
+                                println!("{}  {:<16} {}@{} {:<13} {:<22} {}  {}", ms_local(r.started_ms), r.machine, r.plugin, r.version, r.status, r.trigger.chars().take(22).collect::<String>(), par, r.run_id);
+                            }
+                        }
+                    }
+                    AgentCmd::Plugins { machine } => {
+                        for p in srv::agent_plugins::list_plugins(&pool, machine.as_deref()).await? {
+                            if json { println!("{p}"); } else { println!("{:<16} {}@{} {} {}", p["machine"].as_str().unwrap_or(""), p["name"].as_str().unwrap_or(""), p["version"].as_str().unwrap_or(""), if p["ok"].as_bool().unwrap_or(false) { "ok" } else { "FAILED" }, p["error"].as_str().unwrap_or("")); }
+                        }
                     }
                     AgentCmd::Renew { machine } => {
                         let a = srv::agents::request_renew(&pool, machine).await?.ok_or_else(|| anyhow::anyhow!("no enrolled agent on {machine}"))?;

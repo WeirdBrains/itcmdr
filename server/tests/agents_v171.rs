@@ -336,6 +336,7 @@ async fn queued_alerts_delivered_once_after_reconnect() {
         detail: "from the test".into(),
         ts_ms: chrono::Utc::now().timestamp_millis() - 600_000,
         resolve: false,
+        report: None,
     };
     itcmdr_agent::queue::spool(&adir, &item("disk-low", "critical")).unwrap();
     itcmdr_agent::queue::spool(&adir, &item("note", "informational")).unwrap();

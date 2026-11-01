@@ -1,6 +1,6 @@
 //! Enrollment and the heartbeat link.
 use crate::state::{self, State};
-use anyhow::{bail, Context, Result};
+use anyhow::{bail, ensure, Context, Result};
 use ed25519_dalek::{Signer, SigningKey};
 use itcmdr_agentlink::pb::{self, agent_service_client::AgentServiceClient};
 use itcmdr_agentlink::tls::{self, Pem};
@@ -31,7 +31,24 @@ pub async fn enroll(dir: &Path, token: &str, machine: Option<&str>, role: &str) 
     let ch = tls::connect(&t.addr, &t.pin, None)
         .await
         .with_context(|| format!("connecting to {} (pinned TLS)", t.addr))?;
-    let r = AgentServiceClient::new(ch)
+    let mut client = AgentServiceClient::new(ch);
+    // v0.18.0: check the CA certification before the token is used, so a refusal here leaves
+    // nothing behind on the server. A v0.17.x server has no Prepare: check after Enroll.
+    let prepared = match client
+        .prepare(pb::PrepareRequest {
+            token_secret: t.secret.clone(),
+        })
+        .await
+    {
+        Ok(p) => {
+            let p = p.into_inner();
+            verify_ca(&t.root, &p)?;
+            Some(p)
+        }
+        Err(s) if s.code() == tonic::Code::Unimplemented => None,
+        Err(s) => bail!("{}", s.message()),
+    };
+    let r = client
         .enroll(pb::EnrollRequest {
             token_secret: t.secret.clone(),
             machine: machine.clone(),
@@ -44,7 +61,18 @@ pub async fn enroll(dir: &Path, token: &str, machine: Option<&str>, role: &str) 
         .await
         .map_err(|s| anyhow::anyhow!("{}", s.message()))?
         .into_inner();
-    verify_ca(&t.root, &r)?;
+    let got = pb::PrepareResponse {
+        ca_cert_pem: r.ca_cert_pem.clone(),
+        ca_signature: r.ca_signature.clone(),
+        root_public_key: r.root_public_key.clone(),
+    };
+    if let Some(p) = &prepared {
+        ensure!(
+            p.ca_cert_pem == got.ca_cert_pem,
+            "the server changed its CA during enrollment"
+        );
+    }
+    verify_ca(&t.root, &got)?;
     let kd = state::keys_dir(dir);
     state::write_secret(&kd.join("agent.key"), hex::encode(sk.to_bytes()).as_bytes())?;
     state::write_secret(&kd.join("tls.key"), tls_key.as_bytes())?;
@@ -60,13 +88,18 @@ pub async fn enroll(dir: &Path, token: &str, machine: Option<&str>, role: &str) 
         enrolled_ms: now(),
         cert_issued_ms: now(),
         queue_max_mib: 256,
+        root_public_key: if t.root.is_empty() {
+            r.root_public_key.clone()
+        } else {
+            t.root.clone()
+        },
     };
     state::save(dir, &st)?;
     Ok(st)
 }
 
 /// The token names the server root key; the site CA must be certified by it (v0.17.1).
-fn verify_ca(root: &str, r: &pb::EnrollResponse) -> Result<()> {
+fn verify_ca(root: &str, r: &pb::PrepareResponse) -> Result<()> {
     if root.is_empty() {
         return Ok(()); // token from a v0.17.0 server
     }
@@ -153,6 +186,8 @@ pub async fn session(dir: &Path, st: &State, mut connected: impl FnMut(&pb::Welc
         ts_ms: ts,
         nonce,
         signature: hex::encode(sig.to_bytes()),
+        plugins: crate::plugins::installed(dir),
+        schedule_version: crate::plugins::load_schedules(dir).version,
     };
     let _ = tx
         .send(pb::AgentMessage {
@@ -161,6 +196,8 @@ pub async fn session(dir: &Path, st: &State, mut connected: impl FnMut(&pb::Welc
         })
         .await;
     let resp = AgentServiceClient::new(ch)
+        .max_decoding_message_size(128 * 1024 * 1024)
+        .max_encoding_message_size(32 * 1024 * 1024)
         .link(tokio_stream::wrappers::ReceiverStream::new(rx))
         .await;
     let mut inbound = match resp {
@@ -185,9 +222,9 @@ pub async fn session(dir: &Path, st: &State, mut connected: impl FnMut(&pb::Welc
                 match crate::queue::ingest(dir, queue_mib) {
                     Ok(items) => for it in items {
                         if !sent.insert(it.seq) { continue; }
-                        let msg = pb::AgentMessage { seq: it.seq, body: Some(pb::agent_message::Body::Alert(pb::AgentAlert {
-                            key: it.key, level: it.level, title: it.title, detail: it.detail, ts_ms: it.ts_ms, resolve: it.resolve,
-                        })) };
+                        let s = it.seq;
+                        let Some(b) = crate::queue::body(it) else { crate::queue::ack(dir, s); continue; };
+                        let msg = pb::AgentMessage { seq: s, body: Some(b) };
                         if tx.send(msg).await.is_err() { return End::Lost("send failed".into()); }
                     },
                     Err(e) => tracing::warn!(error=%format!("{e:#}"), "offline queue"),
@@ -200,17 +237,89 @@ pub async fn session(dir: &Path, st: &State, mut connected: impl FnMut(&pb::Welc
             Ok(Some(m)) => match m.body {
                 Some(pb::server_message::Body::Welcome(w)) => {
                     connected(&w);
+                    if !w.root_public_key.is_empty() {
+                        if let Ok(Some(mut s2)) = state::load(dir) {
+                            if s2.root_public_key.is_empty() {
+                                s2.root_public_key = w.root_public_key.clone();
+                                let _ = state::save(dir, &s2);
+                            }
+                        }
+                    }
                     if w.queue_max_mib > 0 && w.queue_max_mib as u64 != st.queue_max_mib {
                         queue_mib = w.queue_max_mib as u64;
-                        let mut s2 = st.clone();
-                        s2.queue_max_mib = queue_mib;
-                        let _ = state::save(dir, &s2);
+                        if let Ok(Some(mut s2)) = state::load(dir) {
+                            s2.queue_max_mib = queue_mib;
+                            let _ = state::save(dir, &s2);
+                        }
                     }
                     renew = itcmdr_agentlink::renew_due(issued, st.cert_expires_ms, now());
                 }
                 Some(pb::server_message::Body::RenewNow(r)) => {
                     tracing::info!(reason=%r.reason, "the server asked for a certificate renewal");
                     renew = true;
+                }
+                Some(pb::server_message::Body::Plugin(u)) => {
+                    let root = state::load(dir)
+                        .ok()
+                        .flatten()
+                        .map(|s| s.root_public_key)
+                        .unwrap_or_default();
+                    let r = crate::plugins::apply(dir, &root, &u);
+                    match &r {
+                        Ok(()) => {
+                            tracing::info!(plugin=%u.name, version=%u.version, "plugin installed")
+                        }
+                        Err(e) => {
+                            tracing::error!(plugin=%u.name, error=%format!("{e:#}"), "plugin update refused")
+                        }
+                    }
+                    seq += 1;
+                    if tx
+                        .send(applied(seq, "plugin", &u.name, &u.version, r))
+                        .await
+                        .is_err()
+                    {
+                        return End::Lost("send failed".into());
+                    }
+                }
+                Some(pb::server_message::Body::PluginRemove(p)) => {
+                    let r = crate::plugins::remove(dir, &p.name);
+                    tracing::info!(plugin=%p.name, ok=r.is_ok(), "plugin removed");
+                    seq += 1;
+                    if tx
+                        .send(applied(seq, "plugin-remove", &p.name, "", r))
+                        .await
+                        .is_err()
+                    {
+                        return End::Lost("send failed".into());
+                    }
+                }
+                Some(pb::server_message::Body::Schedules(set)) => {
+                    let r = crate::plugins::set_schedules(dir, &set, now());
+                    tracing::info!(version=%set.version, count=set.schedules.len(), ok=r.is_ok(), "schedules updated");
+                    seq += 1;
+                    if tx
+                        .send(applied(seq, "schedules", "", &set.version, r))
+                        .await
+                        .is_err()
+                    {
+                        return End::Lost("send failed".into());
+                    }
+                }
+                Some(pb::server_message::Body::RunNow(rn)) => {
+                    let (d, machine) = (dir.to_path_buf(), st.machine.clone());
+                    tracing::info!(plugin=%rn.plugin, request=%rn.request_id, "run requested");
+                    tokio::spawn(async move {
+                        let args = rn.args.into_iter().collect();
+                        run_and_queue(
+                            &d,
+                            &machine,
+                            &rn.plugin,
+                            &args,
+                            &format!("run-now:{}", rn.request_id),
+                        )
+                        .await;
+                    });
                 }
                 Some(pb::server_message::Body::Renewed(r)) => {
                     let Some(key) = pending_key.take() else {
@@ -270,6 +379,63 @@ pub async fn session(dir: &Path, st: &State, mut connected: impl FnMut(&pb::Welc
     }
 }
 
+fn applied(seq: u64, kind: &str, name: &str, version: &str, r: Result<()>) -> pb::AgentMessage {
+    pb::AgentMessage {
+        seq,
+        body: Some(pb::agent_message::Body::Applied(pb::Applied {
+            kind: kind.into(),
+            name: name.into(),
+            version: version.into(),
+            ok: r.is_ok(),
+            error: r.err().map(|e| format!("{e:#}")).unwrap_or_default(),
+        })),
+    }
+}
+
+/// One plugin run at a time on this PC.
+static RUN_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
+/// Run a plugin (report-only) and queue its report.
+pub async fn run_and_queue(
+    dir: &Path,
+    machine: &str,
+    plugin: &str,
+    args: &std::collections::BTreeMap<String, String>,
+    trigger: &str,
+) {
+    let _g = RUN_LOCK.lock().await;
+    let rep = crate::runner::run(dir, machine, plugin, args, trigger).await;
+    tracing::info!(plugin, status=%rep.status, run=%rep.run_id, %trigger, "plugin run");
+    if let Err(e) = crate::queue::spool_report(dir, &rep) {
+        tracing::error!(error=%format!("{e:#}"), "queueing the run report");
+    }
+}
+
+/// Local scheduler: every 30 s, run the due schedules (also while the server is unreachable).
+pub async fn scheduler(dir: std::path::PathBuf, machine: String) {
+    let mut t = tokio::time::interval(Duration::from_secs(30));
+    loop {
+        t.tick().await;
+        let due = match crate::plugins::due(&dir, now()) {
+            Ok(d) => d,
+            Err(e) => {
+                tracing::warn!(error=%format!("{e:#}"), "scheduler");
+                continue;
+            }
+        };
+        for s in due {
+            let names = if s.plugins.iter().any(|p| p == "*") {
+                crate::plugins::installed_names(&dir)
+            } else {
+                s.plugins.clone()
+            };
+            for n in names {
+                run_and_queue(&dir, &machine, &n, &s.args, &format!("schedule:{}", s.id)).await;
+            }
+        }
+    }
+}
+
 fn save_renewed(dir: &Path, st: &State, key: &str, r: &pb::Renewed) -> Result<()> {
     let fp_new = tls::pem_fingerprint(&r.cert_pem)?;
     ensure_new(&fp_new, &st.cert_pem)?;
@@ -286,6 +452,7 @@ fn save_renewed(dir: &Path, st: &State, key: &str, r: &pb::Renewed) -> Result<()
     s2.cert_issued_ms = now();
     if let Ok(Some(cur)) = state::load(dir) {
         s2.queue_max_mib = cur.queue_max_mib;
+        s2.root_public_key = cur.root_public_key;
     }
     state::save(dir, &s2)?;
     let _ = std::fs::remove_file(&bak);
@@ -333,6 +500,7 @@ pub async fn run(
 ) -> Result<()> {
     let mut reconnect_cap = 300u64;
     let mut warned = false;
+    let mut sched: Option<tokio::task::JoinHandle<()>> = None;
     loop {
         let st = match state::load(dir)? {
             Some(s) => s,
@@ -364,10 +532,16 @@ pub async fn run(
                 continue;
             }
         };
+        if sched.is_none() {
+            sched = Some(tokio::spawn(scheduler(
+                dir.to_path_buf(),
+                st.machine.clone(),
+            )));
+        }
         let mut attempt = 0u32;
         loop {
             let started = std::time::Instant::now();
-            let end = tokio::select! {
+            let mut end = tokio::select! {
                 e = session(dir, &st, |w| {
                     reconnect_cap = w.reconnect_max_secs.max(5) as u64;
                     tracing::info!(heartbeat_secs = w.heartbeat_secs, "linked to the server");
@@ -376,6 +550,10 @@ pub async fn run(
             };
             if started.elapsed() > Duration::from_secs(60) {
                 attempt = 0;
+            }
+            // v0.18.0: a revoked agent's handshake fails with a reset on Windows; ask the server.
+            if matches!(end, End::Lost(_)) && attempt >= 1 && is_revoked(&st).await {
+                end = End::Refused("this agent was revoked (checked with the server)".into());
             }
             match end {
                 End::Renewed => break, // reload state with the new certificate
@@ -401,6 +579,25 @@ pub async fn run(
             }
         }
     }
+}
+
+/// Ask the server (no client certificate) whether this agent is revoked. False when unsure.
+pub async fn is_revoked(st: &State) -> bool {
+    let r = async {
+        let ch = tls::connect(&st.address, &st.pin, None).await?;
+        let r = AgentServiceClient::new(ch)
+            .check(pb::CheckRequest {
+                agent_id: st.agent_id.clone(),
+                cert_fingerprint: tls::pem_fingerprint(&st.cert_pem).unwrap_or_default(),
+            })
+            .await?
+            .into_inner();
+        anyhow::Ok(r.revoked)
+    };
+    matches!(
+        tokio::time::timeout(Duration::from_secs(15), r).await,
+        Ok(Ok(true))
+    )
 }
 
 /// Sleep `d`; true when stopped meanwhile.
