@@ -73,6 +73,72 @@ enum Cmd {
     /// Push notifications for alerts on this device (FCM / APNs token; the admin app does this itself)
     #[command(subcommand)]
     Push(PushCmd),
+    /// A site's settings and schedules as adminsvr sees them; set a setting (v0.20.0)
+    #[command(subcommand)]
+    Config(ConfigCmd),
+    /// Run, pause or resume a site's schedule (by the id from `config show`)
+    #[command(subcommand)]
+    Schedule(ScheduleCmd),
+    /// Plugin catalog, a site's plugins, enable/disable/push (two-person)
+    #[command(subcommand)]
+    Plugin(PluginCmd),
+    /// Global freeze of every command (owners)
+    #[command(subcommand)]
+    Freeze(FreezeCmd),
+}
+
+#[derive(Subcommand)]
+enum ConfigCmd {
+    Show {
+        site: String,
+        /// also settings whose values stay on the site
+        #[arg(long)]
+        all: bool,
+    },
+    /// Set a remote-settable setting (numbers, switches, times)
+    Set {
+        site: String,
+        key: String,
+        value: String,
+        /// preview only: the site checks and shows before/after, changes nothing
+        #[arg(long)]
+        dry_run: bool,
+    },
+}
+
+#[derive(Subcommand)]
+enum ScheduleCmd {
+    Run { site: String, id: String, #[arg(long)] dry_run: bool },
+    Pause { site: String, id: String, #[arg(long)] dry_run: bool },
+    Resume { site: String, id: String, #[arg(long)] dry_run: bool },
+}
+
+#[derive(Subcommand)]
+enum PluginCmd {
+    /// Packages in adminsvr's catalog
+    Catalog,
+    /// Add a signed package (.tar.gz) to the catalog (owners/admins; adminsvr can't sign)
+    Upload { file: PathBuf },
+    /// Installed plugins and quarantine of a site
+    Status { site: String },
+    /// Push a catalog package to a site (two-person: a second owner/admin approves)
+    Push { site: String, sha256: String, #[arg(long)] dry_run: bool },
+    Enable {
+        site: String,
+        name: String,
+        #[arg(long, default_value = "")]
+        version: String,
+        #[arg(long)]
+        dry_run: bool,
+    },
+    Disable { site: String, name: String, #[arg(long)] dry_run: bool },
+}
+
+#[derive(Subcommand)]
+enum FreezeCmd {
+    Status,
+    On,
+    Off,
 }
 
 #[derive(Subcommand)]
@@ -248,6 +314,11 @@ enum CommandCmd {
         #[arg(default_value = "")]
         site: String,
     },
+    /// State, result and preview of one command
+    Show { id: String },
+    /// Be the second person for a two-person command (owners/admins, not the requester)
+    Approve { id: String },
+    Reject { id: String },
 }
 
 #[derive(Subcommand)]
@@ -659,6 +730,91 @@ async fn main() -> Result<()> {
                     let r = c.command(&site, "backup.start", &[]).await?;
                     println!("queued {} (the backup runs and stays on the site)", r.id);
                 }
+                Cmd::Command(CommandCmd::Show { id }) => {
+                    show_command(&c.get_command(&id).await?.info.unwrap_or_default());
+                }
+                Cmd::Command(CommandCmd::Approve { id }) => {
+                    let x = c.approve_command(&id).await?;
+                    show_command(&c.wait_command(&x.id, std::time::Duration::from_secs(20)).await?);
+                }
+                Cmd::Command(CommandCmd::Reject { id }) => show_command(&c.reject_command(&id).await?),
+                Cmd::Config(cc) => match cc {
+                    ConfigCmd::Show { site, all } => {
+                        let i = c.site_config(&site).await?;
+                        let Some(d) = i.config else {
+                            println!("{site} has not sent its configuration yet");
+                            return Ok(());
+                        };
+                        println!("version {} (received {}), two-person {}, allowed: {}", &d.version[..d.version.len().min(12)], ts(i.received_ms), d.require_two_person, d.allowed.join(" "));
+                        for x in d.settings.iter().filter(|x| all || !x.hidden) {
+                            println!("  {:<36} {:<5} {:<24} {}{}", x.key, x.kind, if x.hidden { "(on the site)".into() } else { x.value.clone() }, x.source, if x.remote { "" } else { "  read-only here" });
+                        }
+                        println!("schedules:");
+                        for x in &d.schedules {
+                            println!("  {}  {:<8} {}  {} {}  {}", x.id, if x.enabled { "enabled" } else { "paused" }, x.action, x.when, x.timezone, if x.name.is_empty() { x.builtin.clone() } else { x.name.clone() });
+                        }
+                    }
+                    ConfigCmd::Set { site, key, value, dry_run } => {
+                        run_cmd(&c, &site, "setting.set", &[("key", &key), ("value", &value)], dry_run).await?
+                    }
+                },
+                Cmd::Schedule(sc) => {
+                    let (k, site, id, dry) = match sc {
+                        ScheduleCmd::Run { site, id, dry_run } => ("schedule.run", site, id, dry_run),
+                        ScheduleCmd::Pause { site, id, dry_run } => ("schedule.pause", site, id, dry_run),
+                        ScheduleCmd::Resume { site, id, dry_run } => ("schedule.resume", site, id, dry_run),
+                    };
+                    run_cmd(&c, &site, k, &[("schedule", &id)], dry).await?
+                }
+                Cmd::Plugin(pc) => match pc {
+                    PluginCmd::Catalog => {
+                        for p in c.catalog().await?.packages {
+                            println!("{}  {} {}  {} bytes  by {}  {}", p.sha256, p.name, p.version, p.size, p.uploaded_by, ts(p.uploaded_ms));
+                        }
+                    }
+                    PluginCmd::Upload { file } => {
+                        let e = c.upload_plugin(std::fs::read(&file)?).await?;
+                        println!("{} {} added: {}", e.name, e.version, e.sha256);
+                    }
+                    PluginCmd::Status { site } => {
+                        let i = c.site_plugins(&site).await?;
+                        let d = i.plugins.unwrap_or_default();
+                        for p in d.installed {
+                            println!("  {} {}  {}  {}", p.name, p.version, if p.enabled { "enabled" } else { "disabled" }, &p.sha256[..p.sha256.len().min(16)]);
+                        }
+                        if !d.quarantine.is_empty() {
+                            println!("quarantine:");
+                            for q in d.quarantine {
+                                println!("  {}  {}  {}", &q.sha256[..q.sha256.len().min(16)], q.reason, ts(q.ts_ms));
+                            }
+                        }
+                    }
+                    PluginCmd::Push { site, sha256, dry_run } => {
+                        run_cmd(&c, &site, "plugin.install", &[("sha256", &sha256)], dry_run).await?
+                    }
+                    PluginCmd::Enable { site, name, version, dry_run } => {
+                        let mut a = vec![("name", name.as_str())];
+                        if !version.is_empty() {
+                            a.push(("version", version.as_str()));
+                        }
+                        run_cmd(&c, &site, "plugin.enable", &a, dry_run).await?
+                    }
+                    PluginCmd::Disable { site, name, dry_run } => {
+                        run_cmd(&c, &site, "plugin.disable", &[("name", &name)], dry_run).await?
+                    }
+                },
+                Cmd::Freeze(f) => {
+                    let st = match f {
+                        FreezeCmd::Status => c.freeze().await?,
+                        FreezeCmd::On => c.set_freeze(true).await?,
+                        FreezeCmd::Off => c.set_freeze(false).await?,
+                    };
+                    if st.frozen {
+                        println!("FROZEN by {} since {}: every command is refused", st.by, ts(st.since_ms));
+                    } else {
+                        println!("not frozen");
+                    }
+                }
                 Cmd::Command(CommandCmd::List { site }) => {
                     for x in c.list_commands(&site).await?.commands {
                         println!(
@@ -709,4 +865,40 @@ async fn main() -> Result<()> {
 
 fn fido() -> std::sync::Arc<dyn itcmdr_admin::passkey::Authenticator> {
     std::sync::Arc::new(itcmdr_admin::passkey::Fido2Tools::new())
+}
+
+fn show_command(x: &pb::CommandInfo) {
+    let mut args: Vec<_> = x.args.iter().map(|(k, v)| format!("{k}={v}")).collect();
+    args.sort();
+    println!(
+        "{}  {}{}  {}  {}  {}  by {}{}",
+        x.id,
+        x.kind,
+        if x.dry_run { " (dry run)" } else { "" },
+        args.join(" "),
+        x.state,
+        x.result_code,
+        x.requested_by,
+        if x.approved_by.is_empty() { String::new() } else { format!(", approved by {}", x.approved_by) }
+    );
+    for p in &x.preview {
+        println!("  {}: {} -> {}", p.target, p.before, p.after);
+    }
+}
+
+async fn run_cmd(
+    c: &itcmdr_admin::Client,
+    site: &str,
+    kind: &str,
+    args: &[(&str, &str)],
+    dry_run: bool,
+) -> anyhow::Result<()> {
+    let x = c.command_ex(site, kind, args, dry_run).await?;
+    if x.state == "awaiting-approval" {
+        show_command(&x);
+        println!("needs a second owner or admin: itcmdr-admin command approve {}", x.id);
+        return Ok(());
+    }
+    show_command(&c.wait_command(&x.id, std::time::Duration::from_secs(20)).await?);
+    Ok(())
 }
