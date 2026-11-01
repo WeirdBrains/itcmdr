@@ -2,7 +2,9 @@
 
 ## Unreleased
 
-- History scrub (approved one-time exception): vendor/product names, the share name and the clinic-type site name were replaced in the whole history of itcmdr and itcmdr-plugins (force-pushed, tags re-pointed to the rewritten commits). Existing clones must be re-cloned.
+## v0.15.3 (2026-10-31)
+Generic names everywhere, and the history scrubbed of vendor and share names.
+- History scrub (approved one-time exception): vendor/product names, the share name and the clinic-type site name were replaced in the whole history of itcmdr and itcmdr-plugins (force-pushed, tags re-pointed to the rewritten commits). Existing clones must be re-cloned. The Windows installers of v0.15.0 to v0.15.2 were rebuilt from the rewritten tags and replaced on their releases; short commit ids in the docs were updated to the rewritten commits.
 - Current tree generic: docs, tests, example config and the itcmdr-plugins descriptions use neutral names (`DATA`, `ExampleVendor`, `Example Office`).
 - Old site.json files keep working without vendor names in code: when `watchedServices` is absent, every object under `services` with a `name` becomes a watched service (with `pluginProcessName` → a Workstation process check `<FIRST-WORD-OF-KEY>-PLUGIN-HEALTH`, otherwise a Server check `SVC-<name>` with its `ports`), and a top-level object with `configFiles` is used as config drift with prefix `<KEY>-DRIFT`. Old check ids are kept. The old vendor-named drift alias is gone; use `Test-ItcmdrConfigDrift`.
 - `scripts/scan_repo.py`: `re:<regex>` lines in `config/banned.local.txt` are regular expressions.
@@ -103,7 +105,7 @@ App private key encrypted at rest, plugins managed from the app, and the signed-
 
 ## v0.12.0 (2026-10-31)
 App screens for keys, schedules, plugins, backup and restore, and signed requests as the default.
-Tagged `v0.12.0` (d79a031). The Windows VM pass followed in 5881a22.
+Tagged `v0.12.0` (eea653d). The Windows VM pass followed in 2084630.
 - App signs every call (`app/lib/signing.dart`). Canonical bytes match `proto/signing_vectors.json`. New installs default to `auth_mode = signed`. An install from before v0.12.0 with no value keeps `both` (`itcmdr-cli auth status` / `auth set-mode`).
 - Restore words are sealed on the app for a one-time in-memory server key (`docs/SIGNING.md`). `StageRestore` refuses plaintext words and requires a dry run first. Key and restore calls accept only a signed request.
 - Screens: Keys (make, import, certify command, register, revoke), Schedules (preview, edit, pause, run now, history), Service plugins (list, run, metric charts), Backup & Restore (back up, check, dry run, restore), Settings search and bool switches.
