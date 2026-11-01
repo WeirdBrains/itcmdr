@@ -188,6 +188,7 @@ pub async fn session(dir: &Path, st: &State, mut connected: impl FnMut(&pb::Welc
         signature: hex::encode(sig.to_bytes()),
         plugins: crate::plugins::installed(dir),
         schedule_version: crate::plugins::load_schedules(dir).version,
+        config_version: crate::config::version(dir),
     };
     let _ = tx
         .send(pb::AgentMessage {
@@ -232,6 +233,16 @@ pub async fn session(dir: &Path, st: &State, mut connected: impl FnMut(&pb::Welc
                 continue;
             }
         };
+        for al in crate::config::take_alerts() {
+            seq += 1;
+            let msg = pb::AgentMessage {
+                seq,
+                body: Some(pb::agent_message::Body::Alert(al)),
+            };
+            if tx.send(msg).await.is_err() {
+                return End::Lost("send failed".into());
+            }
+        }
         let mut renew = false;
         match m {
             Ok(Some(m)) => match m.body {
@@ -300,6 +311,28 @@ pub async fn session(dir: &Path, st: &State, mut connected: impl FnMut(&pb::Welc
                     seq += 1;
                     if tx
                         .send(applied(seq, "schedules", "", &set.version, r))
+                        .await
+                        .is_err()
+                    {
+                        return End::Lost("send failed".into());
+                    }
+                }
+                Some(pb::server_message::Body::Config(u)) => {
+                    let r = crate::config::apply(dir, &u);
+                    match &r {
+                        Ok(d) => {
+                            tracing::info!(version=%u.version, cutover=%d.cutover, "config updated");
+                            if let Some(did) = crate::config::heal_task(dir, &d.cutover) {
+                                tracing::warn!("{did}");
+                            }
+                        }
+                        Err(e) => {
+                            tracing::error!(error=%format!("{e:#}"), "config update refused")
+                        }
+                    }
+                    seq += 1;
+                    if tx
+                        .send(applied(seq, "config", "", &u.version, r.map(|_| ())))
                         .await
                         .is_err()
                     {
@@ -416,6 +449,9 @@ pub async fn scheduler(dir: std::path::PathBuf, machine: String) {
     let mut t = tokio::time::interval(Duration::from_secs(30));
     loop {
         t.tick().await;
+        if let Some(did) = crate::config::heal_task(&dir, &crate::config::cutover(&dir)) {
+            tracing::warn!("{did}");
+        }
         let due = match crate::plugins::due(&dir, now()) {
             Ok(d) => d,
             Err(e) => {

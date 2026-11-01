@@ -68,7 +68,7 @@ pub async fn run(
         trigger: trigger.into(),
         started_ms: now(),
         status: "error".into(),
-        report_only: true,
+        report_only: crate::config::report_only(dir),
         ..Default::default()
     };
     let pdir = plugins::plugin_dir(dir, name);
@@ -83,7 +83,7 @@ pub async fn run(
             run_id: run_id.clone(),
             log_path: log_path.display().to_string(),
             machine: machine.into(),
-            report_only: true,
+            report_only: rep.report_only,
             args: args.clone().into_iter().collect::<HashMap<_, _>>(),
             stage: String::new(),
         };
