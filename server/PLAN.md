@@ -653,3 +653,14 @@ Upgrading from the combined v0.14.2 installer: each split package takes over its
 Branding (v0.14.3): `branding/` holds the SVG masters, `build.py` and the rendered sets. The office icon is wired into the Windows app, the web icons, the Linux bundle (hicolor icons + `itcmdr.desktop`) and every installer. Android `res/` and the iOS `AppIcon.appiconset` (office and admin) are wired when `flutter create --platforms android,ios` runs (the mobile store work); the admin set is for the v0.19.0 SRE app. Tray/notification monochrome icons stay in `branding/` (no tray usage yet).
 - Inno: `installer/common.iss` (version, AppIds), `common-setup.iss`, `common-code.iss` (migration, keep-data uninstall), `itcmdr-{server,agent,cli,app}.iss`. The combined installer had no `sharedfile` on `Itcmdr.Plugin.psm1`; migration drops the extra SharedDLLs reference so a full uninstall removes it.
 - The server package keeps a private `itcmdr-cli.exe` in `{app}\server` (used by the installer's `setup apply/check/first-run`); the CLI package installs `{app}\cli` and adds it to PATH. Same version, independent uninstall.
+
+### v0.20.0 (2026-11-01): remote commands, configs and plugins
+
+- Site (`server/src/remote.rs`, `sitelink.rs`): config document (values only for int/bool/time settings; paths,
+  text, link/auth keys never settable remotely), plugin document, metrics summaries (24 h runs, failures,
+  durations, plugin errors, alerts opened; disk space). New command kinds `setting.set`, `schedule.run|pause|resume`,
+  `plugin.install|enable|disable`, all with dry run (before/after preview). Plugin kinds need a second owner/admin
+  approval signed by their key and checked by the site (`adminsvr.requireTwoPerson`, site-only, default on).
+  Packages come over `FetchPackage` and go through the normal validation; a bad one is quarantined (reason code up).
+  A saved v0.19 default allowlist is migrated; new kinds must be allowed by the site owner.
+- Agent settings over the link and `cutover switch --to agent` (PS agent retired) moved to v0.20.1.

@@ -3,7 +3,7 @@
 ; AppId and uninstaller ({app}\uninstall\<part>). Data lives in %ProgramData%\itcmdr and is kept
 ; on uninstall unless asked for (see RemoveData below).
 #ifndef MyAppVersion
-  #define MyAppVersion "0.19.2"
+  #define MyAppVersion "0.20.0"
 #endif
 #define InstallDirName "itcmdr"
 ; AppIds (never change them: they identify the installed package for upgrades and uninstall).
