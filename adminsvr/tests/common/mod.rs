@@ -85,19 +85,64 @@ fn start_pg() -> Option<Pg> {
     })
 }
 
-/// A fresh database URL, or None (tests skip) when no Postgres is available.
-pub async fn db() -> Option<String> {
-    let pg = PG.get_or_init(start_pg).as_ref()?;
+/// A test database: a URL plus whatever keeps it alive.
+pub struct TestDb {
+    pub url: String,
+    _dir: Option<tempfile::TempDir>,
+}
+
+/// A fresh Postgres database, or None (skipped, unless ITCMDR_REQUIRE_PG=1) without Postgres.
+pub async fn pg_db() -> Option<TestDb> {
+    let Some(pg) = PG.get_or_init(start_pg).as_ref() else {
+        assert!(
+            std::env::var("ITCMDR_REQUIRE_PG").is_err(),
+            "ITCMDR_REQUIRE_PG set but no Postgres (ITCMDR_PG_BIN / ITCMDR_TEST_PG_URL)"
+        );
+        eprintln!("no Postgres (ITCMDR_PG_BIN / ITCMDR_TEST_PG_URL): Postgres variant skipped");
+        return None;
+    };
     let name = format!("t{}", uuid::Uuid::new_v4().simple());
-    let pool = sqlx::PgPool::connect(&format!("{}/postgres", pg.admin_url))
-        .await
-        .ok()?;
-    sqlx::query(&format!("CREATE DATABASE {name}"))
-        .execute(&pool)
-        .await
-        .ok()?;
-    pool.close().await;
-    Some(format!("{}/{name}", pg.admin_url))
+    let admin = format!("{}/postgres", pg.admin_url);
+    tokio::task::spawn_blocking(move || {
+        use diesel::{Connection, RunQueryDsl};
+        let mut c = diesel::PgConnection::establish(&admin).ok()?;
+        diesel::sql_query(format!("CREATE DATABASE {name}"))
+            .execute(&mut c)
+            .ok()?;
+        Some(TestDb {
+            url: format!("{}/{name}", admin.trim_end_matches("/postgres")),
+            _dir: None,
+        })
+    })
+    .await
+    .ok()?
+}
+
+/// A fresh SQLite database file (always available).
+pub fn sqlite_db() -> TestDb {
+    let d = tempfile::tempdir().unwrap();
+    TestDb {
+        url: format!("sqlite://{}", d.path().join("adminsvr.db").display()),
+        _dir: Some(d),
+    }
+}
+
+/// `both!(body, sqlite_name, postgres_name)`: run `async fn body(db: String)` on each backend.
+#[macro_export]
+macro_rules! both {
+    ($body:ident, $lite:ident, $pg:ident) => {
+        #[tokio::test]
+        async fn $lite() {
+            let d = common::sqlite_db();
+            $body(d.url.clone()).await;
+        }
+        #[tokio::test]
+        async fn $pg() {
+            if let Some(d) = common::pg_db().await {
+                $body(d.url.clone()).await;
+            }
+        }
+    };
 }
 
 use itcmdr_admin::Client;

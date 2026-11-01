@@ -4,11 +4,12 @@
 use crate::config::Config;
 use crate::material::Material;
 use crate::pb;
+use crate::schema::*;
 use crate::store::Pool;
 use anyhow::{anyhow, Context, Result};
+use diesel::prelude::*;
 use parking_lot::{Mutex, RwLock};
 use prost::Message;
-use sqlx::Row;
 use std::collections::{HashMap, HashSet};
 use std::pin::Pin;
 use std::sync::Arc;
@@ -36,11 +37,18 @@ mod once_cell_lite {
 
 /// Reload the revoked client certificate serials (refused in the TLS handshake).
 pub async fn refresh_revoked(pool: &Pool) {
-    if let Ok(v) = sqlx::query_scalar::<_, String>(
-        "SELECT cert_serial FROM sites WHERE status = 'revoked' AND cert_serial IS NOT NULL",
-    )
-    .fetch_all(pool)
-    .await
+    if let Ok(v) = pool
+        .run(|c| {
+            Ok(sites::table
+                .filter(
+                    sites::status
+                        .eq("revoked")
+                        .and(sites::cert_serial.is_not_null()),
+                )
+                .select(sites::cert_serial.assume_not_null())
+                .load::<String>(c)?)
+        })
+        .await
     {
         *REVOKED.get().write() = v.into_iter().collect::<HashSet<_>>();
     }
@@ -114,41 +122,69 @@ pub struct Link {
 
 async fn take_token(pool: &Pool, secret: &str, burn: bool) -> Result<String> {
     let h = itcmdr_adminlink::sha256_hex(secret.as_bytes());
-    let r =
-        sqlx::query("SELECT site_id, expires_ms, used_ms FROM site_tokens WHERE secret_hash = $1")
-            .bind(&h)
-            .fetch_optional(pool)
-            .await?
+    pool.run(move |c| {
+        let r: (String, i64, Option<i64>) = site_tokens::table
+            .filter(site_tokens::secret_hash.eq(&h))
+            .select((
+                site_tokens::site_id,
+                site_tokens::expires_ms,
+                site_tokens::used_ms,
+            ))
+            .first(c)
+            .optional()?
             .ok_or_else(|| anyhow!("unknown site token"))?;
-    if r.get::<Option<i64>, _>("used_ms").is_some()
-        || r.get::<i64, _>("expires_ms") < crate::now_ms()
-    {
-        anyhow::bail!("site token used or expired");
-    }
-    if burn {
-        let n = sqlx::query(
-            "UPDATE site_tokens SET used_ms = $1 WHERE secret_hash = $2 AND used_ms IS NULL",
-        )
-        .bind(crate::now_ms())
-        .bind(&h)
-        .execute(pool)
-        .await?
-        .rows_affected();
-        if n == 0 {
-            anyhow::bail!("site token used");
+        if r.2.is_some() || r.1 < crate::now_ms() {
+            anyhow::bail!("site token used or expired");
         }
-    }
-    Ok(r.get("site_id"))
+        if burn {
+            let n = diesel::update(
+                site_tokens::table.filter(
+                    site_tokens::secret_hash
+                        .eq(&h)
+                        .and(site_tokens::used_ms.is_null()),
+                ),
+            )
+            .set(site_tokens::used_ms.eq(crate::now_ms()))
+            .execute(c)?;
+            if n == 0 {
+                anyhow::bail!("site token used");
+            }
+        }
+        Ok(r.0)
+    })
+    .await
 }
 
 type Out = Pin<Box<dyn Stream<Item = Result<pb::AdminMessage, Status>> + Send>>;
 
 pub async fn store_alert(pool: &Pool, site: &str, origin: &str, a: &pb::SiteAlert) -> Result<()> {
-    sqlx::query("INSERT INTO alerts (site_id, alert_id, origin, state, severity, last_seen_ms, body) VALUES ($1,$2,$3,$4,$5,$6,$7) \
-                 ON CONFLICT (site_id, alert_id) DO UPDATE SET state = EXCLUDED.state, severity = EXCLUDED.severity, last_seen_ms = EXCLUDED.last_seen_ms, body = EXCLUDED.body")
-        .bind(site).bind(&a.id).bind(origin).bind(&a.state).bind(&a.severity).bind(a.last_seen_ms).bind(a.encode_to_vec())
-        .execute(pool).await?;
-    Ok(())
+    let (site, origin, a) = (site.to_string(), origin.to_string(), a.clone());
+    pool.run(move |c| {
+        let key = alerts::table.filter(alerts::site_id.eq(&site).and(alerts::alert_id.eq(&a.id)));
+        let n = diesel::update(key)
+            .set((
+                alerts::state.eq(&a.state),
+                alerts::severity.eq(&a.severity),
+                alerts::last_seen_ms.eq(a.last_seen_ms),
+                alerts::body.eq(a.encode_to_vec()),
+            ))
+            .execute(c)?;
+        if n == 0 {
+            diesel::insert_into(alerts::table)
+                .values((
+                    alerts::site_id.eq(&site),
+                    alerts::alert_id.eq(&a.id),
+                    alerts::origin.eq(&origin),
+                    alerts::state.eq(&a.state),
+                    alerts::severity.eq(&a.severity),
+                    alerts::last_seen_ms.eq(a.last_seen_ms),
+                    alerts::body.eq(a.encode_to_vec()),
+                ))
+                .execute(c)?;
+        }
+        Ok(())
+    })
+    .await
 }
 
 async fn unreachable_alert(pool: &Pool, site: &str, open: bool) {
@@ -164,8 +200,22 @@ async fn unreachable_alert(pool: &Pool, site: &str, open: bool) {
         count: 1,
         ..Default::default()
     };
-    let exists: bool = sqlx::query_scalar("SELECT count(*) > 0 FROM alerts WHERE site_id = $1 AND alert_id = 'site-unreachable' AND state = 'open'")
-        .bind(site).fetch_one(pool).await.unwrap_or(false);
+    let s = site.to_string();
+    let exists = pool
+        .run(move |c| {
+            let n: i64 = alerts::table
+                .filter(
+                    alerts::site_id
+                        .eq(s)
+                        .and(alerts::alert_id.eq("site-unreachable"))
+                        .and(alerts::state.eq("open")),
+                )
+                .count()
+                .get_result(c)?;
+            Ok(n > 0)
+        })
+        .await
+        .unwrap_or(false);
     if open != exists {
         if let Err(e) = store_alert(pool, site, "adminsvr", &a).await {
             tracing::warn!(error=%e, "site unreachable alert");
@@ -181,46 +231,71 @@ impl Link {
         msg: &pb::SiteMessage,
     ) -> Result<Option<u64>> {
         itcmdr_adminlink::verify_site(pk, msg)?;
-        let last: i64 = sqlx::query_scalar("SELECT last_seq FROM sites WHERE id = $1")
-            .bind(site)
-            .fetch_one(&self.pool)
+        let (site_id, seq) = (site, msg.seq);
+        let (site, msg) = (site.to_string(), msg.clone());
+        let pool = self.pool.clone();
+        let alert = pool
+            .run(move |c| {
+                c.transaction::<_, anyhow::Error, _>(|c| {
+                    let me = sites::table.filter(sites::id.eq(&site));
+                    let last: i64 = me.select(sites::last_seq).first(c)?;
+                    diesel::update(
+                        sites::table.filter(sites::id.eq(&site).and(sites::status.ne("revoked"))),
+                    )
+                    .set((
+                        sites::last_seen_ms.eq(crate::now_ms()),
+                        sites::status.eq("online"),
+                    ))
+                    .execute(c)?;
+                    if (msg.seq as i64) <= last {
+                        return Ok(None); // replay/duplicate: ack again, ignore
+                    }
+                    diesel::update(me)
+                        .set(sites::last_seq.eq(msg.seq as i64))
+                        .execute(c)?;
+                    use pb::site_message::Body;
+                    match &msg.body {
+                        Some(Body::Hello(h)) => {
+                            diesel::update(me)
+                                .set((
+                                    sites::version.eq(&h.version),
+                                    sites::share_names.eq(h.share_display_names),
+                                ))
+                                .execute(c)?;
+                        }
+                        Some(Body::Status(st)) => {
+                            diesel::update(me)
+                                .set((
+                                    sites::last_status.eq(Some(st.encode_to_vec())),
+                                    sites::version.eq(&st.version),
+                                ))
+                                .execute(c)?;
+                        }
+                        Some(Body::Alert(a)) => return Ok(Some(a.clone())),
+                        Some(Body::Result(r)) => {
+                            diesel::update(
+                                commands::table.filter(
+                                    commands::id
+                                        .eq(&r.command_id)
+                                        .and(commands::site_id.eq(&site)),
+                                ),
+                            )
+                            .set((
+                                commands::state.eq(if r.ok { "applied" } else { "failed" }),
+                                commands::result_code.eq(&r.code),
+                            ))
+                            .execute(c)?;
+                        }
+                        Some(Body::Pong(_)) | None => {}
+                    }
+                    Ok(None)
+                })
+            })
             .await?;
-        let now = crate::now_ms();
-        sqlx::query("UPDATE sites SET last_seen_ms = $1, status = 'online' WHERE id = $2 AND status <> 'revoked'").bind(now).bind(site).execute(&self.pool).await?;
-        if (msg.seq as i64) <= last {
-            return Ok(Some(msg.seq)); // replay/duplicate: ack again, ignore
+        if let Some(a) = alert {
+            store_alert(&self.pool, site_id, "site", &a).await?;
         }
-        sqlx::query("UPDATE sites SET last_seq = $1 WHERE id = $2")
-            .bind(msg.seq as i64)
-            .bind(site)
-            .execute(&self.pool)
-            .await?;
-        use pb::site_message::Body;
-        match &msg.body {
-            Some(Body::Hello(h)) => {
-                sqlx::query("UPDATE sites SET version = $1, share_names = $2 WHERE id = $3")
-                    .bind(&h.version)
-                    .bind(h.share_display_names)
-                    .bind(site)
-                    .execute(&self.pool)
-                    .await?;
-            }
-            Some(Body::Status(s)) => {
-                sqlx::query("UPDATE sites SET last_status = $1, version = $2 WHERE id = $3")
-                    .bind(s.encode_to_vec())
-                    .bind(&s.version)
-                    .bind(site)
-                    .execute(&self.pool)
-                    .await?;
-            }
-            Some(Body::Alert(a)) => store_alert(&self.pool, site, "site", a).await?,
-            Some(Body::Result(r)) => {
-                sqlx::query("UPDATE commands SET state = $1, result_code = $2 WHERE id = $3 AND site_id = $4")
-                    .bind(if r.ok { "applied" } else { "failed" }).bind(&r.code).bind(&r.command_id).bind(site).execute(&self.pool).await?;
-            }
-            Some(Body::Pong(_)) | None => {}
-        }
-        Ok(Some(msg.seq))
+        Ok(Some(seq))
     }
 }
 
@@ -257,8 +332,26 @@ impl pb::site_link_server::SiteLink for Link {
             90 * 24 * 60,
         )
         .map_err(|e| Status::invalid_argument(e.to_string()))?;
-        sqlx::query("UPDATE sites SET site_pub = $1, cert_serial = $2, version = $3, status = 'late', last_seq = 0 WHERE id = $4")
-            .bind(&r.site_public_key).bind(&issued.serial).bind(&r.version).bind(&site).execute(&self.pool).await.map_err(|e| Status::internal(e.to_string()))?;
+        let (pk, ser, ver, sid) = (
+            r.site_public_key.clone(),
+            issued.serial.clone(),
+            r.version.clone(),
+            site.clone(),
+        );
+        self.pool
+            .run(move |c| {
+                Ok(diesel::update(sites::table.filter(sites::id.eq(sid)))
+                    .set((
+                        sites::site_pub.eq(Some(pk)),
+                        sites::cert_serial.eq(Some(ser)),
+                        sites::version.eq(ver),
+                        sites::status.eq("late"),
+                        sites::last_seq.eq(0i64),
+                    ))
+                    .execute(c)?)
+            })
+            .await
+            .map_err(|e| Status::internal(e.to_string()))?;
         crate::audit::append(
             &self.pool,
             &crate::audit::Entry {
@@ -294,20 +387,25 @@ impl pb::site_link_server::SiteLink for Link {
             .ok_or_else(|| Status::unauthenticated("client certificate required"))?;
         let serial = itcmdr_agentlink::tls::serial_of(&der)
             .map_err(|_| Status::unauthenticated("bad client certificate"))?;
-        let row = sqlx::query("SELECT id, site_pub, status FROM sites WHERE cert_serial = $1")
-            .bind(&serial)
-            .fetch_optional(&self.pool)
+        let ser = serial.clone();
+        let row: (String, Option<String>, String) = self
+            .pool
+            .run(move |c| {
+                Ok(sites::table
+                    .filter(sites::cert_serial.eq(ser))
+                    .select((sites::id, sites::site_pub, sites::status))
+                    .first(c)
+                    .optional()?)
+            })
             .await
             .map_err(|e| Status::internal(e.to_string()))?
             .ok_or_else(|| Status::unauthenticated("unknown site certificate"))?;
-        if row.get::<String, _>("status") == "revoked" {
+        if row.2 == "revoked" {
             return Err(Status::permission_denied("site revoked"));
         }
-        let site: String = row.get("id");
-        let pk = itcmdr_keys::parse_public_key(
-            &row.get::<Option<String>, _>("site_pub").unwrap_or_default(),
-        )
-        .map_err(|_| Status::internal("site key"))?;
+        let site: String = row.0;
+        let pk = itcmdr_keys::parse_public_key(&row.1.unwrap_or_default())
+            .map_err(|_| Status::internal("site key"))?;
         let mut inbound = req.into_inner();
         let first = inbound
             .message()
@@ -379,10 +477,18 @@ async fn send_pending(
     site: &str,
     tx: &mpsc::Sender<Result<pb::AdminMessage, Status>>,
 ) -> Result<()> {
-    let rows = sqlx::query("SELECT id, body FROM commands WHERE site_id = $1 AND state = 'pending' ORDER BY created_ms")
-        .bind(site).fetch_all(pool).await?;
-    for r in rows {
-        let c = pb::Command::decode(r.get::<Vec<u8>, _>("body").as_slice())?;
+    let s = site.to_string();
+    let rows: Vec<(String, Vec<u8>)> = pool
+        .run(move |c| {
+            Ok(commands::table
+                .filter(commands::site_id.eq(s).and(commands::state.eq("pending")))
+                .order(commands::created_ms)
+                .select((commands::id, commands::body))
+                .load(c)?)
+        })
+        .await?;
+    for (id, body) in rows {
+        let c = pb::Command::decode(body.as_slice())?;
         let state = if c.expires_ms < crate::now_ms() {
             "expired"
         } else {
@@ -394,11 +500,12 @@ async fn send_pending(
             .map_err(|_| anyhow!("closed"))?;
             "sent"
         };
-        sqlx::query("UPDATE commands SET state = $1 WHERE id = $2")
-            .bind(state)
-            .bind(r.get::<String, _>("id"))
-            .execute(pool)
-            .await?;
+        pool.run(move |c| {
+            Ok(diesel::update(commands::table.filter(commands::id.eq(id)))
+                .set(commands::state.eq(state))
+                .execute(c)?)
+        })
+        .await?;
     }
     Ok(())
 }
@@ -418,13 +525,20 @@ pub async fn monitor(
         }
         let hb = cfg.heartbeat_secs * 1000;
         let now = crate::now_ms();
-        let rows = match sqlx::query("SELECT id, last_seen_ms, status FROM sites WHERE status IN ('online','late','unreachable')").fetch_all(&pool).await {
+        let rows: Vec<(String, i64, String)> = match pool
+            .run(|c| {
+                Ok(sites::table
+                    .filter(sites::status.eq_any(["online", "late", "unreachable"]))
+                    .select((sites::id, sites::last_seen_ms, sites::status))
+                    .load(c)?)
+            })
+            .await
+        {
             Ok(r) => r,
             Err(_) => continue,
         };
-        for r in rows {
-            let id: String = r.get("id");
-            let age = now - r.get::<i64, _>("last_seen_ms");
+        for (id, seen, cur) in rows {
+            let age = now - seen;
             let st = if hub.connected(&id) && age <= 2 * hb {
                 "online"
             } else if age > cfg.site_missed * hb {
@@ -434,14 +548,17 @@ pub async fn monitor(
             } else {
                 "online"
             };
-            if st != r.get::<String, _>("status") {
-                let _ = sqlx::query(
-                    "UPDATE sites SET status = $1 WHERE id = $2 AND status <> 'revoked'",
-                )
-                .bind(st)
-                .bind(&id)
-                .execute(&pool)
-                .await;
+            if st != cur {
+                let i = id.clone();
+                let _ = pool
+                    .run(move |c| {
+                        Ok(diesel::update(
+                            sites::table.filter(sites::id.eq(i).and(sites::status.ne("revoked"))),
+                        )
+                        .set(sites::status.eq(st))
+                        .execute(c)?)
+                    })
+                    .await;
             }
             if st == "unreachable" {
                 unreachable_alert(&pool, &id, true).await;

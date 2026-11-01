@@ -6,11 +6,12 @@ use crate::link::Hub;
 use crate::material::Material;
 use crate::pb;
 use crate::rbac::{self, Role};
+use crate::schema::*;
 use crate::store::Pool;
 use anyhow::{anyhow, Context, Result};
+use diesel::prelude::*;
 use prost::Message;
 use rand::RngCore;
-use sqlx::Row;
 use std::sync::Arc;
 use tonic::{Request, Response, Status};
 
@@ -32,6 +33,21 @@ fn internal(e: impl std::fmt::Display) -> Status {
 fn denied(e: impl std::fmt::Display) -> Status {
     Status::permission_denied(e.to_string())
 }
+/// Database errors: unique/foreign-key violations become already_exists/not_found.
+fn dberr(e: anyhow::Error) -> Status {
+    use diesel::result::{DatabaseErrorKind as K, Error as E};
+    match e.downcast_ref::<E>() {
+        Some(E::DatabaseError(K::UniqueViolation, m)) => {
+            Status::already_exists(m.message().to_string())
+        }
+        Some(E::DatabaseError(K::ForeignKeyViolation, m)) => {
+            Status::not_found(m.message().to_string())
+        }
+        Some(E::NotFound) => Status::not_found("not found"),
+        _ => internal(e),
+    }
+}
+diesel::define_sql_function!(fn lower(x: diesel::sql_types::Text) -> diesel::sql_types::Text);
 
 pub fn secret() -> String {
     let mut b = [0u8; 32];
@@ -39,65 +55,140 @@ pub fn secret() -> String {
     hex::encode(b)
 }
 
+/// A refusal inside a database closure (becomes permission_denied).
+#[derive(Debug)]
+pub struct Refuse(pub &'static str);
+impl std::fmt::Display for Refuse {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.0)
+    }
+}
+impl std::error::Error for Refuse {}
+
+/// Store or replace a user's key backup (no upsert: MultiConnection has none).
+pub fn put_backup(c: &mut crate::store::Db, uid: &str, blob: &str, now: i64) -> Result<()> {
+    let n = diesel::update(key_backups::table.filter(key_backups::user_id.eq(uid)))
+        .set((key_backups::blob.eq(blob), key_backups::updated_ms.eq(now)))
+        .execute(c)?;
+    if n == 0 {
+        diesel::insert_into(key_backups::table)
+            .values((
+                key_backups::user_id.eq(uid),
+                key_backups::blob.eq(blob),
+                key_backups::updated_ms.eq(now),
+            ))
+            .execute(c)?;
+    }
+    Ok(())
+}
+
 pub async fn find_user(pool: &Pool, r: &str) -> Result<Option<String>> {
-    Ok(
-        sqlx::query_scalar("SELECT id FROM users WHERE id = $1 OR lower(email) = lower($1)")
-            .bind(r)
-            .fetch_optional(pool)
-            .await?,
-    )
+    let r = r.to_string();
+    pool.run(move |c| {
+        Ok(users::table
+            .filter(
+                users::id
+                    .eq(&r)
+                    .or(lower(users::email).eq(r.to_lowercase())),
+            )
+            .select(users::id)
+            .first(c)
+            .optional()?)
+    })
+    .await
 }
 
 pub async fn active_owners(pool: &Pool) -> Result<i64> {
-    Ok(
-        sqlx::query_scalar("SELECT count(*) FROM users WHERE role = 'owner' AND status = 'active'")
-            .fetch_one(pool)
-            .await?,
-    )
+    pool.run(|c| {
+        Ok(users::table
+            .filter(users::role.eq("owner").and(users::status.eq("active")))
+            .count()
+            .get_result(c)?)
+    })
+    .await
 }
 
 pub async fn user_info(pool: &Pool, id: &str) -> Result<pb::UserInfo> {
-    let r = sqlx::query("SELECT u.*, (SELECT count(*) FROM key_backups k WHERE k.user_id = u.id) AS kb FROM users u WHERE id = $1")
-        .bind(id)
-        .fetch_optional(pool)
-        .await?
-        .ok_or_else(|| anyhow!("no such user"))?;
-    let sites: Vec<String> =
-        sqlx::query_scalar("SELECT site_id FROM site_scopes WHERE user_id = $1 ORDER BY site_id")
-            .bind(id)
-            .fetch_all(pool)
-            .await?;
+    let i = id.to_string();
+    let (u, kb, sites) = pool
+        .run(move |c| {
+            let u: (
+                String,
+                String,
+                String,
+                String,
+                String,
+                Option<String>,
+                bool,
+                i64,
+            ) = users::table
+                .filter(users::id.eq(&i))
+                .select((
+                    users::id,
+                    users::email,
+                    users::name,
+                    users::role,
+                    users::status,
+                    users::master_fp,
+                    users::key_backup_opt_out,
+                    users::created_ms,
+                ))
+                .first(c)
+                .optional()?
+                .ok_or_else(|| anyhow!("no such user"))?;
+            let kb: i64 = key_backups::table
+                .filter(key_backups::user_id.eq(&i))
+                .count()
+                .get_result(c)?;
+            let sites: Vec<String> = site_scopes::table
+                .filter(site_scopes::user_id.eq(&i))
+                .select(site_scopes::site_id)
+                .order(site_scopes::site_id)
+                .load(c)?;
+            Ok((u, kb, sites))
+        })
+        .await?;
     Ok(pb::UserInfo {
-        id: r.get("id"),
-        email: r.get("email"),
-        name: r.get("name"),
-        role: r.get("role"),
-        status: r.get("status"),
+        id: u.0,
+        email: u.1,
+        name: u.2,
+        role: u.3,
+        status: u.4,
         sites,
-        key_backup: r.get::<i64, _>("kb") > 0,
-        key_backup_opt_out: r.get("key_backup_opt_out"),
-        created_ms: r.get("created_ms"),
+        key_backup: kb > 0,
+        key_backup_opt_out: u.6,
+        created_ms: u.7,
         devices: devices(pool, id).await?,
-        master_fingerprint: r.get::<Option<String>, _>("master_fp").unwrap_or_default(),
+        master_fingerprint: u.5.unwrap_or_default(),
     })
 }
 
 async fn devices(pool: &Pool, id: &str) -> Result<Vec<pb::DeviceInfo>> {
-    Ok(
-        sqlx::query("SELECT * FROM devices WHERE user_id = $1 ORDER BY created_ms")
-            .bind(id)
-            .fetch_all(pool)
-            .await?
-            .iter()
+    let i = id.to_string();
+    pool.run(move |c| {
+        let rows: Vec<(String, String, String, i64, i64)> = devices::table
+            .filter(devices::user_id.eq(&i))
+            .order(devices::created_ms)
+            .select((
+                devices::fingerprint,
+                devices::platform,
+                devices::status,
+                devices::created_ms,
+                devices::last_used_ms,
+            ))
+            .load(c)?;
+        Ok(rows
+            .into_iter()
             .map(|r| pb::DeviceInfo {
-                fingerprint: r.get("fingerprint"),
-                platform: r.get("platform"),
-                status: r.get("status"),
-                created_ms: r.get("created_ms"),
-                last_used_ms: r.get("last_used_ms"),
+                fingerprint: r.0,
+                platform: r.1,
+                status: r.2,
+                created_ms: r.3,
+                last_used_ms: r.4,
             })
-            .collect(),
-    )
+            .collect())
+    })
+    .await
 }
 
 /// A fresh one-time enrollment code for `user_id`.
@@ -107,17 +198,27 @@ pub async fn new_code(
     m: &Material,
     user_id: &str,
 ) -> Result<(String, i64)> {
-    let email: String = sqlx::query_scalar("SELECT email FROM users WHERE id = $1")
-        .bind(user_id)
-        .fetch_one(pool)
-        .await?;
     let s = secret();
     let exp = crate::now_ms() + CODE_TTL_MS;
-    sqlx::query("INSERT INTO enroll_codes (secret_hash, user_id, expires_ms) VALUES ($1,$2,$3)")
-        .bind(itcmdr_adminlink::sha256_hex(s.as_bytes()))
-        .bind(user_id)
-        .bind(exp)
-        .execute(pool)
+    let (uid, h) = (
+        user_id.to_string(),
+        itcmdr_adminlink::sha256_hex(s.as_bytes()),
+    );
+    let email: String = pool
+        .run(move |c| {
+            let e: String = users::table
+                .filter(users::id.eq(&uid))
+                .select(users::email)
+                .first(c)?;
+            diesel::insert_into(enroll_codes::table)
+                .values((
+                    enroll_codes::secret_hash.eq(h),
+                    enroll_codes::user_id.eq(&uid),
+                    enroll_codes::expires_ms.eq(exp),
+                ))
+                .execute(c)?;
+            Ok(e)
+        })
         .await?;
     let code = itcmdr_adminlink::EnrollCode {
         v: 1,
@@ -134,16 +235,19 @@ pub async fn init(cfg: &Config, email: &str, name: &str) -> Result<String> {
     let pool = crate::store::connect(&cfg.db_url).await?;
     crate::store::migrate(&pool).await?;
     let m = crate::material::load(cfg)?;
-    let n: i64 = sqlx::query_scalar("SELECT count(*) FROM users")
-        .fetch_one(&pool)
-        .await?;
-    if n > 0 {
-        anyhow::bail!("already initialized (users exist); use recover-owner at the console if every owner is lost");
-    }
     let id = uuid::Uuid::new_v4().to_string();
-    sqlx::query("INSERT INTO users (id, email, name, role, created_by, created_ms) VALUES ($1,$2,$3,'owner','console',$4)")
-        .bind(&id).bind(email).bind(name).bind(crate::now_ms())
-        .execute(&pool).await?;
+    let (i, e, n) = (id.clone(), email.to_string(), name.to_string());
+    pool.run(move |c| {
+        let k: i64 = users::table.count().get_result(c)?;
+        if k > 0 {
+            anyhow::bail!("already initialized (users exist); use recover-owner at the console if every owner is lost");
+        }
+        diesel::insert_into(users::table)
+            .values((users::id.eq(i), users::email.eq(e), users::name.eq(n), users::role.eq("owner"), users::created_by.eq("console"), users::created_ms.eq(crate::now_ms())))
+            .execute(c)?;
+        Ok(())
+    })
+    .await?;
     audit::append(
         &pool,
         &Entry {
@@ -167,12 +271,24 @@ pub async fn recover_owner(cfg: &Config, email: &str) -> Result<String> {
     let id = find_user(&pool, email)
         .await?
         .ok_or_else(|| anyhow!("no such user"))?;
-    sqlx::query("UPDATE users SET role = 'owner', status = 'active', master_pub = NULL, master_fp = NULL WHERE id = $1")
-        .bind(&id).execute(&pool).await?;
-    sqlx::query("UPDATE devices SET status = 'revoked' WHERE user_id = $1")
-        .bind(&id)
-        .execute(&pool)
-        .await?;
+    let i = id.clone();
+    pool.run(move |c| {
+        c.transaction::<_, anyhow::Error, _>(|c| {
+            diesel::update(users::table.filter(users::id.eq(&i)))
+                .set((
+                    users::role.eq("owner"),
+                    users::status.eq("active"),
+                    users::master_pub.eq(None::<String>),
+                    users::master_fp.eq(None::<String>),
+                ))
+                .execute(c)?;
+            diesel::update(devices::table.filter(devices::user_id.eq(&i)))
+                .set(devices::status.eq("revoked"))
+                .execute(c)?;
+            Ok(())
+        })
+    })
+    .await?;
     audit::append(
         &pool,
         &Entry {
@@ -261,11 +377,17 @@ impl Api {
     }
 
     async fn role_of(&self, id: &str) -> Result<Role, Status> {
-        let r: String = sqlx::query_scalar("SELECT role FROM users WHERE id = $1")
-            .bind(id)
-            .fetch_one(&self.pool)
+        let i = id.to_string();
+        let r: String = self
+            .pool
+            .run(move |c| {
+                Ok(users::table
+                    .filter(users::id.eq(i))
+                    .select(users::role)
+                    .first(c)?)
+            })
             .await
-            .map_err(internal)?;
+            .map_err(dberr)?;
         Role::parse(&r).ok_or_else(|| internal("bad role"))
     }
 
@@ -281,14 +403,17 @@ impl Api {
         if p.role >= Role::Admin {
             return Ok(());
         }
-        let n: i64 = sqlx::query_scalar(
-            "SELECT count(*) FROM site_scopes WHERE user_id = $1 AND site_id = $2",
-        )
-        .bind(&p.user_id)
-        .bind(site)
-        .fetch_one(&self.pool)
-        .await
-        .map_err(internal)?;
+        let (u, st) = (p.user_id.clone(), site.to_string());
+        let n: i64 = self
+            .pool
+            .run(move |c| {
+                Ok(site_scopes::table
+                    .filter(site_scopes::user_id.eq(u).and(site_scopes::site_id.eq(st)))
+                    .count()
+                    .get_result(c)?)
+            })
+            .await
+            .map_err(dberr)?;
         if n == 0 {
             return Err(denied("this site is not assigned to you"));
         }
@@ -328,11 +453,18 @@ impl Api {
         if kind.starts_with("alert.") && c.args.get("alert_id").is_none_or(|a| a.is_empty()) {
             return Err(Status::invalid_argument("alert_id missing"));
         }
-        let st: Option<String> = sqlx::query_scalar("SELECT status FROM sites WHERE id = $1")
-            .bind(&c.site_id)
-            .fetch_optional(&self.pool)
+        let sid = c.site_id.clone();
+        let st: Option<String> = self
+            .pool
+            .run(move |c| {
+                Ok(sites::table
+                    .filter(sites::id.eq(sid))
+                    .select(sites::status)
+                    .first(c)
+                    .optional()?)
+            })
             .await
-            .map_err(internal)?;
+            .map_err(dberr)?;
         match st.as_deref() {
             None => return Err(Status::not_found("no such site")),
             Some("revoked") | Some("pending") => {
@@ -354,9 +486,24 @@ impl Api {
         )
         .map_err(|_| Status::unauthenticated("bad command signature"))?;
         itcmdr_adminlink::sign_root(&self.m.root, &mut c);
-        sqlx::query("INSERT INTO commands (id, site_id, kind, requested_by, state, created_ms, body) VALUES ($1,$2,$3,$4,'pending',$5,$6)")
-            .bind(&c.id).bind(&c.site_id).bind(&c.kind).bind(&p.user_id).bind(now).bind(c.encode_to_vec())
-            .execute(&self.pool).await.map_err(|e| Status::already_exists(e.to_string()))?;
+        let (cc, uid) = (c.clone(), p.user_id.clone());
+        self.pool
+            .run(move |db| {
+                diesel::insert_into(commands::table)
+                    .values((
+                        commands::id.eq(&cc.id),
+                        commands::site_id.eq(&cc.site_id),
+                        commands::kind.eq(&cc.kind),
+                        commands::requested_by.eq(uid),
+                        commands::state.eq("pending"),
+                        commands::created_ms.eq(now),
+                        commands::body.eq(cc.encode_to_vec()),
+                    ))
+                    .execute(db)?;
+                Ok(())
+            })
+            .await
+            .map_err(dberr)?;
         self.audit(&p, &format!("command.{kind}"), &c.site_id, &c)
             .await?;
         self.hub.kick(&c.site_id);
@@ -372,40 +519,91 @@ impl Api {
     }
 }
 
-pub fn command_row(r: &sqlx::postgres::PgRow) -> pb::CommandInfo {
+pub type CommandRow = (String, String, String, String, String, String, i64);
+pub fn command_cols() -> (
+    commands::id,
+    commands::site_id,
+    commands::kind,
+    commands::state,
+    commands::result_code,
+    commands::requested_by,
+    commands::created_ms,
+) {
+    (
+        commands::id,
+        commands::site_id,
+        commands::kind,
+        commands::state,
+        commands::result_code,
+        commands::requested_by,
+        commands::created_ms,
+    )
+}
+pub fn command_row(r: CommandRow) -> pb::CommandInfo {
     pb::CommandInfo {
-        id: r.get("id"),
-        site: r.get("site_id"),
-        kind: r.get("kind"),
-        state: r.get("state"),
-        result_code: r.get("result_code"),
-        requested_by: r.get("requested_by"),
-        created_ms: r.get("created_ms"),
+        id: r.0,
+        site: r.1,
+        kind: r.2,
+        state: r.3,
+        result_code: r.4,
+        requested_by: r.5,
+        created_ms: r.6,
     }
 }
 
-pub async fn site_info(pool: &Pool, r: &sqlx::postgres::PgRow) -> pb::SiteInfo {
-    let _ = pool;
+pub type SiteRow = (String, String, String, String, i64, bool, Option<Vec<u8>>);
+pub fn site_cols() -> (
+    sites::id,
+    sites::name,
+    sites::status,
+    sites::version,
+    sites::last_seen_ms,
+    sites::share_names,
+    sites::last_status,
+) {
+    (
+        sites::id,
+        sites::name,
+        sites::status,
+        sites::version,
+        sites::last_seen_ms,
+        sites::share_names,
+        sites::last_status,
+    )
+}
+pub fn site_info(r: SiteRow) -> pb::SiteInfo {
     pb::SiteInfo {
-        id: r.get("id"),
-        name: r.get("name"),
-        status: r.get("status"),
-        version: r.get("version"),
-        last_seen_ms: r.get("last_seen_ms"),
-        share_display_names: r.get("share_names"),
-        last_status: r
-            .get::<Option<Vec<u8>>, _>("last_status")
-            .and_then(|b| pb::SiteStatus::decode(b.as_slice()).ok()),
+        id: r.0,
+        name: r.1,
+        status: r.2,
+        version: r.3,
+        last_seen_ms: r.4,
+        share_display_names: r.5,
+        last_status: r.6.and_then(|b| pb::SiteStatus::decode(b.as_slice()).ok()),
     }
+}
+
+async fn get_site(pool: &Pool, id: &str) -> Result<pb::SiteInfo, Status> {
+    let id = id.to_string();
+    pool.run(move |c| {
+        Ok(sites::table
+            .filter(sites::id.eq(id))
+            .select(site_cols())
+            .first::<SiteRow>(c)?)
+    })
+    .await
+    .map(site_info)
+    .map_err(dberr)
 }
 
 #[tonic::async_trait]
 impl pb::admin_api_server::AdminApi for Api {
     async fn info(&self, _: Request<pb::Empty>) -> Result<Response<pb::InfoResponse>, Status> {
-        let n: i64 = sqlx::query_scalar("SELECT count(*) FROM users")
-            .fetch_one(&self.pool)
+        let n: i64 = self
+            .pool
+            .run(|c| Ok(users::table.count().get_result(c)?))
             .await
-            .map_err(internal)?;
+            .map_err(dberr)?;
         Ok(Response::new(pb::InfoResponse {
             version: env!("CARGO_PKG_VERSION").into(),
             initialized: n > 0,
@@ -439,56 +637,89 @@ impl pb::admin_api_server::AdminApi for Api {
             return Err(Status::invalid_argument("certificate is for another key"));
         }
         let h = itcmdr_adminlink::sha256_hex(r.code.as_bytes());
-        let mut tx = self.pool.begin().await.map_err(internal)?;
-        let row = sqlx::query("SELECT user_id, expires_ms, used_ms FROM enroll_codes WHERE secret_hash = $1 FOR UPDATE")
-            .bind(&h).fetch_optional(&mut *tx).await.map_err(internal)?
-            .ok_or_else(|| Status::permission_denied("unknown enrollment code"))?;
-        if row.get::<Option<i64>, _>("used_ms").is_some()
-            || row.get::<i64, _>("expires_ms") < crate::now_ms()
-        {
-            return Err(Status::permission_denied("enrollment code used or expired"));
-        }
-        let uid: String = row.get("user_id");
-        let u = sqlx::query("SELECT master_fp, role, created_by FROM users WHERE id = $1")
-            .bind(&uid)
-            .fetch_one(&mut *tx)
-            .await
-            .map_err(internal)?;
-        let mfp = itcmdr_keys::fingerprint(&mk);
-        if let Some(old) = u.get::<Option<String>, _>("master_fp") {
-            if old != mfp {
-                return Err(Status::permission_denied(
-                    "this user already has another master key (use the 24 words)",
-                ));
-            }
-        }
-        let now = crate::now_ms();
-        // The first owner (console init / recover-owner) is active at once; others wait for approval.
-        let status = if u.get::<String, _>("created_by") == "console"
-            && u.get::<String, _>("role") == "owner"
-        {
-            "active"
-        } else {
-            "pending"
-        };
-        sqlx::query("UPDATE enroll_codes SET used_ms = $1 WHERE secret_hash = $2")
-            .bind(now)
-            .bind(&h)
-            .execute(&mut *tx)
-            .await
-            .map_err(internal)?;
-        sqlx::query("UPDATE users SET master_pub = $1, master_fp = $2, key_backup_opt_out = $3 WHERE id = $4")
-            .bind(&r.master_public_key).bind(&mfp).bind(r.key_backup.is_none()).bind(&uid).execute(&mut *tx).await.map_err(internal)?;
-        sqlx::query("INSERT INTO devices (fingerprint, user_id, public_key, certificate, platform, status, created_ms) VALUES ($1,$2,$3,$4,$5,$6,$7)")
-            .bind(&cert.fingerprint).bind(&uid).bind(&r.device_public_key).bind(&r.certificate_json).bind(&r.platform).bind(status).bind(now)
-            .execute(&mut *tx).await.map_err(|e| Status::already_exists(e.to_string()))?;
         if let Some(kb) = &r.key_backup {
             serde_json::from_str::<itcmdr_keys::wrap::Wrapped>(&kb.blob_json)
                 .map_err(|_| Status::invalid_argument("bad key backup"))?;
-            sqlx::query("INSERT INTO key_backups (user_id, blob, updated_ms) VALUES ($1,$2,$3) ON CONFLICT (user_id) DO UPDATE SET blob = EXCLUDED.blob, updated_ms = EXCLUDED.updated_ms")
-                .bind(&uid).bind(&kb.blob_json).bind(now).execute(&mut *tx).await.map_err(internal)?;
         }
-        tx.commit().await.map_err(internal)?;
+        let mfp = itcmdr_keys::fingerprint(&mk);
+        let rr = r.clone();
+        let cfp = cert.fingerprint.clone();
+        let uid: String = self
+            .pool
+            .run(move |c| {
+                c.transaction::<_, anyhow::Error, _>(|c| {
+                    let now = crate::now_ms();
+                    let row: Option<(String, i64, Option<i64>)> = enroll_codes::table
+                        .filter(enroll_codes::secret_hash.eq(&h))
+                        .select((
+                            enroll_codes::user_id,
+                            enroll_codes::expires_ms,
+                            enroll_codes::used_ms,
+                        ))
+                        .first(c)
+                        .optional()?;
+                    let (uid, exp, used) =
+                        row.ok_or_else(|| anyhow!(Refuse("unknown enrollment code")))?;
+                    if used.is_some() || exp < now {
+                        return Err(anyhow!(Refuse("enrollment code used or expired")));
+                    }
+                    let (old, role, by): (Option<String>, String, String) = users::table
+                        .filter(users::id.eq(&uid))
+                        .select((users::master_fp, users::role, users::created_by))
+                        .first(c)?;
+                    if old.is_some_and(|o| o != mfp) {
+                        return Err(anyhow!(Refuse(
+                            "this user already has another master key (use the 24 words)"
+                        )));
+                    }
+                    // The first owner (console init / recover-owner) is active at once; others wait for approval.
+                    let status = if by == "console" && role == "owner" {
+                        "active"
+                    } else {
+                        "pending"
+                    };
+                    // Single use even under concurrency: only one UPDATE can see used_ms NULL.
+                    let n = diesel::update(
+                        enroll_codes::table.filter(
+                            enroll_codes::secret_hash
+                                .eq(&h)
+                                .and(enroll_codes::used_ms.is_null()),
+                        ),
+                    )
+                    .set(enroll_codes::used_ms.eq(now))
+                    .execute(c)?;
+                    if n != 1 {
+                        return Err(anyhow!(Refuse("enrollment code used or expired")));
+                    }
+                    diesel::update(users::table.filter(users::id.eq(&uid)))
+                        .set((
+                            users::master_pub.eq(&rr.master_public_key),
+                            users::master_fp.eq(&mfp),
+                            users::key_backup_opt_out.eq(rr.key_backup.is_none()),
+                        ))
+                        .execute(c)?;
+                    diesel::insert_into(devices::table)
+                        .values((
+                            devices::fingerprint.eq(&cfp),
+                            devices::user_id.eq(&uid),
+                            devices::public_key.eq(&rr.device_public_key),
+                            devices::certificate.eq(&rr.certificate_json),
+                            devices::platform.eq(&rr.platform),
+                            devices::status.eq(status),
+                            devices::created_ms.eq(now),
+                        ))
+                        .execute(c)?;
+                    if let Some(kb) = &rr.key_backup {
+                        put_backup(c, &uid, &kb.blob_json, now)?;
+                    }
+                    Ok(uid)
+                })
+            })
+            .await
+            .map_err(|e| match e.downcast_ref::<Refuse>() {
+                Some(Refuse(m)) => Status::permission_denied(*m),
+                None => dberr(e),
+            })?;
         let p = Principal {
             user_id: uid.clone(),
             email: String::new(),
@@ -516,10 +747,15 @@ impl pb::admin_api_server::AdminApi for Api {
             .signed(&req, "/itcmdr.admin.AdminApi/ListUsers")
             .await?;
         let ids: Vec<String> = if p.role >= Role::Admin {
-            sqlx::query_scalar("SELECT id FROM users ORDER BY created_ms")
-                .fetch_all(&self.pool)
+            self.pool
+                .run(|c| {
+                    Ok(users::table
+                        .order(users::created_ms)
+                        .select(users::id)
+                        .load(c)?)
+                })
                 .await
-                .map_err(internal)?
+                .map_err(dberr)?
         } else {
             vec![p.user_id.clone()] // SREs see only their own account
         };
@@ -549,9 +785,39 @@ impl pb::admin_api_server::AdminApi for Api {
             return Err(Status::invalid_argument("email and name are required"));
         }
         let id = uuid::Uuid::new_v4().to_string();
-        sqlx::query("INSERT INTO users (id, email, name, role, created_by, created_ms) VALUES ($1,$2,$3,$4,$5,$6)")
-            .bind(&id).bind(r.email.trim()).bind(r.name.trim()).bind(role.as_str()).bind(&p.user_id).bind(crate::now_ms())
-            .execute(&self.pool).await.map_err(|e| Status::already_exists(e.to_string()))?;
+        let (i, e, n, by) = (
+            id.clone(),
+            r.email.trim().to_string(),
+            r.name.trim().to_string(),
+            p.user_id.clone(),
+        );
+        let lc = e.to_lowercase();
+        self.pool
+            .run(move |c| {
+                let dup: i64 = users::table
+                    .filter(lower(users::email).eq(lc))
+                    .count()
+                    .get_result(c)?;
+                if dup > 0 {
+                    return Err(anyhow!(diesel::result::Error::DatabaseError(
+                        diesel::result::DatabaseErrorKind::UniqueViolation,
+                        Box::new("a user with this email exists".to_string()),
+                    )));
+                }
+                diesel::insert_into(users::table)
+                    .values((
+                        users::id.eq(i),
+                        users::email.eq(e),
+                        users::name.eq(n),
+                        users::role.eq(role.as_str()),
+                        users::created_by.eq(by),
+                        users::created_ms.eq(crate::now_ms()),
+                    ))
+                    .execute(c)?;
+                Ok(())
+            })
+            .await
+            .map_err(dberr)?;
         self.audit(&p, "user.create", &id, r).await?;
         let (code, exp) = new_code(&self.pool, &self.cfg, &self.m, &id)
             .await
@@ -575,12 +841,15 @@ impl pb::admin_api_server::AdminApi for Api {
         let from = self.role_of(&id).await?;
         let owners = active_owners(&self.pool).await.map_err(internal)?;
         rbac::can_set_role(p.role, id == p.user_id, from, to, owners).map_err(denied)?;
-        sqlx::query("UPDATE users SET role = $1 WHERE id = $2")
-            .bind(to.as_str())
-            .bind(&id)
-            .execute(&self.pool)
+        let i = id.clone();
+        self.pool
+            .run(move |c| {
+                Ok(diesel::update(users::table.filter(users::id.eq(i)))
+                    .set(users::role.eq(to.as_str()))
+                    .execute(c)?)
+            })
             .await
-            .map_err(internal)?;
+            .map_err(dberr)?;
         self.audit(&p, "user.role", &id, r).await?;
         self.info(&id).await
     }
@@ -606,12 +875,15 @@ impl pb::admin_api_server::AdminApi for Api {
         } else {
             rbac::can_edit(p.role, false, role).map_err(denied)?;
         }
-        sqlx::query("UPDATE users SET status = $1 WHERE id = $2")
-            .bind(if r.disabled { "disabled" } else { "active" })
-            .bind(&id)
-            .execute(&self.pool)
+        let (i, st) = (id.clone(), if r.disabled { "disabled" } else { "active" });
+        self.pool
+            .run(move |c| {
+                Ok(diesel::update(users::table.filter(users::id.eq(i)))
+                    .set(users::status.eq(st))
+                    .execute(c)?)
+            })
             .await
-            .map_err(internal)?;
+            .map_err(dberr)?;
         self.audit(
             &p,
             if r.disabled {
@@ -637,21 +909,26 @@ impl pb::admin_api_server::AdminApi for Api {
         rbac::require(p.role, Role::Admin).map_err(denied)?;
         let id = self.target(&r.user, &p).await?;
         rbac::can_edit(p.role, false, self.role_of(&id).await?).map_err(denied)?;
-        let mut tx = self.pool.begin().await.map_err(internal)?;
-        sqlx::query("DELETE FROM site_scopes WHERE user_id = $1")
-            .bind(&id)
-            .execute(&mut *tx)
+        let (i, list) = (id.clone(), r.sites.clone());
+        self.pool
+            .run(move |c| {
+                c.transaction::<_, anyhow::Error, _>(|c| {
+                    diesel::delete(site_scopes::table.filter(site_scopes::user_id.eq(&i)))
+                        .execute(c)?;
+                    for s in &list {
+                        let n: i64 = sites::table.filter(sites::id.eq(s)).count().get_result(c)?;
+                        if n == 0 {
+                            return Err(anyhow!(diesel::result::Error::NotFound));
+                        }
+                        diesel::insert_into(site_scopes::table)
+                            .values((site_scopes::user_id.eq(&i), site_scopes::site_id.eq(s)))
+                            .execute(c)?;
+                    }
+                    Ok(())
+                })
+            })
             .await
-            .map_err(internal)?;
-        for s in &r.sites {
-            sqlx::query("INSERT INTO site_scopes (user_id, site_id) VALUES ($1,$2)")
-                .bind(&id)
-                .bind(s)
-                .execute(&mut *tx)
-                .await
-                .map_err(|_| Status::not_found(format!("no such site {s}")))?;
-        }
-        tx.commit().await.map_err(internal)?;
+            .map_err(|_| Status::not_found("no such site"))?;
         self.audit(&p, "user.scopes", &id, r).await?;
         self.info(&id).await
     }
@@ -670,8 +947,23 @@ impl pb::admin_api_server::AdminApi for Api {
             return Err(denied("another owner or admin approves your devices"));
         }
         rbac::can_edit(p.role, false, self.role_of(&id).await?).map_err(denied)?;
-        let n = sqlx::query("UPDATE devices SET status = 'active' WHERE user_id = $1 AND fingerprint = $2 AND status = 'pending'")
-            .bind(&id).bind(&r.device_fingerprint).execute(&self.pool).await.map_err(internal)?.rows_affected();
+        let (i, f) = (id.clone(), r.device_fingerprint.clone());
+        let n = self
+            .pool
+            .run(move |c| {
+                Ok(diesel::update(
+                    devices::table.filter(
+                        devices::user_id
+                            .eq(i)
+                            .and(devices::fingerprint.eq(f))
+                            .and(devices::status.eq("pending")),
+                    ),
+                )
+                .set(devices::status.eq("active"))
+                .execute(c)?)
+            })
+            .await
+            .map_err(dberr)?;
         if n == 0 {
             return Err(Status::not_found("no pending device with that fingerprint"));
         }
@@ -726,8 +1018,23 @@ impl pb::admin_api_server::AdminApi for Api {
         let r = req.get_ref();
         let id = self.target(&r.user, &p).await?;
         rbac::can_edit(p.role, id == p.user_id, self.role_of(&id).await?).map_err(denied)?;
-        let n = sqlx::query("UPDATE devices SET status = 'revoked' WHERE user_id = $1 AND fingerprint = $2 AND status <> 'revoked'")
-            .bind(&id).bind(&r.device_fingerprint).execute(&self.pool).await.map_err(internal)?.rows_affected();
+        let (i, f) = (id.clone(), r.device_fingerprint.clone());
+        let n = self
+            .pool
+            .run(move |c| {
+                Ok(diesel::update(
+                    devices::table.filter(
+                        devices::user_id
+                            .eq(i)
+                            .and(devices::fingerprint.eq(f))
+                            .and(devices::status.ne("revoked")),
+                    ),
+                )
+                .set(devices::status.eq("revoked"))
+                .execute(c)?)
+            })
+            .await
+            .map_err(dberr)?;
         if n == 0 {
             return Err(Status::not_found("no such device"));
         }
@@ -750,13 +1057,19 @@ impl pb::admin_api_server::AdminApi for Api {
         if !w.user.eq_ignore_ascii_case(&p.email) {
             return Err(Status::invalid_argument("key backup is for another user"));
         }
-        sqlx::query("INSERT INTO key_backups (user_id, blob, updated_ms) VALUES ($1,$2,$3) ON CONFLICT (user_id) DO UPDATE SET blob = EXCLUDED.blob, updated_ms = EXCLUDED.updated_ms")
-            .bind(&p.user_id).bind(&r.blob_json).bind(crate::now_ms()).execute(&self.pool).await.map_err(internal)?;
-        sqlx::query("UPDATE users SET key_backup_opt_out = false WHERE id = $1")
-            .bind(&p.user_id)
-            .execute(&self.pool)
+        let (u, b) = (p.user_id.clone(), r.blob_json.clone());
+        self.pool
+            .run(move |c| {
+                c.transaction::<_, anyhow::Error, _>(|c| {
+                    put_backup(c, &u, &b, crate::now_ms())?;
+                    diesel::update(users::table.filter(users::id.eq(&u)))
+                        .set(users::key_backup_opt_out.eq(false))
+                        .execute(c)?;
+                    Ok(())
+                })
+            })
             .await
-            .map_err(internal)?;
+            .map_err(dberr)?;
         self.audit(&p, "keybackup.put", &p.user_id, r).await?;
         Ok(Response::new(pb::Empty {}))
     }
@@ -772,11 +1085,18 @@ impl pb::admin_api_server::AdminApi for Api {
         if id != p.user_id {
             return Err(denied("only the user can fetch their own key backup"));
         }
-        let blob: String = sqlx::query_scalar("SELECT blob FROM key_backups WHERE user_id = $1")
-            .bind(&id)
-            .fetch_optional(&self.pool)
+        let i = id.clone();
+        let blob: String = self
+            .pool
+            .run(move |c| {
+                Ok(key_backups::table
+                    .filter(key_backups::user_id.eq(i))
+                    .select(key_backups::blob)
+                    .first(c)
+                    .optional()?)
+            })
             .await
-            .map_err(internal)?
+            .map_err(dberr)?
             .ok_or_else(|| Status::not_found("no key backup stored"))?;
         self.audit(&p, "keybackup.get", &id, req.get_ref()).await?;
         Ok(Response::new(pb::KeyBackup {
@@ -793,19 +1113,22 @@ impl pb::admin_api_server::AdminApi for Api {
             .signed(&req, "/itcmdr.admin.AdminApi/SetKeyBackupOptOut")
             .await?;
         let o = req.get_ref().opt_out;
-        sqlx::query("UPDATE users SET key_backup_opt_out = $1 WHERE id = $2")
-            .bind(o)
-            .bind(&p.user_id)
-            .execute(&self.pool)
+        let u = p.user_id.clone();
+        self.pool
+            .run(move |c| {
+                c.transaction::<_, anyhow::Error, _>(|c| {
+                    diesel::update(users::table.filter(users::id.eq(&u)))
+                        .set(users::key_backup_opt_out.eq(o))
+                        .execute(c)?;
+                    if o {
+                        diesel::delete(key_backups::table.filter(key_backups::user_id.eq(&u)))
+                            .execute(c)?;
+                    }
+                    Ok(())
+                })
+            })
             .await
-            .map_err(internal)?;
-        if o {
-            sqlx::query("DELETE FROM key_backups WHERE user_id = $1")
-                .bind(&p.user_id)
-                .execute(&self.pool)
-                .await
-                .map_err(internal)?;
-        }
+            .map_err(dberr)?;
         self.audit(
             &p,
             if o {
@@ -841,9 +1164,24 @@ impl pb::admin_api_server::AdminApi for Api {
         if cert.fingerprint != itcmdr_keys::fingerprint(&dk) {
             return Err(Status::invalid_argument("certificate is for another key"));
         }
-        sqlx::query("INSERT INTO devices (fingerprint, user_id, public_key, certificate, platform, status, created_ms) VALUES ($1,$2,$3,$4,$5,'active',$6)")
-            .bind(&cert.fingerprint).bind(&p.user_id).bind(&r.device_public_key).bind(&r.certificate_json).bind(&r.platform).bind(crate::now_ms())
-            .execute(&self.pool).await.map_err(|e| Status::already_exists(e.to_string()))?;
+        let (f, u, rr) = (cert.fingerprint.clone(), p.user_id.clone(), r.clone());
+        self.pool
+            .run(move |c| {
+                diesel::insert_into(devices::table)
+                    .values((
+                        devices::fingerprint.eq(f),
+                        devices::user_id.eq(u),
+                        devices::public_key.eq(rr.device_public_key),
+                        devices::certificate.eq(rr.certificate_json),
+                        devices::platform.eq(rr.platform),
+                        devices::status.eq("active"),
+                        devices::created_ms.eq(crate::now_ms()),
+                    ))
+                    .execute(c)?;
+                Ok(())
+            })
+            .await
+            .map_err(dberr)?;
         self.audit(&p, "device.add", &p.user_id, r).await?;
         self.info(&p.user_id).await
     }
@@ -862,38 +1200,47 @@ impl pb::admin_api_server::AdminApi for Api {
         }
         let id = format!("site-{}", &uuid::Uuid::new_v4().simple().to_string()[..12]);
         let now = crate::now_ms();
-        sqlx::query("INSERT INTO sites (id, name, status, created_ms) VALUES ($1,$2,'pending',$3)")
-            .bind(&id)
-            .bind(&name)
-            .bind(now)
-            .execute(&self.pool)
-            .await
-            .map_err(internal)?;
-        let s = secret();
+        let s_tmp = secret();
         let exp = now + CODE_TTL_MS;
-        sqlx::query("INSERT INTO site_tokens (secret_hash, site_id, expires_ms) VALUES ($1,$2,$3)")
-            .bind(itcmdr_adminlink::sha256_hex(s.as_bytes()))
-            .bind(&id)
-            .bind(exp)
-            .execute(&self.pool)
+        let (i, n, th) = (
+            id.clone(),
+            name.clone(),
+            itcmdr_adminlink::sha256_hex(s_tmp.as_bytes()),
+        );
+        self.pool
+            .run(move |c| {
+                c.transaction::<_, anyhow::Error, _>(|c| {
+                    diesel::insert_into(sites::table)
+                        .values((
+                            sites::id.eq(&i),
+                            sites::name.eq(n),
+                            sites::status.eq("pending"),
+                            sites::created_ms.eq(now),
+                        ))
+                        .execute(c)?;
+                    diesel::insert_into(site_tokens::table)
+                        .values((
+                            site_tokens::secret_hash.eq(th),
+                            site_tokens::site_id.eq(&i),
+                            site_tokens::expires_ms.eq(exp),
+                        ))
+                        .execute(c)?;
+                    Ok(())
+                })
+            })
             .await
-            .map_err(internal)?;
+            .map_err(dberr)?;
         self.audit(&p, "site.create", &id, req.get_ref()).await?;
         let token = itcmdr_adminlink::SiteToken {
             v: 1,
             addr: self.cfg.public_site.clone(),
             pin: self.m.fingerprint.clone(),
-            secret: s,
+            secret: s_tmp,
             root: self.m.root_hex(),
         }
         .encode();
-        let r = sqlx::query("SELECT * FROM sites WHERE id = $1")
-            .bind(&id)
-            .fetch_one(&self.pool)
-            .await
-            .map_err(internal)?;
         Ok(Response::new(pb::CreateSiteResponse {
-            site: Some(site_info(&self.pool, &r).await),
+            site: Some(get_site(&self.pool, &id).await?),
             token,
             expires_ms: exp,
         }))
@@ -903,15 +1250,28 @@ impl pb::admin_api_server::AdminApi for Api {
         let p = self
             .signed(&req, "/itcmdr.admin.AdminApi/ListSites")
             .await?;
-        let rows = if p.role >= Role::Admin {
-            sqlx::query("SELECT * FROM sites ORDER BY name").fetch_all(&self.pool).await
-        } else {
-            sqlx::query("SELECT s.* FROM sites s JOIN site_scopes x ON x.site_id = s.id WHERE x.user_id = $1 ORDER BY s.name").bind(&p.user_id).fetch_all(&self.pool).await
-        }.map_err(internal)?;
-        let mut sites = vec![];
-        for r in &rows {
-            sites.push(site_info(&self.pool, r).await);
-        }
+        let (admin, u) = (p.role >= Role::Admin, p.user_id.clone());
+        let rows: Vec<SiteRow> = self
+            .pool
+            .run(move |c| {
+                let mut q = sites::table
+                    .select(site_cols())
+                    .order(sites::name)
+                    .into_boxed();
+                if !admin {
+                    q = q.filter(
+                        sites::id.eq_any(
+                            site_scopes::table
+                                .filter(site_scopes::user_id.eq(u))
+                                .select(site_scopes::site_id),
+                        ),
+                    );
+                }
+                Ok(q.load(c)?)
+            })
+            .await
+            .map_err(dberr)?;
+        let sites = rows.into_iter().map(site_info).collect();
         Ok(Response::new(pb::SiteList { sites }))
     }
 
@@ -924,24 +1284,23 @@ impl pb::admin_api_server::AdminApi for Api {
             .await?;
         rbac::require(p.role, Role::Admin).map_err(denied)?;
         let id = req.get_ref().site.clone();
-        let n = sqlx::query("UPDATE sites SET status = 'revoked' WHERE id = $1")
-            .bind(&id)
-            .execute(&self.pool)
+        let i = id.clone();
+        let n = self
+            .pool
+            .run(move |c| {
+                Ok(diesel::update(sites::table.filter(sites::id.eq(i)))
+                    .set(sites::status.eq("revoked"))
+                    .execute(c)?)
+            })
             .await
-            .map_err(internal)?
-            .rows_affected();
+            .map_err(dberr)?;
         if n == 0 {
             return Err(Status::not_found("no such site"));
         }
         self.hub.drop_site(&id);
         crate::link::refresh_revoked(&self.pool).await;
         self.audit(&p, "site.revoke", &id, req.get_ref()).await?;
-        let r = sqlx::query("SELECT * FROM sites WHERE id = $1")
-            .bind(&id)
-            .fetch_one(&self.pool)
-            .await
-            .map_err(internal)?;
-        Ok(Response::new(site_info(&self.pool, &r).await))
+        Ok(Response::new(get_site(&self.pool, &id).await?))
     }
 
     async fn list_alerts(
@@ -961,20 +1320,58 @@ impl pb::admin_api_server::AdminApi for Api {
         } else {
             f.state.as_str()
         };
-        let rows = sqlx::query(
-            "SELECT a.* FROM alerts a WHERE ($1 = '' OR a.site_id = $1) \
-             AND ($2 = 'all' OR ($2 = 'open' AND a.state IN ('open','acked','silenced')) OR a.state = $2) \
-             AND ($3 OR a.site_id IN (SELECT site_id FROM site_scopes WHERE user_id = $4)) \
-             ORDER BY CASE a.severity WHEN 'critical' THEN 0 WHEN 'cautious' THEN 1 ELSE 2 END, a.last_seen_ms DESC LIMIT $5",
-        )
-        .bind(&f.site).bind(state).bind(p.role >= Role::Admin).bind(&p.user_id).bind(limit)
-        .fetch_all(&self.pool).await.map_err(internal)?;
+        let (site, st, admin, u) = (
+            f.site.clone(),
+            state.to_string(),
+            p.role >= Role::Admin,
+            p.user_id.clone(),
+        );
+        let mut rows: Vec<(String, String, String, i64, Vec<u8>)> = self
+            .pool
+            .run(move |c| {
+                let mut q = alerts::table
+                    .select((
+                        alerts::site_id,
+                        alerts::origin,
+                        alerts::severity,
+                        alerts::last_seen_ms,
+                        alerts::body,
+                    ))
+                    .into_boxed();
+                if !site.is_empty() {
+                    q = q.filter(alerts::site_id.eq(site));
+                }
+                match st.as_str() {
+                    "all" => {}
+                    "open" => q = q.filter(alerts::state.eq_any(["open", "acked", "silenced"])),
+                    s => q = q.filter(alerts::state.eq(s.to_string())),
+                }
+                if !admin {
+                    q = q.filter(
+                        alerts::site_id.eq_any(
+                            site_scopes::table
+                                .filter(site_scopes::user_id.eq(u))
+                                .select(site_scopes::site_id),
+                        ),
+                    );
+                }
+                Ok(q.load(c)?)
+            })
+            .await
+            .map_err(dberr)?;
+        let rank = |s: &str| match s {
+            "critical" => 0,
+            "cautious" => 1,
+            _ => 2,
+        };
+        rows.sort_by(|a, b| rank(&a.2).cmp(&rank(&b.2)).then(b.3.cmp(&a.3)));
+        rows.truncate(limit as usize);
         let alerts = rows
-            .iter()
+            .into_iter()
             .map(|r| pb::AlertInfo {
-                site: r.get("site_id"),
-                alert: pb::SiteAlert::decode(r.get::<Vec<u8>, _>("body").as_slice()).ok(),
-                origin: r.get("origin"),
+                site: r.0,
+                alert: pb::SiteAlert::decode(r.4.as_slice()).ok(),
+                origin: r.1,
             })
             .collect();
         Ok(Response::new(pb::AlertList { alerts }))
@@ -1013,11 +1410,33 @@ impl pb::admin_api_server::AdminApi for Api {
         if !site.is_empty() {
             self.may_site(&p, &site).await?;
         }
-        let rows = sqlx::query(
-            "SELECT * FROM commands WHERE ($1 = '' OR site_id = $1) AND ($2 OR site_id IN (SELECT site_id FROM site_scopes WHERE user_id = $3)) ORDER BY created_ms DESC LIMIT 200",
-        ).bind(&site).bind(p.role >= Role::Admin).bind(&p.user_id).fetch_all(&self.pool).await.map_err(internal)?;
+        let (admin, u, sid) = (p.role >= Role::Admin, p.user_id.clone(), site.clone());
+        let rows: Vec<CommandRow> = self
+            .pool
+            .run(move |c| {
+                let mut q = commands::table
+                    .select(command_cols())
+                    .order(commands::created_ms.desc())
+                    .limit(200)
+                    .into_boxed();
+                if !sid.is_empty() {
+                    q = q.filter(commands::site_id.eq(sid));
+                }
+                if !admin {
+                    q = q.filter(
+                        commands::site_id.eq_any(
+                            site_scopes::table
+                                .filter(site_scopes::user_id.eq(u))
+                                .select(site_scopes::site_id),
+                        ),
+                    );
+                }
+                Ok(q.load(c)?)
+            })
+            .await
+            .map_err(dberr)?;
         Ok(Response::new(pb::CommandList {
-            commands: rows.iter().map(command_row).collect(),
+            commands: rows.into_iter().map(command_row).collect(),
         }))
     }
 

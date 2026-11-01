@@ -1,120 +1,180 @@
-//! Postgres store. Schema is created/updated at start (`meta.schema`).
-use anyhow::{Context, Result};
-use sqlx::postgres::{PgPool, PgPoolOptions};
+//! Store on Diesel: Postgres or SQLite, chosen by the database URL (`postgres://…` or
+//! `postgresql://…` is Postgres; `sqlite://<path>`, `sqlite:<path>` or a plain path is SQLite).
+//! Migrations for each backend are embedded (migrations/postgres, migrations/sqlite).
+//! Calls run on a blocking thread (`Pool::run`); SQLite uses one connection (writes are serial).
+use anyhow::{anyhow, Context, Result};
+use diesel::prelude::*;
+use diesel::r2d2::{self, ManageConnection};
+use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 
-pub type Pool = PgPool;
 pub const SCHEMA_VERSION: i64 = 1;
+const PG_MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/postgres");
+const SQLITE_MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/sqlite");
 
-pub async fn connect(url: &str) -> Result<Pool> {
-    PgPoolOptions::new()
-        .max_connections(10)
-        .acquire_timeout(std::time::Duration::from_secs(10))
-        .connect(url)
-        .await
-        .context("connect to Postgres (db_url)")
+#[derive(diesel::MultiConnection)]
+pub enum Db {
+    Pg(diesel::PgConnection),
+    Sqlite(diesel::SqliteConnection),
 }
 
-const SCHEMA: &str = r#"
-CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS users (
-  id TEXT PRIMARY KEY,
-  email TEXT NOT NULL UNIQUE,
-  name TEXT NOT NULL,
-  role TEXT NOT NULL CHECK (role IN ('owner','admin','sre')),
-  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','disabled')),
-  master_pub TEXT,
-  master_fp TEXT UNIQUE,
-  key_backup_opt_out BOOLEAN NOT NULL DEFAULT false,
-  created_by TEXT NOT NULL,
-  created_ms BIGINT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS enroll_codes (
-  secret_hash TEXT PRIMARY KEY,
-  user_id TEXT NOT NULL REFERENCES users(id),
-  expires_ms BIGINT NOT NULL,
-  used_ms BIGINT
-);
-CREATE TABLE IF NOT EXISTS devices (
-  fingerprint TEXT PRIMARY KEY,
-  user_id TEXT NOT NULL REFERENCES users(id),
-  public_key TEXT NOT NULL,
-  certificate TEXT NOT NULL,
-  platform TEXT NOT NULL DEFAULT '',
-  status TEXT NOT NULL CHECK (status IN ('pending','active','revoked')),
-  created_ms BIGINT NOT NULL,
-  last_used_ms BIGINT NOT NULL DEFAULT 0
-);
-CREATE TABLE IF NOT EXISTS key_backups (
-  user_id TEXT PRIMARY KEY REFERENCES users(id),
-  blob TEXT NOT NULL,
-  updated_ms BIGINT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS sites (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  status TEXT NOT NULL,
-  site_pub TEXT,
-  cert_serial TEXT,
-  version TEXT NOT NULL DEFAULT '',
-  last_seen_ms BIGINT NOT NULL DEFAULT 0,
-  share_names BOOLEAN NOT NULL DEFAULT false,
-  last_status BYTEA,
-  last_seq BIGINT NOT NULL DEFAULT 0,
-  created_ms BIGINT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS site_tokens (
-  secret_hash TEXT PRIMARY KEY,
-  site_id TEXT NOT NULL REFERENCES sites(id),
-  expires_ms BIGINT NOT NULL,
-  used_ms BIGINT
-);
-CREATE TABLE IF NOT EXISTS site_scopes (
-  user_id TEXT NOT NULL REFERENCES users(id),
-  site_id TEXT NOT NULL REFERENCES sites(id),
-  PRIMARY KEY (user_id, site_id)
-);
-CREATE TABLE IF NOT EXISTS alerts (
-  site_id TEXT NOT NULL,
-  alert_id TEXT NOT NULL,
-  origin TEXT NOT NULL,
-  state TEXT NOT NULL,
-  severity TEXT NOT NULL,
-  last_seen_ms BIGINT NOT NULL,
-  body BYTEA NOT NULL,
-  PRIMARY KEY (site_id, alert_id)
-);
-CREATE TABLE IF NOT EXISTS commands (
-  id TEXT PRIMARY KEY,
-  site_id TEXT NOT NULL,
-  kind TEXT NOT NULL,
-  requested_by TEXT NOT NULL,
-  state TEXT NOT NULL,
-  result_code TEXT NOT NULL DEFAULT '',
-  created_ms BIGINT NOT NULL,
-  body BYTEA NOT NULL
-);
-CREATE TABLE IF NOT EXISTS audit_chain (
-  seq BIGINT PRIMARY KEY,
-  ts_ms BIGINT NOT NULL,
-  actor TEXT NOT NULL,
-  actor_key TEXT NOT NULL,
-  action TEXT NOT NULL,
-  target TEXT NOT NULL,
-  payload_sha256 TEXT NOT NULL,
-  request_sig TEXT NOT NULL,
-  prev_hash TEXT NOT NULL,
-  hash TEXT NOT NULL
-);
-"#;
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Kind {
+    Postgres(String),
+    Sqlite(String),
+}
+
+/// Which backend a database URL names.
+pub fn parse_url(url: &str) -> Result<Kind> {
+    let u = url.trim();
+    if u.is_empty() {
+        return Err(anyhow!("database URL is empty"));
+    }
+    if u.starts_with("postgres://") || u.starts_with("postgresql://") {
+        return Ok(Kind::Postgres(u.into()));
+    }
+    let p = u
+        .strip_prefix("sqlite://")
+        .or_else(|| u.strip_prefix("sqlite:"))
+        .unwrap_or(u);
+    if p.is_empty() || p.contains("://") {
+        return Err(anyhow!(
+            "database URL must be postgres://… or sqlite://<path> (or a file path)"
+        ));
+    }
+    Ok(Kind::Sqlite(p.into()))
+}
+
+pub struct Manager(Kind);
+
+impl ManageConnection for Manager {
+    type Connection = Db;
+    type Error = r2d2::Error;
+    fn connect(&self) -> Result<Db, r2d2::Error> {
+        match &self.0 {
+            Kind::Postgres(u) => diesel::PgConnection::establish(u)
+                .map(Db::Pg)
+                .map_err(r2d2::Error::ConnectionError),
+            Kind::Sqlite(p) => {
+                let mut c =
+                    diesel::SqliteConnection::establish(p).map_err(r2d2::Error::ConnectionError)?;
+                use diesel::connection::SimpleConnection;
+                c.batch_execute(
+                    "PRAGMA busy_timeout = 10000; PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;",
+                )
+                .map_err(r2d2::Error::QueryError)?;
+                Ok(Db::Sqlite(c))
+            }
+        }
+    }
+    fn is_valid(&self, c: &mut Db) -> Result<(), r2d2::Error> {
+        use diesel::connection::SimpleConnection;
+        c.batch_execute("SELECT 1").map_err(r2d2::Error::QueryError)
+    }
+    fn has_broken(&self, _: &mut Db) -> bool {
+        false
+    }
+}
+
+#[derive(Clone)]
+pub struct Pool {
+    inner: r2d2::Pool<Manager>,
+    pub sqlite: bool,
+}
+
+impl Pool {
+    /// Run `f` with a connection on a blocking thread.
+    pub async fn run<T, F>(&self, f: F) -> Result<T>
+    where
+        T: Send + 'static,
+        F: FnOnce(&mut Db) -> Result<T> + Send + 'static,
+    {
+        let p = self.inner.clone();
+        tokio::task::spawn_blocking(move || {
+            let mut c = p.get().context("database connection")?;
+            f(&mut c)
+        })
+        .await
+        .context("database task")?
+    }
+    /// Plain SQL without parameters (console and tests).
+    pub async fn exec(&self, sql: &str) -> Result<usize> {
+        let s = sql.to_string();
+        self.run(move |c| Ok(diesel::sql_query(s).execute(c)?))
+            .await
+    }
+}
+
+pub async fn connect(url: &str) -> Result<Pool> {
+    let kind = parse_url(url)?;
+    let sqlite = matches!(kind, Kind::Sqlite(_));
+    if let Kind::Sqlite(p) = &kind {
+        let path = std::path::Path::new(p);
+        if let Some(d) = path.parent().filter(|d| !d.as_os_str().is_empty()) {
+            std::fs::create_dir_all(d).with_context(|| format!("create {}", d.display()))?;
+        }
+        if !path.exists() {
+            std::fs::File::create(path).with_context(|| format!("create {}", path.display()))?;
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
+            }
+        }
+    }
+    tokio::task::spawn_blocking(move || {
+        let inner = r2d2::Pool::builder()
+            .max_size(if sqlite { 1 } else { 10 })
+            .connection_timeout(std::time::Duration::from_secs(10))
+            .build(Manager(kind))
+            .context("connect to the database (db_url)")?;
+        Ok(Pool { inner, sqlite })
+    })
+    .await?
+}
 
 pub async fn migrate(pool: &Pool) -> Result<()> {
-    sqlx::raw_sql(SCHEMA)
-        .execute(pool)
-        .await
-        .context("schema")?;
-    sqlx::query("INSERT INTO meta (k, v) VALUES ('schema', $1) ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v")
-        .bind(SCHEMA_VERSION.to_string())
-        .execute(pool)
-        .await?;
-    Ok(())
+    pool.run(|c| {
+        match c {
+            Db::Pg(c) => c.run_pending_migrations(PG_MIGRATIONS).map(|_| ()),
+            Db::Sqlite(c) => c.run_pending_migrations(SQLITE_MIGRATIONS).map(|_| ()),
+        }
+        .map_err(|e| anyhow!("migrations: {e}"))?;
+        use crate::schema::meta::dsl::*;
+        let n = diesel::update(meta.filter(k.eq("schema")))
+            .set(v.eq(SCHEMA_VERSION.to_string()))
+            .execute(c)?;
+        if n == 0 {
+            diesel::insert_into(meta)
+                .values((k.eq("schema"), v.eq(SCHEMA_VERSION.to_string())))
+                .execute(c)?;
+        }
+        Ok(())
+    })
+    .await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn urls() {
+        assert!(matches!(
+            parse_url("postgres://u@h/db").unwrap(),
+            Kind::Postgres(_)
+        ));
+        assert_eq!(
+            parse_url("sqlite:///var/lib/x.db").unwrap(),
+            Kind::Sqlite("/var/lib/x.db".into())
+        );
+        assert_eq!(
+            parse_url("sqlite:x.db").unwrap(),
+            Kind::Sqlite("x.db".into())
+        );
+        assert_eq!(
+            parse_url("C:\\data\\x.db").unwrap(),
+            Kind::Sqlite("C:\\data\\x.db".into())
+        );
+        assert!(parse_url("mysql://h/db").is_err());
+        assert!(parse_url("").is_err());
+    }
 }

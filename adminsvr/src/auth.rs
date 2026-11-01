@@ -3,8 +3,8 @@
 //! calls, the user's master key itself. Unsigned or wrongly signed calls are refused.
 use crate::rbac::Role;
 use crate::store::Pool;
+use diesel::prelude::*;
 use parking_lot::Mutex;
-use sqlx::Row;
 use std::collections::HashMap;
 use tonic::{metadata::MetadataMap, Status};
 
@@ -118,80 +118,115 @@ pub async fn verify(
     let s = parse(m)?;
     let fp = s.fp.to_string();
     let deny = |x: &str| Status::unauthenticated(x.to_string());
-    // device key?
-    if let Some(r) = sqlx::query(
-        "SELECT d.public_key, d.certificate, d.status AS dstatus, u.id, u.email, u.role, u.status, u.master_pub \
-         FROM devices d JOIN users u ON u.id = d.user_id WHERE d.fingerprint = $1",
-    )
-    .bind(&fp)
-    .fetch_optional(pool)
-    .await
-    .map_err(internal)?
-    {
-        let dstatus: String = r.get("dstatus");
+    let f = fp.clone();
+    let (dev, master) = pool
+        .run(move |c| {
+            use crate::schema::{devices as d, users as u};
+            let dev: Option<DevRow> = d::table
+                .inner_join(u::table.on(u::id.eq(d::user_id)))
+                .filter(d::fingerprint.eq(&f))
+                .select((
+                    d::public_key,
+                    d::certificate,
+                    d::status,
+                    u::id,
+                    u::email,
+                    u::role,
+                    u::status,
+                    u::master_pub,
+                ))
+                .first(c)
+                .optional()?;
+            let master: Option<(String, String, String, String, Option<String>)> = if dev.is_none()
+            {
+                u::table
+                    .filter(u::master_fp.eq(&f))
+                    .select((u::id, u::email, u::role, u::status, u::master_pub))
+                    .first(c)
+                    .optional()?
+            } else {
+                None
+            };
+            Ok((dev, master))
+        })
+        .await
+        .map_err(internal)?;
+    if let Some((public_key, certificate, dstatus, uid, email, role, ustatus, master_pub)) = dev {
         match dstatus.as_str() {
             "active" => {}
             "pending" if allow_pending => {}
-            "pending" => return Err(Status::permission_denied("this device is waiting for approval by an owner or admin")),
+            "pending" => {
+                return Err(Status::permission_denied(
+                    "this device is waiting for approval by an owner or admin",
+                ))
+            }
             _ => return Err(deny("key revoked")),
         }
-        if r.get::<String, _>("status") != "active" {
+        if ustatus != "active" {
             return Err(deny("user disabled"));
         }
-        let pk = itcmdr_keys::parse_public_key(&r.get::<String, _>("public_key"))
-            .map_err(|_| deny("stored key invalid"))?;
-        let mp = itcmdr_keys::parse_public_key(&r.get::<Option<String>, _>("master_pub").unwrap_or_default())
+        let pk =
+            itcmdr_keys::parse_public_key(&public_key).map_err(|_| deny("stored key invalid"))?;
+        let mp = itcmdr_keys::parse_public_key(&master_pub.unwrap_or_default())
             .map_err(|_| deny("user has no master key"))?;
         let cert: itcmdr_keys::Certificate =
-            serde_json::from_str(&r.get::<String, _>("certificate")).map_err(|_| deny("device has no certificate"))?;
-        itcmdr_keys::verify_certificate(&mp, &cert).map_err(|_| deny("device certificate invalid"))?;
+            serde_json::from_str(&certificate).map_err(|_| deny("device has no certificate"))?;
+        itcmdr_keys::verify_certificate(&mp, &cert)
+            .map_err(|_| deny("device certificate invalid"))?;
         if cert.fingerprint != fp {
             return Err(deny("certificate does not match the key"));
         }
         let s = check(nonces, m, &pk, method, body, skew_ms)?;
-        let _ = sqlx::query("UPDATE devices SET last_used_ms = $1 WHERE fingerprint = $2")
-            .bind(crate::now_ms())
-            .bind(&fp)
-            .execute(pool)
+        let f = fp.clone();
+        let _ = pool
+            .run(move |c| {
+                use crate::schema::devices as d;
+                diesel::update(d::table.filter(d::fingerprint.eq(f)))
+                    .set(d::last_used_ms.eq(crate::now_ms()))
+                    .execute(c)?;
+                Ok(())
+            })
             .await;
         return Ok(Principal {
-            user_id: r.get("id"),
-            email: r.get("email"),
-            role: Role::parse(&r.get::<String, _>("role")).ok_or_else(|| deny("unknown role"))?,
+            user_id: uid,
+            email,
+            role: Role::parse(&role).ok_or_else(|| deny("unknown role"))?,
             key_fp: fp.clone(),
             key_hex: hex::encode(pk.as_bytes()),
             via_master: false,
             sig: s.sig.to_string(),
         });
     }
-    // master key?
-    let r =
-        sqlx::query("SELECT id, email, role, status, master_pub FROM users WHERE master_fp = $1")
-            .bind(&fp)
-            .fetch_optional(pool)
-            .await
-            .map_err(internal)?
-            .ok_or_else(|| deny("unknown key"))?;
+    let (uid, email, role, ustatus, master_pub) = master.ok_or_else(|| deny("unknown key"))?;
     if !allow_master {
         return Err(Status::permission_denied(
             "the master key (24 words) may only recover a key backup or add a device; use a device key",
         ));
     }
-    if r.get::<String, _>("status") != "active" {
+    if ustatus != "active" {
         return Err(deny("user disabled"));
     }
-    let pk = itcmdr_keys::parse_public_key(
-        &r.get::<Option<String>, _>("master_pub").unwrap_or_default(),
-    )
-    .map_err(|_| deny("stored key invalid"))?;
+    let pk = itcmdr_keys::parse_public_key(&master_pub.unwrap_or_default())
+        .map_err(|_| deny("stored key invalid"))?;
     let s = check(nonces, m, &pk, method, body, skew_ms)?;
     Ok(Principal {
-        user_id: r.get("id"),
-        email: r.get("email"),
-        role: Role::parse(&r.get::<String, _>("role")).ok_or_else(|| deny("unknown role"))?,
+        user_id: uid,
+        email,
+        role: Role::parse(&role).ok_or_else(|| deny("unknown role"))?,
         key_fp: fp,
         key_hex: hex::encode(pk.as_bytes()),
         via_master: true,
         sig: s.sig.to_string(),
     })
 }
+
+type DevRow = (
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    Option<String>,
+);
