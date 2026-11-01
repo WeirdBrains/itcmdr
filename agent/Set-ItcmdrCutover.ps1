@@ -13,7 +13,7 @@
   powershell -NoProfile -ExecutionPolicy Bypass -File Set-ItcmdrCutover.ps1 -To task
 #>
 [CmdletBinding(SupportsShouldProcess)]
-param([Parameter(Mandatory)][ValidateSet('task', 'schedule', 'auto')][string]$To)
+param([Parameter(Mandatory)][ValidateSet('task', 'schedule', 'agent', 'auto')][string]$To)
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Itcmdr.Checks.ps1')

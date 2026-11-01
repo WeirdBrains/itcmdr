@@ -184,6 +184,24 @@ Describe 'cutover' {
     Should -Invoke Set-ItcmdrNightlyTaskEnabled -Times 1 -ParameterFilter { $Enabled -eq $true }
   }
 
+  It 'v0.20.1: follows the agent state, keeps the task disabled, never falls back, and rolls back' {
+    Mock Set-ItcmdrNightlyTaskEnabled { $true }
+    Mock Test-ItcmdrNightlyTaskDisabled { $false }
+    Write-TestState 'agent' (Get-Date)
+    $c = Sync-ItcmdrCutover -Site $site
+    $c.State | Should -Be 'agent'
+    Should -Invoke Set-ItcmdrNightlyTaskEnabled -Times 1 -ParameterFilter { $Enabled -eq $false }
+    # Re-enabled by hand: the next sync disables it again.
+    (Sync-ItcmdrCutover -Site $site).State | Should -Be 'agent'
+    Should -Invoke Set-ItcmdrNightlyTaskEnabled -Times 2 -ParameterFilter { $Enabled -eq $false }
+    Resolve-ItcmdrPluginMode -Site $site -CutoverState 'agent' | Should -Be 'plugins'
+    $stale = [pscustomobject]@{ Doc = $null; Ts = $null; Fresh = $false; Source = 'none' }
+    Test-ItcmdrFallbackDue -Site $site -Now (Get-Date).Date.AddHours(5) -ScheduleState $stale -Cutover $c | Should -BeFalse
+    Write-TestState 'task' (Get-Date)
+    (Sync-ItcmdrCutover -Site $site).State | Should -Be 'task'
+    Should -Invoke Set-ItcmdrNightlyTaskEnabled -Times 1 -ParameterFilter { $Enabled -eq $true }
+  }
+
   It 'runs the nightly locally only when it is overdue after the switch' {
     $now = (Get-Date).Date.AddHours(5)
     $sched = [pscustomobject]@{ State = 'schedule'; Pinned = $false }

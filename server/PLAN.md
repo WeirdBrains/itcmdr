@@ -664,3 +664,9 @@ Branding (v0.14.3): `branding/` holds the SVG masters, `build.py` and the render
   Packages come over `FetchPackage` and go through the normal validation; a bad one is quarantined (reason code up).
   A saved v0.19 default allowlist is migrated; new kinds must be allowed by the site owner.
 - Agent settings over the link and `cutover switch --to agent` (PS agent retired) moved to v0.20.1.
+
+### v0.20.1 (2026-11-01): the agent switch-over
+- `ConfigUpdate` (ServerMessage 11) from `agent_plugins::sync_messages` when the config version changes; `Hello.config_version` (11); `Applied{kind:"config"}` recorded in `agent_config`.
+- Config document `{"v":1,"cutover","settings"}` (agent-scope settings with machine overrides), version = sha256[..16], endorsement over `itcmdr_agentlink::config_bytes`.
+- `cutover::switch_agent` = `gate()` + `agent_problems()` (live non-revoked agent, acked current config, clean agent parity, for each machine active in 48 h); state `agent`; rollback to `task`.
+- agent-rs `config.rs`: verify on store and on load, report-only unless `agent`, nightly-task self-heal with a marker file so rollback re-enables only what it disabled.

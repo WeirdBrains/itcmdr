@@ -193,7 +193,11 @@ pub fn update_for(layout: &Layout, w: &Want, p: &InstalledPlugin) -> Result<pb::
 
 /// v0.20.1: the agent's config document: the cutover state and the agent-scoped settings
 /// (global values with this machine's overrides), endorsed by the server root key.
-pub async fn config_update(pool: &DbPool, layout: &Layout, machine: &str) -> Result<pb::ConfigUpdate> {
+pub async fn config_update(
+    pool: &DbPool,
+    layout: &Layout,
+    machine: &str,
+) -> Result<pb::ConfigUpdate> {
     let (version, json) = config_doc(pool, machine).await?;
     let root = crate::auth::load_root_key(layout)?;
     use ed25519_dalek::Signer;

@@ -227,7 +227,7 @@ function Get-ItcmdrCutoverState {
   try { $d = Read-ItcmdrJsonFile $p } catch { $d = $null }
   $state = 'task'; $pinned = $false
   if ($d) {
-    if ($d.PSObject.Properties['state'] -and [string]$d.state -in @('task', 'schedule')) { $state = [string]$d.state }
+    if ($d.PSObject.Properties['state'] -and [string]$d.state -in @('task', 'schedule', 'agent')) { $state = [string]$d.state }
     if ($d.PSObject.Properties['pinned']) { $pinned = [bool]$d.pinned }
   }
   return [pscustomobject]@{ State = $state; Pinned = $pinned; Path = $p }
@@ -235,7 +235,7 @@ function Get-ItcmdrCutoverState {
 
 function Set-ItcmdrCutoverState {
   [CmdletBinding(SupportsShouldProcess)]
-  param($Site, [ValidateSet('task', 'schedule')][string]$State, [switch]$Pinned, [string]$Reason = '')
+  param($Site, [ValidateSet('task', 'schedule', 'agent')][string]$State, [switch]$Pinned, [string]$Reason = '')
   $p = Join-Path (Get-ItcmdrPath -Site $Site -Name agentData) 'cutover.json'
   if ($PSCmdlet.ShouldProcess($p, "cutover $State")) {
     Write-ItcmdrJsonFile -Path $p -Object ([pscustomobject]@{ state = $State; pinned = [bool]$Pinned; changed = (Get-Date).ToString('o'); reason = $Reason })
@@ -255,6 +255,15 @@ function Set-ItcmdrNightlyTaskEnabled {
   return $true
 }
 
+function Test-ItcmdrNightlyTaskDisabled {
+  <# True when the nightly task exists and is disabled, or can't be checked here. #>
+  param([string]$TaskName = $script:ItcmdrNightlyTaskName)
+  if (-not (Get-Command -Name Get-ScheduledTask -ErrorAction SilentlyContinue)) { return $true }
+  $t = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+  if (-not $t) { return $true }
+  return ([string]$t.State -eq 'Disabled')
+}
+
 function Sync-ItcmdrCutover {
   <#
     Follow the server: when schedule-state.json is fresh and says a different state, disable the
@@ -264,9 +273,11 @@ function Sync-ItcmdrCutover {
   param($Site, $ScheduleState)
   if ($null -eq $ScheduleState) { $ScheduleState = Get-ItcmdrScheduleState -Site $Site }
   $cur = Get-ItcmdrCutoverState -Site $Site
+  # v0.20.1: in the agent state the Rust agent owns the nightly; keep the task disabled (self-heal).
+  if ($cur.State -eq 'agent' -and -not (Test-ItcmdrNightlyTaskDisabled)) { $null = Set-ItcmdrNightlyTaskEnabled -Enabled $false }
   if ($cur.Pinned -or -not $ScheduleState.Fresh -or -not $ScheduleState.Doc) { return $cur }
   $want = [string]$ScheduleState.Doc.cutover
-  if ($want -notin @('task', 'schedule') -or $want -eq $cur.State) { return $cur }
+  if ($want -notin @('task', 'schedule', 'agent') -or $want -eq $cur.State) { return $cur }
   $null = Set-ItcmdrNightlyTaskEnabled -Enabled ($want -eq 'task')
   Set-ItcmdrCutoverState -Site $Site -State $want -Reason 'server schedule-state.json'
   return (Get-ItcmdrCutoverState -Site $Site)
@@ -277,7 +288,7 @@ function Resolve-ItcmdrPluginMode {
   param($Site, [string]$CutoverState = 'task')
   $m = [string](Get-ItcmdrSetting -Site $Site -Key 'agent.pluginMode')
   if ($m -in @('off', 'parallel', 'plugins')) { return $m }
-  if ($CutoverState -eq 'schedule') { return 'plugins' }
+  if ($CutoverState -in @('schedule', 'agent')) { return 'plugins' }
   return 'parallel'
 }
 
