@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## v0.18.0 (2026-10-31)
+The Rust agent runs plugins and schedules (report-only), with run reports, artifacts and parity against the nightly.
+- Plugin push: the server sends the plugins selected by the new setting `agent.plugins` (per machine: `all`, `none` or a comma list of names; default `all`) over the link, endorsed by the root key over the package checksum. The agent verifies the endorsement, name, version and every file checksum before installing, and removes plugins no longer selected or disabled. Each install/removal is reported back; a refused one raises `agent-plugin:<machine>:<name>`.
+- Schedules: enabled schedules that name plugins (and the builtin nightly run) are pushed to the agent, which fires them in the schedule's time zone, also while the server is unreachable; a missed fire runs once at start when the schedule catches up.
+- `itcmdr-cli agent run <machine> <plugin> [--arg k=v]` (RunNow), `agent runs`, `agent plugins`.
+- Agent runs are always report-only. Reports (stages, results, log lines, artifacts up to 1 MiB each / 4 MiB per run) travel through the durable queue, so offline runs are delivered later, once. Logs go to `plugin-logs/<plugin>/agents/<machine>.jsonl`, artifacts to `<data>/agent-artifacts/<run>/`. A failing run raises `agent-run:<machine>:<plugin>`.
+- Parity: each agent report is compared with the machine's latest nightly checks (36 h) and recorded as `agent:<run>` in the parity tables.
+- New `Prepare` RPC: the agent verifies the site CA and root key before enrolling, so a refused root key no longer leaves an enrolled machine on the server (the token is not used).
+- New `Check` RPC: a revoked agent learns it is revoked (it only saw handshake resets before) and stops retrying.
+- Agent package ships `itcmdr-plugin-ps.exe`. Schema 9; settings 49.
+
 ## v0.17.1 (2026-11-01)
 Agent certificates renewed over the link, revocation in the handshake, office hours, offline queue.
 - Site CA certified: the server root key (certified by the master key) signs the agent site CA (`keys/agent-ca.sig`); enrollment tokens carry the root public key and the agent verifies the server's key and the signature before trusting the CA. v0.17.0 tokens still work.

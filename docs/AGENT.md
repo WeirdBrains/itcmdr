@@ -111,3 +111,12 @@ informational items go first, then the oldest of any level, and the drop is repo
 
 Running plugins and schedules in this agent (v0.18.0; the PowerShell tasks still do that), a Renew
 button in the app, and queue items from the PowerShell agent.
+
+## Plugins and schedules (v0.18.0)
+
+- `agent.plugins` (per machine; `all`, `none` or `name1,name2`) selects the installed, enabled plugins pushed to the agent. Each push carries the files and a root-key endorsement of `itcmdr-agent-plugin/v1\n<name>\n<version>\n<package sha256>`; the agent verifies it, the name/version and the checksums of every file, then swaps the plugin in under `<state>/plugins/<name>`.
+- Enabled schedules with plugins (and the builtin nightly) are pushed as a set with a version; the agent keeps them in `schedules.json` and fires them on its own (time-zone aware; catch-up runs a missed fire once).
+- `itcmdr-cli agent run <machine> <plugin> [--arg k=v]` runs a plugin now; `agent runs` and `agent plugins` list reports and installed plugins.
+- Runs are report-only (`ITCMDR_REPORT_ONLY=1`). Reports go through the offline queue; artifacts land in `<data>/agent-artifacts/<run>/`, logs in `plugin-logs/<plugin>/agents/<machine>.jsonl`, parity as `agent:<run>`.
+- Alerts: `agent-plugin:<machine>:<name>` (install refused), `agent-run:<machine>:<plugin>` (run failed).
+- Enrollment calls `Prepare` first (CA and root key verified before the token is used); a disconnected agent calls `Check` and stops when it is revoked.
