@@ -150,10 +150,10 @@ Sites are behind NAT, so **the site server dials adminsvr**. This is the same pa
 
 | Down (adminsvr → site) | Up (site → adminsvr) |
 |---|---|
-| Server upgrades (signed release packages) | Alerts (all levels, with state changes: ack/resolve made on site) |
+| Server upgrades (signed release packages) | Alerts (all levels, with state changes: ack/resolve made on site), redacted: opaque IDs, code, severity, plugin package |
 | Agent release packages and plugin packages, forwarded into the site's own validation/quarantine | Heartbeat + site status (version, uptime, auth mode, backup age, cutover state, agent counts by state) |
 | Commands from the allowlist (section 6): run schedule now, pause/resume a schedule, set a setting, enable/disable a plugin, start a backup, ack/resolve an alert | Metrics **summaries** (rollups, not raw logs) |
-| Config documents (settings, schedules) per site, versioned | Command results (`Applied` ok/failed, output summary) |
+| Config documents (settings, schedules) per site, versioned | Command results (`Applied` ok/failed, result code; no output text) |
 | Heartbeat pings | Its own audit and call-log summaries (counts, failures) |
 
 ### The push loop (symmetric at each tier)
@@ -581,18 +581,18 @@ adminsvr can push code to every office PC, so it is the highest-value target. Co
   - adminsvr owners can freeze all pushes globally (a "freeze" banner, commands refused).
   - Each site can set `adminsvr.enabled = false` locally (link closed, nothing accepted). That is one CLI command,
     and the same works from the on-site app for a site owner.
-- **No PHI leaves the site.** It's a office, so think HIPAA: only **operational metadata** goes up.
-  - Allowed up: machine names (placeholders like WS-01 in docs), check ids and statuses, service names, versions,
-    metric values (disk, uptime, counts), alert titles built from templates, error messages and backtraces
-    **after** redaction, backup sizes/ages, and call/audit counts.
-  - Never up: patient names or ids, file names or paths under clinical data folders (e.g. imaging shares), file
-    contents, screenshots, practice-software database contents, free-text log lines from clinical apps, user
-    documents.
-  - Enforced by an **egress filter** on the site: only typed fields from an allowlisted schema go up. Free text
-    passes a redactor that drops paths under configured clinical roots and anything matching patient-id patterns. The
-    filter's own decisions are logged locally.
-  - Plugins declare `phi_safe = true` for fields they promise are clean. The default is not safe, so the field is
-    dropped.
+- **No internal information leaves the site** (decision 19; this replaces the earlier "redacted error text" idea).
+  Sites can hold regulated data (for example health records under HIPAA), and itcmdr serves more than one kind of
+  site, so the rule is the same everywhere:
+  - Allowed up by default: opaque site-scoped IDs, check ids, alert codes and severity, plugin package names,
+    versions, timestamps, counts, numeric metric rollups (disk, uptime), backup age/size/last result, call/audit
+    counts. Display names of servers/agents only with the per-site owner opt-in.
+  - Never up: hostnames, IPs, domains, usernames, file paths, share names, message text, backtraces, log lines,
+    file contents, screenshots, application database contents, user documents, backup archives or key material.
+  - Enforced by the **site-side redaction layer**: only typed fields from an allowlisted schema go up; unknown
+    fields are dropped (deny by default). The filter's own decisions are logged locally.
+  - Plugin-declared fields never widen the allowlist: a plugin can only fill typed numeric/enum fields that the
+    schema already allows.
 - **Code signing chain:** release and plugin packages keep the existing site signature rules (master-certified
   signer). adminsvr can't sign packages on its own, it only forwards them. A compromised adminsvr can therefore at
   most replay already-valid, site-trusted packages, and the allowlist plus two-person approval cover that.

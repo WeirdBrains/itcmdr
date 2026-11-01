@@ -56,7 +56,11 @@ function Get-ItcmdrValue {
 function Get-ItcmdrSiteConfig {
   # ITCMDR_SITE_PATH (set by the plugin runner) wins over the usual locations.
   $candidates = @()
-  if ($env:ITCMDR_SITE_PATH) { $candidates += $env:ITCMDR_SITE_PATH }
+  if ($env:ITCMDR_SITE_PATH) {
+    # v0.15.2: an explicit path that is missing is an error, never a silent fall back to another site.json.
+    if (-not (Test-Path -LiteralPath $env:ITCMDR_SITE_PATH)) { throw "Site config not found at ITCMDR_SITE_PATH ($($env:ITCMDR_SITE_PATH))." }
+    $candidates += $env:ITCMDR_SITE_PATH
+  }
   $candidates += @(
     (Join-Path -Path (Get-Location) -ChildPath 'config/site.json'),
     'C:\ProgramData\itcmdr\site.json'
@@ -447,19 +451,29 @@ function Invoke-ItcmdrNetworkCheck {
     } catch { $false }
   } -ReportOnlyLocal:$ReportOnlyLocal -Ctx $Ctx
 
+  # Server ports: network.serverPorts (default 445, 53) plus the ports of every watched service.
   $ports = @()
-  if ((Get-ItcmdrValue $site @('services')) -and (Get-ItcmdrValue $site @('services','examplevendorRestService'))) { $ports += @((Get-ItcmdrValue $site @('services','examplevendorRestService','ports'))) }
-  $ports += @(445, 53)
+  foreach ($w in (Get-ItcmdrWatchedService $site)) { $ports += @($w.ports | Where-Object { $_ }) }
+  $base = @(Get-ItcmdrValue $site @('network','serverPorts') | Where-Object { $_ })
+  if ($base.Count -eq 0) { $base = @(445, 53) }
+  $ports += $base
   foreach ($port in $ports) {
     Invoke-ItcmdrCheck -Id "NET-SERVER-TCP-$port" -Category 'connectivity' -Test {
       Test-ItcmdrTcp -Address $server -Port $port
     } -ReportOnlyLocal:$ReportOnlyLocal -Ctx $Ctx
   }
 
-  if ((Get-ItcmdrValue $site @('shares')) -and (Get-ItcmdrValue $site @('shares','data'))) {
-    Invoke-ItcmdrCheck -Id 'SHARE-DATA' -Category 'connectivity' -Test {
-      Test-Path -LiteralPath (Get-ItcmdrValue $site @('shares','data'))
-    } -ReportOnlyLocal:$ReportOnlyLocal -Ctx $Ctx
+  # Every entry in site.json "shares" is checked as SHARE-<KEY> (e.g. shares.data -> SHARE-DATA).
+  $shares = Get-ItcmdrValue $site @('shares')
+  if ($shares) {
+    $names = if ($shares -is [System.Collections.IDictionary]) { @($shares.Keys) } else { @($shares.PSObject.Properties.Name) }
+    foreach ($n in $names) {
+      $sp = Get-ItcmdrValue $site @('shares', $n)
+      if (-not $sp) { continue }
+      Invoke-ItcmdrCheck -Id "SHARE-$((Get-ItcmdrSafeId $n).ToUpperInvariant())" -Category 'connectivity' -Test {
+        Test-Path -LiteralPath $sp
+      } -ReportOnlyLocal:$ReportOnlyLocal -Ctx $Ctx
+    }
   }
 
   foreach ($p in @((Get-ItcmdrValue $site @('printers')) | Where-Object { $_ })) {
@@ -474,24 +488,58 @@ function Invoke-ItcmdrNetworkCheck {
 function Invoke-ItcmdrServiceCheck {
   param([hashtable]$Ctx, [switch]$ReportOnlyLocal)
   $site = $Ctx.Site
-  if ($Ctx.Role -eq 'Server') {
-    Invoke-ItcmdrCheck -Id 'SVC-ExampleVendorRestService' -Category 'services' -Test {
-      (Get-Service -Name (Get-ItcmdrValue $site @('services','examplevendorRestService','name')) -ErrorAction SilentlyContinue).Status -eq 'Running'
-    } -Repair {
-      try { Start-Service -Name (Get-ItcmdrValue $site @('services','examplevendorRestService','name')) -ErrorAction Stop; $true } catch { $false }
-    } -ReportOnlyLocal:$ReportOnlyLocal -Ctx $Ctx
-  } else {
-    Invoke-ItcmdrCheck -Id 'EXAMPLEVENDOR-PLUGIN-HEALTH' -Category 'services' -Test {
-      [bool](Get-Process -Name 'Example.Device.ServiceHost' -ErrorAction SilentlyContinue)
-    } -Repair {
-      try {
-        Get-Process -Name 'Example.Device.ServiceHost' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-        Start-Service -Name (Get-ItcmdrValue $site @('services','examplevendorUsbService','name')) -ErrorAction SilentlyContinue
-        Start-Sleep -Seconds 3
-        [bool](Get-Process -Name 'Example.Device.ServiceHost' -ErrorAction SilentlyContinue)
-      } catch { $false }
-    } -ReportOnlyLocal:$ReportOnlyLocal -Ctx $Ctx
+  foreach ($w in (Get-ItcmdrWatchedService $site)) {
+    if ($w.role -ne 'Any' -and $w.role -ne $Ctx.Role) { continue }
+    $svc = $w.name; $proc = $w.process; $restart = $w.restart
+    $test = if ($proc) { { [bool](Get-Process -Name $proc -ErrorAction SilentlyContinue) }.GetNewClosure() } else { { (Get-Service -Name $svc -ErrorAction SilentlyContinue).Status -eq 'Running' }.GetNewClosure() }
+    $repair = $null
+    if ($restart -and $svc) {
+      $repair = {
+        try {
+          if ($proc) { Get-Process -Name $proc -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue }
+          Start-Service -Name $svc -ErrorAction Stop
+          if ($proc) { Start-Sleep -Seconds 3; [bool](Get-Process -Name $proc -ErrorAction SilentlyContinue) } else { $true }
+        } catch { $false }
+      }.GetNewClosure()
+    }
+    if ($repair) {
+      Invoke-ItcmdrCheck -Id $w.checkId -Category 'services' -Test $test -Repair $repair -ReportOnlyLocal:$ReportOnlyLocal -Ctx $Ctx
+    } else {
+      Invoke-ItcmdrCheck -Id $w.checkId -Category 'services' -Test $test -ReportOnlyLocal:$ReportOnlyLocal -Ctx $Ctx
+    }
   }
+}
+
+function Get-ItcmdrWatchedService {
+  <#
+    Site-defined services to watch (site.json "watchedServices"): { id, name, role = Server|Workstation|Any (default
+    Server), process (optional: health = process running), ports (optional, checked on the server from every PC),
+    restart (default true), checkId (optional, default SVC-<id>) }. Nothing is built in: no entry, no check.
+    Legacy (pre-v0.15.2) site.json keys services.examplevendorRestService / services.examplevendorUsbService are still read and
+    keep their old check ids, but the process name must come from config (pluginProcessName).
+  #>
+  param($Site)
+  $out = @()
+  foreach ($e in @(Get-ItcmdrValue $Site @('watchedServices') | Where-Object { $_ })) {
+    $id = [string](Get-ItcmdrValue $e @('id')); $name = [string](Get-ItcmdrValue $e @('name'))
+    if (-not $id) { $id = $name }
+    if (-not $id) { continue }
+    $role = [string](Get-ItcmdrValue $e @('role')); if (-not $role) { $role = 'Server' }
+    $r = Get-ItcmdrValue $e @('restart'); $restart = if ($null -eq $r) { $true } else { [bool]$r }
+    $cid = [string](Get-ItcmdrValue $e @('checkId')); if (-not $cid) { $cid = "SVC-$(Get-ItcmdrSafeId $id)" }
+    $out += [pscustomobject]@{ checkId = $cid; name = $name; role = $role; process = [string](Get-ItcmdrValue $e @('process')); ports = @(Get-ItcmdrValue $e @('ports') | Where-Object { $_ }); restart = $restart }
+  }
+  if ($out.Count -eq 0 -and (Get-ItcmdrValue $Site @('services'))) {
+    $rest = Get-ItcmdrValue $Site @('services', 'examplevendorRestService')
+    if ($rest -and (Get-ItcmdrValue $rest @('name'))) {
+      $out += [pscustomobject]@{ checkId = "SVC-$(Get-ItcmdrSafeId (Get-ItcmdrValue $rest @('name')))"; name = [string](Get-ItcmdrValue $rest @('name')); role = 'Server'; process = ''; ports = @(Get-ItcmdrValue $rest @('ports') | Where-Object { $_ }); restart = $true }
+    }
+    $usb = Get-ItcmdrValue $Site @('services', 'examplevendorUsbService')
+    if ($usb -and (Get-ItcmdrValue $usb @('pluginProcessName'))) {
+      $out += [pscustomobject]@{ checkId = 'EXAMPLEVENDOR-PLUGIN-HEALTH'; name = [string](Get-ItcmdrValue $usb @('name')); role = 'Workstation'; process = [string](Get-ItcmdrValue $usb @('pluginProcessName')); ports = @(); restart = $true }
+    }
+  }
+  return $out
 }
 
 function Test-ItcmdrTcp {
@@ -609,10 +657,10 @@ function Test-ItcmdrPrintQueueHealth {
   return (ConvertTo-ItcmdrResult -Ok $true -Detail "ok ($(@($Job).Count) job(s))")
 }
 
-function Test-ItcmdrExampleVendorDrift {
+function Test-ItcmdrConfigDrift {
   <#
     Read-only: report config files that still reference retired addresses/hosts.
-    Files are opened with FileShare.ReadWrite so running ExampleVendor services are never disturbed.
+    Files are opened with FileShare.ReadWrite so running vendor services are never disturbed.
     Never modifies anything.
   #>
   param([string]$Path, [string[]]$Pattern = @())
@@ -667,7 +715,7 @@ function Invoke-ItcmdrScannerCheck {
   }
 }
 
-# Configuration checks: DNS records, drive maps, printer queues, ExampleVendor drift.
+# Configuration checks: DNS records, drive maps, printer queues, vendor config drift.
 function Invoke-ItcmdrConfigCheck {
   param([hashtable]$Ctx, [switch]$ReportOnlyLocal)
   $site = $Ctx.Site
@@ -738,17 +786,27 @@ function Invoke-ItcmdrConfigCheck {
     }
   }
 
-  # ExampleVendor drift: detect/report only. No -Repair on purpose.
+  # Vendor config drift: detect/report only. No -Repair on purpose. site.json "configDrift": { files, idPrefix
+  # (default DRIFT) }; legacy "examplevendor.configFiles" keeps the EXAMPLEVENDOR-DRIFT prefix.
   $patterns = @(Get-ItcmdrValue $site @('stalePatterns') | Where-Object { $_ })
-  $files = Resolve-ItcmdrPathList @(Get-ItcmdrValue $site @('examplevendor', 'configFiles'))
+  $prefix = 'DRIFT'; $list = @()
+  if (Get-ItcmdrValue $site @('configDrift')) {
+    $list = @(Get-ItcmdrValue $site @('configDrift', 'files'))
+    $pp = [string](Get-ItcmdrValue $site @('configDrift', 'idPrefix')); if ($pp) { $prefix = Get-ItcmdrSafeId $pp }
+  } elseif (Get-ItcmdrValue $site @('examplevendor')) {
+    $list = @(Get-ItcmdrValue $site @('examplevendor', 'configFiles')); $prefix = 'EXAMPLEVENDOR-DRIFT'
+  }
+  $files = Resolve-ItcmdrPathList $list
   if ($patterns.Count -gt 0) {
     foreach ($f in $files) {
-      Invoke-ItcmdrCheck -Id "EXAMPLEVENDOR-DRIFT-$(Get-ItcmdrSafeId ([IO.Path]::GetFileName($f)))" -Category 'configuration' -Test {
-        Test-ItcmdrExampleVendorDrift -Path $f -Pattern $patterns
+      Invoke-ItcmdrCheck -Id "$prefix-$(Get-ItcmdrSafeId ([IO.Path]::GetFileName($f)))" -Category 'configuration' -Test {
+        Test-ItcmdrConfigDrift -Path $f -Pattern $patterns
       } -ReportOnlyLocal:$ReportOnlyLocal -Ctx $Ctx
     }
   }
 }
+
+Set-Alias -Name Test-ItcmdrExampleVendorDrift -Value Test-ItcmdrConfigDrift
 
 function Test-ItcmdrBackupTask {
   <#
@@ -917,6 +975,7 @@ function Invoke-ItcmdrBuiltinCheckSet {
   $results = @()
   $failing = 0
   $canLog = [bool](Get-Command -Name Write-ItcmdrLog -ErrorAction SilentlyContinue)
+  $canErr = [bool](Get-Command -Name Write-ItcmdrPluginError -ErrorAction SilentlyContinue)
   foreach ($l in $lines) {
     if ($agentLog) { [IO.File]::AppendAllText($agentLog, $l + "`r`n", (New-Object Text.UTF8Encoding($false))) }
     $r = $l | ConvertFrom-Json
@@ -926,6 +985,14 @@ function Invoke-ItcmdrBuiltinCheckSet {
     if ($canLog) {
       $lvl = if ($st -eq 'fail') { 'warn' } else { 'info' }
       Write-ItcmdrLog -Level $lvl -EventName 'check' -Message ("{0} {1}" -f $r.category, $r.detail).Trim() -CheckId ([string]$r.checkId) -Status $st -DurationMs ([long]$r.durationMs)
+    }
+    if ($st -eq 'fail' -and $canErr) {
+      # v0.15.2: a failing check is also a structured plugin error (the stage still succeeds). A repair that was
+      # tried and failed is Critical; a failure left alone (report-only, no safe repair) is Cautious.
+      $repairFailed = [bool]$r.attemptedRepair -and [string]$r.result -eq 'failed'
+      $crit = if ($repairFailed) { 'Critical' } else { 'Cautious' }
+      $kind = if ($repairFailed) { 'RepairFailed' } else { 'CheckFailed' }
+      Write-ItcmdrPluginError -Message ("{0}: {1}" -f $r.checkId, $r.detail) -Criticality $crit -Kind $kind -Context @{ check_id = [string]$r.checkId; category = [string]$r.category }
     }
   }
   $mode = if ($reportOnly) { 'report-only' } else { 'repair' }

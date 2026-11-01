@@ -24,7 +24,7 @@ pub const CHECKS: [(&str, &str); 6] = [
     ("NET-SERVER-TCP-53", "connectivity"),
     ("SHARE-DATA", "connectivity"),
     ("PRN-PRN-01-9100", "connectivity"),
-    ("EXAMPLEVENDOR-PLUGIN-HEALTH", "services"),
+    ("SVC-DeviceHelper", "services"),
 ];
 
 /// Write `days` nightly runs per machine ending at `end`. Returns the number of files.
