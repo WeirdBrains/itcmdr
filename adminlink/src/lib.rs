@@ -29,6 +29,8 @@ pub const NEVER_REMOTE: &[&str] = &[
     "adminsvr.allowlist",
 ];
 
+pub mod webauthn;
+
 pub fn sha256_hex(b: &[u8]) -> String {
     hex::encode(Sha256::digest(b))
 }
