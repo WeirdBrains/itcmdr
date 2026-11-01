@@ -35,8 +35,7 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   path_provider: ^2.1.5
-  itcmdr_admin_bridge:
-    path: rust_builder
+  flutter_rust_bridge_hooks: 2.13.0
   flutter_rust_bridge: 2.13.0
 
 dev_dependencies:
