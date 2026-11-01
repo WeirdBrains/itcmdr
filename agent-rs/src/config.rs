@@ -10,7 +10,6 @@ use anyhow::{anyhow, ensure, Context, Result};
 use itcmdr_agentlink::pb;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
 
 pub const FILE: &str = "config.json";
 pub const TASK: &str = "itcmdr Agent Nightly";
@@ -30,25 +29,21 @@ pub struct Doc {
     pub settings: serde_json::Map<String, serde_json::Value>,
 }
 
-static ALERTS: Mutex<Vec<pb::AgentAlert>> = Mutex::new(Vec::new());
-
-/// Alerts waiting for the link (drained by the session).
-pub fn take_alerts() -> Vec<pb::AgentAlert> {
-    std::mem::take(&mut *ALERTS.lock().unwrap_or_else(|e| e.into_inner()))
-}
-
-pub fn alert(key: &str, level: &str, title: &str, detail: &str, resolve: bool) {
-    ALERTS
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .push(pb::AgentAlert {
-            key: key.into(),
-            level: level.into(),
-            title: title.into(),
-            detail: detail.into(),
-            ts_ms: chrono::Utc::now().timestamp_millis(),
-            resolve,
-        });
+/// Queue an alert on the durable offline queue (delivered and acked like `itcmdr-agent alert`).
+pub fn alert(dir: &Path, key: &str, level: &str, title: &str, detail: &str, resolve: bool) {
+    let it = crate::queue::Item {
+        seq: 0,
+        key: key.into(),
+        level: level.into(),
+        title: title.into(),
+        detail: detail.into(),
+        ts_ms: chrono::Utc::now().timestamp_millis(),
+        resolve,
+        report: None,
+    };
+    if let Err(e) = crate::queue::spool(dir, &it) {
+        tracing::error!(error=%format!("{e:#}"), key, "queueing an alert");
+    }
 }
 
 fn path(dir: &Path) -> PathBuf {
@@ -105,7 +100,11 @@ pub fn apply(dir: &Path, u: &pb::ConfigUpdate) -> Result<Doc> {
     let tmp = p.with_extension("tmp");
     std::fs::write(&tmp, serde_json::to_vec_pretty(&s)?)?;
     std::fs::rename(&tmp, &p)?;
-    alert("config-rejected", "informational", "", "", true);
+    let flag = dir.join("config-rejected");
+    if flag.exists() {
+        let _ = std::fs::remove_file(&flag);
+        alert(dir, "config-rejected", "informational", "", "", true);
+    }
     Ok(d)
 }
 
@@ -122,7 +121,9 @@ pub fn load(dir: &Path) -> Option<(Stored, Doc)> {
             let msg = format!("{e:#}");
             tracing::error!(error=%msg, "config.json rejected; running report-only until the server resends it");
             let _ = std::fs::remove_file(&p);
+            let _ = std::fs::write(dir.join("config-rejected"), b"1");
             alert(
+                dir,
                 "config-rejected",
                 "critical",
                 "Agent config rejected",
@@ -181,6 +182,7 @@ pub fn heal_task(dir: &Path, state: &str) -> Option<String> {
         let _ = std::fs::write(&marker, b"1");
         if again {
             alert(
+                dir,
                 "nightly-task-reenabled",
                 "cautious",
                 "PowerShell nightly task was re-enabled",

@@ -233,16 +233,6 @@ pub async fn session(dir: &Path, st: &State, mut connected: impl FnMut(&pb::Welc
                 continue;
             }
         };
-        for al in crate::config::take_alerts() {
-            seq += 1;
-            let msg = pb::AgentMessage {
-                seq,
-                body: Some(pb::agent_message::Body::Alert(al)),
-            };
-            if tx.send(msg).await.is_err() {
-                return End::Lost("send failed".into());
-            }
-        }
         let mut renew = false;
         match m {
             Ok(Some(m)) => match m.body {
