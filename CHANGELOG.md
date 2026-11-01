@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## v0.19.1 (2026-11-01)
+adminsvr on Diesel with SQLite or Postgres, and passkeys / security keys as an optional second factor.
+- Database: adminsvr's store moved from sqlx (Postgres only) to Diesel (`MultiConnection`) with embedded migrations for both backends. `ITCMDR_ADMINSVR_DB_URL` picks it: `postgres://…` for Postgres, `sqlite://<path>` (or a path) for SQLite; empty = SQLite at `<data dir>/adminsvr.db` (mode 0600), the new default for small installs. libpq and SQLite are built in (no system libraries). Databases made by v0.19.0 are picked up as they are. The adminsvr tests run on both backends.
+- Passkeys (WebAuthn; YubiKeys and other FIDO2 keys) as an optional second factor; the 24-word key stays the signing identity. `itcmdr-admin passkey add|list|remove|reset|lock|unlock` and `policy show|set`. adminsvr checks attestation (`none`, `packed` self or x5c), RP id, origin, user presence (and verification when required) and the sign count.
+- Step-up: actions on the owner-editable list (default: role and status changes, user and device enrollment and revocation, key backup retrieval and opt-out, site create/revoke, passkey and policy changes) need a fresh touch from users who have a passkey. The challenge is bound to that exact request (`sha256("itcmdr-stepup/v1" || sha256(method, body) || single-use nonce)`), so a touch can't be replayed or used for another request; every assertion, accepted or refused, is in the audit chain. `policy set --required-roles owner` makes a passkey mandatory per role.
+- Unlock: `passkey add --unlock` / `passkey lock` encrypts the CLI's device key with the security key's hmac-secret; every use then needs a touch.
+- Lost passkey: the user removes it, or an owner/admin resets it (with their own touch; admins not for owners); console `recover-owner` also clears the owner's passkeys. Audited.
+- The CLI drives security keys through libfido2's tools (`fido2-token`, `fido2-cred`, `fido2-assert`; device from `ITCMDR_FIDO2_DEVICE` or the first key found). Platform passkeys (phone, Windows Hello) come with the admin app (v0.19.2). Tested with a software authenticator only: the hardware path (a real YubiKey) is untested in this release.
+- New adminsvr settings: `ITCMDR_ADMINSVR_RP_ID` (default: the host of the public API address) and `ITCMDR_ADMINSVR_WEB_ORIGINS`.
+
 ## v0.19.0 (2026-11-01)
 adminsvr core: the offsite admin server, the `itcmdr-admin` CLI and the site-side SiteLink, redacted by default. The SRE app and push move to v0.19.2.
 - New `itcmdr-adminsvr` (Linux, Postgres): admin API with the site's signed-request auth (`itcmdr-keys`; device keys certified by the user's 24-word master key), roles owner/admin/sre (new users are sre; admins cannot make or change owners), per-SRE site scopes, device approval, single-use enrollment codes, console `init` and `recover-owner`, and a hash-chained audit of every signed change (`audit-verify`, `itcmdr-admin audit verify`).

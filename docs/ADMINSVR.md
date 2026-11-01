@@ -1,4 +1,4 @@
-# adminsvr (v0.19.0)
+# adminsvr (v0.19.1)
 
 The offsite admin server: one place where owners, admins and SREs see the status and alerts of
 many sites and send a few safe commands. Design and decisions: [design/ADMINSVR.md](design/ADMINSVR.md).
@@ -18,11 +18,11 @@ adminsvr.
 
 ## Install adminsvr (Linux)
 
-Needs Postgres 14+ and a database for adminsvr.
+Uses SQLite in its data folder by default (`<data dir>/adminsvr.db`); for Postgres 14+, create a database and set `ITCMDR_ADMINSVR_DB_URL=postgres://…`.
 
     tar xzf itcmdr-adminsvr-<ver>-linux-x86_64.tar.gz && cd itcmdr-adminsvr-<ver>-linux-x86_64
     sudo ./install.sh
-    sudo editor /etc/itcmdr-adminsvr/adminsvr.env   # DB URL, public host:ports, TLS names
+    sudo editor /etc/itcmdr-adminsvr/adminsvr.env   # public host:ports, TLS names (and a Postgres URL if wanted)
     sudo -u itcmdr-adminsvr sh -c 'set -a; . /etc/itcmdr-adminsvr/adminsvr.env; exec itcmdr-adminsvr init --email you@example.com --name "You"'
     sudo systemctl enable --now itcmdr-adminsvr
 
@@ -60,3 +60,21 @@ On the site server, in person:
 Setting `adminsvr.enabled=false` closes the link at once (kill switch); `adminsvr.heartbeatSecs`
 overrides the status interval. Every command is checked for both signatures (user and adminsvr
 root key), expiry, the never-remote list and the local allowlist, and is written to the site audit.
+
+## Passkeys / security keys (v0.19.1, optional)
+
+The 24-word key signs everything; a passkey is a second factor on top. The CLI uses a USB/NFC
+security key through libfido2's tools (`fido2-token`, `fido2-cred`, `fido2-assert`).
+
+    itcmdr-admin passkey add --label yubikey [--unlock]   # --unlock: the device key opens only with a touch
+    itcmdr-admin passkey list [user]
+    itcmdr-admin passkey remove <credential id>
+    itcmdr-admin passkey reset <user> <credential id>     # owner/admin: a user's lost key
+    itcmdr-admin passkey lock | unlock
+    itcmdr-admin policy show
+    itcmdr-admin policy set --stepup SetRole,RevokeDevice,... [--required-roles owner] [--uv]
+
+Once you have a passkey, actions on the step-up list ask for a touch, bound to that exact request.
+`ITCMDR_ADMINSVR_RP_ID` sets the WebAuthn RP id (default: the host of the public API address);
+`ITCMDR_ADMINSVR_WEB_ORIGINS` adds the web app's origins. A real security key has not been tested
+with this release yet (the tests use a software authenticator).
