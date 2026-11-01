@@ -24,28 +24,28 @@ also covered by the Windows VM test pass below.
 
 | Version | Title | Status | Tag / commit | Date |
 |---|---|---|---|---|
-| v0.1.0 | Scaffold: agent, server, app, installer, CI | ✅ Done | `v0.1.0` / `c90fa4b` | 2026-10-29 |
-| v0.1.1 | CI without third-party actions | ✅ Done | `v0.1.1` / `adab590` | 2026-10-29 |
-| v0.2.0 | Audit fixes batch 1 (real ingest, Windows service, ISO rotation with 4-week blocks, on-demand loop, exceptions, auth, audit) | ✅ Done | `v0.2.0` / `6f3b76b` | 2026-10-29 |
-| — | Handover notes + scanner fix (shipped with v0.3.0) | ✅ Done | `c65c6c5` | 2026-10-30 |
-| v0.3.0 | Agent checks: scanner, DNS, drive maps, printer queues, ExampleVendor drift | ✅ Done | `v0.3.0` / `db03433` | 2026-10-30 |
-| v0.4.0 | Flapping/repeat-offender metrics, charts, log search filters + paging | ✅ Done | `v0.4.0` / `9f9c33f` | 2026-10-30 |
-| v0.5.0 | Backup coverage, stale poller locks, request timeouts, gRPC integration test | ✅ Done | `v0.5.0` / `ed548c4` | 2026-10-30 |
-| v0.5.1 | Docs: service plugin plan + implementation plan | ✅ Done | `v0.5.1` / `0402dd2` | 2026-10-30 |
-| v0.5.2 | Docs: built-in checks as plugins (v0.11.0) | ✅ Done | `v0.5.2` / `b098ff6` | 2026-10-30 |
-| v0.5.3 | Docs: plugin logging + structured log standard (decision 11) | ✅ Done | `v0.5.3` / `568b954` | 2026-10-30 |
-| v0.6.0 | Storage: data dir, SQLCipher DB, roles/users/clients, migration | ✅ Done | `v0.6.0` / `0ce70c0` | 2026-10-30 |
-| v0.6.1 | Docs: this roadmap | ✅ Done | `v0.6.1` / `a4b0eb6` | 2026-10-30 |
-| v0.6.2 | Storage follow-up: auto-delete the plaintext backup after a verified migration | ✅ Done | `v0.6.2` / `19c297c` | 2026-10-30 |
-| v0.7.0 | Keys & auth: BIP39 master, certified keys, signed requests, roles, db.key escrow | ✅ Done | `v0.7.0` (4afe6c7) | 2026-10-30 |
-| v0.8.0 | itcmdr-cli (init, register, users, keys) + backup & restore | ✅ Done | `v0.8.0` (25e232f) | 2026-10-30 |
-| v0.8.1 | Configurable paths + backup settings, retention by 4-week blocks | ✅ Done | `v0.8.1` (c1b4388) | 2026-10-30 |
-| v0.9.0 | Packages: format, validation, signature, quarantine, plugins install/list/enable/disable/remove, plugins in backups | ✅ Done | `v0.9.0` (073671d) | 2026-10-30 |
-| v0.9.1 | Settings everywhere: typed Settings API, central agent settings, `docs/SETTINGS.md`, basic app Settings screen; validated plugins enabled on install | ✅ Done | `v0.9.1` (4e66a71) | 2026-10-30 |
-| v0.10.0 | Plugin runtime, log standard, scheduled runs (server, gRPC, CLI), app-triggered restore (server side) | ✅ Done | `v0.10.0` (faa2ae6) | 2026-10-30 |
-| v0.10.1 | First Windows VM pass + fixes (BOM in agent logs, installer compile, app exe name, PS 5.1 tests), `itcmdr-cli restore-stage` | ✅ Done | `v0.10.1` (2366819) | 2026-10-30 |
-| v0.11.0 | Built-in checks as plugins (parallel report-only, parity); nightly run + backup as built-in schedules; gated cutover, rollback, local fallback | ✅ Done | `v0.11.0` (1827b06) | 2026-10-30 |
-| v0.12.0 | Flutter: Service Plugins, registration, users/keys, plugin metric charts, Backup & Restore (incl. restore with the words), Schedules, signed requests | ✅ Done | `v0.12.0` (d79a031) | 2026-10-31 |
+| v0.1.0 | Scaffold: agent, server, app, installer, CI | ✅ Done | `v0.1.0` / `9077a1c` | 2026-10-29 |
+| v0.1.1 | CI without third-party actions | ✅ Done | `v0.1.1` / `240c14c` | 2026-10-29 |
+| v0.2.0 | Audit fixes batch 1 (real ingest, Windows service, ISO rotation with 4-week blocks, on-demand loop, exceptions, auth, audit) | ✅ Done | `v0.2.0` / `d7fc245` | 2026-10-29 |
+| — | Handover notes + scanner fix (shipped with v0.3.0) | ✅ Done | `63cf4f4` | 2026-10-30 |
+| v0.3.0 | Agent checks: scanner, DNS, drive maps, printer queues, ExampleVendor drift | ✅ Done | `v0.3.0` / `183495a` | 2026-10-30 |
+| v0.4.0 | Flapping/repeat-offender metrics, charts, log search filters + paging | ✅ Done | `v0.4.0` / `e7d3120` | 2026-10-30 |
+| v0.5.0 | Backup coverage, stale poller locks, request timeouts, gRPC integration test | ✅ Done | `v0.5.0` / `8ff35c2` | 2026-10-30 |
+| v0.5.1 | Docs: service plugin plan + implementation plan | ✅ Done | `v0.5.1` / `9fd0227` | 2026-10-30 |
+| v0.5.2 | Docs: built-in checks as plugins (v0.11.0) | ✅ Done | `v0.5.2` / `6e120af` | 2026-10-30 |
+| v0.5.3 | Docs: plugin logging + structured log standard (decision 11) | ✅ Done | `v0.5.3` / `297eac3` | 2026-10-30 |
+| v0.6.0 | Storage: data dir, SQLCipher DB, roles/users/clients, migration | ✅ Done | `v0.6.0` / `5d88fb7` | 2026-10-30 |
+| v0.6.1 | Docs: this roadmap | ✅ Done | `v0.6.1` / `885f2cb` | 2026-10-30 |
+| v0.6.2 | Storage follow-up: auto-delete the plaintext backup after a verified migration | ✅ Done | `v0.6.2` / `9f3dc05` | 2026-10-30 |
+| v0.7.0 | Keys & auth: BIP39 master, certified keys, signed requests, roles, db.key escrow | ✅ Done | `v0.7.0` (505ec92) | 2026-10-30 |
+| v0.8.0 | itcmdr-cli (init, register, users, keys) + backup & restore | ✅ Done | `v0.8.0` (579829a) | 2026-10-30 |
+| v0.8.1 | Configurable paths + backup settings, retention by 4-week blocks | ✅ Done | `v0.8.1` (53f3104) | 2026-10-30 |
+| v0.9.0 | Packages: format, validation, signature, quarantine, plugins install/list/enable/disable/remove, plugins in backups | ✅ Done | `v0.9.0` (b55592c) | 2026-10-30 |
+| v0.9.1 | Settings everywhere: typed Settings API, central agent settings, `docs/SETTINGS.md`, basic app Settings screen; validated plugins enabled on install | ✅ Done | `v0.9.1` (f2f57df) | 2026-10-30 |
+| v0.10.0 | Plugin runtime, log standard, scheduled runs (server, gRPC, CLI), app-triggered restore (server side) | ✅ Done | `v0.10.0` (882728e) | 2026-10-30 |
+| v0.10.1 | First Windows VM pass + fixes (BOM in agent logs, installer compile, app exe name, PS 5.1 tests), `itcmdr-cli restore-stage` | ✅ Done | `v0.10.1` (333422c) | 2026-10-30 |
+| v0.11.0 | Built-in checks as plugins (parallel report-only, parity); nightly run + backup as built-in schedules; gated cutover, rollback, local fallback | ✅ Done | `v0.11.0` (c0748ea) | 2026-10-30 |
+| v0.12.0 | Flutter: Service Plugins, registration, users/keys, plugin metric charts, Backup & Restore (incl. restore with the words), Schedules, signed requests | ✅ Done | `v0.12.0` (eea653d) | 2026-10-31 |
 | v0.13.0 | App key encrypted at rest (DPAPI / keyring), plugin install/enable/disable/remove from the app, signed-only switch proven on the VM | ✅ Done | `v0.13.0` | 2026-10-31 |
 | v0.14.0 | Installer and first-run setup: site values, checks, words shown once, first admin key (signed from day one), upgrade keeps settings | ✅ Done | `v0.14.0` | 2026-10-31 |
 | v0.14.1 | Plugins moved to the itcmdr-plugins repo (pinned in `plugins.pin.json`); one-time history rewrite of itcmdr (approved) | ✅ Done | `v0.14.1` | 2026-10-31 |
@@ -78,6 +78,7 @@ Key backup on by default (opt-out), locked with the 24 words; COOP/COEP accepted
 | v0.15.0 | `itcmdr-common` (ErrorCriticality, ServicePluginError + derive, backtrace), plugin-error in plugin.proto and itcmdr.log/v1, PS `New-ItcmdrPluginError`, call log of every RPC | ✅ Done (`v0.15.0`, 2026-10-31) |
 | v0.15.1 | Windows restore fix (wait for the stopped server to release the DB, retry the swap), `restore_app` on a real server process, local release builds (`scripts/release-local.sh`, docs/RELEASE-LOCAL.md), ADMINSVR decisions 18 and 19 | ✅ Done (`v0.15.1`, 2026-10-31) |
 | v0.15.2 | Site-specific values moved to site.json (watchedServices, shares, serverPorts, configDrift), structured errors from built-in plugins, fault-injection suite on the VM, ADMINSVR privacy rules aligned, app macos/ project | ✅ |
+| v0.15.3 | Generic names in docs, tests, example config and plugin descriptions; legacy site.json read by a generic rule; history of itcmdr and itcmdr-plugins scrubbed of vendor/share names (one-time, approved) | ✅ |
 | v0.16.0 | Site alerts (Critical / Cautious / Informational; dedupe, ack, resolve, silence), AlertService, app Alerts screen, delivered in the on-site app and CLI (no external notifiers) | 💡 Proposed |
 | v0.17.0 | Rust `itcmdr-agent` service (on every PC and the office server): enrollment, per-agent keys, pinned TLS + mTLS client certs, agent-initiated stream, heartbeats + non-responsive alerts, offline queue, app Agents screen | 💡 Proposed |
 | v0.18.0 | Agent runs plugins and schedules, RunNow, run reports and artifacts, report-only parity vs the nightly | 💡 Proposed |
@@ -242,7 +243,7 @@ Agreed 2026-10-30: agents run only the plugin copies shipped with the agent, nev
 - [x] Schedules screen (preview, edit, pause, run now, history)
 - [x] Settings: search, bool switches, client check of every registry key
 - [x] App signs requests; default `auth_mode` is `signed` (older installs keep `both`)
-- [x] Windows VM: Pester 82/82, installer, in-place upgrade, Dart e2e on Windows (5881a22). App screens clicked through by Michael (passed).
+- [x] Windows VM: Pester 82/82, installer, in-place upgrade, Dart e2e on Windows (2084630). App screens clicked through by Michael (passed).
 
 ### v0.13.0 Key storage, plugins in the app, signed-only ✅
 - [x] App private key encrypted at rest: DPAPI (Windows), Secret Service keyring or a documented 0600 file fallback (Linux), Keychain (macOS); plaintext key migrated and removed

@@ -594,7 +594,7 @@ dependencies = [
 
 [[package]]
 name = "itcmdr-keys"
-version = "0.15.2"
+version = "0.15.3"
 dependencies = [
  "anyhow",
  "bip39",
@@ -613,7 +613,7 @@ dependencies = [
 
 [[package]]
 name = "itcmdr_keys_bridge"
-version = "0.15.2"
+version = "0.15.3"
 dependencies = [
  "anyhow",
  "flutter_rust_bridge",
