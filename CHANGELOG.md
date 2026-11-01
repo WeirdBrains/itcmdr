@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## v0.19.0 (2026-11-01)
+adminsvr core: the offsite admin server, the `itcmdr-admin` CLI and the site-side SiteLink, redacted by default. The SRE app and push move to v0.19.2.
+- New `itcmdr-adminsvr` (Linux, Postgres): admin API with the site's signed-request auth (`itcmdr-keys`; device keys certified by the user's 24-word master key), roles owner/admin/sre (new users are sre; admins cannot make or change owners), per-SRE site scopes, device approval, single-use enrollment codes, console `init` and `recover-owner`, and a hash-chained audit of every signed change (`audit-verify`, `itcmdr-admin audit verify`).
+- Encrypted user key backup, on by default: the device key is wrapped with a key derived from the 24 words (XChaCha20-Poly1305) and stored on adminsvr; `itcmdr-admin recover` restores it on a new device. `key-backup off` opts out.
+- SiteLink: the site server dials adminsvr over pinned TLS + mTLS (`itcmdr-cli adminsvr enroll <token>` in person on the site; `status`, `unlink`). Every message is signed with sequence numbers and acks; heartbeats and an unreachable-site alert on adminsvr.
+- Redaction on the site, deny by default: only opaque site-scoped IDs, alert codes built from a fixed vocabulary, check ids and plugin names, severity/state, counts and numeric rollups leave the site. No hostnames, IPs, paths, usernames or message text. Display names only with the per-site opt-in `itcmdr-cli adminsvr share-names on`. Property tests prove it.
+- Backups never leave the site: adminsvr sees backup age/size/result and can ask for `backup.start`; there is no restore command. Commands (`backup.start`, `alert.ack`, `alert.resolve`) carry the user's signature and the adminsvr root key's, are checked against the site's local allowlist (`itcmdr-cli adminsvr allow`), the never-remote list and expiry, and are audited on the site.
+- Site settings `adminsvr.enabled` (kill switch, default true) and `adminsvr.heartbeatSecs`. Settings 51.
+- Packages: `itcmdr-adminsvr-<ver>-linux-x86_64.tar.gz` (binary, systemd unit, install.sh/uninstall.sh, settings example, Containerfile and compose file, untested), `itcmdr-admin-<ver>-<os>-<arch>.tar.gz` (Linux, macOS) and `itcmdr-admin-Setup-<ver>.exe` (Windows). Verify with SHA256SUMS; installers are not code-signed yet.
+- Deferred v0.18 items (agent cutover switch, app runs UI) not included.
+
 ## v0.18.0 (2026-10-31)
 The Rust agent runs plugins and schedules (report-only), with run reports, artifacts and parity against the nightly.
 - Plugin push: the server sends the plugins selected by the new setting `agent.plugins` (per machine: `all`, `none` or a comma list of names; default `all`) over the link, endorsed by the root key over the package checksum. The agent verifies the endorsement, name, version and every file checksum before installing, and removes plugins no longer selected or disabled. Each install/removal is reported back; a refused one raises `agent-plugin:<machine>:<name>`.
