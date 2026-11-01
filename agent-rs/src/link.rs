@@ -44,6 +44,7 @@ pub async fn enroll(dir: &Path, token: &str, machine: Option<&str>, role: &str) 
         .await
         .map_err(|s| anyhow::anyhow!("{}", s.message()))?
         .into_inner();
+    verify_ca(&t.root, &r)?;
     let kd = state::keys_dir(dir);
     state::write_secret(&kd.join("agent.key"), hex::encode(sk.to_bytes()).as_bytes())?;
     state::write_secret(&kd.join("tls.key"), tls_key.as_bytes())?;
@@ -57,9 +58,35 @@ pub async fn enroll(dir: &Path, token: &str, machine: Option<&str>, role: &str) 
         ca_pem: r.ca_cert_pem,
         cert_expires_ms: r.cert_expires_ms,
         enrolled_ms: now(),
+        cert_issued_ms: now(),
+        queue_max_mib: 256,
     };
     state::save(dir, &st)?;
     Ok(st)
+}
+
+/// The token names the server root key; the site CA must be certified by it (v0.17.1).
+fn verify_ca(root: &str, r: &pb::EnrollResponse) -> Result<()> {
+    if root.is_empty() {
+        return Ok(()); // token from a v0.17.0 server
+    }
+    if !r.root_public_key.eq_ignore_ascii_case(root) {
+        bail!("the server's root key is not the one in the enrollment token");
+    }
+    let pk: [u8; 32] = hex::decode(root)?
+        .try_into()
+        .map_err(|_| anyhow::anyhow!("bad root key in the token"))?;
+    let vk = ed25519_dalek::VerifyingKey::from_bytes(&pk)?;
+    let sig: [u8; 64] = hex::decode(&r.ca_signature)?
+        .try_into()
+        .map_err(|_| anyhow::anyhow!("the server sent no CA certification"))?;
+    let der = tls::pem_to_der(&r.ca_cert_pem)?;
+    vk.verify_strict(
+        &itcmdr_agentlink::ca_cert_bytes(der.as_ref()),
+        &ed25519_dalek::Signature::from_bytes(&sig),
+    )
+    .map_err(|_| anyhow::anyhow!("the site CA is not certified by the server root key"))?;
+    Ok(())
 }
 
 fn signing_key(dir: &Path) -> Result<SigningKey> {
@@ -79,6 +106,8 @@ pub enum End {
     Refused(String),
     /// Stream dropped or never came up: retry with backoff.
     Lost(String),
+    /// The certificate was renewed: reconnect at once with the new one.
+    Renewed,
 }
 
 /// One session: connect, Hello, answer pings until the stream ends.
@@ -137,18 +166,66 @@ pub async fn session(dir: &Path, st: &State, mut connected: impl FnMut(&pb::Welc
     let mut inbound = match resp {
         Ok(r) => r.into_inner(),
         Err(s) => {
-            return match s.code() {
-                tonic::Code::PermissionDenied | tonic::Code::Unauthenticated => {
-                    End::Refused(s.message().to_string())
-                }
-                _ => End::Lost(s.message().to_string()),
-            }
+            return classify(&s);
         }
     };
+    let mut pending_key: Option<String> = None;
+    let mut queue_mib = st.queue_max_mib;
+    let mut sent: std::collections::HashSet<u64> = Default::default();
+    let mut qtick = tokio::time::interval(Duration::from_secs(2));
+    let issued = if st.cert_issued_ms > 0 {
+        st.cert_issued_ms
+    } else {
+        st.enrolled_ms
+    };
     loop {
-        match inbound.message().await {
+        let m = tokio::select! {
+            m = inbound.message() => m,
+            _ = qtick.tick() => {
+                match crate::queue::ingest(dir, queue_mib) {
+                    Ok(items) => for it in items {
+                        if !sent.insert(it.seq) { continue; }
+                        let msg = pb::AgentMessage { seq: it.seq, body: Some(pb::agent_message::Body::Alert(pb::AgentAlert {
+                            key: it.key, level: it.level, title: it.title, detail: it.detail, ts_ms: it.ts_ms, resolve: it.resolve,
+                        })) };
+                        if tx.send(msg).await.is_err() { return End::Lost("send failed".into()); }
+                    },
+                    Err(e) => tracing::warn!(error=%format!("{e:#}"), "offline queue"),
+                }
+                continue;
+            }
+        };
+        let mut renew = false;
+        match m {
             Ok(Some(m)) => match m.body {
-                Some(pb::server_message::Body::Welcome(w)) => connected(&w),
+                Some(pb::server_message::Body::Welcome(w)) => {
+                    connected(&w);
+                    if w.queue_max_mib > 0 && w.queue_max_mib as u64 != st.queue_max_mib {
+                        queue_mib = w.queue_max_mib as u64;
+                        let mut s2 = st.clone();
+                        s2.queue_max_mib = queue_mib;
+                        let _ = state::save(dir, &s2);
+                    }
+                    renew = itcmdr_agentlink::renew_due(issued, st.cert_expires_ms, now());
+                }
+                Some(pb::server_message::Body::RenewNow(r)) => {
+                    tracing::info!(reason=%r.reason, "the server asked for a certificate renewal");
+                    renew = true;
+                }
+                Some(pb::server_message::Body::Renewed(r)) => {
+                    let Some(key) = pending_key.take() else {
+                        continue;
+                    };
+                    if let Err(e) = save_renewed(dir, st, &key, &r) {
+                        tracing::error!(error=%format!("{e:#}"), "saving the renewed certificate");
+                        continue;
+                    }
+                    tracing::info!(
+                        expires_ms = r.expires_ms,
+                        "certificate renewed; reconnecting"
+                    );
+                    return End::Renewed;
+                }
                 Some(pb::server_message::Body::Ping(p)) => {
                     seq += 1;
                     let pong = pb::Pong {
@@ -167,18 +244,78 @@ pub async fn session(dir: &Path, st: &State, mut connected: impl FnMut(&pb::Welc
                     }
                 }
                 Some(pb::server_message::Body::Bye(b)) => return End::Bye(b.reason),
-                None => {}
+                None => crate::queue::ack(dir, m.ack_seq),
             },
             Ok(None) => return End::Lost("server closed the stream".into()),
             Err(s) => {
-                return match s.code() {
-                    tonic::Code::PermissionDenied | tonic::Code::Unauthenticated => {
-                        End::Refused(s.message().to_string())
-                    }
-                    _ => End::Lost(s.message().to_string()),
-                }
+                return classify(&s);
             }
         }
+        if renew && pending_key.is_none() {
+            match tls::new_csr(&st.machine) {
+                Ok((csr, key)) => {
+                    seq += 1;
+                    pending_key = Some(key);
+                    let msg = pb::AgentMessage {
+                        seq,
+                        body: Some(pb::agent_message::Body::Renew(pb::Renew { csr_pem: csr })),
+                    };
+                    if tx.send(msg).await.is_err() {
+                        return End::Lost("send failed".into());
+                    }
+                }
+                Err(e) => tracing::error!(error=%format!("{e:#}"), "renewal CSR"),
+            }
+        }
+    }
+}
+
+fn save_renewed(dir: &Path, st: &State, key: &str, r: &pb::Renewed) -> Result<()> {
+    let fp_new = tls::pem_fingerprint(&r.cert_pem)?;
+    ensure_new(&fp_new, &st.cert_pem)?;
+    // Key first: if we crash between the two writes, the old cert + new key fail and the
+    // previous key is gone, so keep a copy until the state is saved.
+    let kd = state::keys_dir(dir);
+    let old = kd.join("tls.key");
+    let bak = kd.join("tls.key.prev");
+    let _ = std::fs::copy(&old, &bak);
+    state::write_secret(&old, key.as_bytes())?;
+    let mut s2 = st.clone();
+    s2.cert_pem = r.cert_pem.clone();
+    s2.cert_expires_ms = r.expires_ms;
+    s2.cert_issued_ms = now();
+    if let Ok(Some(cur)) = state::load(dir) {
+        s2.queue_max_mib = cur.queue_max_mib;
+    }
+    state::save(dir, &s2)?;
+    let _ = std::fs::remove_file(&bak);
+    Ok(())
+}
+
+fn ensure_new(fp_new: &str, old_pem: &str) -> Result<()> {
+    if tls::pem_fingerprint(old_pem).is_ok_and(|o| o == fp_new) {
+        bail!("the renewed certificate is the old one");
+    }
+    Ok(())
+}
+
+/// Map a link error: refusals (including a certificate revoked in the TLS handshake) stop the
+/// retry loop; anything else is a lost link.
+fn classify(s: &tonic::Status) -> End {
+    let mut chain = s.message().to_string();
+    let mut e: Option<&dyn std::error::Error> = std::error::Error::source(s);
+    while let Some(x) = e {
+        chain.push_str(&format!(": {x}"));
+        e = x.source();
+    }
+    match s.code() {
+        tonic::Code::PermissionDenied | tonic::Code::Unauthenticated => {
+            End::Refused(s.message().to_string())
+        }
+        _ if chain.contains("CertificateRevoked") || chain.contains("certificate revoked") => {
+            End::Refused("the client certificate was revoked (refused in the TLS handshake)".into())
+        }
+        _ => End::Lost(chain),
     }
 }
 
@@ -241,6 +378,7 @@ pub async fn run(
                 attempt = 0;
             }
             match end {
+                End::Renewed => break, // reload state with the new certificate
                 End::Lost(why) => {
                     let d = backoff(attempt, reconnect_cap);
                     attempt = attempt.saturating_add(1);

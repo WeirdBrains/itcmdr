@@ -8,7 +8,7 @@ pub type DbPool = Pool<Sqlite>;
 
 /// Bumped whenever the schema changes. Stored as `PRAGMA user_version`; backups record it and
 /// restore refuses archives from a newer schema (older ones are migrated by `create_schema`).
-pub const SCHEMA_VERSION: i64 = 7;
+pub const SCHEMA_VERSION: i64 = 8;
 
 /// Open (creating if needed) the SQLCipher database. The data dir layout and DB key are created
 /// on first use. A pre-0.6 plaintext database at the target path, or `itcmdr.sqlite` next to it,
@@ -439,6 +439,13 @@ async fn create_schema(pool: &DbPool) -> anyhow::Result<()> {
         "ALTER TABLE requests ADD COLUMN message TEXT",
         // v0.15.0: audit rows link to the call that made them.
         "ALTER TABLE audit_log ADD COLUMN call_id TEXT",
+        // v0.17.1: certificate renewal, durable agent message seq.
+        "ALTER TABLE agents ADD COLUMN cert_issued_ms INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE agents ADD COLUMN prev_cert_fp TEXT",
+        "ALTER TABLE agents ADD COLUMN prev_until_ms INTEGER",
+        "ALTER TABLE agents ADD COLUMN prev_serial TEXT",
+        "ALTER TABLE agents ADD COLUMN renew_requested INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE agents ADD COLUMN last_seq INTEGER NOT NULL DEFAULT 0",
     ] {
         let _ = sqlx::query(m).execute(pool).await;
     }

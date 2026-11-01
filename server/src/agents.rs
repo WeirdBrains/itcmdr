@@ -80,6 +80,33 @@ pub struct Material {
     pub ca: Pem,
     pub server: Pem,
     pub fingerprint: String,
+    /// v0.17.1: (root public key hex, signature hex) certifying the CA; None until a root key exists.
+    pub ca_sig: Option<(String, String)>,
+}
+
+/// Certify the site CA with the server root key (itself certified by the master key), once.
+fn ca_signature(layout: &Layout, ca: &Pem) -> Option<(String, String)> {
+    let p = layout.keys().join("agent-ca.sig");
+    if let Ok(t) = std::fs::read_to_string(&p) {
+        let v: serde_json::Value = serde_json::from_str(&t).ok()?;
+        return Some((
+            v["root_public_key"].as_str()?.to_string(),
+            v["signature"].as_str()?.to_string(),
+        ));
+    }
+    let root = crate::auth::load_root_key(layout).ok()?;
+    let der = tls::pem_to_der(&ca.cert).ok()?;
+    use ed25519_dalek::Signer;
+    let sig = hex::encode(
+        root.sign(&itcmdr_agentlink::ca_cert_bytes(der.as_ref()))
+            .to_bytes(),
+    );
+    let pk = hex::encode(root.verifying_key().to_bytes());
+    let j = serde_json::json!({"root_public_key": pk, "signature": sig});
+    if std::fs::write(&p, j.to_string()).is_ok() {
+        tracing::info!("site CA certified by the server root key");
+    }
+    Some((pk, sig))
 }
 
 fn read_pair(layout: &Layout, name: &str) -> Result<Option<Pem>> {
@@ -122,10 +149,12 @@ pub fn ensure_material(layout: &Layout) -> Result<Material> {
         }
     };
     let fingerprint = tls::pem_fingerprint(&server.cert)?;
+    let ca_sig = ca_signature(layout, &ca);
     Ok(Material {
         ca,
         server,
         fingerprint,
+        ca_sig,
     })
 }
 
@@ -190,6 +219,11 @@ pub async fn create_token(
         pin: m.fingerprint.clone(),
         secret,
         machine: machine.into(),
+        root: m
+            .ca_sig
+            .as_ref()
+            .map(|(pk, _)| pk.clone())
+            .unwrap_or_default(),
     }
     .encode();
     Ok(NewToken {
@@ -214,6 +248,15 @@ pub struct Agent {
     pub cert_expires_ms: i64,
     pub cert_fp: String,
     pub public_key: String,
+    pub cert_issued_ms: i64,
+    pub cert_serial: String,
+    pub renew_requested: bool,
+    #[serde(skip)]
+    pub prev_cert_fp: String,
+    #[serde(skip)]
+    pub prev_until_ms: i64,
+    #[serde(skip)]
+    pub last_seq: i64,
 }
 
 fn row(r: &sqlx::sqlite::SqliteRow) -> Agent {
@@ -230,6 +273,14 @@ fn row(r: &sqlx::sqlite::SqliteRow) -> Agent {
         cert_expires_ms: r.get("cert_expires_ms"),
         cert_fp: r.get("cert_fp"),
         public_key: r.get("public_key"),
+        cert_issued_ms: r.get("cert_issued_ms"),
+        cert_serial: r.get("cert_serial"),
+        renew_requested: r.get::<i64, _>("renew_requested") != 0,
+        prev_cert_fp: r
+            .get::<Option<String>, _>("prev_cert_fp")
+            .unwrap_or_default(),
+        prev_until_ms: r.get::<Option<i64>, _>("prev_until_ms").unwrap_or(0),
+        last_seq: r.get("last_seq"),
     }
 }
 
@@ -308,6 +359,7 @@ pub async fn revoke(pool: &DbPool, machine: &str) -> Result<Option<Agent>> {
         .execute(pool)
         .await?;
     kick(&a.id);
+    refresh_revoked(pool).await;
     alerts::resolve_key(pool, &format!("agent-nonresponsive:{}", a.machine)).await?;
     get(pool, &a.id).await
 }
@@ -387,7 +439,8 @@ pub async fn enroll(
     );
     let m = ensure_material(layout)?;
     let id = uuid::Uuid::new_v4().to_string();
-    let issued = tls::sign_csr(&m.ca, &r.csr_pem, &id, machine, itcmdr_agentlink::CERT_DAYS)?;
+    let life = crate::settings::get_i64(pool, None, "agent.certLifetimeMins").await;
+    let issued = tls::sign_csr(&m.ca, &r.csr_pem, &id, machine, life)?;
     sqlx::query("UPDATE enroll_tokens SET used_ms = ? WHERE id = ?")
         .bind(t)
         .bind(tok.get::<String, _>("id"))
@@ -400,7 +453,7 @@ pub async fn enroll(
             .fetch_all(&mut *tx)
             .await?;
     sqlx::query("UPDATE agents SET state = 'revoked', revoked_ms = ? WHERE machine = ? AND state != 'revoked'").bind(t).bind(machine).execute(&mut *tx).await?;
-    sqlx::query("INSERT INTO agents(id, machine, role, public_key, cert_fp, cert_serial, cert_expires_ms, state, enrolled_ms, version, os, peer) VALUES (?,?,?,?,?,?,?,'enrolled',?,?,?,?)")
+    sqlx::query("INSERT INTO agents(id, machine, role, public_key, cert_fp, cert_serial, cert_expires_ms, state, enrolled_ms, version, os, peer, cert_issued_ms) VALUES (?,?,?,?,?,?,?,'enrolled',?,?,?,?,?)")
         .bind(&id)
         .bind(machine)
         .bind(role)
@@ -412,9 +465,11 @@ pub async fn enroll(
         .bind(r.agent_version.chars().take(40).collect::<String>())
         .bind(r.os.chars().take(120).collect::<String>())
         .bind(peer)
+        .bind(t)
         .execute(&mut *tx)
         .await?;
     tx.commit().await?;
+    refresh_revoked(pool).await;
     for o in old {
         kick(&o);
     }
@@ -431,6 +486,12 @@ pub async fn enroll(
         ca_cert_pem: m.ca.cert.clone(),
         cert_expires_ms: issued.not_after_ms,
         heartbeat_secs: crate::settings::get_i64(pool, None, "agent.heartbeatSecs").await as i32,
+        ca_signature: m
+            .ca_sig
+            .as_ref()
+            .map(|(_, s)| s.clone())
+            .unwrap_or_default(),
+        root_public_key: m.ca_sig.map(|(pk, _)| pk).unwrap_or_default(),
     })
 }
 
@@ -459,7 +520,9 @@ async fn machine_value(pool: &DbPool, key: &str, machine: &str) -> Option<serde_
 /// Heartbeat state machine pass (called every few seconds).
 pub async fn tick(pool: &DbPool) -> Result<()> {
     let t = now();
+    refresh_revoked(pool).await;
     for a in list(pool, false).await? {
+        cert_alert(pool, &a, t).await?;
         if a.state == "maintenance" || a.state == "enrolled" && a.last_seen_ms == 0 {
             continue;
         }
@@ -473,9 +536,23 @@ pub async fn tick(pool: &DbPool) -> Result<()> {
         let lost = machine_i64(pool, "agent.missedHeartbeats", &a.machine)
             .await
             .max(late);
-        let missed = (t - a.last_seen_ms) / interval;
+        // Office-hours profile: outside the hours nothing escalates to an alert, and misses
+        // count from the start of today's hours (a PC switched on in the morning is not "lost").
+        let (since, outside) = match machine_value(pool, "agent.officeHours", &a.machine)
+            .await
+            .and_then(|v| v.as_str().map(str::to_string))
+            .filter(|t| !t.trim().is_empty())
+            .and_then(|t| crate::schedule::parse_hours(&t).ok())
+        {
+            Some(h) => match office_start_ms(&h, chrono::Local::now()) {
+                Some(start) => (a.last_seen_ms.max(start), false),
+                None => (a.last_seen_ms, true),
+            },
+            None => (a.last_seen_ms, false),
+        };
+        let missed = (t - since) / interval;
         let key = format!("agent-nonresponsive:{}", a.machine);
-        if missed >= lost {
+        if missed >= lost && !outside {
             if a.state != "non_responsive" {
                 set_state(
                     pool,
@@ -519,6 +596,208 @@ pub async fn tick(pool: &DbPool) -> Result<()> {
         }
     }
     Ok(())
+}
+
+fn renew_now(ack: u64, reason: &str) -> pb::ServerMessage {
+    pb::ServerMessage {
+        ack_seq: ack,
+        body: Some(pb::server_message::Body::RenewNow(pb::RenewNow {
+            reason: reason.into(),
+        })),
+    }
+}
+
+/// How long the replaced certificate keeps working after a renewal (the agent reconnects at once).
+const RENEW_OVERLAP_MS: i64 = 24 * 3_600_000;
+
+/// Sign a renewal CSR received over an authenticated link and make it the current certificate.
+pub async fn renew(
+    pool: &DbPool,
+    layout: &Layout,
+    a: &Agent,
+    csr_pem: &str,
+) -> Result<pb::Renewed> {
+    let m = ensure_material(layout)?;
+    let life = crate::settings::get_i64(pool, None, "agent.certLifetimeMins").await;
+    let i = tls::sign_csr(&m.ca, csr_pem, &a.id, &a.machine, life)?;
+    let t = now();
+    sqlx::query("UPDATE agents SET prev_cert_fp = cert_fp, prev_serial = cert_serial, prev_until_ms = ?, cert_fp = ?, cert_serial = ?, cert_expires_ms = ?, cert_issued_ms = ?, renew_requested = 0 WHERE id = ? AND state != 'revoked'")
+        .bind(t + RENEW_OVERLAP_MS)
+        .bind(&i.fingerprint)
+        .bind(&i.serial)
+        .bind(i.not_after_ms)
+        .bind(t)
+        .bind(&a.id)
+        .execute(pool)
+        .await?;
+    refresh_revoked(pool).await;
+    alerts::resolve_key(pool, &format!("agent-cert:{}", a.machine)).await?;
+    crate::db::insert_audit(
+        pool,
+        "itcmdr-server",
+        "agent-renew",
+        &serde_json::json!({"machine": a.machine, "agent": a.id, "cert_fp": i.fingerprint})
+            .to_string(),
+    )
+    .await?;
+    tracing::info!(machine=%a.machine, "agent certificate renewed");
+    Ok(pb::Renewed {
+        cert_pem: i.cert_pem,
+        expires_ms: i.not_after_ms,
+    })
+}
+
+/// Ask the machine's agent to renew its certificate at its next heartbeat (`agent renew`).
+pub async fn request_renew(pool: &DbPool, machine: &str) -> Result<Option<Agent>> {
+    let Some(a) = by_machine(pool, machine).await? else {
+        return Ok(None);
+    };
+    sqlx::query("UPDATE agents SET renew_requested = 1 WHERE id = ?")
+        .bind(&a.id)
+        .execute(pool)
+        .await?;
+    get(pool, &a.id).await
+}
+
+/// A queued alert from the agent (`itcmdr-agent alert`), delivered once even across reconnects.
+async fn agent_alert(pool: &DbPool, a: &Agent, seq: u64, al: &pb::AgentAlert) -> Result<()> {
+    let seq = seq as i64;
+    let r = sqlx::query("UPDATE agents SET last_seq = ? WHERE id = ? AND last_seq < ?")
+        .bind(seq)
+        .bind(&a.id)
+        .bind(seq)
+        .execute(pool)
+        .await?;
+    if r.rows_affected() == 0 {
+        return Ok(()); // already delivered
+    }
+    let k: String = al
+        .key
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric() || "-_.:".contains(*c))
+        .take(80)
+        .collect();
+    ensure!(!k.is_empty(), "alert key is empty");
+    let key = format!("agent:{}:{k}", a.machine);
+    if al.resolve {
+        alerts::resolve_key(pool, &key).await?;
+        return Ok(());
+    }
+    let level = if alerts::LEVELS.contains(&al.level.as_str()) {
+        al.level.clone()
+    } else {
+        "cautious".into()
+    };
+    let mut detail: String = al.detail.chars().take(4000).collect();
+    if al.ts_ms > 0 && now() - al.ts_ms > 120_000 {
+        detail = format!("{detail}\n(queued on the agent at {})", ms_text(al.ts_ms));
+    }
+    alerts::raise(
+        pool,
+        &Raise {
+            key,
+            level,
+            source: "agent".into(),
+            machine: a.machine.clone(),
+            title: al.title.chars().take(200).collect(),
+            detail,
+            run_id: None,
+        },
+    )
+    .await?;
+    Ok(())
+}
+
+/// Start (unix ms) of the office-hours window `at` is in, or None outside the hours.
+pub fn office_start_ms(
+    h: &crate::schedule::Hours,
+    at: chrono::DateTime<chrono::Local>,
+) -> Option<i64> {
+    use chrono::{Datelike, TimeZone};
+    let (wd, t) = (at.weekday(), at.time());
+    if !h.days.contains(&wd) || t < h.start || t >= h.end {
+        return None;
+    }
+    chrono::Local
+        .from_local_datetime(&at.date_naive().and_time(h.start))
+        .earliest()
+        .map(|d| d.timestamp_millis())
+}
+
+/// Certificate expiry alert: Cautious within 14 days, Critical within 3, resolved after renewal.
+async fn cert_alert(pool: &DbPool, a: &Agent, t: i64) -> Result<()> {
+    let key = format!("agent-cert:{}", a.machine);
+    let left = a.cert_expires_ms - t;
+    let level = if left < 3 * 86_400_000 {
+        "critical"
+    } else if left < 14 * 86_400_000 {
+        "cautious"
+    } else {
+        alerts::resolve_key(pool, &key).await?;
+        return Ok(());
+    };
+    alerts::raise(
+        pool,
+        &Raise {
+            key,
+            level: level.into(),
+            source: "agent".into(),
+            machine: a.machine.clone(),
+            title: format!("{} agent certificate expires {}", a.machine, ms_text(a.cert_expires_ms)),
+            detail: "The agent renews it over the link at 2/3 of its lifetime; if it is offline, bring it online or enroll it again.".into(),
+            run_id: None,
+        },
+    )
+    .await?;
+    Ok(())
+}
+
+/// Serials of agent client certificates still allowed in the TLS handshake: the current one of
+/// every non-revoked agent, plus the previous one during its renewal overlap. Anything else signed
+/// by the site CA (a revoked agent, or a certificate replaced by renewal) is refused at once.
+/// Keyed by database file, so several servers in one process (tests) do not share a set.
+type Allowed = HashMap<String, std::collections::HashSet<String>>;
+static ALLOWED: Lazy<parking_lot::RwLock<Allowed>> = Lazy::new(Default::default);
+
+fn db_key(pool: &DbPool) -> String {
+    pool.connect_options()
+        .get_filename()
+        .to_string_lossy()
+        .to_string()
+}
+
+/// Reload the allowed serial set (every heartbeat pass, and after revoke/enroll/renew).
+pub async fn refresh_revoked(pool: &DbPool) {
+    type Row3 = (String, Option<String>, Option<i64>);
+    let r: Result<Vec<Row3>, _> = sqlx::query_as(
+        "SELECT cert_serial, prev_serial, prev_until_ms FROM agents WHERE state != 'revoked'",
+    )
+    .fetch_all(pool)
+    .await;
+    match r {
+        Ok(rows) => {
+            let t = now();
+            let mut set = std::collections::HashSet::new();
+            for (s, p, until) in rows {
+                set.insert(s.to_lowercase());
+                if let (Some(p), Some(u)) = (p, until) {
+                    if u > t {
+                        set.insert(p.to_lowercase());
+                    }
+                }
+            }
+            ALLOWED.write().insert(db_key(pool), set);
+        }
+        Err(e) => tracing::warn!("agent serial refresh: {e}"),
+    }
+}
+
+/// True when a client certificate with this serial (hex) must be refused in the handshake.
+pub fn serial_revoked(pool: &DbPool, serial: &str) -> bool {
+    match ALLOWED.read().get(&db_key(pool)) {
+        Some(set) => !set.contains(&serial.to_lowercase()),
+        None => true,
+    }
 }
 
 fn ms_text(ms: i64) -> String {
@@ -644,12 +923,13 @@ impl pb::agent_service_server::AgentService for AgentLink {
                 "this agent was revoked; enroll it again",
             ));
         }
-        if !a.cert_fp.eq_ignore_ascii_case(&fp) {
+        let prev_ok = a.prev_until_ms > now() && a.prev_cert_fp.eq_ignore_ascii_case(&fp);
+        if !a.cert_fp.eq_ignore_ascii_case(&fp) && !prev_ok {
             return Err(Status::unauthenticated(
                 "the client certificate is not the one issued to this agent",
             ));
         }
-        if a.cert_expires_ms < now() {
+        if a.cert_expires_ms < now() && !prev_ok {
             return Err(Status::unauthenticated(
                 "the client certificate has expired; enroll again",
             ));
@@ -707,10 +987,27 @@ impl pb::agent_service_server::AgentService for AgentLink {
                     server_ts_ms: now(),
                     heartbeat_secs: hb as i32,
                     reconnect_max_secs: reconnect as i32,
+                    queue_max_mib: machine_i64(&self.pool, "agent.queueMaxMib", &a.machine).await
+                        as i32,
                 })),
             }))
             .await;
+        let mut renew_sent = false;
+        if a.renew_requested || prev_ok {
+            renew_sent = true;
+            let _ = tx
+                .send(Ok(renew_now(
+                    first.seq,
+                    if prev_ok {
+                        "connected with the replaced certificate"
+                    } else {
+                        "requested by an administrator"
+                    },
+                )))
+                .await;
+        }
         let pool = self.pool.clone();
+        let layout = self.layout.clone();
         let agent = a.clone();
         tokio::spawn(async move {
             let mut ticker = tokio::time::interval(Duration::from_secs(hb as u64));
@@ -729,9 +1026,31 @@ impl pb::agent_service_server::AgentService for AgentLink {
                     m = inbound.next() => {
                         match m {
                             Some(Ok(msg)) => {
+                                // Queued alerts carry the agent's durable seq: dedupe against the DB, ack each.
+                                if let Some(pb::agent_message::Body::Alert(al)) = &msg.body {
+                                    match agent_alert(&pool, &agent, msg.seq, al).await {
+                                        Ok(()) => { let _ = tx.send(Ok(pb::ServerMessage { ack_seq: msg.seq, body: None })).await; }
+                                        Err(e) => tracing::warn!(machine=%agent.machine, error=%e, "agent alert"),
+                                    }
+                                    continue;
+                                }
                                 if msg.seq <= last_seq { continue; } // replay/duplicate
                                 last_seq = msg.seq;
+                                if let Some(pb::agent_message::Body::Renew(r)) = &msg.body {
+                                    match renew(&pool, &layout, &agent, &r.csr_pem).await {
+                                        Ok(rn) => {
+                                            renew_sent = true;
+                                            let _ = tx.send(Ok(pb::ServerMessage { ack_seq: last_seq, body: Some(pb::server_message::Body::Renewed(rn)) })).await;
+                                        }
+                                        Err(e) => tracing::warn!(machine=%agent.machine, error=%e, "agent renewal refused"),
+                                    }
+                                    continue;
+                                }
                                 if let Some(pb::agent_message::Body::Pong(p)) = msg.body {
+                                    if !renew_sent && get(&pool, &agent.id).await.ok().flatten().is_some_and(|a| a.renew_requested) {
+                                        renew_sent = true;
+                                        let _ = tx.send(Ok(renew_now(last_seq, "requested by an administrator"))).await;
+                                    }
                                     // Revoked from another process (itcmdr-cli): end at the next beat.
                                     if get(&pool, &agent.id).await.ok().flatten().is_some_and(|a| a.state == "revoked") {
                                         let _ = tx.send(Ok(pb::ServerMessage { ack_seq: last_seq, body: Some(pb::server_message::Body::Bye(pb::Bye { reason: "revoked".into() })) })).await;
@@ -801,11 +1120,19 @@ pub async fn serve(
         let layout = cfg.layout();
         let m = ensure_material(&layout)?;
         tracing::info!(%addr, fingerprint=%m.fingerprint, "starting the agent link (TLS + client certificates)");
+        refresh_revoked(&pool).await;
+        let tls_cfg = tls::server_config(&m.server, &m.ca.cert, {
+            let p = pool.clone();
+            std::sync::Arc::new(move |s: &str| serial_revoked(&p, s))
+        })?;
+        let listener = tokio::net::TcpListener::bind(addr).await.context("bind agent_bind_addr")?;
+        let on_fail = std::sync::Arc::new(|peer: std::net::SocketAddr, e: String| {
+            tracing::warn!(peer=%peer.ip(), error=%e, "agent link handshake refused");
+        });
         tonic::transport::Server::builder()
-            .tls_config(tls::server_tls(&m.server, &m.ca.cert))?
             .http2_keepalive_interval(Some(Duration::from_secs(30)))
             .add_service(pb::agent_service_server::AgentServiceServer::new(AgentLink::new(pool, layout)))
-            .serve_with_shutdown(addr, shutdown)
+            .serve_with_incoming_shutdown(tls::incoming(listener, tls_cfg, on_fail), shutdown)
             .await?;
         anyhow::Ok(())
     }

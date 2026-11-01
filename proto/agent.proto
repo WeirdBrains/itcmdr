@@ -25,6 +25,8 @@ message EnrollResponse {
   string ca_cert_pem = 3;
   int64 cert_expires_ms = 4;
   int32 heartbeat_secs = 5;
+  string ca_signature = 6;     // v0.17.1: hex Ed25519 by the server root key over SHA-256(CA cert DER)
+  string root_public_key = 7;  // hex; the agent checks it against the token's pinned root key
 }
 
 message AgentMessage {
@@ -32,6 +34,8 @@ message AgentMessage {
   oneof body {
     Hello hello = 2;
     Pong pong = 3;
+    Renew renew = 4;           // v0.17.1: new CSR (new key), on RenewNow or at 2/3 of the lifetime
+    AgentAlert alert = 5;      // v0.17.1: from the offline queue; seq is durable, acked by ack_seq
   }
 }
 message Hello {
@@ -44,6 +48,15 @@ message Hello {
   string nonce = 7;
   string signature = 8;      // hex Ed25519 over itcmdr_agentlink::hello_bytes
 }
+message Renew { string csr_pem = 1; }
+message AgentAlert {
+  string key = 1;            // the server prefixes agent:<machine>:
+  string level = 2;          // critical | cautious | informational
+  string title = 3;
+  string detail = 4;
+  int64 ts_ms = 5;
+  bool resolve = 6;          // true: resolve that key instead of raising it
+}
 message Pong {
   string nonce = 1;
   int64 agent_ts_ms = 2;
@@ -55,13 +68,18 @@ message ServerMessage {
     Welcome welcome = 2;
     Ping ping = 3;
     Bye bye = 4;
+    RenewNow renew_now = 5;
+    Renewed renewed = 6;
   }
 }
 message Welcome {
   int64 server_ts_ms = 1;
   int32 heartbeat_secs = 2;
   int32 reconnect_max_secs = 3;
+  int32 queue_max_mib = 4;
 }
+message RenewNow { string reason = 1; }
+message Renewed { string cert_pem = 1; int64 expires_ms = 2; }
 message Ping {
   string nonce = 1;
   int64 server_ts_ms = 2;

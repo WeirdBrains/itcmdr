@@ -106,6 +106,7 @@ pub fn registry() -> Vec<Def> {
         Def { from_cfg: Some(|c| json!(c.ingest_interval_secs)), ..d("server.ingest_interval_secs", Server, int(5, 3600), json!(30), "Seconds between log ingest / request sync passes.") },
         Def { from_cfg: Some(|c| json!(c.request_timeout_secs)), ..d("server.request_timeout_secs", Server, int(60, 7 * 86400), json!(3 * 3600), "On-demand requests still queued/running after this many seconds become timed_out.") },
         Def { from_cfg: Some(|c| json!(c.retention_days)), ..d("server.retention_days", Server, int(30, 3650), json!(400), "Days of run/check data kept in the database.") },
+        d("agent.certLifetimeMins", Server, int(10, 5 * 365 * 1440), json!(90 * 1440), "Lifetime of agent client certificates in minutes (default 90 days); agents renew at 2/3 of it (v0.17.1)."),
         d("alerts.dedupe_window_mins", Server, int(0, 7 * 24 * 60), json!(60), "A resolved alert raised again within this many minutes reopens instead of starting a new one (v0.16.0)."),
         d("calllog.retention_days", Server, int(1, 3650), json!(30), "Days of the call log (every RPC) kept in the database; finished days are exported to server-logs/calls first (v0.15.0)."),
         Def { from_cfg: Some(|c| json!(c.bind_addr)), read_only: true, applies: "restart",
@@ -138,6 +139,8 @@ pub fn registry() -> Vec<Def> {
         d("agent.nonresponsiveLevel", Agent, Kind::Text, json!("critical"), "Level of the non-responsive alert: critical, cautious or informational (v0.17.0)."),
         d("agent.serverNonresponsiveLevel", Agent, Kind::Text, json!("critical"), "Level of the non-responsive alert for agents enrolled as role server (v0.17.0)."),
         d("agent.reconnectMaxSecs", Agent, int(5, 3600), json!(300), "Longest wait between agent reconnect attempts (backoff cap, seconds) (v0.17.0)."),
+        d("agent.officeHours", Agent, Kind::Text, json!(""), "Heartbeat office-hours profile, e.g. \"Mon-Fri 07:00-18:00\" (server local time): outside it a missing agent raises no alert, and misses count from the start of the hours. Empty: always (v0.17.1)."),
+        d("agent.queueMaxMib", Agent, int(1, 4096), json!(256), "Rust agent offline queue cap (MiB); oldest informational items are dropped first (v0.17.1)."),
         d("agent.tcpTimeoutMs", Agent, int(100, 60000), json!(3000), "TCP probe timeout (ms)."),
         d("agent.staleLockMinutes", Agent, int(10, 1440), json!(150), "Poller: a request lock older than this was left by a crashed run."),
         Def { applies: "agent reinstall", ..d("agent.nightlyTime", Agent, Kind::Time, json!("01:30"), "Nightly maintenance task time (before stagger); also the default time of the built-in nightly-agent-run schedule.") },
@@ -225,7 +228,9 @@ pub fn validate(d: &Def, v: &Value) -> Result<()> {
             }
         }
         Kind::Text => ensure!(
-            v.as_str().is_some_and(|s| !s.trim().is_empty()),
+            // agent.officeHours: empty = no profile (always on).
+            v.as_str()
+                .is_some_and(|s| !s.trim().is_empty() || d.key == "agent.officeHours"),
             "{} cannot be empty",
             d.key
         ),
@@ -421,6 +426,11 @@ pub async fn set(pool: &DbPool, key: &str, text: &str, machine: Option<&str>) ->
     }
     if key == "schedule.office_hours" {
         if let Some(t) = v.as_str() {
+            crate::schedule::parse_hours(t)?;
+        }
+    }
+    if key == "agent.officeHours" {
+        if let Some(t) = v.as_str().filter(|t| !t.trim().is_empty()) {
             crate::schedule::parse_hours(t)?;
         }
     }

@@ -39,6 +39,7 @@ List<SettingItem> settingsFromReference([String? markdown]) {
       type = 'path';
       if (value.startsWith('(')) value = '';
     }
+    if (value == '(empty)') value = '';
     out.add(
       SettingItem(
         key: key,
