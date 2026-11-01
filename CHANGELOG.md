@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-v0.20.0 in progress (done so far):
+## v0.20.0 (2026-11-01)
+Commands, configs and plugins from adminsvr with preview and two-person approval; no CocoaPods.
 - Commands down from adminsvr: `setting.set` (numbers, switches and times only; never link, auth, path or text settings), `schedule.run`/`pause`/`resume` (opaque schedule ids), `plugin.install`/`enable`/`disable`. Every command can be a dry run: the site answers with before/after and changes nothing. All kinds stay off until the site owner allows them (`itcmdr-cli adminsvr allow`); restore, keys and auth are never remote.
 - Two-person approval: plugin commands wait for a second owner or admin, whose key signs the approval; the site checks it itself (`adminsvr.requireTwoPerson`, default on, site-only), so a compromised adminsvr cannot skip it (tested).
 - Global freeze (owners): nothing is sent to any site while it is on.
@@ -12,6 +13,7 @@ v0.20.0 in progress (done so far):
 - itcmdr Admin: server Config and Plugins tabs (preview, then apply), Plugins page (catalog, approvals, freeze), freeze banner, 24 h summaries.
 - No CocoaPods: both Flutter apps build their Rust bridge with flutter_rust_bridge native assets (cargokit removed) and use Swift Package Manager on iOS/macOS.
 - Fix: command arguments are encoded in key order (two-argument commands could fail the request signature).
+- Not in this release: agent settings over the link and `cutover switch --to agent` (moved to v0.20.1).
 
 ## v0.19.2 (2026-11-01)
 The itcmdr Admin app, push notifications for alerts, service scripts for every platform and a tested container image.

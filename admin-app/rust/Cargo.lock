@@ -1541,7 +1541,7 @@ checksum = "a6cb138bb79a146c1bd460005623e142ef0181e3d0219cb493e02f7d08a35695"
 
 [[package]]
 name = "itcmdr-admin-cli"
-version = "0.19.2"
+version = "0.20.0"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -1568,7 +1568,7 @@ dependencies = [
 
 [[package]]
 name = "itcmdr-adminlink"
-version = "0.19.2"
+version = "0.20.0"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -1589,7 +1589,7 @@ dependencies = [
 
 [[package]]
 name = "itcmdr-adminsvr"
-version = "0.19.2"
+version = "0.20.0"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -1625,7 +1625,7 @@ dependencies = [
 
 [[package]]
 name = "itcmdr-agentlink"
-version = "0.19.2"
+version = "0.20.0"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -1651,7 +1651,7 @@ dependencies = [
 
 [[package]]
 name = "itcmdr-keys"
-version = "0.19.2"
+version = "0.20.0"
 dependencies = [
  "anyhow",
  "bip39",
@@ -1670,7 +1670,7 @@ dependencies = [
 
 [[package]]
 name = "itcmdr_admin_bridge"
-version = "0.19.2"
+version = "0.20.0"
 dependencies = [
  "anyhow",
  "flutter_rust_bridge",
