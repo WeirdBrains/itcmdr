@@ -25,6 +25,7 @@ pub mod schedule;
 pub mod search;
 pub mod settings;
 pub mod setup;
+pub mod sitelink;
 pub mod storage;
 pub mod generated {
     pub mod itcmdr {
@@ -167,6 +168,8 @@ pub async fn run(
         cfg.clone(),
         wait(stop_rx.clone()),
     ));
+    // v0.19.0: the adminsvr link (only while enrolled and adminsvr.enabled).
+    tokio::spawn(sitelink::run(pool.clone(), cfg.clone()));
     let hb_pool = pool.clone();
     tokio::spawn(async move {
         loop {

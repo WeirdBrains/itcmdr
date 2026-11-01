@@ -62,6 +62,7 @@ itcmdr-plugin = { path = "../plugin" }
 itcmdr-keys = { path = "../keys" }
 itcmdr-common = { path = "../common" }
 itcmdr-agentlink = { path = "../agentlink" }
+itcmdr-adminlink = { path = "../adminlink" }
 http = "1"
 http-body = "1"
 bytes = "1"
