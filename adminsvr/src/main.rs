@@ -14,8 +14,8 @@ use std::path::PathBuf;
 )]
 struct Cli {
     /// KEY=VALUE settings file (read before the other flags; the environment wins)
-    #[arg(long, env = "ITCMDR_ADMINSVR_ENV_FILE")]
-    env_file: Option<PathBuf>,
+    #[arg(long, env = "ITCMDR_ADMINSVR_ENV_FILE", default_value = "")]
+    env_file: String,
     /// Database: postgres://user:pass@host/db, or sqlite://<path> (default: SQLite in the data dir)
     #[arg(long, env = "ITCMDR_ADMINSVR_DB_URL", default_value = "")]
     db_url: String,
@@ -59,13 +59,13 @@ struct Cli {
     )]
     web_origins: Vec<String>,
     /// Push (FCM): Firebase service account JSON file
-    #[arg(long, env = "ITCMDR_ADMINSVR_FCM_SERVICE_ACCOUNT")]
-    fcm_service_account: Option<PathBuf>,
+    #[arg(long, env = "ITCMDR_ADMINSVR_FCM_SERVICE_ACCOUNT", default_value = "")]
+    fcm_service_account: String,
     #[arg(long, env = "ITCMDR_ADMINSVR_FCM_URL", default_value = "")]
     fcm_url: String,
     /// Push (APNs): the .p8 auth key file
-    #[arg(long, env = "ITCMDR_ADMINSVR_APNS_KEY")]
-    apns_key: Option<PathBuf>,
+    #[arg(long, env = "ITCMDR_ADMINSVR_APNS_KEY", default_value = "")]
+    apns_key: String,
     #[arg(long, env = "ITCMDR_ADMINSVR_APNS_KEY_ID", default_value = "")]
     apns_key_id: String,
     #[arg(long, env = "ITCMDR_ADMINSVR_APNS_TEAM_ID", default_value = "")]
@@ -109,6 +109,35 @@ enum Cmd {
     Service,
 }
 
+/// Ctrl-C, or SIGTERM (what systemd, SysV init, OpenRC, launchd and podman send to stop).
+async fn stop_signal() {
+    #[cfg(unix)]
+    {
+        use tokio::signal::unix::{signal, SignalKind};
+        match signal(SignalKind::terminate()) {
+            Ok(mut t) => {
+                tokio::select! {
+                    _ = tokio::signal::ctrl_c() => {}
+                    _ = t.recv() => {}
+                }
+            }
+            Err(_) => {
+                let _ = tokio::signal::ctrl_c().await;
+            }
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = tokio::signal::ctrl_c().await;
+    }
+    tracing::info!("stopping");
+}
+
+fn path_opt(s: &str) -> Option<PathBuf> {
+    let s = s.trim();
+    (!s.is_empty()).then(|| PathBuf::from(s))
+}
+
 fn default_data_dir() -> PathBuf {
     if cfg!(windows) {
         program_data().join("data")
@@ -125,9 +154,14 @@ fn program_data() -> PathBuf {
 
 /// Load KEY=VALUE lines (# comments, optional quotes) into the environment, without overriding.
 fn load_env_file(p: &std::path::Path) -> anyhow::Result<()> {
-    let text = std::fs::read_to_string(p)
-        .map_err(|e| anyhow::anyhow!("env file {}: {e}", p.display()))?;
+    let text =
+        std::fs::read_to_string(p).map_err(|e| anyhow::anyhow!("env file {}: {e}", p.display()))?;
+    // Later lines win inside the file (like a shell); the real environment wins over the file.
+    let mut m = std::collections::BTreeMap::new();
     for (k, v) in parse_env(&text) {
+        m.insert(k, v);
+    }
+    for (k, v) in m {
         if std::env::var_os(&k).is_none() {
             std::env::set_var(k, v);
         }
@@ -211,6 +245,9 @@ fn main() -> anyhow::Result<()> {
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
         )
+        // Plain text in log files (SysV, launchd, containers); colors only on a terminal.
+        .with_ansi(std::io::IsTerminal::is_terminal(&std::io::stderr()))
+        .with_writer(std::io::stderr)
         .init();
     let cmd = std::mem::replace(&mut c.cmd, Cmd::Service);
     let cfg = config(c);
@@ -247,9 +284,9 @@ fn config(c: Cli) -> Config {
             .filter(|o| !o.trim().is_empty())
             .collect(),
         push: itcmdr_adminsvr::config::PushConfig {
-            fcm_service_account: c.fcm_service_account.filter(|p| !p.as_os_str().is_empty()),
+            fcm_service_account: path_opt(&c.fcm_service_account),
             fcm_url: c.fcm_url,
-            apns_key: c.apns_key.filter(|p| !p.as_os_str().is_empty()),
+            apns_key: path_opt(&c.apns_key),
             apns_key_id: c.apns_key_id,
             apns_team_id: c.apns_team_id,
             apns_topic: c.apns_topic,
@@ -262,12 +299,7 @@ fn config(c: Cli) -> Config {
 async fn dispatch(cfg: Config, cmd: Cmd) -> anyhow::Result<()> {
     match cmd {
         Cmd::Service => unreachable!(),
-        Cmd::Serve => {
-            itcmdr_adminsvr::run(cfg, async {
-                let _ = tokio::signal::ctrl_c().await;
-            })
-            .await
-        }
+        Cmd::Serve => itcmdr_adminsvr::run(cfg, stop_signal()).await,
         Cmd::Init { email, name } => {
             let code = itcmdr_adminsvr::api::init(&cfg, &email, &name).await?;
             println!("First owner created. Enrollment code (24 h, single use; run `itcmdr-admin enroll <code>` on the owner's device):\n{code}");
@@ -377,7 +409,10 @@ mod service {
             ServiceControlAccept::empty(),
             0,
         ))?;
-        let cfg = CFG.get().cloned().ok_or_else(|| anyhow::anyhow!("no config"))?;
+        let cfg = CFG
+            .get()
+            .cloned()
+            .ok_or_else(|| anyhow::anyhow!("no config"))?;
         let rt = tokio::runtime::Runtime::new()?;
         handle.set_service_status(status(
             ServiceState::Running,

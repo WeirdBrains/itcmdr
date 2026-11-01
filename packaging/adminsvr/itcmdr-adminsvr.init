@@ -43,7 +43,7 @@ start() {
 		pid=$!
 	fi
 	echo "$pid" >"$PIDFILE"
-	sleep 1
+	sleep 2
 	if running; then
 		echo "ok (pid $pid)"
 	else

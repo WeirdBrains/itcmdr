@@ -9,6 +9,8 @@ WORKDIR /src
 COPY . .
 RUN cargo build --release --locked -p itcmdr-adminsvr -p itcmdr-admin-cli
 FROM docker.io/library/debian:bookworm-slim
+# libssl3: the built-in libpq uses the system OpenSSL for Postgres TLS.
+RUN apt-get update && apt-get install -y --no-install-recommends libssl3 ca-certificates && rm -rf /var/lib/apt/lists/*
 RUN useradd --system --home /var/lib/itcmdr-adminsvr itcmdr-adminsvr && install -d -m 0700 -o itcmdr-adminsvr /var/lib/itcmdr-adminsvr
 COPY --from=build /src/target/release/itcmdr-adminsvr /usr/local/bin/itcmdr-adminsvr
 COPY --from=build /src/target/release/itcmdr-admin /usr/local/bin/itcmdr-admin
