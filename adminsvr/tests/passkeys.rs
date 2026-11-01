@@ -22,6 +22,7 @@ async fn user(o: &Client, email: &str, role: &str) -> (Client, itcmdr_admin::Enr
 
 const SET_ROLE: &str = "/itcmdr.admin.AdminApi/SetRole";
 
+#[allow(clippy::result_large_err)]
 async fn set_role_with(
     c: &Client,
     key: &ed25519_dalek::SigningKey,

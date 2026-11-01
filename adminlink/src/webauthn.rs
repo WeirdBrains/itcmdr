@@ -137,7 +137,7 @@ pub fn unwrap_cbor_bytes(b: &[u8]) -> Vec<u8> {
 fn int(v: &Value) -> Option<i128> {
     v.as_integer().map(i128::from)
 }
-fn get<'a>(m: &'a [(Value, Value)], k: i128) -> Option<&'a Value> {
+fn get(m: &[(Value, Value)], k: i128) -> Option<&Value> {
     m.iter().find(|(a, _)| int(a) == Some(k)).map(|(_, b)| b)
 }
 fn get_s<'a>(m: &'a [(Value, Value)], k: &str) -> Option<&'a Value> {
