@@ -300,6 +300,7 @@ async fn key_backup_and_new_devices_from_words(db: String) {
         &oe.words,
         true,
         "t",
+        None,
     )
     .await
     .unwrap();
@@ -311,7 +312,8 @@ async fn key_backup_and_new_devices_from_words(db: String) {
         "owner@example.com",
         &itcmdr_keys::generate_words(),
         true,
-        "t"
+        "t",
+        None,
     )
     .await
     .is_err());
@@ -323,6 +325,7 @@ async fn key_backup_and_new_devices_from_words(db: String) {
         &oe.words,
         false,
         "t",
+        None,
     )
     .await
     .unwrap();

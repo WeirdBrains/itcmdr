@@ -14,6 +14,7 @@ pub mod auth;
 pub mod config;
 pub mod link;
 pub mod material;
+pub mod passkeys;
 pub mod rbac;
 pub mod schema;
 pub mod store;

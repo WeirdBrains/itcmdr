@@ -170,6 +170,67 @@ service AdminApi {
 
   rpc ListAudit(AuditFilter) returns (AuditList);
   rpc VerifyAudit(Empty) returns (AuditVerify);
+
+  // v0.19.1 passkeys / security keys (WebAuthn) as a second factor. Step-up: for a method in the
+  // policy, a user with a passkey adds header x-itcmdr-stepup (base64 StepUpAssertion) whose
+  // challenge is sha256("itcmdr-stepup/v1" || sha256(method "\n" body) || nonce from BeginStepUp).
+  rpc BeginPasskeyRegistration(Empty) returns (PasskeyChallenge);
+  rpc FinishPasskeyRegistration(PasskeyRegistration) returns (PasskeyList);
+  rpc ListPasskeys(UserRef) returns (PasskeyList);
+  // Your own, or (owner/admin, with their own step-up) another user's lost passkey.
+  rpc RemovePasskey(PasskeyRef) returns (PasskeyList);
+  // Signed by a device key or the master key; the nonce is single use and lives 5 minutes.
+  rpc BeginStepUp(Empty) returns (PasskeyChallenge);
+  rpc GetAuthPolicy(Empty) returns (AuthPolicy);
+  // Owners only.
+  rpc SetAuthPolicy(AuthPolicy) returns (AuthPolicy);
+}
+
+message PasskeyChallenge {
+  string nonce = 1;
+  bytes challenge = 2;              // registration: the WebAuthn challenge
+  string rp_id = 3;
+  bytes user_handle = 4;
+  string user_name = 5;
+  repeated bytes credential_ids = 6; // your registered credentials
+  int64 expires_ms = 7;
+  bool require_user_verification = 8;
+}
+message PasskeyRegistration {
+  string nonce = 1;
+  string label = 2;
+  bytes client_data_json = 3;
+  bytes attestation_object = 4;     // browsers; or the parts below (CTAP tools)
+  string fmt = 5;
+  bytes auth_data = 6;
+  bytes att_sig = 7;
+  repeated bytes x5c = 8;
+  bool hmac_secret = 9;             // created with hmac-secret (used to unlock the local key)
+}
+message PasskeyInfo {
+  string credential_id = 1;         // base64url
+  string label = 2;
+  int64 alg = 3;
+  string aaguid = 4;
+  string attestation = 5;
+  int64 sign_count = 6;
+  bool hmac_secret = 7;
+  int64 created_ms = 8;
+  int64 last_used_ms = 9;
+}
+message PasskeyList { repeated PasskeyInfo passkeys = 1; }
+message PasskeyRef { string user = 1; string credential_id = 2; }
+message StepUpAssertion {
+  string nonce = 1;
+  bytes credential_id = 2;
+  bytes client_data_json = 3;
+  bytes auth_data = 4;
+  bytes signature = 5;
+}
+message AuthPolicy {
+  repeated string stepup_actions = 1;          // AdminApi method names, e.g. SetRole
+  repeated string passkey_required_roles = 2;  // e.g. owner
+  bool require_user_verification = 3;
 }
 
 message Empty {}
@@ -187,6 +248,7 @@ message UserInfo {
   int64 created_ms = 9;
   repeated DeviceInfo devices = 10;
   string master_fingerprint = 11;
+  int32 passkeys = 12;          // v0.19.1
 }
 message UserList { repeated UserInfo users = 1; }
 message UserRef { string user = 1; }  // id or email ("" = me)

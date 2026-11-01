@@ -7,7 +7,7 @@ use diesel::prelude::*;
 use diesel::r2d2::{self, ManageConnection};
 use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 
-pub const SCHEMA_VERSION: i64 = 1;
+pub const SCHEMA_VERSION: i64 = 2;
 const PG_MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/postgres");
 const SQLITE_MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations/sqlite");
 

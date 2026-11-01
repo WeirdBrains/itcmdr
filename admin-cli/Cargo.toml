@@ -27,8 +27,21 @@ uuid = { version = "1.10", features = ["v4"] }
 directories = "5"
 zeroize = "1.8"
 itcmdr-keys = { path = "../keys" }
+base64 = "0.22"
+sha2 = "0.10"
+hkdf = "0.12"
+chacha20poly1305 = "0.10"
+rand = "0.8"
+tempfile = "3.10"
+p256 = { version = "0.13", features = ["ecdsa"], optional = true }
+hmac = { version = "0.12", optional = true }
+ciborium = { version = "0.2", optional = true }
 itcmdr-adminlink = { path = "../adminlink" }
 itcmdr-agentlink = { path = "../agentlink" }
+
+[features]
+# A software authenticator for tests (never in release builds).
+soft-authenticator = ["dep:p256", "dep:hmac", "dep:ciborium"]
 
 [lints]
 workspace = true

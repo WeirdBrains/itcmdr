@@ -42,7 +42,15 @@ diesel::table! {
         payload_sha256 -> Text, request_sig -> Text, prev_hash -> Text, hash -> Text,
     }
 }
+diesel::table! {
+    passkeys (credential_id) {
+        credential_id -> Text, user_id -> Text, label -> Text, alg -> BigInt, public_key -> Binary,
+        aaguid -> Text, attestation -> Text, sign_count -> BigInt, hmac_secret -> Bool,
+        created_ms -> BigInt, last_used_ms -> BigInt,
+    }
+}
 diesel::allow_tables_to_appear_in_same_query!(
+    passkeys,
     meta,
     users,
     enroll_codes,

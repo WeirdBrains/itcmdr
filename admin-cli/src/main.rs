@@ -64,6 +64,56 @@ enum Cmd {
     Command(CommandCmd),
     #[command(subcommand)]
     Audit(AuditCmd),
+    /// Passkeys / security keys: the optional second factor (needs libfido2's tools)
+    #[command(subcommand)]
+    Passkey(PasskeyCmd),
+    /// Which actions need a passkey touch, and for which roles a passkey is required (owners set it)
+    #[command(subcommand)]
+    Policy(PolicyCmd),
+}
+
+#[derive(Subcommand)]
+enum PasskeyCmd {
+    /// Register the security key that is plugged in
+    Add {
+        #[arg(long)]
+        label: String,
+        /// Also lock this device's key with it (hmac-secret): every use then needs a touch
+        #[arg(long)]
+        unlock: bool,
+    },
+    List {
+        #[arg(default_value = "")]
+        user: String,
+    },
+    /// Remove one of your passkeys
+    Remove { credential_id: String },
+    /// Owner/admin: remove another user's lost passkey (they then add a new one)
+    Reset { user: String, credential_id: String },
+    /// Lock this device's key with a registered passkey (hmac-secret)
+    Lock {
+        #[arg(long)]
+        credential_id: Option<String>,
+    },
+    /// Store this device's key unlocked again (one touch)
+    Unlock,
+}
+
+#[derive(Subcommand)]
+enum PolicyCmd {
+    Show,
+    /// Replace the policy (owners). Lists are comma separated; empty = none.
+    Set {
+        /// AdminApi methods that need a touch, e.g. SetRole,RevokeDevice
+        #[arg(long)]
+        stepup: String,
+        /// Roles that must have a passkey, e.g. owner
+        #[arg(long, default_value = "")]
+        required_roles: String,
+        /// Require user verification (PIN or biometric) on every touch
+        #[arg(long)]
+        uv: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -304,8 +354,16 @@ async fn main() -> Result<()> {
             from_backup,
         } => {
             let words = read_words()?;
-            let id =
-                itcmdr_admin::recover(&addr, &pin, &email, &words, from_backup, &platform).await?;
+            let id = itcmdr_admin::recover(
+                &addr,
+                &pin,
+                &email,
+                &words,
+                from_backup,
+                &platform,
+                Some(fido()),
+            )
+            .await?;
             id.save(&home)?;
             println!(
                 "device key {} on this device",
@@ -317,9 +375,123 @@ async fn main() -> Result<()> {
             );
         }
         cmd => {
-            let id = Identity::load(&home)?;
-            let c = Client::connect(&id).await?;
+            let mut id = Identity::load(&home)?;
+            let c = Client::connect_with(&id, Some(fido())).await?;
             match cmd {
+                Cmd::Passkey(pc) => {
+                    match pc {
+                        PasskeyCmd::Add { label, unlock } => {
+                            let (lp, list) = c.add_passkey(&label, unlock).await?;
+                            println!(
+                                "passkey {} ({}) registered; you have {}",
+                                lp.label,
+                                lp.credential_id,
+                                list.passkeys.len()
+                            );
+                            id.passkeys.push(lp.clone());
+                            if unlock {
+                                let seed = id
+                                    .key_with(Some(fido().as_ref()))
+                                    .map(|k| hex::encode(k.to_bytes()))?;
+                                id.locked =
+                                    Some(itcmdr_admin::passkey::lock(fido().as_ref(), &lp, &seed)?);
+                                id.device_seed.clear();
+                                println!("this device's key is now locked with it (a touch for every use)");
+                            }
+                            id.save(&home)?;
+                        }
+                        PasskeyCmd::List { user: u } => {
+                            for p in c.list_passkeys(&u).await?.passkeys {
+                                println!(
+                                    "{}  {}  alg {}  {}  count {}  hmac {}  last used {}",
+                                    p.credential_id,
+                                    p.label,
+                                    p.alg,
+                                    p.attestation,
+                                    p.sign_count,
+                                    p.hmac_secret,
+                                    ts(p.last_used_ms)
+                                );
+                            }
+                        }
+                        PasskeyCmd::Remove { credential_id } => {
+                            let l = c.remove_passkey("", &credential_id).await?;
+                            id.passkeys.retain(|p| p.credential_id != credential_id);
+                            id.save(&home)?;
+                            println!("removed; {} left", l.passkeys.len());
+                        }
+                        PasskeyCmd::Reset {
+                            user: u,
+                            credential_id,
+                        } => {
+                            let l = c.remove_passkey(&u, &credential_id).await?;
+                            println!("reset; {u} has {} left", l.passkeys.len());
+                        }
+                        PasskeyCmd::Lock { credential_id } => {
+                            if id.locked.is_some() {
+                                bail!("already locked");
+                            }
+                            let lp = id
+                            .passkeys
+                            .iter()
+                            .find(|p| p.hmac_secret && credential_id.as_ref().is_none_or(|c| *c == p.credential_id))
+                            .cloned()
+                            .ok_or_else(|| anyhow::anyhow!("no passkey with hmac-secret on this device (passkey add --unlock)"))?;
+                            id.locked = Some(itcmdr_admin::passkey::lock(
+                                fido().as_ref(),
+                                &lp,
+                                &id.device_seed,
+                            )?);
+                            id.device_seed.clear();
+                            id.save(&home)?;
+                            println!("locked with {}", lp.label);
+                        }
+                        PasskeyCmd::Unlock => {
+                            let k = id.key_with(Some(fido().as_ref()))?;
+                            id.device_seed = hex::encode(k.to_bytes());
+                            id.locked = None;
+                            id.save(&home)?;
+                            println!("unlocked (stored without the passkey again)");
+                        }
+                    }
+                }
+                Cmd::Policy(pc) => {
+                    let p = match pc {
+                        PolicyCmd::Show => c.get_auth_policy().await?,
+                        PolicyCmd::Set {
+                            stepup,
+                            required_roles,
+                            uv,
+                        } => {
+                            let l = |s: &str| {
+                                s.split(',')
+                                    .map(str::trim)
+                                    .filter(|x| !x.is_empty())
+                                    .map(String::from)
+                                    .collect()
+                            };
+                            c.set_auth_policy(pb::AuthPolicy {
+                                stepup_actions: l(&stepup),
+                                passkey_required_roles: l(&required_roles),
+                                require_user_verification: uv,
+                            })
+                            .await?
+                        }
+                    };
+                    println!("step-up actions: {}", p.stepup_actions.join(", "));
+                    println!(
+                        "passkey required for roles: {}",
+                        if p.passkey_required_roles.is_empty() {
+                            "(none)".into()
+                        } else {
+                            p.passkey_required_roles.join(", ")
+                        }
+                    );
+                    println!(
+                        "user verification required: {}",
+                        p.require_user_verification
+                    );
+                }
                 Cmd::Whoami => user(&c.whoami().await?),
                 Cmd::User(u) => match u {
                     UserCmd::List => {
@@ -471,4 +643,8 @@ async fn main() -> Result<()> {
         }
     }
     Ok(())
+}
+
+fn fido() -> std::sync::Arc<dyn itcmdr_admin::passkey::Authenticator> {
+    std::sync::Arc::new(itcmdr_admin::passkey::Fido2Tools::new())
 }

@@ -11,6 +11,9 @@ use tonic::transport::Channel;
 use zeroize::Zeroizing;
 
 pub use itcmdr_adminlink::pb as proto;
+pub mod passkey;
+use passkey::{Authenticator, LocalPasskey, Locked};
+use std::sync::Arc;
 
 /// What this device keeps (0600). The device key never leaves it except as the encrypted backup.
 #[derive(Serialize, Deserialize, Clone)]
@@ -18,12 +21,41 @@ pub struct Identity {
     pub addr: String,
     pub pin: String,
     pub email: String,
+    /// Empty while `locked` (v0.19.1).
+    #[serde(default)]
     pub device_seed: String,
+    /// Passkeys registered from this device (v0.19.1).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub passkeys: Vec<LocalPasskey>,
+    /// The device key encrypted under a passkey's hmac-secret (v0.19.1).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub locked: Option<Locked>,
 }
 
 impl Identity {
-    pub fn key(&self) -> Result<SigningKey> {
+    pub fn new(addr: &str, pin: &str, email: &str, seed_hex: String) -> Self {
+        Identity {
+            addr: addr.into(),
+            pin: pin.into(),
+            email: email.into(),
+            device_seed: seed_hex,
+            passkeys: vec![],
+            locked: None,
+        }
+    }
+    /// The device key; a locked identity needs `auth` (one touch).
+    pub fn key_with(&self, auth: Option<&dyn Authenticator>) -> Result<SigningKey> {
+        if let Some(l) = &self.locked {
+            let a = auth.ok_or_else(|| {
+                anyhow!("this identity is locked with a passkey; plug in your security key")
+            })?;
+            let seed = passkey::unlock(a, l)?;
+            return itcmdr_keys::key_from_seed(&hex::decode(seed.as_str())?);
+        }
         itcmdr_keys::key_from_seed(&hex::decode(&self.device_seed)?)
+    }
+    pub fn key(&self) -> Result<SigningKey> {
+        self.key_with(None)
     }
     pub fn path(dir: &Path) -> PathBuf {
         dir.join("identity.json")
@@ -63,6 +95,9 @@ pub fn default_dir() -> PathBuf {
 pub struct Client {
     pub api: AdminApiClient<Channel>,
     key: SigningKey,
+    auth: Option<Arc<dyn Authenticator>>,
+    /// Credentials to try for a step-up (empty = the ones adminsvr lists).
+    pub prefer: Vec<Vec<u8>>,
 }
 
 pub fn signed<T: Message>(key: &SigningKey, method: &str, msg: T) -> tonic::Request<T> {
@@ -80,27 +115,53 @@ pub async fn channel(addr: &str, pin: &str) -> Result<Channel> {
         .with_context(|| format!("connect {addr}"))
 }
 
+/// A signed call; when adminsvr asks for a step-up and this client has an authenticator, touch
+/// the key for this exact request and send it again.
 macro_rules! call {
-    ($self:ident, $m:ident, $name:literal, $req:expr) => {
-        $self
+    ($self:ident, $m:ident, $name:literal, $req:expr) => {{
+        let method = concat!("/itcmdr.admin.AdminApi/", $name);
+        let req = $req;
+        let first = $self
             .api
             .clone()
-            .$m(signed(
-                &$self.key,
-                concat!("/itcmdr.admin.AdminApi/", $name),
-                $req,
-            ))
-            .await
-            .map(|r| r.into_inner())
-            .map_err(|s| anyhow!("{}", s.message()))
-    };
+            .$m(signed(&$self.key, method, req.clone()))
+            .await;
+        match first {
+            Err(s)
+                if s.code() == tonic::Code::FailedPrecondition
+                    && s.message().starts_with(STEPUP_REQUIRED)
+                    && $self.auth.is_some() =>
+            {
+                let h = $self.stepup(method, &req.encode_to_vec()).await?;
+                let mut r = signed(&$self.key, method, req);
+                r.metadata_mut()
+                    .insert("x-itcmdr-stepup", h.parse().expect("base64"));
+                $self.api.clone().$m(r).await
+            }
+            other => other,
+        }
+        .map(|r| r.into_inner())
+        .map_err(|s| anyhow!("{}", s.message()))
+    }};
 }
+
+const STEPUP_REQUIRED: &str = "stepup-required";
 
 impl Client {
     pub async fn connect(id: &Identity) -> Result<Self> {
+        Self::connect_with(id, None).await
+    }
+    /// With an authenticator: unlocks a locked identity and answers step-ups.
+    pub async fn connect_with(id: &Identity, auth: Option<Arc<dyn Authenticator>>) -> Result<Self> {
         Ok(Client {
             api: AdminApiClient::new(channel(&id.addr, &id.pin).await?),
-            key: id.key()?,
+            key: id.key_with(auth.as_deref())?,
+            prefer: id
+                .passkeys
+                .iter()
+                .filter_map(|p| itcmdr_adminlink::webauthn::from_b64url(&p.credential_id).ok())
+                .collect(),
+            auth,
         })
     }
     /// Signed with another key (the master key from the words).
@@ -108,7 +169,146 @@ impl Client {
         Ok(Client {
             api: AdminApiClient::new(channel(addr, pin).await?),
             key,
+            auth: None,
+            prefer: vec![],
         })
+    }
+    pub fn set_authenticator(&mut self, a: Option<Arc<dyn Authenticator>>) {
+        self.auth = a;
+    }
+
+    /// A step-up header for `method` with this body: nonce from adminsvr, one touch.
+    pub async fn stepup(&self, method: &str, body: &[u8]) -> Result<String> {
+        use itcmdr_adminlink::webauthn as wa;
+        let auth = self
+            .auth
+            .clone()
+            .ok_or_else(|| anyhow!("a passkey touch is needed; plug in your security key"))?;
+        let ch = self
+            .api
+            .clone()
+            .begin_step_up(signed(
+                &self.key,
+                "/itcmdr.admin.AdminApi/BeginStepUp",
+                pb::Empty {},
+            ))
+            .await
+            .map_err(|s| anyhow!("{}", s.message()))?
+            .into_inner();
+        let challenge = wa::stepup_challenge(method, body, &ch.nonce);
+        let cd = wa::client_data("webauthn.get", &challenge, wa::CLI_ORIGIN);
+        let cdh = wa::client_data_hash(&cd);
+        let mut ids: Vec<Vec<u8>> = self
+            .prefer
+            .iter()
+            .filter(|i| ch.credential_ids.contains(i))
+            .cloned()
+            .collect();
+        ids.extend(
+            ch.credential_ids
+                .iter()
+                .filter(|i| !ids.contains(i))
+                .cloned()
+                .collect::<Vec<_>>(),
+        );
+        let mut last = anyhow!("you have no passkeys registered");
+        for id in ids {
+            match auth.get_assertion(&ch.rp_id, &id, &cdh, None) {
+                Ok(a) => {
+                    let s = pb::StepUpAssertion {
+                        nonce: ch.nonce.clone(),
+                        credential_id: id,
+                        client_data_json: cd,
+                        auth_data: itcmdr_adminlink::webauthn::unwrap_cbor_bytes(&a.auth_data),
+                        signature: a.sig,
+                    };
+                    use base64::Engine;
+                    return Ok(base64::engine::general_purpose::STANDARD.encode(s.encode_to_vec()));
+                }
+                Err(e) => last = e,
+            }
+        }
+        Err(last)
+    }
+
+    /// Register a passkey on the authenticator (`hmac_secret`: usable to lock the device key).
+    pub async fn add_passkey(
+        &self,
+        label: &str,
+        hmac_secret: bool,
+    ) -> Result<(LocalPasskey, pb::PasskeyList)> {
+        use itcmdr_adminlink::webauthn as wa;
+        passkey::check_label(label)?;
+        let auth = self
+            .auth
+            .clone()
+            .ok_or_else(|| anyhow!("no authenticator"))?;
+        let ch = call!(
+            self,
+            begin_passkey_registration,
+            "BeginPasskeyRegistration",
+            pb::Empty {}
+        )?;
+        let cd = wa::client_data("webauthn.create", &ch.challenge, wa::CLI_ORIGIN);
+        let m = auth.make_credential(
+            &ch.rp_id,
+            &ch.user_handle,
+            &ch.user_name,
+            &wa::client_data_hash(&cd),
+            hmac_secret,
+        )?;
+        let ad = wa::unwrap_cbor_bytes(&m.auth_data);
+        let id = wa::parse_auth_data(&ad)?.credential_id;
+        let list = call!(
+            self,
+            finish_passkey_registration,
+            "FinishPasskeyRegistration",
+            pb::PasskeyRegistration {
+                nonce: ch.nonce.clone(),
+                label: label.into(),
+                client_data_json: cd.clone(),
+                fmt: m.fmt.clone(),
+                auth_data: ad.clone(),
+                att_sig: m.sig.clone(),
+                x5c: m.x5c.clone(),
+                hmac_secret,
+                ..Default::default()
+            }
+        )?;
+        Ok((
+            LocalPasskey {
+                credential_id: wa::b64url(&id),
+                rp_id: ch.rp_id,
+                label: label.into(),
+                hmac_secret,
+            },
+            list,
+        ))
+    }
+    pub async fn list_passkeys(&self, user: &str) -> Result<pb::PasskeyList> {
+        call!(
+            self,
+            list_passkeys,
+            "ListPasskeys",
+            pb::UserRef { user: user.into() }
+        )
+    }
+    pub async fn remove_passkey(&self, user: &str, credential_id: &str) -> Result<pb::PasskeyList> {
+        call!(
+            self,
+            remove_passkey,
+            "RemovePasskey",
+            pb::PasskeyRef {
+                user: user.into(),
+                credential_id: credential_id.into()
+            }
+        )
+    }
+    pub async fn get_auth_policy(&self) -> Result<pb::AuthPolicy> {
+        call!(self, get_auth_policy, "GetAuthPolicy", pb::Empty {})
+    }
+    pub async fn set_auth_policy(&self, p: pb::AuthPolicy) -> Result<pb::AuthPolicy> {
+        call!(self, set_auth_policy, "SetAuthPolicy", p)
     }
     pub fn key(&self) -> &SigningKey {
         &self.key
@@ -385,12 +585,7 @@ pub async fn enroll(
         .map_err(|s| anyhow!("{}", s.message()))?
         .into_inner();
     Ok(Enrolled {
-        identity: Identity {
-            addr: c.addr,
-            pin: c.pin,
-            email: c.email,
-            device_seed: hex::encode(seed.as_ref()),
-        },
+        identity: Identity::new(&c.addr, &c.pin, &c.email, hex::encode(seed.as_ref())),
         words,
         user,
     })
@@ -405,19 +600,16 @@ pub async fn recover(
     words: &str,
     from_backup: bool,
     platform: &str,
+    auth: Option<Arc<dyn Authenticator>>,
 ) -> Result<Identity> {
     let master = itcmdr_keys::Master::from_words(words)?;
-    let mc = Client::with_key(addr, pin, master.signing.clone()).await?;
+    let mut mc = Client::with_key(addr, pin, master.signing.clone()).await?;
+    mc.set_authenticator(auth);
     if from_backup {
         let kb = mc.get_key_backup().await?;
         let w: itcmdr_keys::wrap::Wrapped = serde_json::from_str(&kb.blob_json)?;
         let seed = itcmdr_keys::wrap::unwrap(words, &w)?;
-        return Ok(Identity {
-            addr: addr.into(),
-            pin: pin.into(),
-            email: email.into(),
-            device_seed: hex::encode(seed.as_ref()),
-        });
+        return Ok(Identity::new(addr, pin, email, hex::encode(seed.as_ref())));
     }
     let seed = itcmdr_keys::random_seed();
     let dk = itcmdr_keys::key_from_seed(seed.as_ref())?;
@@ -434,12 +626,7 @@ pub async fn recover(
         platform: platform.into(),
     })
     .await?;
-    Ok(Identity {
-        addr: addr.into(),
-        pin: pin.into(),
-        email: email.into(),
-        device_seed: hex::encode(seed.as_ref()),
-    })
+    Ok(Identity::new(addr, pin, email, hex::encode(seed.as_ref())))
 }
 
 /// Every app action and its CLI command (the parity list; checked by a test against the API).
@@ -470,4 +657,11 @@ pub const PARITY: &[(&str, &str)] = &[
     ("ListCommands", "command list"),
     ("ListAudit", "audit list"),
     ("VerifyAudit", "audit verify"),
+    ("BeginPasskeyRegistration", "passkey add"),
+    ("FinishPasskeyRegistration", "passkey add"),
+    ("ListPasskeys", "passkey list"),
+    ("RemovePasskey", "passkey remove / passkey reset"),
+    ("BeginStepUp", "(any step-up action)"),
+    ("GetAuthPolicy", "policy show"),
+    ("SetAuthPolicy", "policy set"),
 ];

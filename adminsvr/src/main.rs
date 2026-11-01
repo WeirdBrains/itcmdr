@@ -45,6 +45,17 @@ struct Cli {
     heartbeat_secs: i64,
     #[arg(long, env = "ITCMDR_ADMINSVR_SITE_MISSED", default_value_t = 5)]
     site_missed: i64,
+    /// WebAuthn RP id for passkeys (default: the host of --public-api)
+    #[arg(long, env = "ITCMDR_ADMINSVR_RP_ID", default_value = "")]
+    rp_id: String,
+    /// Extra WebAuthn origins (the web app), comma separated
+    #[arg(
+        long,
+        env = "ITCMDR_ADMINSVR_WEB_ORIGINS",
+        default_value = "",
+        value_delimiter = ','
+    )]
+    web_origins: Vec<String>,
     #[command(subcommand)]
     cmd: Cmd,
 }
@@ -99,6 +110,12 @@ async fn main() -> anyhow::Result<()> {
         heartbeat_secs: c.heartbeat_secs,
         site_missed: c.site_missed,
         max_skew_secs: 300,
+        rp_id: c.rp_id,
+        web_origins: c
+            .web_origins
+            .into_iter()
+            .filter(|o| !o.trim().is_empty())
+            .collect(),
     };
     match c.cmd {
         Cmd::Serve => {
