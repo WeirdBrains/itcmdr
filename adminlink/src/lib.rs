@@ -204,7 +204,11 @@ pub fn command_bytes(c: &pb::Command) -> Vec<u8> {
     .into_bytes()
     .into_iter()
     // v0.20.0: a dry run is part of what is signed (v1 bytes unchanged otherwise).
-    .chain(if c.dry_run { b"\ndry-run".to_vec() } else { Vec::new() })
+    .chain(if c.dry_run {
+        b"\ndry-run".to_vec()
+    } else {
+        Vec::new()
+    })
     .collect()
 }
 
@@ -233,8 +237,12 @@ pub fn sign_approver(key: &SigningKey, c: &mut pb::Command) {
 /// adminsvr endorses the approver's key like the user's.
 pub fn endorse_approver(root: &SigningKey, c: &mut pb::Command) {
     c.approver_endorsement = hex::encode(
-        root.sign(&endorse_bytes(&c.approver_id, &c.approver_role, &c.approver_key))
-            .to_bytes(),
+        root.sign(&endorse_bytes(
+            &c.approver_id,
+            &c.approver_role,
+            &c.approver_key,
+        ))
+        .to_bytes(),
     );
 }
 
@@ -368,14 +376,24 @@ mod tests {
 
     #[test]
     fn dry_run_is_signed_and_v1_bytes_unchanged() {
-        let c = pb::Command { id: "c".into(), kind: "setting.set".into(), ..Default::default() };
+        let c = pb::Command {
+            id: "c".into(),
+            kind: "setting.set".into(),
+            ..Default::default()
+        };
         let mut d = c.clone();
         d.dry_run = true;
         assert!(!command_bytes(&c).ends_with(b"dry-run"));
         assert!(command_bytes(&d).ends_with(b"\ndry-run"));
         let root = itcmdr_keys::new_keypair();
         let user = itcmdr_keys::new_keypair();
-        let mut d = pb::Command { issued_ms: 1, expires_ms: 10_000, user_id: "u".into(), user_role: "admin".into(), ..d };
+        let mut d = pb::Command {
+            issued_ms: 1,
+            expires_ms: 10_000,
+            user_id: "u".into(),
+            user_role: "admin".into(),
+            ..d
+        };
         sign_user(&user, &mut d);
         sign_root(&root, &mut d);
         assert_eq!(check_command(&root.verifying_key(), &d, 5), "ok");
@@ -391,8 +409,13 @@ mod tests {
         let user = itcmdr_keys::new_keypair();
         let appr = itcmdr_keys::new_keypair();
         let mut c = pb::Command {
-            id: "c".into(), kind: "plugin.enable".into(), user_id: "u1".into(), user_role: "admin".into(),
-            issued_ms: 1, expires_ms: 10_000, ..Default::default()
+            id: "c".into(),
+            kind: "plugin.enable".into(),
+            user_id: "u1".into(),
+            user_role: "admin".into(),
+            issued_ms: 1,
+            expires_ms: 10_000,
+            ..Default::default()
         };
         c.args.insert("name".into(), "itcmdr-network".into());
         sign_user(&user, &mut c);

@@ -508,10 +508,14 @@ impl Api {
         let kind = c.kind.clone();
         let kind = kind.as_str();
         if crate::link::frozen(&self.pool).await.map_err(dberr)? {
-            return Err(Status::failed_precondition("frozen: an owner has frozen all commands (GetFreeze)"));
+            return Err(Status::failed_precondition(
+                "frozen: an owner has frozen all commands (GetFreeze)",
+            ));
         }
         if !c.approver_id.is_empty() || !c.approver_sig.is_empty() {
-            return Err(Status::invalid_argument("approver fields are filled by ApproveCommand"));
+            return Err(Status::invalid_argument(
+                "approver fields are filled by ApproveCommand",
+            ));
         }
         let two = !c.dry_run && itcmdr_adminlink::TWO_PERSON.contains(&kind);
         self.may_site(&p, &c.site_id).await?;
@@ -534,20 +538,27 @@ impl Api {
         }
         let need = |k: &str| c.args.get(k).is_none_or(|a| a.is_empty() || a.len() > 512);
         let missing = match kind {
-            "setting.set" => need("key") || c.args.get("value").is_none(),
+            "setting.set" => need("key") || !c.args.contains_key("value"),
             "schedule.run" | "schedule.pause" | "schedule.resume" => need("schedule"),
             "plugin.enable" | "plugin.disable" => need("name"),
             "plugin.install" => need("sha256"),
             _ => false,
         };
         if missing || c.args.len() > 8 {
-            return Err(Status::invalid_argument(format!("arguments for {kind} are missing or too long")));
+            return Err(Status::invalid_argument(format!(
+                "arguments for {kind} are missing or too long"
+            )));
         }
         if kind == "plugin.install" {
             let sha = c.args["sha256"].to_lowercase();
             let n: i64 = self
                 .pool
-                .run(move |db| Ok(catalog::table.filter(catalog::sha256.eq(sha)).count().get_result(db)?))
+                .run(move |db| {
+                    Ok(catalog::table
+                        .filter(catalog::sha256.eq(sha))
+                        .count()
+                        .get_result(db)?)
+                })
                 .await
                 .map_err(dberr)?;
             if n == 0 {
@@ -1526,7 +1537,9 @@ impl pb::admin_api_server::AdminApi for Api {
         &self,
         req: Request<pb::CommandRef>,
     ) -> Result<Response<pb::CommandDetail>, Status> {
-        let p = self.signed(&req, "/itcmdr.admin.AdminApi/GetCommand").await?;
+        let p = self
+            .signed(&req, "/itcmdr.admin.AdminApi/GetCommand")
+            .await?;
         let id = req.get_ref().id.clone();
         let row = self.command_by_id(&id).await?;
         self.may_site(&p, &row.1).await?;
@@ -1557,12 +1570,17 @@ impl pb::admin_api_server::AdminApi for Api {
             return Err(Status::failed_precondition(format!("command is {}", row.3)));
         }
         if row.5 == p.user_id {
-            return Err(denied("the second person must be someone other than the requester"));
+            return Err(denied(
+                "the second person must be someone other than the requester",
+            ));
         }
         if r.approver_key != p.key_hex {
-            return Err(Status::invalid_argument("approver_key must be the calling device's key"));
+            return Err(Status::invalid_argument(
+                "approver_key must be the calling device's key",
+            ));
         }
-        let mut c = pb::Command::decode(row.10.as_slice()).map_err(|_| Status::internal("command body"))?;
+        let mut c =
+            pb::Command::decode(row.10.as_slice()).map_err(|_| Status::internal("command body"))?;
         if c.expires_ms <= crate::now_ms() {
             return Err(Status::failed_precondition("command expired"));
         }
@@ -1580,7 +1598,11 @@ impl pb::admin_api_server::AdminApi for Api {
             .pool
             .run(move |db| {
                 Ok(diesel::update(
-                    commands::table.filter(commands::id.eq(id).and(commands::state.eq("awaiting-approval"))),
+                    commands::table.filter(
+                        commands::id
+                            .eq(id)
+                            .and(commands::state.eq("awaiting-approval")),
+                    ),
                 )
                 .set((
                     commands::state.eq("pending"),
@@ -1612,14 +1634,20 @@ impl pb::admin_api_server::AdminApi for Api {
         let row = self.command_by_id(&id).await?;
         self.may_site(&p, &row.1).await?;
         if row.5 != p.user_id && p.role < Role::Admin {
-            return Err(denied("only the requester, an owner or an admin can reject"));
+            return Err(denied(
+                "only the requester, an owner or an admin can reject",
+            ));
         }
         let i = id.clone();
         let n = self
             .pool
             .run(move |db| {
                 Ok(diesel::update(
-                    commands::table.filter(commands::id.eq(i).and(commands::state.eq("awaiting-approval"))),
+                    commands::table.filter(
+                        commands::id
+                            .eq(i)
+                            .and(commands::state.eq("awaiting-approval")),
+                    ),
                 )
                 .set(commands::state.eq("rejected"))
                 .execute(db)?)
@@ -1629,8 +1657,13 @@ impl pb::admin_api_server::AdminApi for Api {
         if n == 0 {
             return Err(Status::failed_precondition(format!("command is {}", row.3)));
         }
-        self.audit(&p, &format!("command.reject.{}", row.2), &row.1, req.get_ref())
-            .await?;
+        self.audit(
+            &p,
+            &format!("command.reject.{}", row.2),
+            &row.1,
+            req.get_ref(),
+        )
+        .await?;
         Ok(Response::new(command_row(self.command_by_id(&id).await?)))
     }
 
@@ -1721,7 +1754,10 @@ impl pb::admin_api_server::AdminApi for Api {
         let ee = e.clone();
         self.pool
             .run(move |c| {
-                let have: i64 = catalog::table.filter(catalog::sha256.eq(&ee.sha256)).count().get_result(c)?;
+                let have: i64 = catalog::table
+                    .filter(catalog::sha256.eq(&ee.sha256))
+                    .count()
+                    .get_result(c)?;
                 if have == 0 {
                     diesel::insert_into(catalog::table)
                         .values((
@@ -1741,16 +1777,19 @@ impl pb::admin_api_server::AdminApi for Api {
             .await
             .map_err(dberr)?;
         // The package bytes are not in the audit, only what identifies them.
-        self.audit(&p, "catalog.upload", &sha, &pb::CatalogEntry { ..e.clone() })
-            .await?;
+        self.audit(
+            &p,
+            "catalog.upload",
+            &sha,
+            &pb::CatalogEntry { ..e.clone() },
+        )
+        .await?;
         Ok(Response::new(e))
     }
 
-    async fn list_catalog(
-        &self,
-        req: Request<pb::Empty>,
-    ) -> Result<Response<pb::Catalog>, Status> {
-        self.signed(&req, "/itcmdr.admin.AdminApi/ListCatalog").await?;
+    async fn list_catalog(&self, req: Request<pb::Empty>) -> Result<Response<pb::Catalog>, Status> {
+        self.signed(&req, "/itcmdr.admin.AdminApi/ListCatalog")
+            .await?;
         type Row = (String, String, String, i64, String, String, i64);
         let rows: Vec<Row> = self
             .pool
@@ -1790,7 +1829,8 @@ impl pb::admin_api_server::AdminApi for Api {
         &self,
         req: Request<pb::Empty>,
     ) -> Result<Response<pb::FreezeState>, Status> {
-        self.signed(&req, "/itcmdr.admin.AdminApi/GetFreeze").await?;
+        self.signed(&req, "/itcmdr.admin.AdminApi/GetFreeze")
+            .await?;
         Ok(Response::new(self.freeze_state().await?))
     }
 
@@ -1798,7 +1838,9 @@ impl pb::admin_api_server::AdminApi for Api {
         &self,
         req: Request<pb::FreezeState>,
     ) -> Result<Response<pb::FreezeState>, Status> {
-        let p = self.signed(&req, "/itcmdr.admin.AdminApi/SetFreeze").await?;
+        let p = self
+            .signed(&req, "/itcmdr.admin.AdminApi/SetFreeze")
+            .await?;
         if p.role != Role::Owner {
             return Err(denied("only owners can freeze or unfreeze"));
         }
@@ -1812,8 +1854,13 @@ impl pb::admin_api_server::AdminApi for Api {
             .await
             .map_err(dberr)?;
         let st = self.freeze_state().await?;
-        self.audit(&p, if st.frozen { "freeze.on" } else { "freeze.off" }, "", req.get_ref())
-            .await?;
+        self.audit(
+            &p,
+            if st.frozen { "freeze.on" } else { "freeze.off" },
+            "",
+            req.get_ref(),
+        )
+        .await?;
         if !st.frozen {
             self.hub.kick_all();
         }
@@ -1831,8 +1878,12 @@ impl pb::admin_api_server::AdminApi for Api {
         &self,
         req: Request<pb::CommandRequest>,
     ) -> Result<Response<pb::CommandInfo>, Status> {
-        self.command(req, "/itcmdr.admin.AdminApi/ResolveAlert", &["alert.resolve"])
-            .await
+        self.command(
+            req,
+            "/itcmdr.admin.AdminApi/ResolveAlert",
+            &["alert.resolve"],
+        )
+        .await
     }
     async fn start_backup(
         &self,
@@ -2217,8 +2268,12 @@ pub fn package_name_version(bytes: &[u8]) -> anyhow::Result<(String, String)> {
     use std::io::Read;
     let mut ar = tar::Archive::new(flate2::read::GzDecoder::new(bytes));
     for e in ar.entries()? {
-        let mut e = e?;
-        let path = e.path()?.to_string_lossy().trim_start_matches("./").to_string();
+        let e = e?;
+        let path = e
+            .path()?
+            .to_string_lossy()
+            .trim_start_matches("./")
+            .to_string();
         if path == "package.toml" {
             let mut s = String::new();
             e.take(1024 * 1024).read_to_string(&mut s)?;
@@ -2231,7 +2286,8 @@ pub fn package_name_version(bytes: &[u8]) -> anyhow::Result<(String, String)> {
             let ok = |v: &str| {
                 !v.is_empty()
                     && v.len() <= 64
-                    && v.chars().all(|c| c.is_ascii_alphanumeric() || "-_.".contains(c))
+                    && v.chars()
+                        .all(|c| c.is_ascii_alphanumeric() || "-_.".contains(c))
             };
             anyhow::ensure!(ok(&m.name) && ok(&m.version), "bad name or version");
             return Ok((m.name, m.version));
