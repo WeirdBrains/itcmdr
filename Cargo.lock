@@ -1394,7 +1394,7 @@ dependencies = [
 
 [[package]]
 name = "itcmdr-agent"
-version = "0.18.0"
+version = "0.19.0"
 dependencies = [
  "anyhow",
  "base64",
@@ -1425,7 +1425,7 @@ dependencies = [
 
 [[package]]
 name = "itcmdr-agentlink"
-version = "0.18.0"
+version = "0.19.0"
 dependencies = [
  "anyhow",
  "base64",
@@ -1470,7 +1470,7 @@ dependencies = [
 
 [[package]]
 name = "itcmdr-keys"
-version = "0.18.0"
+version = "0.19.0"
 dependencies = [
  "anyhow",
  "bip39",
@@ -1523,7 +1523,7 @@ dependencies = [
 
 [[package]]
 name = "itcmdr-server"
-version = "0.18.0"
+version = "0.19.0"
 dependencies = [
  "anyhow",
  "assert_cmd",
