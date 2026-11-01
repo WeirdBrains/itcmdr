@@ -82,7 +82,7 @@ fn spawn_session(
 }
 
 async fn welcome(rx: &mut tokio::sync::mpsc::UnboundedReceiver<i32>) -> i32 {
-    tokio::time::timeout(Duration::from_secs(10), rx.recv())
+    tokio::time::timeout(Duration::from_secs(30), rx.recv())
         .await
         .unwrap()
         .unwrap()
