@@ -285,3 +285,27 @@ Describe 'scripts that dot-source the agent' {
     }
   }
 }
+
+Describe 'built-in plugins raise structured errors for failing checks (v0.15.2)' {
+  It 'a failed report-only check becomes a Cautious CheckFailed plugin error' {
+    $env:ITCMDR_IMPORT_ONLY = '1'
+    . (Join-Path (Join-Path $PSScriptRoot '..') 'Invoke-ItcmdrAgent.ps1')
+    Remove-Item Env:ITCMDR_IMPORT_ONLY -ErrorAction SilentlyContinue
+    $m = Import-Module (Join-Path (Join-Path $PSScriptRoot '..') 'Itcmdr.Plugin.psm1') -Force -PassThru
+    & $m { $script:ItcmdrPluginErrors = New-Object System.Collections.ArrayList }
+    $f = Join-Path $TestDrive 'vendor.cfg'; Set-Content $f 'host=192.0.2.5'
+    $sp = Join-Path $TestDrive 'site-err.json'
+    @{ paths = @{ localLogs = (Join-Path $TestDrive 'logs'); agentData = (Join-Path $TestDrive 'data') }; stalePatterns = @('192.0.2.'); configDrift = @{ files = @($f) } } | ConvertTo-Json -Depth 5 | Set-Content $sp
+    $env:ITCMDR_SITE_PATH = $sp; $env:ITCMDR_LOG_PATH = (Join-Path $TestDrive 'plugin-v1.log')
+    try { $res = Invoke-ItcmdrBuiltinCheckSet -CheckFunction 'Invoke-ItcmdrConfigCheck' -PluginCtx @{ report_only = $true; args = @{ role = 'Server' } } }
+    finally { Remove-Item Env:ITCMDR_SITE_PATH, Env:ITCMDR_LOG_PATH -ErrorAction SilentlyContinue }
+    $res.ok | Should -BeTrue
+    $errs = @(& $m { $script:ItcmdrPluginErrors })
+    $errs.Count | Should -BeGreaterThan 0
+    $e = $errs | Where-Object { $_.context.check_id -eq 'DRIFT-vendor.cfg' -or $_.Context.check_id -eq 'DRIFT-vendor.cfg' } | Select-Object -First 1
+    $e | Should -Not -BeNullOrEmpty
+    ($e | ConvertTo-Json -Depth 5) | Should -Match 'Cautious'
+    ($e | ConvertTo-Json -Depth 5) | Should -Match 'CheckFailed'
+    Remove-Module $m.Name -Force
+  }
+}

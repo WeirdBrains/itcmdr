@@ -17,21 +17,33 @@
     "nic2": {
       "interfaceAlias": "Ethernet 2",
       "registerThisAddress": false
-    }
+    },
+    "serverPorts": [
+      445,
+      53
+    ]
   },
-  "services": {
-    "examplevendorRestService": {
-      "name": "ExampleVendorRestService",
+  "watchedServices": [
+    {
+      "id": "AppRestService",
+      "name": "ExampleRestService",
+      "role": "Server",
       "ports": [
         42928,
         42929
       ],
-      "expectTlsNameErrors": true
+      "restart": true
     },
-    "examplevendorUsbService": {
-      "name": "ExampleVendorUSBService",
-      "pluginProcessName": "Example.Device.ServiceHost"
-    },
+    {
+      "id": "DeviceHelper",
+      "name": "ExampleUsbService",
+      "role": "Workstation",
+      "process": "Example.Device.ServiceHost",
+      "restart": true,
+      "checkId": "SVC-DeviceHelper"
+    }
+  ],
+  "services": {
     "rcu": {
       "hostname": "RCU-01",
       "port": 8080,
@@ -114,7 +126,7 @@
     ],
     "tasks": [
       {
-        "name": "ExampleVendor SQL Backup",
+        "name": "Imaging SQL Backup",
         "maxAgeHours": 26
       },
       {
@@ -187,9 +199,10 @@
       "shared": true
     }
   ],
-  "examplevendor": {
-    "configFiles": [
-      "%ProgramData%\\ExampleVendor\\EXAMPLEVENDOR\\*.ini",
+  "configDrift": {
+    "idPrefix": "DRIFT",
+    "files": [
+      "%ProgramData%\\ExampleVendor\\*.ini",
       "C:\\Program Files (x86)\\ExampleVendor\\*\\*.config"
     ]
   }

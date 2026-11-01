@@ -572,6 +572,7 @@ JSON. The rest sounds good to me").
 | v0.14.3 ✅ | separate packages: server, agent, CLI, app (own AppId/uninstaller each), migration from v0.14.2, keep-data uninstall, CI per package, Linux/macOS CLI tarballs, icon set |
 | v0.15.0 ✅ | plugin error contract (`itcmdr-common`, `ServicePluginError` derive, `PluginError` in plugin.proto, server-written `plugin-error` lines, PS `New-ItcmdrPluginError`), call log of every RPC (`call_log`, `ListCalls`, `itcmdr-cli calls`, Calls page, audit `call_id`, daily export + retention) |
 | v0.15.1 ✅ | Windows restore: wait for the DB to be released and retry the swap; restore_app on a real server process; local release builds |
+| v0.15.2 ✅ | No office values in core (site.json targets), plugin errors for failing checks, fault-injection suite, app macos/ |
 
 ### Notes from the v0.12.0 build
 

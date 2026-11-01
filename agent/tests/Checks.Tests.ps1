@@ -152,3 +152,43 @@ Describe 'rich results in Invoke-ItcmdrCheck' {
     Test-Path $ctx.LogFile | Should -BeFalse
   }
 }
+
+Describe 'site-defined targets (v0.15.2: nothing office-specific built in)' {
+  It 'builds no service checks without watchedServices or legacy keys' {
+    @(Get-ItcmdrWatchedService @{}).Count | Should -Be 0
+    @(Get-ItcmdrWatchedService @{ services = @{ examplevendorUsbService = @{ name = 'X' } } }).Count | Should -Be 0
+  }
+  It 'reads watchedServices with defaults and legacy keys with their old ids' {
+    $w = @(Get-ItcmdrWatchedService @{ watchedServices = @(@{ id = 'Imaging'; name = 'ImagingSvc'; ports = @(1234) }, @{ name = 'Other'; role = 'Any'; restart = $false; checkId = 'SVC-CUSTOM' }) })
+    $w[0].checkId | Should -Be 'SVC-Imaging'; $w[0].role | Should -Be 'Server'; $w[0].restart | Should -BeTrue; $w[0].ports | Should -Be @(1234)
+    $w[1].checkId | Should -Be 'SVC-CUSTOM'; $w[1].restart | Should -BeFalse
+    $l = @(Get-ItcmdrWatchedService @{ services = @{ examplevendorRestService = @{ name = 'RestSvc'; ports = @(1, 2) }; examplevendorUsbService = @{ name = 'UsbSvc'; pluginProcessName = 'Proc.Host' } } })
+    $l[0].checkId | Should -Be 'SVC-RestSvc'; $l[1].checkId | Should -Be 'EXAMPLEVENDOR-PLUGIN-HEALTH'; $l[1].process | Should -Be 'Proc.Host'
+  }
+  It 'checks a process-based watched service for the matching role only' {
+    $me = (Get-Process -Id $PID).ProcessName
+    $site = @{ watchedServices = @(@{ id = 'Self'; process = $me; role = 'Workstation'; restart = $false }, @{ id = 'SrvOnly'; process = 'no-such-proc-x'; role = 'Server'; restart = $false }) }
+    $ctx = Get-TestContext $site 'Workstation'
+    Invoke-ItcmdrServiceCheck -Ctx $ctx
+    $r = @(Get-TestRecord $ctx)
+    @($r | Where-Object checkId -eq 'SVC-Self')[0].status | Should -Be 'ok'
+    @($r | Where-Object checkId -eq 'SVC-SrvOnly').Count | Should -Be 0
+  }
+  It 'checks every configured share as SHARE-KEY' {
+    $d = Join-Path $TestDrive 'share-data'; New-Item -ItemType Directory $d | Out-Null
+    $ctx = Get-TestContext @{ network = @{ serverAddress = '127.0.0.1'; serverPorts = @(1) }; shares = @{ data = $d; missing = (Join-Path $TestDrive 'nope') } }
+    Invoke-ItcmdrNetworkCheck -Ctx $ctx -ReportOnlyLocal
+    $r = @(Get-TestRecord $ctx)
+    @($r | Where-Object checkId -eq 'SHARE-DATA')[0].status | Should -Be 'ok'
+    @($r | Where-Object checkId -eq 'SHARE-MISSING')[0].status | Should -Not -Be 'ok'
+    @($r | Where-Object checkId -like 'NET-SERVER-TCP-*').checkId | Should -Be @('NET-SERVER-TCP-1')
+  }
+  It 'uses the generic DRIFT prefix for configDrift (still report only)' {
+    $f = Join-Path $TestDrive 'vendor.cfg'
+    Set-Content -Path $f -Value 'host=192.0.2.9'
+    $ctx = Get-TestContext @{ stalePatterns = @('192.0.2.'); configDrift = @{ files = @($f) } } 'Server'
+    Invoke-ItcmdrConfigCheck -Ctx $ctx
+    $r = @(Get-TestRecord $ctx | Where-Object { $_.checkId -like 'DRIFT-*' })
+    $r[0].checkId | Should -Be 'DRIFT-vendor.cfg'; $r[0].attemptedRepair | Should -BeFalse
+  }
+}

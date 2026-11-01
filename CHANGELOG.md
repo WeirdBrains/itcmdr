@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## v0.15.2 (2026-10-31)
+No site-specific values in the core, real-break tests, the privacy rules for adminsvr, and a macOS app project.
+- Agent checks read every site-specific target from `site.json`; nothing office-specific is built in:
+  - `watchedServices[]` (`id`, `name`, `role` Server|Workstation|Any, optional `process`, `ports`, `restart` (default true), `checkId` (default `SVC-<id>`)) replaces the vendor-named service checks. Old `services.*` keys are still read and keep their check ids, but a process name must now come from config.
+  - Every entry in `shares` is checked as `SHARE-<KEY>` (before only one fixed share key was checked).
+  - `network.serverPorts` (default 445, 53) plus the ports of watched services.
+  - `configDrift { files, idPrefix (default DRIFT) }` for vendor config drift (still report-only); the old key keeps its old prefix. `Test-ItcmdrConfigDrift` (old name kept as an alias).
+  - `config/site.example.json` uses generic names; the server installer's default `logs_dir` is `C:\ProgramData\itcmdr\maintenanceRuns` (set it with `/LogsDir`).
+- Built-in check plugins now send a structured plugin error for each failing check: `RepairFailed` (Critical) when a repair was tried and failed, `CheckFailed` (Cautious) otherwise.
+- `ITCMDR_SITE_PATH` pointing to a missing file is now an error instead of a silent fall back to another `site.json`.
+- Fault-injection suite: `agent/tests/fault/FaultInjection.Tests.ps1` and `scripts/Invoke-ItcmdrFaultSuite.ps1 -IAmATestBed` (Windows test beds only; generic, configurable targets; restores what it breaks). Covers a stopped and a disabled service, corrupt and missing configs, an unwritable log folder, broken folder permissions, config drift (also a locked file), the agent killed mid-run, and a dropped server link.
+- ADMINSVR.md: section 5 and the "what flows" table now match decisions 18 and 19 (no names, paths, message text or backtraces leave the site; command results carry codes, not output text).
+- App: `app/macos/` desktop project (shield icon, network client entitlement). Unsigned and not notarized.
+
 ## v0.15.1 (2026-10-31)
 Windows restore fix, local release builds, and two adminsvr decisions.
 - Restore on Windows: the restore now waits until the stopped server has released the database (up to 30 s) and retries the database swap on "access denied" / "sharing violation" (up to 10 s). Before, a service that stopped answering but still held the file made the restore fail with "Access is denied" and no rollback.
