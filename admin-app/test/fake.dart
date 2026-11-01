@@ -83,6 +83,14 @@ Site site(
     alertsCautious: 2,
     alertsInformational: 0,
     machines: machines,
+    diskFreeBytes: 50 * 1073741824,
+    diskTotalBytes: 200 * 1073741824,
+    runs24H: 12,
+    runsFailed24H: 1,
+    runSecsAvg24H: 40,
+    runSecsMax24H: 95,
+    pluginErrors24H: 2,
+    alertsOpened24H: 3,
   ),
 );
 
@@ -94,6 +102,10 @@ CommandRow cmd(String kind) => CommandRow(
   resultCode: '',
   requestedBy: 'u1',
   createdMs: 1,
+  dryRun: false,
+  preview: const [],
+  approvedBy: '',
+  args: const [],
 );
 
 class FakeBackend implements Backend {
@@ -286,5 +298,192 @@ class FakeBackend implements Backend {
   Future<PushResult> testPush() async {
     calls.add('testPush');
     return const PushResult(devices: 0, sent: 0, failed: 0, providers: []);
+  }
+
+  // ---- v0.20.0
+  Freeze fz = const Freeze(frozen: false, by: '', sinceMs: 0);
+  List<CatalogEntry> cat = [];
+  List<CommandRow> pending = [];
+  final sent = <CommandRow>[];
+  SiteConfig cfg = SiteConfig(
+    receivedMs: DateTime.now().millisecondsSinceEpoch,
+    settings: const [
+      Setting(
+        key: 'backup.keep_daily',
+        kind: 'int',
+        value: '7',
+        hidden: false,
+        remote: true,
+        source: 'default',
+        scope: 'server',
+        min: 1,
+        max: 365,
+      ),
+      Setting(
+        key: 'backup.dir',
+        kind: 'path',
+        value: '',
+        hidden: true,
+        remote: false,
+        source: 'db',
+        scope: 'server',
+        min: 0,
+        max: 0,
+      ),
+    ],
+    schedules: const [
+      Schedule(
+        id: 's-1',
+        name: '',
+        enabled: true,
+        when: 'daily 03:00',
+        timezone: 'UTC',
+        action: 'backup',
+        builtin: 'nightly-backup',
+        allMachines: true,
+        machines: 0,
+        lastFireMs: 0,
+      ),
+    ],
+    requireTwoPerson: true,
+    allowed: const [
+      'setting.set',
+      'schedule.run',
+      'schedule.pause',
+      'schedule.resume',
+      'plugin.install',
+      'plugin.enable',
+      'plugin.disable',
+    ],
+  );
+  SitePlugins plugins = SitePlugins(
+    receivedMs: 1,
+    installed: const [
+      InstalledPlugin(
+        name: 'disk-watch',
+        version: '1.2.0',
+        enabled: true,
+        sha256: 'aa',
+      ),
+    ],
+    quarantine: [
+      Quarantined(sha256: 'b' * 64, reason: 'bad-signature', tsMs: 1),
+    ],
+  );
+
+  /// The site's answer to a command (by kind); default: applied / previewed with one change.
+  String Function(String kind, bool dryRun)? siteAnswer;
+
+  CommandRow _row(
+    String id,
+    String site,
+    String kind,
+    List<String> args,
+    bool dry,
+    String state,
+    String code,
+  ) => CommandRow(
+    id: id,
+    site: site,
+    kind: kind,
+    state: state,
+    resultCode: code,
+    requestedBy: 'u1',
+    createdMs: 1,
+    dryRun: dry,
+    preview: dry || state == 'applied'
+        ? const [Change(target: 'backup.keep_daily', before: '7', after: '9')]
+        : const [],
+    approvedBy: '',
+    args: args,
+  );
+
+  @override
+  Future<SiteConfig> siteConfig(String site) async => cfg;
+  @override
+  Future<SitePlugins> sitePlugins(String site) async => plugins;
+  @override
+  Future<CommandRow> sendCommand(
+    String site,
+    String kind,
+    List<String> args,
+    bool dryRun,
+  ) async {
+    calls.add('send $kind ${args.join(',')}${dryRun ? ' dry' : ''}');
+    if (fz.frozen) throw Exception('adminsvr is frozen');
+    final id = 'c${sent.length + 1}';
+    final two = !dryRun && kind.startsWith('plugin.');
+    final r = _row(
+      id,
+      site,
+      kind,
+      args,
+      dryRun,
+      two ? 'awaiting-approval' : 'pending',
+      '',
+    );
+    sent.add(r);
+    if (two) pending.add(r);
+    return r;
+  }
+
+  @override
+  Future<CommandRow> getCommand(String id) async {
+    final r = sent.firstWhere((x) => x.id == id);
+    final ans = siteAnswer?.call(r.kind, r.dryRun);
+    final state = ans ?? (r.dryRun ? 'previewed' : 'applied');
+    return _row(
+      r.id,
+      r.site,
+      r.kind,
+      r.args,
+      r.dryRun,
+      state,
+      state == 'failed' ? 'not-allowed' : 'ok',
+    );
+  }
+
+  @override
+  Future<CommandRow> approveCommand(String id) async {
+    calls.add('approve $id');
+    if (fz.frozen) throw Exception('adminsvr is frozen');
+    pending.removeWhere((x) => x.id == id);
+    return cmd('x');
+  }
+
+  @override
+  Future<CommandRow> rejectCommand(String id) async {
+    calls.add('reject $id');
+    pending.removeWhere((x) => x.id == id);
+    return cmd('x');
+  }
+
+  @override
+  Future<List<CommandRow>> pendingApprovals() async => List.of(pending);
+  @override
+  Future<List<CatalogEntry>> catalog() async => cat;
+  @override
+  Future<CatalogEntry> uploadPlugin(String path) async {
+    calls.add('upload $path');
+    final e = CatalogEntry(
+      sha256: 'c' * 64,
+      name: 'net-watch',
+      version: '2.0.0',
+      size: 4096,
+      uploadedBy: 'me',
+      uploadedMs: 1,
+      description: '',
+    );
+    cat = [...cat, e];
+    return e;
+  }
+
+  @override
+  Future<Freeze> freeze() async => fz;
+  @override
+  Future<Freeze> setFreeze(bool frozen) async {
+    calls.add('freeze $frozen');
+    fz = Freeze(frozen: frozen, by: 'owner@example.com', sinceMs: 1);
+    return fz;
   }
 }

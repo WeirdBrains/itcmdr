@@ -17,7 +17,16 @@ export 'src/rust/api/admin.dart'
         AuditRow,
         Policy,
         Passkey,
-        PushResult;
+        PushResult,
+        Change,
+        Setting,
+        Schedule,
+        SiteConfig,
+        InstalledPlugin,
+        Quarantined,
+        SitePlugins,
+        CatalogEntry,
+        Freeze;
 
 abstract class Backend {
   Future<api.Me?> open(String dir);
@@ -50,6 +59,23 @@ abstract class Backend {
   Future<int> removePasskey(String user, String credentialId);
   Future<void> registerPush(String provider, String token, String platform);
   Future<api.PushResult> testPush();
+  // v0.20.0
+  Future<api.SiteConfig> siteConfig(String site);
+  Future<api.SitePlugins> sitePlugins(String site);
+  Future<api.CommandRow> sendCommand(
+    String site,
+    String kind,
+    List<String> args,
+    bool dryRun,
+  );
+  Future<api.CommandRow> getCommand(String id);
+  Future<api.CommandRow> approveCommand(String id);
+  Future<api.CommandRow> rejectCommand(String id);
+  Future<List<api.CommandRow>> pendingApprovals();
+  Future<List<api.CatalogEntry>> catalog();
+  Future<api.CatalogEntry> uploadPlugin(String path);
+  Future<api.Freeze> freeze();
+  Future<api.Freeze> setFreeze(bool frozen);
 }
 
 class RustBackend implements Backend {
@@ -128,7 +154,58 @@ class RustBackend implements Backend {
       api.registerPush(provider: provider, token: token, platform: platform);
   @override
   Future<api.PushResult> testPush() => api.testPush();
+  @override
+  Future<api.SiteConfig> siteConfig(String site) => api.siteConfig(site: site);
+  @override
+  Future<api.SitePlugins> sitePlugins(String site) =>
+      api.sitePlugins(site: site);
+  @override
+  Future<api.CommandRow> sendCommand(
+    String site,
+    String kind,
+    List<String> args,
+    bool dryRun,
+  ) => api.sendCommand(site: site, kind: kind, args: args, dryRun: dryRun);
+  @override
+  Future<api.CommandRow> getCommand(String id) => api.getCommand(id: id);
+  @override
+  Future<api.CommandRow> approveCommand(String id) =>
+      api.approveCommand(id: id);
+  @override
+  Future<api.CommandRow> rejectCommand(String id) => api.rejectCommand(id: id);
+  @override
+  Future<List<api.CommandRow>> pendingApprovals() => api.pendingApprovals();
+  @override
+  Future<List<api.CatalogEntry>> catalog() => api.catalog();
+  @override
+  Future<api.CatalogEntry> uploadPlugin(String path) =>
+      api.uploadPlugin(path: path);
+  @override
+  Future<api.Freeze> freeze() => api.freeze();
+  @override
+  Future<api.Freeze> setFreeze(bool frozen) => api.setFreeze(frozen: frozen);
 }
+
+/// Poll a command until the site answered (or `timeout`): applied, previewed, failed, ...
+Future<api.CommandRow> waitCommand(
+  Backend b,
+  String id, {
+  Duration timeout = const Duration(seconds: 30),
+  Duration every = const Duration(seconds: 1),
+}) async {
+  final end = DateTime.now().add(timeout);
+  while (true) {
+    final c = await b.getCommand(id);
+    if (!const ['pending', 'sent'].contains(c.state) ||
+        DateTime.now().isAfter(end)) {
+      return c;
+    }
+    await Future<void>.delayed(every);
+  }
+}
+
+/// Plugin commands need a second owner/admin (when the site requires it).
+const twoPersonKinds = ['plugin.install', 'plugin.enable', 'plugin.disable'];
 
 /// AdminApi method names of each app action (for the step-up list).
 class Act {
@@ -147,6 +224,11 @@ class Act {
   static const ackAlert = 'AckAlert';
   static const resolveAlert = 'ResolveAlert';
   static const startBackup = 'StartBackup';
+  static const sendCommand = 'SendCommand';
+  static const approveCommand = 'ApproveCommand';
+  static const rejectCommand = 'RejectCommand';
+  static const uploadPlugin = 'UploadPlugin';
+  static const setFreeze = 'SetFreeze';
 }
 
 String roleLabel(String r) => switch (r) {

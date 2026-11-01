@@ -7,6 +7,7 @@ import '../backend.dart';
 import '../session.dart';
 import 'alerts.dart';
 import 'chart.dart';
+import 'config.dart';
 
 class ServersPage extends StatefulWidget {
   const ServersPage({super.key});
@@ -243,7 +244,7 @@ class _ServerPageState extends State<ServerPage> {
     final st = x.lastStatus;
     final t = Theme.of(context).textTheme;
     return DefaultTabController(
-      length: 4,
+      length: 6,
       child: Scaffold(
         appBar: AppBar(
           title: Text(x.name),
@@ -294,7 +295,10 @@ class _ServerPageState extends State<ServerPage> {
               Tab(text: 'Metrics'),
               Tab(text: 'Alerts'),
               Tab(text: 'Commands'),
+              Tab(text: 'Config'),
+              Tab(text: 'Plugins'),
             ],
+            isScrollable: true,
           ),
         ),
         body: TabBarView(
@@ -341,6 +345,18 @@ class _ServerPageState extends State<ServerPage> {
                     'Agents',
                     '${st.agentsOnline} online · ${st.agentsLate} late · ${st.agentsNonResponsive} not responding · ${st.agentsOther} other',
                   ),
+                  if (st.diskTotalBytes > 0)
+                    kv(
+                      'Disk (data)',
+                      '${(st.diskFreeBytes / 1073741824).toStringAsFixed(1)} GB free of ${(st.diskTotalBytes / 1073741824).toStringAsFixed(1)} GB',
+                      key: const Key('site-disk'),
+                    ),
+                  kv(
+                    'Last 24 h',
+                    '${st.runs24H} runs, ${st.runsFailed24H} failed · avg ${st.runSecsAvg24H} s, max ${st.runSecsMax24H} s · '
+                        '${st.pluginErrors24H} plugin errors · ${st.alertsOpened24H} alerts opened',
+                    key: const Key('site-24h'),
+                  ),
                   const SizedBox(height: 16),
                   Text('Machines and versions', style: t.titleMedium),
                   for (final m in st.machines)
@@ -371,8 +387,9 @@ class _ServerPageState extends State<ServerPage> {
                   const Text('No status from this server yet.'),
                 const SizedBox(height: 12),
                 Text(
-                  'Changing a server\'s settings or updating it remotely comes with v0.20/v0.21 '
-                  '(commands over the link with two-person approval).',
+                  'Change settings, schedules and plugins in the Config and Plugins tabs (preview '
+                  'first; plugin changes need a second owner or admin). Updating the server '
+                  'remotely comes with v0.21.',
                   style: t.bodySmall,
                 ),
               ],
@@ -461,15 +478,27 @@ class _ServerPageState extends State<ServerPage> {
                       for (final c in cmds!)
                         ListTile(
                           dense: true,
-                          title: Text(c.kind),
+                          title: Text(
+                            '${c.kind}${c.dryRun ? ' (preview)' : ''}${c.args.isEmpty ? '' : ' · ${c.args.join(', ')}'}',
+                          ),
                           subtitle: Text(
-                            '${c.state}${c.resultCode.isEmpty ? '' : ' (${c.resultCode})'} · ${ago(c.createdMs)}',
+                            '${c.state}${c.resultCode.isEmpty ? '' : ' (${c.resultCode})'} · ${ago(c.createdMs)}'
+                            '${c.approvedBy.isEmpty ? '' : ' · approved by ${c.approvedBy}'}'
+                            '${c.preview.isEmpty ? '' : '\n${c.preview.map((p) => '${p.target}: ${p.before} → ${p.after}').join('\n')}'}',
                           ),
                         ),
                       if (cmds!.isEmpty)
                         const ListTile(title: Text('No commands yet')),
                     ],
                   ),
+            SessionScope(
+              session: s,
+              child: SiteConfigTab(site: x.id),
+            ),
+            SessionScope(
+              session: s,
+              child: SitePluginsTab(site: x.id),
+            ),
           ],
         ),
       ),
