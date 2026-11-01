@@ -551,6 +551,18 @@ impl Client {
         kind: &str,
         args: &[(&str, &str)],
     ) -> Result<pb::CommandInfo> {
+        self.command_ex(site, kind, args, false).await
+    }
+
+    /// v0.20.0: any kind through SendCommand; `dry_run`: the site previews, changes nothing.
+    /// Two-person kinds come back `awaiting-approval` (live a day instead of 10 minutes).
+    pub async fn command_ex(
+        &self,
+        site: &str,
+        kind: &str,
+        args: &[(&str, &str)],
+        dry_run: bool,
+    ) -> Result<pb::CommandInfo> {
         let me = self.whoami().await?;
         let now = itcmdr_keys::now_ms();
         let mut c = pb::Command {
@@ -564,17 +576,98 @@ impl Client {
             user_id: me.id,
             user_role: me.role,
             issued_ms: now,
-            expires_ms: now + 10 * 60 * 1000,
+            expires_ms: now
+                + if !dry_run && itcmdr_adminlink::TWO_PERSON.contains(&kind) {
+                    23 * 3600 * 1000
+                } else {
+                    10 * 60 * 1000
+                },
+            dry_run,
             ..Default::default()
         };
         itcmdr_adminlink::sign_user(&self.key, &mut c);
         let req = pb::CommandRequest { command: Some(c) };
         match kind {
-            "backup.start" => call!(self, start_backup, "StartBackup", req),
-            "alert.ack" => call!(self, ack_alert, "AckAlert", req),
-            "alert.resolve" => call!(self, resolve_alert, "ResolveAlert", req),
+            "backup.start" if !dry_run => call!(self, start_backup, "StartBackup", req),
+            "alert.ack" if !dry_run => call!(self, ack_alert, "AckAlert", req),
+            "alert.resolve" if !dry_run => call!(self, resolve_alert, "ResolveAlert", req),
+            k if itcmdr_adminlink::COMMANDS.contains(&k) => {
+                call!(self, send_command, "SendCommand", req)
+            }
             _ => bail!("unknown command {kind}"),
         }
+    }
+
+    pub async fn get_command(&self, id: &str) -> Result<pb::CommandDetail> {
+        call!(self, get_command, "GetCommand", pb::CommandRef { id: id.into() })
+    }
+
+    /// Wait until a command leaves pending/sent (or the timeout), returning its last state.
+    pub async fn wait_command(&self, id: &str, timeout: std::time::Duration) -> Result<pb::CommandInfo> {
+        let t0 = std::time::Instant::now();
+        loop {
+            let d = self.get_command(id).await?.info.unwrap_or_default();
+            if !matches!(d.state.as_str(), "pending" | "sent") || t0.elapsed() > timeout {
+                return Ok(d);
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        }
+    }
+
+    /// Second person: sign the exact command (as this device's user) and approve it.
+    pub async fn approve_command(&self, id: &str) -> Result<pb::CommandInfo> {
+        let me = self.whoami().await?;
+        let mut c = self
+            .get_command(id)
+            .await?
+            .command
+            .ok_or_else(|| anyhow!("command body missing"))?;
+        c.approver_id = me.id;
+        c.approver_role = me.role;
+        itcmdr_adminlink::sign_approver(&self.key, &mut c);
+        call!(
+            self,
+            approve_command,
+            "ApproveCommand",
+            pb::ApproveRequest {
+                id: id.into(),
+                approver_key: c.approver_key.clone(),
+                approver_sig: c.approver_sig.clone()
+            }
+        )
+    }
+
+    pub async fn reject_command(&self, id: &str) -> Result<pb::CommandInfo> {
+        call!(self, reject_command, "RejectCommand", pb::CommandRef { id: id.into() })
+    }
+
+    pub async fn site_config(&self, site: &str) -> Result<pb::SiteConfigInfo> {
+        call!(self, get_site_config, "GetSiteConfig", pb::SiteRef { site: site.into() })
+    }
+
+    pub async fn site_plugins(&self, site: &str) -> Result<pb::SitePluginsInfo> {
+        call!(self, get_site_plugins, "GetSitePlugins", pb::SiteRef { site: site.into() })
+    }
+
+    pub async fn upload_plugin(&self, package: Vec<u8>) -> Result<pb::CatalogEntry> {
+        call!(self, upload_plugin, "UploadPlugin", pb::PluginUpload { package })
+    }
+
+    pub async fn catalog(&self) -> Result<pb::Catalog> {
+        call!(self, list_catalog, "ListCatalog", pb::Empty {})
+    }
+
+    pub async fn freeze(&self) -> Result<pb::FreezeState> {
+        call!(self, get_freeze, "GetFreeze", pb::Empty {})
+    }
+
+    pub async fn set_freeze(&self, frozen: bool) -> Result<pb::FreezeState> {
+        call!(
+            self,
+            set_freeze,
+            "SetFreeze",
+            pb::FreezeState { frozen, ..Default::default() }
+        )
     }
 }
 
@@ -719,4 +812,14 @@ pub const PARITY: &[(&str, &str)] = &[
     ("RegisterPush", "push register"),
     ("UnregisterPush", "push unregister"),
     ("TestPush", "push test"),
+    ("SendCommand", "config set / schedule run|pause|resume / plugin enable|disable|push (--dry-run)"),
+    ("GetCommand", "command show"),
+    ("ApproveCommand", "command approve"),
+    ("RejectCommand", "command reject"),
+    ("GetSiteConfig", "config show"),
+    ("GetSitePlugins", "plugin status"),
+    ("UploadPlugin", "plugin upload"),
+    ("ListCatalog", "plugin catalog"),
+    ("GetFreeze", "freeze status"),
+    ("SetFreeze", "freeze on / freeze off"),
 ];
