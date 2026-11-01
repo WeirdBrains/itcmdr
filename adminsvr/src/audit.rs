@@ -112,8 +112,7 @@ pub async fn verify(pool: &Pool) -> Result<crate::pb::AuditVerify> {
         .fetch_all(pool)
         .await?;
     let mut prev = GENESIS.to_string();
-    let mut want = 1i64;
-    for r in &rows {
+    for (want, r) in (1i64..).zip(rows.iter()) {
         let e = row_entry(r);
         let bad = |p: &str| crate::pb::AuditVerify {
             ok: false,
@@ -142,7 +141,6 @@ pub async fn verify(pool: &Pool) -> Result<crate::pb::AuditVerify> {
             return Ok(bad("entry was changed (hash mismatch)"));
         }
         prev = e.hash;
-        want += 1;
     }
     Ok(crate::pb::AuditVerify {
         ok: true,

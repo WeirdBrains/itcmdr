@@ -1759,7 +1759,7 @@ fn run(rt: &tokio::runtime::Runtime) -> Result<()> {
                 };
                 match ac {
                     AdminsvrCmd::Enroll { token } => {
-                        show(&srv::sitelink::enroll(&pool, &cfg, &token, "itcmdr-cli").await?)
+                        show(&srv::sitelink::enroll(&pool, &cfg, token, "itcmdr-cli").await?)
                     }
                     AdminsvrCmd::Status => match srv::sitelink::load(&cfg) {
                         Some(s) => {
@@ -1780,7 +1780,7 @@ fn run(rt: &tokio::runtime::Runtime) -> Result<()> {
                             .await?,
                     ),
                     AdminsvrCmd::Allow { kinds } => {
-                        show(&srv::sitelink::set_allowed(&pool, &cfg, &kinds, "itcmdr-cli").await?)
+                        show(&srv::sitelink::set_allowed(&pool, &cfg, kinds, "itcmdr-cli").await?)
                     }
                 }
                 anyhow::Ok(())

@@ -46,6 +46,8 @@ pub async fn refresh_revoked(pool: &Pool) {
     }
 }
 
+type Tx = mpsc::Sender<Result<pb::AdminMessage, Status>>;
+
 #[derive(Clone, Default)]
 pub struct Hub {
     inner: Arc<HubInner>,
@@ -53,7 +55,7 @@ pub struct Hub {
 
 #[derive(Default)]
 struct HubInner {
-    sessions: RwLock<HashMap<String, (u64, mpsc::Sender<Result<pb::AdminMessage, Status>>)>>,
+    sessions: RwLock<HashMap<String, (u64, Tx)>>,
     kicks: Mutex<HashMap<String, Arc<Notify>>>,
     next: Mutex<u64>,
 }

@@ -104,6 +104,7 @@ fn internal(e: impl std::fmt::Display) -> Status {
 
 /// Verify a signed call. `allow_master`: the user's master key may sign this method.
 /// `allow_pending`: a device waiting for approval may call (WhoAmI only).
+#[allow(clippy::too_many_arguments)]
 pub async fn verify(
     pool: &Pool,
     nonces: &Nonces,
