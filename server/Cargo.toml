@@ -1,6 +1,6 @@
 [package]
 name = "itcmdr-server"
-version = "0.19.1"
+version = "0.19.2"
 edition = "2021"
 description = "itcmdr gRPC server and background ingest"
 

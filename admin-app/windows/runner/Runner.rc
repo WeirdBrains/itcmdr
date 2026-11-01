@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.weirdbrains" "\0"
-            VALUE "FileDescription", "itcmdr_admin" "\0"
+            VALUE "FileDescription", "itcmdr Admin" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "itcmdr_admin" "\0"
+            VALUE "InternalName", "itcmdr Admin" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.weirdbrains. All rights reserved." "\0"
-            VALUE "OriginalFilename", "itcmdr_admin.exe" "\0"
-            VALUE "ProductName", "itcmdr_admin" "\0"
+            VALUE "OriginalFilename", "itcmdr-admin-app.exe" "\0"
+            VALUE "ProductName", "itcmdr Admin" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
