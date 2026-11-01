@@ -16,6 +16,9 @@ ed25519-dalek = "2.1"
 tonic = { version = "0.12", features = ["transport", "tls"] }
 prost = "0.13"
 itcmdr-keys = { path = "../keys" }
+p256 = { version = "0.13", features = ["ecdsa"] }
+ciborium = "0.2"
+x509-parser = "0.16"
 
 [build-dependencies]
 tonic-build = { version = "0.12", features = ["prost"] }
