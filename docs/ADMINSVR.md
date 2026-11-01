@@ -120,6 +120,24 @@ Setting `adminsvr.enabled=false` closes the link at once (kill switch); `adminsv
 overrides the status interval. Every command is checked for both signatures (user and adminsvr
 root key), expiry, the never-remote list and the local allowlist, and is written to the site audit.
 
+## Commands, configs and plugins (v0.20.0)
+
+A site sends its configuration document (setting values only for numbers, switches and times; paths and text
+stay on the site; schedules by opaque id, names only with the display-name opt-in) and its plugin list. adminsvr
+sends signed commands back; the site checks the user signature, its local allowlist, the never-remote list and,
+for plugin kinds, the second person's signed approval, then audits.
+
+    itcmdr-admin config show <site> [--all]
+    itcmdr-admin config set <site> backup.keep_daily 9 --dry-run     # preview: before/after, nothing changes
+    itcmdr-admin schedule pause <site> <schedule-id>
+    itcmdr-admin plugin upload disk-watch-1.2.0.tar.gz               # owners/admins; signed package
+    itcmdr-admin plugin push <site> <sha256>                          # waits for approval
+    itcmdr-admin command approve <id>                                 # another owner/admin
+    itcmdr-admin freeze on|off                                        # owners: stop everything
+
+On the site: `itcmdr-cli adminsvr allow setting.set schedule.pause plugin.install ...` (nothing new is allowed by
+default). `adminsvr.requireTwoPerson` (default true) can only be changed on the site.
+
 ## Passkeys / security keys (v0.19.1, optional)
 
 The 24-word key signs everything; a passkey is a second factor on top. The CLI uses a USB/NFC

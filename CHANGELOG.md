@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+v0.20.0 in progress (done so far):
+- Commands down from adminsvr: `setting.set` (numbers, switches and times only; never link, auth, path or text settings), `schedule.run`/`pause`/`resume` (opaque schedule ids), `plugin.install`/`enable`/`disable`. Every command can be a dry run: the site answers with before/after and changes nothing. All kinds stay off until the site owner allows them (`itcmdr-cli adminsvr allow`); restore, keys and auth are never remote.
+- Two-person approval: plugin commands wait for a second owner or admin, whose key signs the approval; the site checks it itself (`adminsvr.requireTwoPerson`, default on, site-only), so a compromised adminsvr cannot skip it (tested).
+- Global freeze (owners): nothing is sent to any site while it is on.
+- Plugin catalog: owners/admins add signed packages to adminsvr (it cannot sign one); sites fetch the package over SiteLink (`FetchPackage`, site-signed, only for a sent install command), validate it as for a local install and quarantine a bad one (only a reason code goes up).
+- Documents up: each site sends its configuration (values only for numbers, switches and times) and its plugin list when they change; status adds disk space and 24 h run/plugin-error/alert summaries.
+- Admin CLI: `config show|set`, `schedule run|pause|resume`, `plugin catalog|upload|status|push|enable|disable`, `command show|approve|reject`, `freeze status|on|off`, `--dry-run`.
+- itcmdr Admin: server Config and Plugins tabs (preview, then apply), Plugins page (catalog, approvals, freeze), freeze banner, 24 h summaries.
+- No CocoaPods: both Flutter apps build their Rust bridge with flutter_rust_bridge native assets (cargokit removed) and use Swift Package Manager on iOS/macOS.
+- Fix: command arguments are encoded in key order (two-argument commands could fail the request signature).
+
 ## v0.19.2 (2026-11-01)
 The itcmdr Admin app, push notifications for alerts, service scripts for every platform and a tested container image.
 - itcmdr Admin (Flutter; Linux, macOS, Windows, Android): onboarding with a one-time code and the 24 words, every request signed by the device key over pinned TLS (the CLI's client through a Rust bridge), passkey touch prompt for step-up actions (desktop security keys via libfido2's tools), alert inbox with acknowledge/resolve, servers with status, configuration, per-machine versions and "update available", metrics history (6 h to 30 days), commands and remote backup start, user management per role (create, roles, disable, SRE scopes, device approval/revocation, passkey reset), step-up policy (owners), audit verify. No web build (gRPC over TLS sockets needs gRPC-web in browsers). The Android APK is signed with a debug key; iOS builds without signing and is not published.
