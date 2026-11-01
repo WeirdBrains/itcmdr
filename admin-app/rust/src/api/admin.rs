@@ -351,7 +351,12 @@ pub fn enroll(dir: String, code: String, key_backup: bool) -> Result<Enrolled> {
     if Identity::path(&d).exists() {
         bail!("this device is already enrolled; sign out (forget this device) first");
     }
-    let e = block(itcmdr_admin::enroll(code.trim(), &platform(), !key_backup, None))?;
+    let e = block(itcmdr_admin::enroll(
+        code.trim(),
+        &platform(),
+        !key_backup,
+        None,
+    ))?;
     std::fs::create_dir_all(&d)?;
     e.identity.save(&d)?;
     let words = e.words.to_string();
@@ -421,7 +426,9 @@ pub fn set_scopes(user: String, sites: Vec<String>) -> Result<User> {
 }
 
 pub fn approve_device(user: String, fingerprint: String) -> Result<User> {
-    Ok(user_of(block(client()?.approve_device(&user, &fingerprint))?))
+    Ok(user_of(block(
+        client()?.approve_device(&user, &fingerprint),
+    )?))
 }
 
 pub fn revoke_device(user: String, fingerprint: String) -> Result<Vec<Device>> {

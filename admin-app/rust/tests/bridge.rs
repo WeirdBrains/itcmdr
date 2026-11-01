@@ -4,14 +4,23 @@ use itcmdr_admin_bridge::api::admin as a;
 use std::time::Duration;
 
 fn free_port() -> u16 {
-    std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port()
+    std::net::TcpListener::bind("127.0.0.1:0")
+        .unwrap()
+        .local_addr()
+        .unwrap()
+        .port()
 }
 
 #[test]
 fn bridge_end_to_end() {
     let tmp = tempfile::tempdir().unwrap();
     let db = format!("sqlite://{}", tmp.path().join("adminsvr.db").display());
-    let cfg = itcmdr_adminsvr::config::Config::for_test(tmp.path().join("data"), &db, free_port(), free_port());
+    let cfg = itcmdr_adminsvr::config::Config::for_test(
+        tmp.path().join("data"),
+        &db,
+        free_port(),
+        free_port(),
+    );
     let rt = tokio::runtime::Runtime::new().unwrap();
     let c2 = cfg.clone();
     rt.spawn(async move {
@@ -23,14 +32,26 @@ fn bridge_end_to_end() {
         }
         std::thread::sleep(Duration::from_millis(50));
     }
-    let code = rt.block_on(itcmdr_adminsvr::api::init(&cfg, "owner@example.com", "Owner O")).unwrap();
+    let code = rt
+        .block_on(itcmdr_adminsvr::api::init(
+            &cfg,
+            "owner@example.com",
+            "Owner O",
+        ))
+        .unwrap();
     let dir = tmp.path().join("app").display().to_string();
 
     assert!(a::open(dir.clone()).unwrap().is_none(), "not enrolled yet");
     let e = a::enroll(dir.clone(), code, false).unwrap();
     assert_eq!(e.words.split_whitespace().count(), 24);
-    assert_eq!((e.me.role.as_str(), e.me.email.as_str()), ("owner", "owner@example.com"));
-    assert!(a::enroll(dir.clone(), "x".into(), false).is_err(), "already enrolled");
+    assert_eq!(
+        (e.me.role.as_str(), e.me.email.as_str()),
+        ("owner", "owner@example.com")
+    );
+    assert!(
+        a::enroll(dir.clone(), "x".into(), false).is_err(),
+        "already enrolled"
+    );
     // Reopen from the stored identity.
     let me = a::open(dir.clone()).unwrap().unwrap();
     assert_eq!(me.id, e.me.id);
@@ -45,7 +66,10 @@ fn bridge_end_to_end() {
     let sre = us.iter().find(|u| u.role == "sre").unwrap();
     let u = a::set_role(sre.id.clone(), "admin".into()).unwrap();
     assert_eq!(u.role, "admin");
-    assert_eq!(a::set_disabled(sre.id.clone(), true).unwrap().status, "disabled");
+    assert_eq!(
+        a::set_disabled(sre.id.clone(), true).unwrap().status,
+        "disabled"
+    );
 
     // Servers.
     let tok = a::create_site("Office A".into()).unwrap();
@@ -61,7 +85,10 @@ fn bridge_end_to_end() {
     assert!(p.stepup_actions.contains(&"SetRole".to_string()));
     assert!(a::passkeys("".into()).unwrap().is_empty());
     assert!(a::verify_audit().unwrap().starts_with("ok"));
-    assert!(a::audit(50).unwrap().iter().any(|r| r.action.contains("site")));
+    assert!(a::audit(50)
+        .unwrap()
+        .iter()
+        .any(|r| r.action.contains("site")));
     a::register_push("fcm".into(), "tok".into(), "android".into()).unwrap();
     let r = a::test_push().unwrap();
     assert_eq!((r.devices, r.sent), (1, 0));
