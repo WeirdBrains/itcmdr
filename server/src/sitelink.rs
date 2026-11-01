@@ -217,7 +217,17 @@ pub struct Redactor {
     sensitive: Vec<String>,
     machines: Vec<String>,
     plugins: Vec<String>,
+    /// code words allowed through as-is (lowercase): the fixed list, check ids, plugin names
+    vocab: std::collections::HashSet<String>,
 }
+
+/// Alert code words that may go up unchanged. Anything else in a key is replaced by an opaque id.
+pub const VOCAB: &[&str] = &[
+    "agent", "agent-online", "agent-nonresponsive", "agent-late", "agent-cert", "agent-clock", "agent-run",
+    "agent-plugin", "agent-queue", "plugin", "repair", "quarantine", "backup", "nightly", "manual", "remote",
+    "check", "fail", "failed", "error", "errors", "exception", "timeout", "verify", "execute", "log",
+    "disk-low", "disk-full", "service-down", "cert-expiry", "restore", "schedule", "missed", "site-unreachable",
+];
 
 const SOURCES: &[&str] = &[
     "agent",
@@ -277,7 +287,14 @@ impl Redactor {
         sensitive: Vec<String>,
         machines: Vec<String>,
         plugins: Vec<String>,
+        check_ids: Vec<String>,
     ) -> Self {
+        let vocab = VOCAB
+            .iter()
+            .map(|s| s.to_string())
+            .chain(check_ids.iter().map(|c| c.to_lowercase()))
+            .chain(plugins.iter().map(|c| c.to_lowercase()))
+            .collect();
         let mut s: Vec<String> = sensitive
             .into_iter()
             .chain(machines.iter().cloned())
@@ -292,6 +309,7 @@ impl Redactor {
             sensitive: s,
             machines: machines.iter().map(|m| m.to_lowercase()).collect(),
             plugins,
+            vocab,
         }
     }
 
@@ -350,7 +368,11 @@ impl Redactor {
             .unwrap_or_default();
         // The opt-in is read from disk on every pass, so turning it off takes effect at once.
         let share = load(cfg).is_some_and(|x| x.share_display_names);
-        Redactor::new(&st.id_secret, share, sens, machines, plugins)
+        let checks: Vec<String> = sqlx::query_scalar("SELECT DISTINCT check_id FROM checks")
+            .fetch_all(pool)
+            .await
+            .unwrap_or_default();
+        Redactor::new(&st.id_secret, share, sens, machines, plugins, checks)
     }
 
     /// Stable opaque id: keyed hash (secret, kind \0 value), 16 hex.
@@ -381,7 +403,11 @@ impl Redactor {
             .map(|seg| {
                 if self.machines.contains(&seg.to_lowercase()) {
                     self.pid("machine", seg)
-                } else if plain_token(seg) && !self.is_sensitive(seg) {
+                } else if seg.len() <= 40
+                    && seg.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.')
+                    && self.vocab.contains(&seg.to_lowercase())
+                    && !self.is_sensitive(seg)
+                {
                     seg.to_string()
                 } else {
                     self.pid("x", seg)
@@ -693,6 +719,10 @@ async fn session(pool: &DbPool, cfg: &ServerConfig, st: &State) -> Result<()> {
             }
             Some((id, ok, code)) = done_rx.recv() => out.send(pb::site_message::Body::Result(pb::CommandResult { command_id: id, ok, code })).await?,
             _ = status_t.tick() => {
+                if !crate::settings::get_bool(pool, None, "adminsvr.enabled").await || load(cfg).is_none() {
+                    tracing::info!("adminsvr link closed (adminsvr.enabled=false or unlinked)");
+                    return Ok(());
+                }
                 let r = Redactor::for_site(pool, cfg, st).await;
                 out.send(pb::site_message::Body::Status(status(pool, cfg, &r).await)).await?;
             }

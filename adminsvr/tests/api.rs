@@ -3,63 +3,7 @@
 //! client-side encrypted key backup and new devices from the 24 words, CLI parity.
 mod common;
 use itcmdr_admin::{proto as pb, Client};
-use itcmdr_adminsvr::config::Config;
-use std::time::Duration;
-
-fn free_port() -> u16 {
-    std::net::TcpListener::bind("127.0.0.1:0")
-        .unwrap()
-        .local_addr()
-        .unwrap()
-        .port()
-}
-
-pub struct Srv {
-    pub cfg: Config,
-    pub _tmp: tempfile::TempDir,
-    pub stop: Option<tokio::sync::oneshot::Sender<()>>,
-}
-
-pub async fn start(db: &str) -> Srv {
-    let tmp = tempfile::tempdir().unwrap();
-    let mut cfg = Config::for_test(tmp.path().join("data"), db, free_port(), free_port());
-    cfg.heartbeat_secs = 1;
-    cfg.site_missed = 3;
-    let (tx, rx) = tokio::sync::oneshot::channel::<()>();
-    let c = cfg.clone();
-    tokio::spawn(async move {
-        if let Err(e) = itcmdr_adminsvr::run(c, async move {
-            let _ = rx.await;
-        })
-        .await
-        {
-            eprintln!("adminsvr: {e:#}");
-        }
-    });
-    for _ in 0..100 {
-        if tokio::net::TcpStream::connect(&cfg.api_addr).await.is_ok() {
-            break;
-        }
-        tokio::time::sleep(Duration::from_millis(50)).await;
-    }
-    Srv {
-        cfg,
-        _tmp: tmp,
-        stop: Some(tx),
-    }
-}
-
-async fn owner(s: &Srv) -> (Client, itcmdr_admin::Enrolled) {
-    let code = itcmdr_adminsvr::api::init(&s.cfg, "owner@example.com", "Owner O")
-        .await
-        .unwrap();
-    let e = itcmdr_admin::enroll(&code, "test", false, None)
-        .await
-        .unwrap();
-    assert_eq!(e.user.role, "owner");
-    assert_eq!(e.user.devices[0].status, "active");
-    (Client::connect(&e.identity).await.unwrap(), e)
-}
+use common::{owner, start};
 
 /// Create + enroll + approve a user; returns their client.
 async fn user(o: &Client, email: &str, role: &str) -> (Client, itcmdr_admin::Enrolled) {
@@ -73,6 +17,7 @@ async fn user(o: &Client, email: &str, role: &str) -> (Client, itcmdr_admin::Enr
     (Client::connect(&e.identity).await.unwrap(), e)
 }
 
+#[allow(unused_macros)]
 macro_rules! need_pg {
     () => {
         match common::db().await {
