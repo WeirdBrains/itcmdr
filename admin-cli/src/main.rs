@@ -108,9 +108,24 @@ enum ConfigCmd {
 
 #[derive(Subcommand)]
 enum ScheduleCmd {
-    Run { site: String, id: String, #[arg(long)] dry_run: bool },
-    Pause { site: String, id: String, #[arg(long)] dry_run: bool },
-    Resume { site: String, id: String, #[arg(long)] dry_run: bool },
+    Run {
+        site: String,
+        id: String,
+        #[arg(long)]
+        dry_run: bool,
+    },
+    Pause {
+        site: String,
+        id: String,
+        #[arg(long)]
+        dry_run: bool,
+    },
+    Resume {
+        site: String,
+        id: String,
+        #[arg(long)]
+        dry_run: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -122,7 +137,12 @@ enum PluginCmd {
     /// Installed plugins and quarantine of a site
     Status { site: String },
     /// Push a catalog package to a site (two-person: a second owner/admin approves)
-    Push { site: String, sha256: String, #[arg(long)] dry_run: bool },
+    Push {
+        site: String,
+        sha256: String,
+        #[arg(long)]
+        dry_run: bool,
+    },
     Enable {
         site: String,
         name: String,
@@ -131,7 +151,12 @@ enum PluginCmd {
         #[arg(long)]
         dry_run: bool,
     },
-    Disable { site: String, name: String, #[arg(long)] dry_run: bool },
+    Disable {
+        site: String,
+        name: String,
+        #[arg(long)]
+        dry_run: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -315,10 +340,16 @@ enum CommandCmd {
         site: String,
     },
     /// State, result and preview of one command
-    Show { id: String },
+    Show {
+        id: String,
+    },
     /// Be the second person for a two-person command (owners/admins, not the requester)
-    Approve { id: String },
-    Reject { id: String },
+    Approve {
+        id: String,
+    },
+    Reject {
+        id: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -735,9 +766,14 @@ async fn main() -> Result<()> {
                 }
                 Cmd::Command(CommandCmd::Approve { id }) => {
                     let x = c.approve_command(&id).await?;
-                    show_command(&c.wait_command(&x.id, std::time::Duration::from_secs(20)).await?);
+                    show_command(
+                        &c.wait_command(&x.id, std::time::Duration::from_secs(20))
+                            .await?,
+                    );
                 }
-                Cmd::Command(CommandCmd::Reject { id }) => show_command(&c.reject_command(&id).await?),
+                Cmd::Command(CommandCmd::Reject { id }) => {
+                    show_command(&c.reject_command(&id).await?)
+                }
                 Cmd::Config(cc) => match cc {
                     ConfigCmd::Show { site, all } => {
                         let i = c.site_config(&site).await?;
@@ -745,31 +781,86 @@ async fn main() -> Result<()> {
                             println!("{site} has not sent its configuration yet");
                             return Ok(());
                         };
-                        println!("version {} (received {}), two-person {}, allowed: {}", &d.version[..d.version.len().min(12)], ts(i.received_ms), d.require_two_person, d.allowed.join(" "));
+                        println!(
+                            "version {} (received {}), two-person {}, allowed: {}",
+                            &d.version[..d.version.len().min(12)],
+                            ts(i.received_ms),
+                            d.require_two_person,
+                            d.allowed.join(" ")
+                        );
                         for x in d.settings.iter().filter(|x| all || !x.hidden) {
-                            println!("  {:<36} {:<5} {:<24} {}{}", x.key, x.kind, if x.hidden { "(on the site)".into() } else { x.value.clone() }, x.source, if x.remote { "" } else { "  read-only here" });
+                            println!(
+                                "  {:<36} {:<5} {:<24} {}{}",
+                                x.key,
+                                x.kind,
+                                if x.hidden {
+                                    "(on the site)".into()
+                                } else {
+                                    x.value.clone()
+                                },
+                                x.source,
+                                if x.remote { "" } else { "  read-only here" }
+                            );
                         }
                         println!("schedules:");
                         for x in &d.schedules {
-                            println!("  {}  {:<8} {}  {} {}  {}", x.id, if x.enabled { "enabled" } else { "paused" }, x.action, x.when, x.timezone, if x.name.is_empty() { x.builtin.clone() } else { x.name.clone() });
+                            println!(
+                                "  {}  {:<8} {}  {} {}  {}",
+                                x.id,
+                                if x.enabled { "enabled" } else { "paused" },
+                                x.action,
+                                x.when,
+                                x.timezone,
+                                if x.name.is_empty() {
+                                    x.builtin.clone()
+                                } else {
+                                    x.name.clone()
+                                }
+                            );
                         }
                     }
-                    ConfigCmd::Set { site, key, value, dry_run } => {
-                        run_cmd(&c, &site, "setting.set", &[("key", &key), ("value", &value)], dry_run).await?
+                    ConfigCmd::Set {
+                        site,
+                        key,
+                        value,
+                        dry_run,
+                    } => {
+                        run_cmd(
+                            &c,
+                            &site,
+                            "setting.set",
+                            &[("key", &key), ("value", &value)],
+                            dry_run,
+                        )
+                        .await?
                     }
                 },
                 Cmd::Schedule(sc) => {
                     let (k, site, id, dry) = match sc {
-                        ScheduleCmd::Run { site, id, dry_run } => ("schedule.run", site, id, dry_run),
-                        ScheduleCmd::Pause { site, id, dry_run } => ("schedule.pause", site, id, dry_run),
-                        ScheduleCmd::Resume { site, id, dry_run } => ("schedule.resume", site, id, dry_run),
+                        ScheduleCmd::Run { site, id, dry_run } => {
+                            ("schedule.run", site, id, dry_run)
+                        }
+                        ScheduleCmd::Pause { site, id, dry_run } => {
+                            ("schedule.pause", site, id, dry_run)
+                        }
+                        ScheduleCmd::Resume { site, id, dry_run } => {
+                            ("schedule.resume", site, id, dry_run)
+                        }
                     };
                     run_cmd(&c, &site, k, &[("schedule", &id)], dry).await?
                 }
                 Cmd::Plugin(pc) => match pc {
                     PluginCmd::Catalog => {
                         for p in c.catalog().await?.packages {
-                            println!("{}  {} {}  {} bytes  by {}  {}", p.sha256, p.name, p.version, p.size, p.uploaded_by, ts(p.uploaded_ms));
+                            println!(
+                                "{}  {} {}  {} bytes  by {}  {}",
+                                p.sha256,
+                                p.name,
+                                p.version,
+                                p.size,
+                                p.uploaded_by,
+                                ts(p.uploaded_ms)
+                            );
                         }
                     }
                     PluginCmd::Upload { file } => {
@@ -780,28 +871,51 @@ async fn main() -> Result<()> {
                         let i = c.site_plugins(&site).await?;
                         let d = i.plugins.unwrap_or_default();
                         for p in d.installed {
-                            println!("  {} {}  {}  {}", p.name, p.version, if p.enabled { "enabled" } else { "disabled" }, &p.sha256[..p.sha256.len().min(16)]);
+                            println!(
+                                "  {} {}  {}  {}",
+                                p.name,
+                                p.version,
+                                if p.enabled { "enabled" } else { "disabled" },
+                                &p.sha256[..p.sha256.len().min(16)]
+                            );
                         }
                         if !d.quarantine.is_empty() {
                             println!("quarantine:");
                             for q in d.quarantine {
-                                println!("  {}  {}  {}", &q.sha256[..q.sha256.len().min(16)], q.reason, ts(q.ts_ms));
+                                println!(
+                                    "  {}  {}  {}",
+                                    &q.sha256[..q.sha256.len().min(16)],
+                                    q.reason,
+                                    ts(q.ts_ms)
+                                );
                             }
                         }
                     }
-                    PluginCmd::Push { site, sha256, dry_run } => {
-                        run_cmd(&c, &site, "plugin.install", &[("sha256", &sha256)], dry_run).await?
+                    PluginCmd::Push {
+                        site,
+                        sha256,
+                        dry_run,
+                    } => {
+                        run_cmd(&c, &site, "plugin.install", &[("sha256", &sha256)], dry_run)
+                            .await?
                     }
-                    PluginCmd::Enable { site, name, version, dry_run } => {
+                    PluginCmd::Enable {
+                        site,
+                        name,
+                        version,
+                        dry_run,
+                    } => {
                         let mut a = vec![("name", name.as_str())];
                         if !version.is_empty() {
                             a.push(("version", version.as_str()));
                         }
                         run_cmd(&c, &site, "plugin.enable", &a, dry_run).await?
                     }
-                    PluginCmd::Disable { site, name, dry_run } => {
-                        run_cmd(&c, &site, "plugin.disable", &[("name", &name)], dry_run).await?
-                    }
+                    PluginCmd::Disable {
+                        site,
+                        name,
+                        dry_run,
+                    } => run_cmd(&c, &site, "plugin.disable", &[("name", &name)], dry_run).await?,
                 },
                 Cmd::Freeze(f) => {
                     let st = match f {
@@ -810,7 +924,11 @@ async fn main() -> Result<()> {
                         FreezeCmd::Off => c.set_freeze(false).await?,
                     };
                     if st.frozen {
-                        println!("FROZEN by {} since {}: every command is refused", st.by, ts(st.since_ms));
+                        println!(
+                            "FROZEN by {} since {}: every command is refused",
+                            st.by,
+                            ts(st.since_ms)
+                        );
                     } else {
                         println!("not frozen");
                     }
@@ -879,7 +997,11 @@ fn show_command(x: &pb::CommandInfo) {
         x.state,
         x.result_code,
         x.requested_by,
-        if x.approved_by.is_empty() { String::new() } else { format!(", approved by {}", x.approved_by) }
+        if x.approved_by.is_empty() {
+            String::new()
+        } else {
+            format!(", approved by {}", x.approved_by)
+        }
     );
     for p in &x.preview {
         println!("  {}: {} -> {}", p.target, p.before, p.after);
@@ -896,9 +1018,15 @@ async fn run_cmd(
     let x = c.command_ex(site, kind, args, dry_run).await?;
     if x.state == "awaiting-approval" {
         show_command(&x);
-        println!("needs a second owner or admin: itcmdr-admin command approve {}", x.id);
+        println!(
+            "needs a second owner or admin: itcmdr-admin command approve {}",
+            x.id
+        );
         return Ok(());
     }
-    show_command(&c.wait_command(&x.id, std::time::Duration::from_secs(20)).await?);
+    show_command(
+        &c.wait_command(&x.id, std::time::Duration::from_secs(20))
+            .await?,
+    );
     Ok(())
 }

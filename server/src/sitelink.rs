@@ -80,7 +80,11 @@ pub fn state_path(cfg: &ServerConfig) -> PathBuf {
 
 pub fn load(cfg: &ServerConfig) -> Option<State> {
     load_raw(cfg).map(|mut s| {
-        if s.allowed.iter().map(String::as_str).eq(DEFAULT_ALLOWED_V019.iter().copied()) {
+        if s.allowed
+            .iter()
+            .map(String::as_str)
+            .eq(DEFAULT_ALLOWED_V019.iter().copied())
+        {
             s.allowed = default_allowed();
         }
         s
@@ -605,6 +609,9 @@ pub async fn status(pool: &DbPool, cfg: &ServerConfig, r: &Redactor) -> pb::Site
 }
 
 /// v0.20.0 metrics summaries: counts and durations of the last 24 h, the data volume. Numbers only.
+/// (runs, failed, avg secs, max secs) rows from agent_runs/plugin_runs.
+type RunSummary = (i64, Option<i64>, Option<i64>, f64, i64);
+
 pub async fn summaries(pool: &DbPool, cfg: &ServerConfig) -> pb::SiteStatus {
     let since = now_ms() - 86_400_000;
     // agent_runs (Rust agent) and plugin_runs (on the server): finished, failed, durations
@@ -613,8 +620,13 @@ pub async fn summaries(pool: &DbPool, cfg: &ServerConfig) -> pb::SiteStatus {
              coalesce(avg(finished_ms - started_ms), 0), coalesce(max(finished_ms - started_ms), 0) \
              FROM (SELECT status, started_ms, finished_ms FROM agent_runs WHERE finished_ms >= ? \
                    UNION ALL SELECT status, started_ms, finished_ms FROM plugin_runs WHERE finished_ms >= ?)";
-    let row: Option<(i64, Option<i64>, Option<i64>, f64, i64)> =
-        sqlx::query_as(q).bind(since).bind(since).fetch_optional(pool).await.ok().flatten();
+    let row: Option<RunSummary> = sqlx::query_as(q)
+        .bind(since)
+        .bind(since)
+        .fetch_optional(pool)
+        .await
+        .ok()
+        .flatten();
     let (n, failed, errors, avg, max) = row.unwrap_or((0, None, None, 0.0, 0));
     let opened: i64 = sqlx::query_scalar("SELECT count(*) FROM alerts WHERE first_seen_ms >= ?")
         .bind(since)
@@ -721,8 +733,17 @@ pub async fn apply(
     let mut preview = Vec::new();
     let mut code_out: Option<&'static str> = None;
     let res: Result<()> = async {
-        if c.dry_run && matches!(c.kind.as_str(), "backup.start" | "alert.ack" | "alert.resolve") {
-            preview.push(pb::ConfigChange { target: c.kind.clone(), before: String::new(), after: "would run".into() });
+        if c.dry_run
+            && matches!(
+                c.kind.as_str(),
+                "backup.start" | "alert.ack" | "alert.resolve"
+            )
+        {
+            preview.push(pb::ConfigChange {
+                target: c.kind.clone(),
+                before: String::new(),
+                after: "would run".into(),
+            });
             return Ok(());
         }
         match c.kind.as_str() {
@@ -781,7 +802,10 @@ pub async fn apply(
     let _ = crate::db::insert_audit(
         pool,
         &actor,
-        &format!("adminsvr.command.{kind}{}", if c.dry_run { ".dry-run" } else { "" }),
+        &format!(
+            "adminsvr.command.{kind}{}",
+            if c.dry_run { ".dry-run" } else { "" }
+        ),
         &format!(
             "id={} code={code} user_key={} approver={}",
             c.id,
@@ -830,7 +854,11 @@ async fn session(pool: &DbPool, cfg: &ServerConfig, st: &State) -> Result<()> {
     ));
     let mut alert_t = tokio::time::interval(Duration::from_secs(3));
     let (done_tx, mut done_rx) = mpsc::channel::<(String, bool, String, Vec<pb::ConfigChange>)>(16);
-    let fetcher = crate::remote::Fetcher { client: c.clone(), key: out.key.clone(), site_id: st.site_id.clone() };
+    let fetcher = crate::remote::Fetcher {
+        client: c.clone(),
+        key: out.key.clone(),
+        site_id: st.site_id.clone(),
+    };
     // v0.20.0 config and plugin documents: on link-up, then whenever they change.
     let (mut cfg_v, mut plug_v) = (String::new(), String::new());
     let mut docs_t = tokio::time::interval(Duration::from_secs(15));

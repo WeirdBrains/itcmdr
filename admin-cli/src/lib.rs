@@ -599,11 +599,20 @@ impl Client {
     }
 
     pub async fn get_command(&self, id: &str) -> Result<pb::CommandDetail> {
-        call!(self, get_command, "GetCommand", pb::CommandRef { id: id.into() })
+        call!(
+            self,
+            get_command,
+            "GetCommand",
+            pb::CommandRef { id: id.into() }
+        )
     }
 
     /// Wait until a command leaves pending/sent (or the timeout), returning its last state.
-    pub async fn wait_command(&self, id: &str, timeout: std::time::Duration) -> Result<pb::CommandInfo> {
+    pub async fn wait_command(
+        &self,
+        id: &str,
+        timeout: std::time::Duration,
+    ) -> Result<pb::CommandInfo> {
         let t0 = std::time::Instant::now();
         loop {
             let d = self.get_command(id).await?.info.unwrap_or_default();
@@ -638,19 +647,39 @@ impl Client {
     }
 
     pub async fn reject_command(&self, id: &str) -> Result<pb::CommandInfo> {
-        call!(self, reject_command, "RejectCommand", pb::CommandRef { id: id.into() })
+        call!(
+            self,
+            reject_command,
+            "RejectCommand",
+            pb::CommandRef { id: id.into() }
+        )
     }
 
     pub async fn site_config(&self, site: &str) -> Result<pb::SiteConfigInfo> {
-        call!(self, get_site_config, "GetSiteConfig", pb::SiteRef { site: site.into() })
+        call!(
+            self,
+            get_site_config,
+            "GetSiteConfig",
+            pb::SiteRef { site: site.into() }
+        )
     }
 
     pub async fn site_plugins(&self, site: &str) -> Result<pb::SitePluginsInfo> {
-        call!(self, get_site_plugins, "GetSitePlugins", pb::SiteRef { site: site.into() })
+        call!(
+            self,
+            get_site_plugins,
+            "GetSitePlugins",
+            pb::SiteRef { site: site.into() }
+        )
     }
 
     pub async fn upload_plugin(&self, package: Vec<u8>) -> Result<pb::CatalogEntry> {
-        call!(self, upload_plugin, "UploadPlugin", pb::PluginUpload { package })
+        call!(
+            self,
+            upload_plugin,
+            "UploadPlugin",
+            pb::PluginUpload { package }
+        )
     }
 
     pub async fn catalog(&self) -> Result<pb::Catalog> {
@@ -666,7 +695,10 @@ impl Client {
             self,
             set_freeze,
             "SetFreeze",
-            pb::FreezeState { frozen, ..Default::default() }
+            pb::FreezeState {
+                frozen,
+                ..Default::default()
+            }
         )
     }
 }
@@ -812,7 +844,10 @@ pub const PARITY: &[(&str, &str)] = &[
     ("RegisterPush", "push register"),
     ("UnregisterPush", "push unregister"),
     ("TestPush", "push test"),
-    ("SendCommand", "config set / schedule run|pause|resume / plugin enable|disable|push (--dry-run)"),
+    (
+        "SendCommand",
+        "config set / schedule run|pause|resume / plugin enable|disable|push (--dry-run)",
+    ),
     ("GetCommand", "command show"),
     ("ApproveCommand", "command approve"),
     ("RejectCommand", "command reject"),

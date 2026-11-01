@@ -346,7 +346,9 @@ impl Link {
                         Some(Body::Alert(a)) => return Ok(Some(a.clone())),
                         Some(Body::Result(r)) => {
                             let this = commands::table.filter(
-                                commands::id.eq(&r.command_id).and(commands::site_id.eq(&site)),
+                                commands::id
+                                    .eq(&r.command_id)
+                                    .and(commands::site_id.eq(&site)),
                             );
                             let dry: Option<bool> =
                                 this.select(commands::dry_run).first(c).optional()?;
@@ -370,12 +372,18 @@ impl Link {
                         }
                         Some(Body::Config(d)) => {
                             diesel::update(me)
-                                .set((sites::config.eq(Some(d.encode_to_vec())), sites::config_ms.eq(crate::now_ms())))
+                                .set((
+                                    sites::config.eq(Some(d.encode_to_vec())),
+                                    sites::config_ms.eq(crate::now_ms()),
+                                ))
                                 .execute(c)?;
                         }
                         Some(Body::Plugins(d)) => {
                             diesel::update(me)
-                                .set((sites::plugins.eq(Some(d.encode_to_vec())), sites::plugins_ms.eq(crate::now_ms())))
+                                .set((
+                                    sites::plugins.eq(Some(d.encode_to_vec())),
+                                    sites::plugins_ms.eq(crate::now_ms()),
+                                ))
                                 .execute(c)?;
                         }
                         Some(Body::Pong(_)) | None => {}
@@ -462,7 +470,8 @@ impl pb::site_link_server::SiteLink for Link {
             })
             .await
             .map_err(|e| Status::internal(e.to_string()))?;
-        let body = body.ok_or_else(|| Status::permission_denied("no such package for this site"))?;
+        let body =
+            body.ok_or_else(|| Status::permission_denied("no such package for this site"))?;
         let chunks: Vec<Result<pb::PackageChunk, Status>> = body
             .chunks(1024 * 1024)
             .map(|b| Ok(pb::PackageChunk { data: b.to_vec() }))
