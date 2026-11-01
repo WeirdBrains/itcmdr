@@ -52,7 +52,7 @@ async fn schedule_item(r: &Redactor, s: &crate::schedule::Schedule) -> pb::Sched
             String::new()
         },
         enabled: s.enabled,
-        when: if plain(&sp.when, &[' ', '*', '/', ',', '-', '?', '#']) { sp.when.clone() } else { String::new() },
+        when: if plain(&sp.when, &[' ', '*', '/', ',', '-', '?', '#', ':']) { sp.when.clone() } else { String::new() },
         timezone: if plain(&sp.timezone, &['/', '_', '-', '+']) { sp.timezone.clone() } else { String::new() },
         action: if sp.action == "backup" { "backup".into() } else { "run".into() },
         guard: pick(&sp.guard, &crate::schedule::GUARDS),
