@@ -164,10 +164,15 @@ pub struct Srv {
 }
 
 pub async fn start(db: &str) -> Srv {
+    start_with(db, |_| {}).await
+}
+
+pub async fn start_with(db: &str, f: impl FnOnce(&mut Config)) -> Srv {
     let tmp = tempfile::tempdir().unwrap();
     let mut cfg = Config::for_test(tmp.path().join("data"), db, free_port(), free_port());
     cfg.heartbeat_secs = 1;
     cfg.site_missed = 3;
+    f(&mut cfg);
     let (tx, rx) = tokio::sync::oneshot::channel::<()>();
     let c = cfg.clone();
     tokio::spawn(async move {

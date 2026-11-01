@@ -74,7 +74,11 @@ struct Cli {
     #[arg(long, env = "ITCMDR_ADMINSVR_APNS_URL", default_value = "")]
     apns_url: String,
     /// Lowest alert severity that is pushed: critical | cautious | informational
-    #[arg(long, env = "ITCMDR_ADMINSVR_PUSH_MIN_SEVERITY", default_value = "cautious")]
+    #[arg(
+        long,
+        env = "ITCMDR_ADMINSVR_PUSH_MIN_SEVERITY",
+        default_value = "cautious"
+    )]
     push_min_severity: String,
     #[command(subcommand)]
     cmd: Cmd,

@@ -142,7 +142,8 @@ impl Push {
         };
         let apns = match &c.apns_key {
             Some(p) => {
-                if c.apns_key_id.is_empty() || c.apns_team_id.is_empty() || c.apns_topic.is_empty() {
+                if c.apns_key_id.is_empty() || c.apns_team_id.is_empty() || c.apns_topic.is_empty()
+                {
                     bail!("APNs needs ITCMDR_ADMINSVR_APNS_KEY_ID, _TEAM_ID and _TOPIC");
                 }
                 let pem = std::fs::read(p).with_context(|| format!("read {}", p.display()))?;
@@ -305,7 +306,10 @@ impl Push {
             return Ok(Sent::Ok);
         }
         let body = r.text().await.unwrap_or_default();
-        if st == reqwest::StatusCode::GONE || body.contains("BadDeviceToken") || body.contains("Unregistered") {
+        if st == reqwest::StatusCode::GONE
+            || body.contains("BadDeviceToken")
+            || body.contains("Unregistered")
+        {
             return Ok(Sent::Gone);
         }
         tracing::warn!(status=%st, "APNs refused a push");
@@ -401,8 +405,10 @@ pub async fn deliver(
         let g = gone.clone();
         let _ = pool
             .run(move |c| {
-                Ok(diesel::delete(push_tokens::table.filter(push_tokens::token.eq_any(g)))
-                    .execute(c)?)
+                Ok(
+                    diesel::delete(push_tokens::table.filter(push_tokens::token.eq_any(g)))
+                        .execute(c)?,
+                )
             })
             .await;
     }

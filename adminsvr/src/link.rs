@@ -173,8 +173,10 @@ pub async fn store_alert(pool: &Pool, site: &str, origin: &str, a: &pb::SiteAler
     pool.run(move |c| {
         let key2 = alerts::table.filter(alerts::site_id.eq(&site).and(alerts::alert_id.eq(&a.id)));
         let before: Option<String> = key2.select(alerts::state).first(c).optional()?;
-        let opened = a.state == "open" && before.as_deref() != Some("open")
-            && before.as_deref() != Some("acked") && before.as_deref() != Some("silenced");
+        let opened = a.state == "open"
+            && before.as_deref() != Some("open")
+            && before.as_deref() != Some("acked")
+            && before.as_deref() != Some("silenced");
         let key = alerts::table.filter(alerts::site_id.eq(&site).and(alerts::alert_id.eq(&a.id)));
         let n = diesel::update(key)
             .set((
@@ -307,15 +309,21 @@ impl Link {
                                 .execute(c)?;
                             // v0.19.2 history for the app's metrics view (30 days)
                             let now = crate::now_ms();
-                            diesel::delete(site_metrics::table.filter(
-                                site_metrics::site_id
-                                    .eq(&site)
-                                    .and(site_metrics::ts_ms.lt(now - METRICS_KEEP_MS)),
-                            ))
+                            diesel::delete(
+                                site_metrics::table.filter(
+                                    site_metrics::site_id
+                                        .eq(&site)
+                                        .and(site_metrics::ts_ms.lt(now - METRICS_KEEP_MS)),
+                                ),
+                            )
                             .execute(c)?;
                             let ts = msg.ts_ms.max(1);
                             let have: i64 = site_metrics::table
-                                .filter(site_metrics::site_id.eq(&site).and(site_metrics::ts_ms.eq(ts)))
+                                .filter(
+                                    site_metrics::site_id
+                                        .eq(&site)
+                                        .and(site_metrics::ts_ms.eq(ts)),
+                                )
                                 .count()
                                 .get_result(c)?;
                             if have == 0 {

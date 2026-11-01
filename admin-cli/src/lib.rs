@@ -492,6 +492,57 @@ impl Client {
     pub async fn verify_audit(&self) -> Result<pb::AuditVerify> {
         call!(self, verify_audit, "VerifyAudit", pb::Empty {})
     }
+    /// v0.19.2: a site's status history (oldest first).
+    pub async fn site_metrics(
+        &self,
+        site: &str,
+        since_ms: i64,
+        limit: i32,
+    ) -> Result<pb::MetricsSeries> {
+        call!(
+            self,
+            list_site_metrics,
+            "ListSiteMetrics",
+            pb::MetricsFilter {
+                site: site.into(),
+                since_ms,
+                limit
+            }
+        )
+    }
+    /// v0.19.2: this device's push token (provider fcm | apns).
+    pub async fn register_push(
+        &self,
+        provider: &str,
+        token: &str,
+        platform: &str,
+    ) -> Result<pb::Empty> {
+        call!(
+            self,
+            register_push,
+            "RegisterPush",
+            pb::PushRegistration {
+                provider: provider.into(),
+                token: token.into(),
+                platform: platform.into()
+            }
+        )
+    }
+    /// Remove a push token ("" = every token of this device).
+    pub async fn unregister_push(&self, token: &str) -> Result<pb::Empty> {
+        call!(
+            self,
+            unregister_push,
+            "UnregisterPush",
+            pb::PushRegistration {
+                token: token.into(),
+                ..Default::default()
+            }
+        )
+    }
+    pub async fn test_push(&self) -> Result<pb::PushResult> {
+        call!(self, test_push, "TestPush", pb::Empty {})
+    }
 
     /// Build and sign a command with this device key (adminsvr adds the root signature).
     pub async fn command(
@@ -664,4 +715,8 @@ pub const PARITY: &[(&str, &str)] = &[
     ("BeginStepUp", "(any step-up action)"),
     ("GetAuthPolicy", "policy show"),
     ("SetAuthPolicy", "policy set"),
+    ("ListSiteMetrics", "site metrics"),
+    ("RegisterPush", "push register"),
+    ("UnregisterPush", "push unregister"),
+    ("TestPush", "push test"),
 ];
