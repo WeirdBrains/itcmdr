@@ -143,7 +143,7 @@ pub async fn verify(pool: &Pool) -> Result<crate::pb::AuditVerify> {
         .await?;
     let n = rows.len() as i64;
     let mut prev = GENESIS.to_string();
-    for (want, r) in (1i64..).zip(rows.into_iter()) {
+    for (want, r) in (1i64..).zip(rows) {
         let e = entry(r);
         let bad = |p: &str| crate::pb::AuditVerify {
             ok: false,
