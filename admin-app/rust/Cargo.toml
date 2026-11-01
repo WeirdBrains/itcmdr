@@ -1,0 +1,28 @@
+[package]
+name = "itcmdr_admin_bridge"
+version = "0.19.1"
+edition = "2021"
+license = "Apache-2.0"
+description = "flutter_rust_bridge glue for itcmdr Admin: the app's API client is itcmdr-admin-cli's (signing, pinned TLS, passkey step-up)"
+
+[lib]
+crate-type = ["cdylib", "staticlib", "rlib"]
+
+[dependencies]
+flutter_rust_bridge = "=2.13.0"
+itcmdr-admin-cli = { path = "../../admin-cli" }
+itcmdr-keys = { path = "../../keys" }
+anyhow = "1.0"
+tokio = { version = "1.40", features = ["rt-multi-thread"] }
+parking_lot = "0.12"
+
+[dev-dependencies]
+itcmdr-adminsvr = { path = "../../adminsvr" }
+tempfile = "3.10"
+tokio = { version = "1.40", features = ["rt-multi-thread", "macros", "time", "net"] }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }
+
+# Separate workspace: cargokit builds it for each Flutter platform.
+[workspace]
