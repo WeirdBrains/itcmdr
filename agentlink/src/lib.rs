@@ -30,6 +30,16 @@ pub fn plugin_bytes(name: &str, version: &str, manifest_sha256: &str) -> Vec<u8>
     format!("itcmdr-agent-plugin/v1\n{name}\n{version}\n{manifest_sha256}").into_bytes()
 }
 
+/// v0.20.1: bytes the server root key signs for a ConfigUpdate (the agent checks them).
+pub fn config_bytes(version: &str, json: &str) -> Vec<u8> {
+    format!("itcmdr-agent-config/v1\n{version}\n{}", sha256_hex(json.as_bytes())).into_bytes()
+}
+
+/// v0.20.1: version of a config document (first 16 hex of its sha256).
+pub fn config_version(json: &str) -> String {
+    sha256_hex(json.as_bytes())[..16].to_string()
+}
+
 /// Renew at 2/3 of the lifetime.
 pub fn renew_due(issued_ms: i64, expires_ms: i64, now_ms: i64) -> bool {
     expires_ms > issued_ms && now_ms >= issued_ms + (expires_ms - issued_ms) * 2 / 3

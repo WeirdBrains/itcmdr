@@ -450,6 +450,92 @@ pub async fn switch(
     gate(pool, now).await
 }
 
+/// v0.20.1: extra checks before the Rust agent takes over (the PowerShell agent is retired,
+/// with no fallback): every machine active in the last two days has an enrolled, non-revoked
+/// Rust agent seen in the last AGENT_SEEN_MIN minutes, which acknowledged the current config
+/// over the link, and whose report-only runs in the window had parity results with no mismatch.
+pub const AGENT_SEEN_MIN: i64 = 10;
+
+pub async fn agent_problems(pool: &DbPool, now: DateTime<Utc>) -> Result<Vec<String>> {
+    let now_ms = now.timestamp_millis();
+    let since = now_ms - SEEN_WINDOW_H * 3_600_000;
+    let active: Vec<String> =
+        sqlx::query_scalar("SELECT DISTINCT computer FROM runs WHERE ts_ms >= ? ORDER BY computer")
+            .bind(since)
+            .fetch_all(pool)
+            .await?;
+    let agents = crate::agents::list(pool, false).await?;
+    let mut problems = Vec::new();
+    for m in &active {
+        let Some(a) = agents
+            .iter()
+            .filter(|a| a.machine.eq_ignore_ascii_case(m) && a.state != "revoked")
+            .max_by_key(|a| a.last_seen_ms)
+        else {
+            problems.push(format!("{m}: no enrolled Rust agent"));
+            continue;
+        };
+        if now_ms - a.last_seen_ms > AGENT_SEEN_MIN * 60_000 {
+            problems.push(format!(
+                "{m}: the Rust agent has not been seen in the last {AGENT_SEEN_MIN} min (state {})",
+                a.state
+            ));
+            continue;
+        }
+        let (want, _) = crate::agent_plugins::config_doc(pool, m).await?;
+        match crate::agent_plugins::config_acked(pool, m).await? {
+            Some(v) if v == want => {}
+            Some(v) => problems.push(format!(
+                "{m}: the Rust agent holds config {v}, not the current {want}"
+            )),
+            None => problems.push(format!("{m}: the Rust agent has not acknowledged its config")),
+        }
+        let (runs, bad): (i64, i64) = sqlx::query_as(
+            "SELECT COUNT(*), COALESCE(SUM(CASE WHEN parity_mismatched > 0 THEN 1 ELSE 0 END), 0) FROM agent_runs WHERE machine = ? COLLATE NOCASE AND received_ms >= ? AND parity_matched IS NOT NULL",
+        )
+        .bind(m)
+        .bind(since)
+        .fetch_one(pool)
+        .await?;
+        if runs == 0 {
+            problems.push(format!("{m}: no Rust agent run with parity in the last {SEEN_WINDOW_H} h"));
+        } else if bad > 0 {
+            problems.push(format!("{m}: {bad} Rust agent run(s) with parity mismatches"));
+        }
+    }
+    Ok(problems)
+}
+
+/// v0.20.1: hand the nightly run to the Rust agent (gated). The PowerShell agent stops running
+/// (its task stays disabled; no fallback); the Rust agent runs plugins for real.
+pub async fn switch_agent(
+    pool: &DbPool,
+    cfg: &ServerConfig,
+    actor: &str,
+    now: DateTime<Utc>,
+) -> Result<Gate> {
+    let mut g = gate(pool, now).await?;
+    g.problems.extend(agent_problems(pool, now).await?);
+    if !g.problems.is_empty() {
+        bail!("not safe to switch to the agent yet:\n  - {}", g.problems.join("\n  - "));
+    }
+    let s = find_builtin(pool, AGENT_KEY)
+        .await?
+        .ok_or_else(|| anyhow!("the nightly agent run schedule is missing: itcmdr-cli schedule reset-to-default {AGENT_KEY}"))?;
+    set_meta(pool, "cutover.state", Some("agent")).await?;
+    set_meta(pool, "cutover.switched", Some(&now.to_rfc3339())).await?;
+    schedule::set_enabled(pool, &s.id, true).await?;
+    let _ = crate::db::insert_audit(
+        pool,
+        actor,
+        "cutover-switch",
+        &serde_json::json!({"to": "agent", "schedule": s.id}).to_string(),
+    )
+    .await;
+    export_state(pool, cfg).await?;
+    gate(pool, now).await
+}
+
 /// One-command rollback: the task is the source of truth again; the agent schedule is paused.
 pub async fn rollback(pool: &DbPool, cfg: &ServerConfig, actor: &str) -> Result<()> {
     set_meta(pool, "cutover.state", Some("task")).await?;

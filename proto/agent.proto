@@ -76,7 +76,7 @@ message StageResult { string stage = 1; bool ok = 2; string message = 3; }
 message CheckResult { string check_id = 1; string status = 2; string message = 3; }
 message Artifact { string name = 1; string sha256 = 2; bytes data = 3; }
 message Applied {
-  string kind = 1;           // plugin | plugin-remove | schedules
+  string kind = 1;           // plugin | plugin-remove | schedules | config (v0.20.1)
   string name = 2;
   string version = 3;
   bool ok = 4;
@@ -93,6 +93,7 @@ message Hello {
   string signature = 8;      // hex Ed25519 over itcmdr_agentlink::hello_bytes
   repeated string plugins = 9;      // v0.18.0: installed, as name@version:sha256(package.toml)
   string schedule_version = 10;     // v0.18.0: version of the ScheduleSet it holds
+  string config_version = 11;       // v0.20.1: version of the ConfigUpdate it holds ("" = none or rejected)
 }
 message Renew { string csr_pem = 1; }
 message AgentAlert {
@@ -120,7 +121,18 @@ message ServerMessage {
     PluginRemove plugin_remove = 8;
     ScheduleSet schedules = 9;
     RunNow run_now = 10;
+    ConfigUpdate config = 11;      // v0.20.1
   }
+}
+// v0.20.1: the agent's whole config document (replaces agent-settings.json for the Rust agent).
+// json = {"v":1,"cutover":"task|schedule|agent","settings":{key: value}}; version = first 16 hex of
+// sha256(json); endorsement = hex Ed25519 by the server root key over
+// itcmdr_agentlink::config_bytes(version, json). The agent stores it only when the endorsement
+// checks, and re-checks it every time it loads it from disk.
+message ConfigUpdate {
+  string version = 1;
+  string json = 2;
+  string endorsement = 3;
 }
 // The files of a package the server validated (admin/owner signature, checksums), endorsed by the
 // server root key: Ed25519 over itcmdr_agentlink::plugin_bytes(name, version, sha256(package.toml)).

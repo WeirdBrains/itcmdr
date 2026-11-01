@@ -562,7 +562,12 @@ enum CutoverCmd {
         off: bool,
     },
     /// Switch the nightly run to the default schedule. Refused until every gate passes.
-    Switch,
+    Switch {
+        /// schedule (v0.17: default schedule, PowerShell fallback stays) or agent (v0.20.1:
+        /// the Rust agent runs plugins for real; the PowerShell agent is retired, no fallback).
+        #[arg(long, default_value = "schedule", value_parser = ["schedule", "agent"])]
+        to: String,
+    },
     /// One-command rollback: the SYSTEM task runs the nightly again (agents re-enable it).
     Rollback,
 }
@@ -2129,7 +2134,12 @@ fn run(rt: &tokio::runtime::Runtime) -> Result<()> {
                         srv::cutover::set_vm_verified(&pool, "itcmdr-cli", !off).await?;
                         println!("Windows VM verification {}", if *off { "cleared" } else { "recorded" });
                     }
-                    CutoverCmd::Switch => {
+                    CutoverCmd::Switch { to } if to == "agent" => {
+                        let g = srv::cutover::switch_agent(&pool, &cfg, "itcmdr-cli", now).await?;
+                        println!("switched to the agent: the Rust agent runs the nightly for real; the PowerShell agent is retired (its task stays disabled, no fallback). Undo: itcmdr-cli cutover rollback");
+                        print_gate(&g, json)?;
+                    }
+                    CutoverCmd::Switch { .. } => {
                         let g = srv::cutover::switch(&pool, &cfg, "itcmdr-cli", now).await?;
                         println!("switched: the default schedule runs the nightly; agents disable their task on the next poll (fallback stays installed).");
                         print_gate(&g, json)?;
