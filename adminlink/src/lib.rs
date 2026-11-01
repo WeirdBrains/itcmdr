@@ -14,7 +14,23 @@ pub const SITE_PORT: u16 = 8443;
 pub const API_PORT: u16 = 8444;
 
 /// Command kinds adminsvr may send. Anything else is refused by the site (unknown = denied).
-pub const COMMANDS: &[&str] = &["backup.start", "alert.ack", "alert.resolve"];
+pub const COMMANDS: &[&str] = &[
+    "backup.start",
+    "alert.ack",
+    "alert.resolve",
+    // v0.20.0
+    "setting.set",
+    "schedule.run",
+    "schedule.pause",
+    "schedule.resume",
+    "plugin.enable",
+    "plugin.disable",
+    "plugin.install",
+];
+/// Code-changing kinds: a requester and a different owner or admin approver (ADMINSVR.md section
+/// 5). adminsvr always holds them for approval; a site checks the approver when its
+/// `adminsvr.requireTwoPerson` is on (default).
+pub const TWO_PERSON: &[&str] = &["plugin.enable", "plugin.disable", "plugin.install"];
 /// Never accepted remotely, whatever a site's allowlist says (ADMINSVR.md section 5, decision 18).
 pub const NEVER_REMOTE: &[&str] = &[
     "restore",
@@ -186,6 +202,63 @@ pub fn command_bytes(c: &pb::Command) -> Vec<u8> {
         c.expires_ms
     )
     .into_bytes()
+    .into_iter()
+    // v0.20.0: a dry run is part of what is signed (v1 bytes unchanged otherwise).
+    .chain(if c.dry_run { b"\ndry-run".to_vec() } else { Vec::new() })
+    .collect()
+}
+
+/// What the second person signs: the command bytes plus who approves.
+pub fn approve_bytes(c: &pb::Command) -> Vec<u8> {
+    format!(
+        "itcmdr-admin-approve/v1\n{}\n{}\n{}\n{}",
+        sha256_hex(&command_bytes(c)),
+        c.approver_id,
+        c.approver_role,
+        c.approver_key
+    )
+    .into_bytes()
+}
+
+/// Bytes a site signs to fetch a package (v0.20.0).
+pub fn fetch_bytes(site_id: &str, sha256: &str, ts_ms: i64) -> Vec<u8> {
+    format!("itcmdr-admin-fetch/v1\n{site_id}\n{sha256}\n{ts_ms}").into_bytes()
+}
+
+pub fn sign_approver(key: &SigningKey, c: &mut pb::Command) {
+    c.approver_key = hex::encode(key.verifying_key().as_bytes());
+    c.approver_sig = hex::encode(key.sign(&approve_bytes(c)).to_bytes());
+}
+
+/// adminsvr endorses the approver's key like the user's.
+pub fn endorse_approver(root: &SigningKey, c: &mut pb::Command) {
+    c.approver_endorsement = hex::encode(
+        root.sign(&endorse_bytes(&c.approver_id, &c.approver_role, &c.approver_key))
+            .to_bytes(),
+    );
+}
+
+/// The second person's part: present, endorsed, signed, an owner or admin, not the requester.
+/// Ok(false) = no approver on the command.
+pub fn check_approver(root: &VerifyingKey, c: &pb::Command) -> Result<bool> {
+    if c.approver_id.is_empty() && c.approver_sig.is_empty() {
+        return Ok(false);
+    }
+    if c.approver_id == c.user_id || c.approver_key == c.user_key {
+        bail!("approver is the requester");
+    }
+    if !matches!(c.approver_role.as_str(), "owner" | "admin") {
+        bail!("approver must be an owner or admin");
+    }
+    let ak = itcmdr_keys::parse_public_key(&c.approver_key)?;
+    root.verify(
+        &endorse_bytes(&c.approver_id, &c.approver_role, &c.approver_key),
+        &sig_of(&c.approver_endorsement)?,
+    )
+    .map_err(|_| anyhow!("approver endorsement"))?;
+    ak.verify(&approve_bytes(c), &sig_of(&c.approver_sig)?)
+        .map_err(|_| anyhow!("approver signature"))?;
+    Ok(true)
 }
 
 pub fn sign_user(key: &SigningKey, c: &mut pb::Command) {
@@ -222,6 +295,9 @@ pub fn check_command(root: &VerifyingKey, c: &pb::Command, now_ms: i64) -> &'sta
         Ok(())
     })();
     if ok.is_err() {
+        return "bad-signature";
+    }
+    if check_approver(root, c).is_err() {
         return "bad-signature";
     }
     if c.expires_ms < now_ms {
@@ -288,5 +364,68 @@ mod tests {
         let mut t = c.clone();
         t.root_sig = t.user_sig.clone();
         assert_eq!(check_command(&rp, &t, 5), "bad-signature");
+    }
+
+    #[test]
+    fn dry_run_is_signed_and_v1_bytes_unchanged() {
+        let c = pb::Command { id: "c".into(), kind: "setting.set".into(), ..Default::default() };
+        let mut d = c.clone();
+        d.dry_run = true;
+        assert!(!command_bytes(&c).ends_with(b"dry-run"));
+        assert!(command_bytes(&d).ends_with(b"\ndry-run"));
+        let root = itcmdr_keys::new_keypair();
+        let user = itcmdr_keys::new_keypair();
+        let mut d = pb::Command { issued_ms: 1, expires_ms: 10_000, user_id: "u".into(), user_role: "admin".into(), ..d };
+        sign_user(&user, &mut d);
+        sign_root(&root, &mut d);
+        assert_eq!(check_command(&root.verifying_key(), &d, 5), "ok");
+        // flipping the dry-run flag breaks both signatures
+        d.dry_run = false;
+        assert_eq!(check_command(&root.verifying_key(), &d, 5), "bad-signature");
+    }
+
+    #[test]
+    fn approver_rules() {
+        let root = itcmdr_keys::new_keypair();
+        let rp = root.verifying_key();
+        let user = itcmdr_keys::new_keypair();
+        let appr = itcmdr_keys::new_keypair();
+        let mut c = pb::Command {
+            id: "c".into(), kind: "plugin.enable".into(), user_id: "u1".into(), user_role: "admin".into(),
+            issued_ms: 1, expires_ms: 10_000, ..Default::default()
+        };
+        c.args.insert("name".into(), "itcmdr-network".into());
+        sign_user(&user, &mut c);
+        sign_root(&root, &mut c);
+        assert!(!check_approver(&rp, &c).unwrap());
+        let approve = |c: &pb::Command, id: &str, role: &str, k: &SigningKey| {
+            let mut a = c.clone();
+            a.approver_id = id.into();
+            a.approver_role = role.into();
+            sign_approver(k, &mut a);
+            endorse_approver(&root, &mut a);
+            a
+        };
+        let ok = approve(&c, "u2", "owner", &appr);
+        assert!(check_approver(&rp, &ok).unwrap());
+        assert_eq!(check_command(&rp, &ok, 5), "ok");
+        // the requester can't be their own second person (other id, same key; or same id)
+        assert!(check_approver(&rp, &approve(&c, "u1", "owner", &appr)).is_err());
+        assert!(check_approver(&rp, &approve(&c, "u9", "owner", &user)).is_err());
+        // SREs can't approve
+        assert!(check_approver(&rp, &approve(&c, "u2", "sre", &appr)).is_err());
+        // the approval is for this exact command
+        let mut t = ok.clone();
+        t.args.insert("name".into(), "other".into());
+        assert_eq!(check_command(&rp, &t, 5), "bad-signature");
+        // an approver endorsement not by the root
+        let mut t = ok.clone();
+        let other = itcmdr_keys::new_keypair();
+        endorse_approver(&other, &mut t);
+        assert!(check_approver(&rp, &t).is_err());
+        // role changed after signing
+        let mut t = ok.clone();
+        t.approver_role = "admin".into();
+        assert!(check_approver(&rp, &t).is_err());
     }
 }
