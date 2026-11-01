@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- History scrub (approved one-time exception): vendor/product names, the share name and the clinic-type site name were replaced in the whole history of itcmdr and itcmdr-plugins (force-pushed, tags re-pointed to the rewritten commits). Existing clones must be re-cloned.
+- Current tree generic: docs, tests, example config and the itcmdr-plugins descriptions use neutral names (`DATA`, `ExampleVendor`, `Example Office`).
+- Old site.json files keep working without vendor names in code: when `watchedServices` is absent, every object under `services` with a `name` becomes a watched service (with `pluginProcessName` → a Workstation process check `<FIRST-WORD-OF-KEY>-PLUGIN-HEALTH`, otherwise a Server check `SVC-<name>` with its `ports`), and a top-level object with `configFiles` is used as config drift with prefix `<KEY>-DRIFT`. Old check ids are kept. The old vendor-named drift alias is gone; use `Test-ItcmdrConfigDrift`.
+- `scripts/scan_repo.py`: `re:<regex>` lines in `config/banned.local.txt` are regular expressions.
+- `app/macos/Podfile` committed.
+
 ## v0.15.2 (2026-10-31)
 No site-specific values in the core, real-break tests, the privacy rules for adminsvr, and a macOS app project.
 - Agent checks read every site-specific target from `site.json`; nothing office-specific is built in:

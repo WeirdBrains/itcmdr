@@ -62,7 +62,11 @@ def scan_file(path: Path):
         try:
             banned = [ln.strip() for ln in banned_file.read_text(encoding="utf-8", errors="ignore").splitlines() if ln.strip() and not ln.strip().startswith("#")]
             for b in banned:
-                if b and b in data:
+                # "re:<regex>" lines are regular expressions (e.g. word boundaries); others are literals
+                if b.startswith("re:"):
+                    if re.search(b[3:], data):
+                        violations.append((path, f"BANNED pattern found: {b[3:]!r}"))
+                elif b in data:
                     violations.append((path, f"BANNED literal found: {b!r}"))
         except Exception:
             pass

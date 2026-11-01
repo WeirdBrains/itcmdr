@@ -79,7 +79,7 @@ Describe 'built-in check plugins' {
     ($r.Run.Results | Where-Object CheckId -like 'SCANNER-SCAN-02-*').Status | Should -Be 'fail'
   }
 
-  It 'config: ExampleVendor drift is reported, never repaired, and the file is untouched' {
+  It 'config: vendor config drift is reported, never repaired, and the file is untouched' {
     $f = Join-Path $TestDrive 'ExampleVendor.config'
     Set-Content -Path $f -Value '<add key="srv" value="192.0.2.7"/>'
     $before = (Get-FileHash $f).Hash

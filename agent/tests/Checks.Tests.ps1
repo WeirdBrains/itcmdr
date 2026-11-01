@@ -104,23 +104,23 @@ Describe 'printer queues' {
   }
 }
 
-Describe 'ExampleVendor drift (report only)' {
+Describe 'vendor config drift (report only)' {
   It 'reports stale references without modifying the file' {
-    $f = Join-Path $TestDrive 'examplevendor.ini'
+    $f = Join-Path $TestDrive 'vendor.ini'
     Set-Content -Path $f -Value "[Server]`nHost=EXAMPLE-OLD-SERVER`nPort=1999"
     $before = (Get-FileHash $f).Hash
-    $r = Test-ItcmdrExampleVendorDrift -Path $f -Pattern @('example-old-server', '192.0.2.')
+    $r = Test-ItcmdrConfigDrift -Path $f -Pattern @('example-old-server', '192.0.2.')
     $r.ok | Should -BeFalse
     $r.detail | Should -Match '1 pattern'
     (Get-FileHash $f).Hash | Should -Be $before
-    (Test-ItcmdrExampleVendorDrift -Path $f -Pattern @('192.0.2.')).ok | Should -BeTrue
-    (Test-ItcmdrExampleVendorDrift -Path (Join-Path $TestDrive 'nope.ini') -Pattern @('x')).skipped | Should -BeTrue
+    (Test-ItcmdrConfigDrift -Path $f -Pattern @('192.0.2.')).ok | Should -BeTrue
+    (Test-ItcmdrConfigDrift -Path (Join-Path $TestDrive 'nope.ini') -Pattern @('x')).skipped | Should -BeTrue
   }
   It 'reads a file another process holds open for writing' {
     $f = Join-Path $TestDrive 'locked.ini'
     Set-Content -Path $f -Value 'Host=EXAMPLE-OLD-SERVER'
     $h = [IO.File]::Open($f, 'Open', 'ReadWrite', 'ReadWrite')
-    try { (Test-ItcmdrExampleVendorDrift -Path $f -Pattern @('EXAMPLE-OLD-SERVER')).ok | Should -BeFalse } finally { $h.Dispose() }
+    try { (Test-ItcmdrConfigDrift -Path $f -Pattern @('EXAMPLE-OLD-SERVER')).ok | Should -BeFalse } finally { $h.Dispose() }
   }
   It 'never attempts a repair even when repairs are allowed' {
     $f = Join-Path $TestDrive 'ExampleVendor.config'
@@ -156,14 +156,14 @@ Describe 'rich results in Invoke-ItcmdrCheck' {
 Describe 'site-defined targets (v0.15.2: nothing office-specific built in)' {
   It 'builds no service checks without watchedServices or legacy keys' {
     @(Get-ItcmdrWatchedService @{}).Count | Should -Be 0
-    @(Get-ItcmdrWatchedService @{ services = @{ examplevendorUsbService = @{ name = 'X' } } }).Count | Should -Be 0
+    @(Get-ItcmdrWatchedService @{ services = @{ fooUsbService = @{ hostname = 'X' } } }).Count | Should -Be 0
   }
   It 'reads watchedServices with defaults and legacy keys with their old ids' {
     $w = @(Get-ItcmdrWatchedService @{ watchedServices = @(@{ id = 'Imaging'; name = 'ImagingSvc'; ports = @(1234) }, @{ name = 'Other'; role = 'Any'; restart = $false; checkId = 'SVC-CUSTOM' }) })
     $w[0].checkId | Should -Be 'SVC-Imaging'; $w[0].role | Should -Be 'Server'; $w[0].restart | Should -BeTrue; $w[0].ports | Should -Be @(1234)
     $w[1].checkId | Should -Be 'SVC-CUSTOM'; $w[1].restart | Should -BeFalse
-    $l = @(Get-ItcmdrWatchedService @{ services = @{ examplevendorRestService = @{ name = 'RestSvc'; ports = @(1, 2) }; examplevendorUsbService = @{ name = 'UsbSvc'; pluginProcessName = 'Proc.Host' } } })
-    $l[0].checkId | Should -Be 'SVC-RestSvc'; $l[1].checkId | Should -Be 'EXAMPLEVENDOR-PLUGIN-HEALTH'; $l[1].process | Should -Be 'Proc.Host'
+    $l = @(Get-ItcmdrWatchedService @{ services = @{ appRestService = @{ name = 'RestSvc'; ports = @(1, 2) }; fooUsbService = @{ name = 'UsbSvc'; pluginProcessName = 'Proc.Host' } } })
+    $l[0].checkId | Should -Be 'SVC-RestSvc'; $l[1].checkId | Should -Be 'FOO-PLUGIN-HEALTH'; $l[1].process | Should -Be 'Proc.Host'
   }
   It 'checks a process-based watched service for the matching role only' {
     $me = (Get-Process -Id $PID).ProcessName

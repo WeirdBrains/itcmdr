@@ -515,8 +515,10 @@ function Get-ItcmdrWatchedService {
     Site-defined services to watch (site.json "watchedServices"): { id, name, role = Server|Workstation|Any (default
     Server), process (optional: health = process running), ports (optional, checked on the server from every PC),
     restart (default true), checkId (optional, default SVC-<id>) }. Nothing is built in: no entry, no check.
-    Legacy (pre-v0.15.2) site.json keys services.examplevendorRestService / services.examplevendorUsbService are still read and
-    keep their old check ids, but the process name must come from config (pluginProcessName).
+    Legacy (pre-v0.15.2) site.json files are read by a generic rule when watchedServices is absent: every object
+    under "services" with a "name" becomes a watched service. One with "pluginProcessName" is a Workstation process
+    check with id <FIRST-WORD-OF-KEY>-PLUGIN-HEALTH (camelCase key, e.g. fooUsbService -> FOO-PLUGIN-HEALTH); the
+    others are Server service checks SVC-<name> with their "ports". This keeps the old check ids.
   #>
   param($Site)
   $out = @()
@@ -529,14 +531,20 @@ function Get-ItcmdrWatchedService {
     $cid = [string](Get-ItcmdrValue $e @('checkId')); if (-not $cid) { $cid = "SVC-$(Get-ItcmdrSafeId $id)" }
     $out += [pscustomobject]@{ checkId = $cid; name = $name; role = $role; process = [string](Get-ItcmdrValue $e @('process')); ports = @(Get-ItcmdrValue $e @('ports') | Where-Object { $_ }); restart = $restart }
   }
-  if ($out.Count -eq 0 -and (Get-ItcmdrValue $Site @('services'))) {
-    $rest = Get-ItcmdrValue $Site @('services', 'examplevendorRestService')
-    if ($rest -and (Get-ItcmdrValue $rest @('name'))) {
-      $out += [pscustomobject]@{ checkId = "SVC-$(Get-ItcmdrSafeId (Get-ItcmdrValue $rest @('name')))"; name = [string](Get-ItcmdrValue $rest @('name')); role = 'Server'; process = ''; ports = @(Get-ItcmdrValue $rest @('ports') | Where-Object { $_ }); restart = $true }
-    }
-    $usb = Get-ItcmdrValue $Site @('services', 'examplevendorUsbService')
-    if ($usb -and (Get-ItcmdrValue $usb @('pluginProcessName'))) {
-      $out += [pscustomobject]@{ checkId = 'EXAMPLEVENDOR-PLUGIN-HEALTH'; name = [string](Get-ItcmdrValue $usb @('name')); role = 'Workstation'; process = [string](Get-ItcmdrValue $usb @('pluginProcessName')); ports = @(); restart = $true }
+  $svcs = Get-ItcmdrValue $Site @('services')
+  if ($out.Count -eq 0 -and $svcs) {
+    $keys = if ($svcs -is [System.Collections.IDictionary]) { @($svcs.Keys | Sort-Object) } else { @($svcs.PSObject.Properties.Name) }
+    foreach ($k in $keys) {
+      $e = Get-ItcmdrValue $svcs @($k)
+      if (-not $e -or $e -is [string] -or -not (Get-ItcmdrValue $e @('name'))) { continue }
+      $name = [string](Get-ItcmdrValue $e @('name'))
+      $proc = [string](Get-ItcmdrValue $e @('pluginProcessName'))
+      if ($proc) {
+        $word = ([regex]::Match([string]$k, '^[a-z0-9]+')).Value; if (-not $word) { $word = [string]$k }
+        $out += [pscustomobject]@{ checkId = "$($word.ToUpperInvariant())-PLUGIN-HEALTH"; name = $name; role = 'Workstation'; process = $proc; ports = @(); restart = $true }
+      } else {
+        $out += [pscustomobject]@{ checkId = "SVC-$(Get-ItcmdrSafeId $name)"; name = $name; role = 'Server'; process = ''; ports = @(Get-ItcmdrValue $e @('ports') | Where-Object { $_ }); restart = $true }
+      }
     }
   }
   return $out
@@ -787,14 +795,21 @@ function Invoke-ItcmdrConfigCheck {
   }
 
   # Vendor config drift: detect/report only. No -Repair on purpose. site.json "configDrift": { files, idPrefix
-  # (default DRIFT) }; legacy "examplevendor.configFiles" keeps the EXAMPLEVENDOR-DRIFT prefix.
+  # (default DRIFT) }. Legacy files: a top-level object with "configFiles" (first one found) is used with the prefix
+  # <KEY>-DRIFT, which keeps the old check ids.
   $patterns = @(Get-ItcmdrValue $site @('stalePatterns') | Where-Object { $_ })
   $prefix = 'DRIFT'; $list = @()
   if (Get-ItcmdrValue $site @('configDrift')) {
     $list = @(Get-ItcmdrValue $site @('configDrift', 'files'))
     $pp = [string](Get-ItcmdrValue $site @('configDrift', 'idPrefix')); if ($pp) { $prefix = Get-ItcmdrSafeId $pp }
-  } elseif (Get-ItcmdrValue $site @('examplevendor')) {
-    $list = @(Get-ItcmdrValue $site @('examplevendor', 'configFiles')); $prefix = 'EXAMPLEVENDOR-DRIFT'
+  } else {
+    $top = if ($site -is [System.Collections.IDictionary]) { @($site.Keys | Sort-Object) } else { @($site.PSObject.Properties.Name) }
+    foreach ($k in $top) {
+      $v = Get-ItcmdrValue $site @($k)
+      if ($v -and -not ($v -is [string]) -and -not ($v -is [array]) -and (Get-ItcmdrValue $v @('configFiles'))) {
+        $list = @(Get-ItcmdrValue $v @('configFiles')); $prefix = "$((Get-ItcmdrSafeId $k).ToUpperInvariant())-DRIFT"; break
+      }
+    }
   }
   $files = Resolve-ItcmdrPathList $list
   if ($patterns.Count -gt 0) {
@@ -805,8 +820,6 @@ function Invoke-ItcmdrConfigCheck {
     }
   }
 }
-
-Set-Alias -Name Test-ItcmdrExampleVendorDrift -Value Test-ItcmdrConfigDrift
 
 function Test-ItcmdrBackupTask {
   <#
