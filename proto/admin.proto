@@ -16,7 +16,13 @@ service SiteLink {
   rpc Enroll(SiteEnrollRequest) returns (SiteEnrollResponse);
   // Long-lived stream: SiteHello first. Every SiteMessage is signed with the site key.
   rpc Link(stream SiteMessage) returns (stream AdminMessage);
+  // v0.20.0: a site fetches a catalog package named by a plugin.install command it accepted.
+  // Signed by the site key (adminlink::fetch_bytes); only packages of a command for that site.
+  rpc FetchPackage(PackageRequest) returns (stream PackageChunk);
 }
+
+message PackageRequest { string site_id = 1; string sha256 = 2; int64 ts_ms = 3; string sig = 4; }
+message PackageChunk { bytes data = 1; }
 
 message SitePrepareRequest { string token_secret = 1; }
 message SitePrepareResponse { string root_public_key = 1; string ca_cert_pem = 2; }
@@ -47,6 +53,8 @@ message SiteMessage {
     SiteAlert alert = 6;
     CommandResult result = 7;
     Pong pong = 8;
+    SiteConfig config = 9;     // v0.20.0, on link-up and when it changes
+    SitePlugins plugins = 10;  // v0.20.0, on link-up and when it changes
   }
 }
 
@@ -71,7 +79,62 @@ message SiteStatus {
   repeated int64 open_alerts = 11;  // critical, cautious, informational
   repeated SiteMachine machines = 12;
   string cutover_state = 13;     // enum
+  // v0.20.0 metrics summaries (numbers only; last 24 h unless named otherwise)
+  int64 disk_free_bytes = 14;    // the site server's data volume
+  int64 disk_total_bytes = 15;
+  int32 runs_24h = 16;           // agent and plugin runs finished
+  int32 runs_failed_24h = 17;
+  int64 run_secs_avg_24h = 18;
+  int64 run_secs_max_24h = 19;
+  int32 plugin_errors_24h = 20;
+  int32 alerts_opened_24h = 21;
 }
+
+// v0.20.0: the site's configuration as adminsvr may see it. Values are sent only for numbers,
+// switches and times; text and path values stay on the site (hidden = true).
+message SiteConfig {
+  string version = 1;            // sha256 of the document (without this field)
+  repeated SettingItem settings = 2;
+  repeated ScheduleItem schedules = 3;
+  bool require_two_person = 4;   // the site's adminsvr.requireTwoPerson
+  repeated string allowed = 5;   // the site's local command allowlist
+}
+message SettingItem {
+  string key = 1;
+  string kind = 2;     // int | bool | time | path | text
+  string value = 3;    // JSON; empty when hidden
+  bool hidden = 4;
+  bool remote = 5;     // may be set from adminsvr (setting.set)
+  string source = 6;   // default | server.json | db
+  string scope = 7;    // server | agent
+  int64 min = 8;
+  int64 max = 9;
+}
+message ScheduleItem {
+  string id = 1;       // opaque
+  string name = 2;     // only with the site's display-name opt-in
+  bool enabled = 3;
+  string when = 4;     // cron
+  string timezone = 5;
+  string action = 6;   // run | backup
+  string guard = 7;
+  string missed = 8;
+  bool repair = 9;
+  string builtin = 10; // nightly-agent-run | nightly-backup | ""
+  bool all_machines = 11;
+  int32 machines = 12; // count
+  repeated string groups = 13;
+  repeated string categories = 14;
+  repeated string plugins = 15;
+  int64 last_fire_ms = 16;
+}
+message SitePlugins {
+  string version = 1;
+  repeated PluginItem installed = 2;
+  repeated QuarantineItem quarantine = 3;
+}
+message PluginItem { string name = 1; string version = 2; bool enabled = 3; string sha256 = 4; }
+message QuarantineItem { string sha256 = 1; string reason = 2; int64 ts_ms = 3; } // reason: a code
 
 message SiteMachine {
   string id = 1;            // opaque, site-scoped (HMAC with a site-local secret)
@@ -99,6 +162,13 @@ message CommandResult {
   string command_id = 1;
   bool ok = 2;
   string code = 3;  // result code only (no output text): ok | refused | not-allowed | bad-signature | failed | expired
+                    // | needs-approval | quarantined | invalid
+  repeated ConfigChange preview = 4;  // v0.20.0 dry runs (and what an applied command changed)
+}
+message ConfigChange {
+  string target = 1;   // setting key, schedule:<id>, plugin:<name>
+  string before = 2;   // values only for numbers, switches, times, versions and states
+  string after = 3;
 }
 
 message Ping { int64 ts_ms = 1; }
@@ -127,6 +197,15 @@ message Command {
   string user_sig = 10;            // over adminlink::command_bytes(...)
   string root_sig = 11;            // over the same bytes
   string site_id = 12;             // the site it is for (checked by the site)
+  // v0.20.0. dry_run: the site checks and previews, changes nothing (signed with the command).
+  bool dry_run = 13;
+  // Second person (two-person kinds): an owner or admin other than the requester, endorsed by
+  // the root like the user; approver_sig over adminlink::approve_bytes(command).
+  string approver_id = 14;
+  string approver_role = 15;
+  string approver_key = 16;
+  string approver_endorsement = 17;
+  string approver_sig = 18;
 }
 
 // ---- Admin API (CLI and app) ----
@@ -167,6 +246,21 @@ service AdminApi {
   rpc ResolveAlert(CommandRequest) returns (CommandInfo);
   rpc StartBackup(CommandRequest) returns (CommandInfo);
   rpc ListCommands(SiteRef) returns (CommandList);
+  // v0.20.0: setting.set, schedule.run|pause|resume, plugin.enable|disable|install, and dry runs.
+  // Two-person kinds wait for ApproveCommand by a different owner or admin.
+  rpc SendCommand(CommandRequest) returns (CommandInfo);
+  rpc GetCommand(CommandRef) returns (CommandDetail);
+  // The approver signs adminlink::approve_bytes(command) with their device key.
+  rpc ApproveCommand(ApproveRequest) returns (CommandInfo);
+  rpc RejectCommand(CommandRef) returns (CommandInfo);
+  rpc GetSiteConfig(SiteRef) returns (SiteConfigInfo);
+  rpc GetSitePlugins(SiteRef) returns (SitePluginsInfo);
+  // Plugin catalog: adminsvr stores packages (signed by a site-trusted key; adminsvr can't sign).
+  rpc UploadPlugin(PluginUpload) returns (CatalogEntry);
+  rpc ListCatalog(Empty) returns (Catalog);
+  // Global freeze (owners): every command is refused and nothing queued is sent.
+  rpc GetFreeze(Empty) returns (FreezeState);
+  rpc SetFreeze(FreezeState) returns (FreezeState);
 
   rpc ListAudit(AuditFilter) returns (AuditList);
   rpc VerifyAudit(Empty) returns (AuditVerify);
@@ -332,12 +426,29 @@ message CommandInfo {
   string id = 1;
   string site = 2;
   string kind = 3;
-  string state = 4;   // pending | sent | applied | failed | expired
+  string state = 4;   // awaiting-approval | pending | sent | applied | previewed | failed | expired | rejected
   string result_code = 5;
   string requested_by = 6;
   int64 created_ms = 7;
+  // v0.20.0
+  bool dry_run = 8;
+  repeated ConfigChange preview = 9;
+  string approved_by = 10;
+  map<string, string> args = 11;
 }
 message CommandList { repeated CommandInfo commands = 1; }
+message CommandRef { string id = 1; }
+message CommandDetail { CommandInfo info = 1; Command command = 2; }
+message ApproveRequest { string id = 1; string approver_key = 2; string approver_sig = 3; }
+message SiteConfigInfo { string site = 1; SiteConfig config = 2; int64 received_ms = 3; }
+message SitePluginsInfo { string site = 1; SitePlugins plugins = 2; int64 received_ms = 3; }
+message PluginUpload { bytes package = 1; }
+message CatalogEntry {
+  string sha256 = 1; string name = 2; string version = 3; int64 size = 4;
+  string uploaded_by = 5; int64 uploaded_ms = 6; string description = 7;
+}
+message Catalog { repeated CatalogEntry packages = 1; }
+message FreezeState { bool frozen = 1; string by = 2; int64 since_ms = 3; }
 
 message AuditFilter { int32 limit = 1; string user = 2; }
 message AuditEntry {
