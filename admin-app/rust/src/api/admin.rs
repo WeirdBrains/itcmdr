@@ -138,6 +138,15 @@ pub struct SiteStatus {
     pub alerts_cautious: i64,
     pub alerts_informational: i64,
     pub machines: Vec<Machine>,
+    // v0.20.0: last 24 h summaries and disk space (no paths)
+    pub disk_free_bytes: i64,
+    pub disk_total_bytes: i64,
+    pub runs_24h: i64,
+    pub runs_failed_24h: i64,
+    pub run_secs_avg_24h: i64,
+    pub run_secs_max_24h: i64,
+    pub plugin_errors_24h: i64,
+    pub alerts_opened_24h: i64,
 }
 
 pub struct Site {
@@ -187,6 +196,19 @@ pub struct CommandRow {
     pub result_code: String,
     pub requested_by: String,
     pub created_ms: i64,
+    // v0.20.0
+    pub dry_run: bool,
+    pub preview: Vec<Change>,
+    pub approved_by: String,
+    /// "key=value" pairs, sorted
+    pub args: Vec<String>,
+}
+
+/// One before/after line of a dry run or an applied command.
+pub struct Change {
+    pub target: String,
+    pub before: String,
+    pub after: String,
 }
 
 pub struct AuditRow {
@@ -293,6 +315,14 @@ fn status_of(s: pb::SiteStatus) -> SiteStatus {
         alerts_critical: c,
         alerts_cautious: w,
         alerts_informational: i,
+        disk_free_bytes: s.disk_free_bytes,
+        disk_total_bytes: s.disk_total_bytes,
+        runs_24h: s.runs_24h as i64,
+        runs_failed_24h: s.runs_failed_24h as i64,
+        run_secs_avg_24h: s.run_secs_avg_24h,
+        run_secs_max_24h: s.run_secs_max_24h,
+        plugin_errors_24h: s.plugin_errors_24h as i64,
+        alerts_opened_24h: s.alerts_opened_24h as i64,
     }
 }
 
@@ -317,6 +347,18 @@ fn command_of(c: pb::CommandInfo) -> CommandRow {
         result_code: c.result_code,
         requested_by: c.requested_by,
         created_ms: c.created_ms,
+        dry_run: c.dry_run,
+        preview: c.preview.into_iter().map(change_of).collect(),
+        approved_by: c.approved_by,
+        args: c.args.into_iter().map(|(k, v)| format!("{k}={v}")).collect(),
+    }
+}
+
+fn change_of(c: pb::ConfigChange) -> Change {
+    Change {
+        target: c.target,
+        before: c.before,
+        after: c.after,
     }
 }
 
@@ -669,5 +711,253 @@ pub fn test_push() -> Result<PushResult> {
         sent: r.sent,
         failed: r.failed,
         providers: r.providers,
+    })
+}
+
+// ---- v0.20.0: configs, schedules, plugins, approvals, freeze ----
+
+pub struct Setting {
+    pub key: String,
+    /// int | bool | time | path | text
+    pub kind: String,
+    /// Empty when the site hides it (paths and text never leave the site)
+    pub value: String,
+    pub hidden: bool,
+    /// May be set from here (setting.set)
+    pub remote: bool,
+    pub source: String,
+    pub scope: String,
+    pub min: i64,
+    pub max: i64,
+}
+
+pub struct Schedule {
+    /// Opaque id (the site maps it back)
+    pub id: String,
+    /// Only with the site's display-name opt-in
+    pub name: String,
+    pub enabled: bool,
+    pub when: String,
+    pub timezone: String,
+    pub action: String,
+    pub builtin: String,
+    pub all_machines: bool,
+    pub machines: i32,
+    pub last_fire_ms: i64,
+}
+
+pub struct SiteConfig {
+    /// 0: the site has not sent its document yet
+    pub received_ms: i64,
+    pub settings: Vec<Setting>,
+    pub schedules: Vec<Schedule>,
+    pub require_two_person: bool,
+    pub allowed: Vec<String>,
+}
+
+pub struct InstalledPlugin {
+    pub name: String,
+    pub version: String,
+    pub enabled: bool,
+    pub sha256: String,
+}
+
+pub struct Quarantined {
+    pub sha256: String,
+    /// A reason code (no file names or messages leave the site)
+    pub reason: String,
+    pub ts_ms: i64,
+}
+
+pub struct SitePlugins {
+    pub received_ms: i64,
+    pub installed: Vec<InstalledPlugin>,
+    pub quarantine: Vec<Quarantined>,
+}
+
+pub struct CatalogEntry {
+    pub sha256: String,
+    pub name: String,
+    pub version: String,
+    pub size: i64,
+    pub uploaded_by: String,
+    pub uploaded_ms: i64,
+    pub description: String,
+}
+
+pub struct Freeze {
+    pub frozen: bool,
+    pub by: String,
+    pub since_ms: i64,
+}
+
+pub fn site_config(site: String) -> Result<SiteConfig> {
+    let i = block(client()?.site_config(&site))?;
+    let c = i.config.unwrap_or_default();
+    Ok(SiteConfig {
+        received_ms: i.received_ms,
+        settings: c
+            .settings
+            .into_iter()
+            .map(|s| Setting {
+                key: s.key,
+                kind: s.kind,
+                value: s.value,
+                hidden: s.hidden,
+                remote: s.remote,
+                source: s.source,
+                scope: s.scope,
+                min: s.min,
+                max: s.max,
+            })
+            .collect(),
+        schedules: c
+            .schedules
+            .into_iter()
+            .map(|s| Schedule {
+                id: s.id,
+                name: s.name,
+                enabled: s.enabled,
+                when: s.when,
+                timezone: s.timezone,
+                action: s.action,
+                builtin: s.builtin,
+                all_machines: s.all_machines,
+                machines: s.machines,
+                last_fire_ms: s.last_fire_ms,
+            })
+            .collect(),
+        require_two_person: c.require_two_person,
+        allowed: c.allowed,
+    })
+}
+
+pub fn site_plugins(site: String) -> Result<SitePlugins> {
+    let i = block(client()?.site_plugins(&site))?;
+    let p = i.plugins.unwrap_or_default();
+    Ok(SitePlugins {
+        received_ms: i.received_ms,
+        installed: p
+            .installed
+            .into_iter()
+            .map(|p| InstalledPlugin {
+                name: p.name,
+                version: p.version,
+                enabled: p.enabled,
+                sha256: p.sha256,
+            })
+            .collect(),
+        quarantine: p
+            .quarantine
+            .into_iter()
+            .map(|q| Quarantined {
+                sha256: q.sha256,
+                reason: q.reason,
+                ts_ms: q.ts_ms,
+            })
+            .collect(),
+    })
+}
+
+/// Any allowlisted kind (setting.set, schedule.run|pause|resume, plugin.install|enable|disable,
+/// ...). `args` are "key=value". `dry_run`: the site previews and changes nothing. Plugin kinds
+/// come back `awaiting-approval` until a second owner/admin approves.
+pub fn send_command(
+    site: String,
+    kind: String,
+    args: Vec<String>,
+    dry_run: bool,
+) -> Result<CommandRow> {
+    let pairs: Vec<(String, String)> = args
+        .iter()
+        .map(|a| {
+            a.split_once('=')
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .ok_or_else(|| anyhow!("argument {a:?} is not key=value"))
+        })
+        .collect::<Result<_>>()?;
+    let refs: Vec<(&str, &str)> = pairs.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
+    Ok(command_of(block(
+        client()?.command_ex(&site, &kind, &refs, dry_run),
+    )?))
+}
+
+/// The command's current row (state, result, preview).
+pub fn get_command(id: String) -> Result<CommandRow> {
+    let d = block(client()?.get_command(&id))?;
+    d.info.map(command_of).ok_or_else(|| anyhow!("no such command"))
+}
+
+pub fn approve_command(id: String) -> Result<CommandRow> {
+    Ok(command_of(block(client()?.approve_command(&id))?))
+}
+
+pub fn reject_command(id: String) -> Result<CommandRow> {
+    Ok(command_of(block(client()?.reject_command(&id))?))
+}
+
+/// Commands waiting for a second person, across the sites this user can see.
+pub fn pending_approvals() -> Result<Vec<CommandRow>> {
+    let c = client()?;
+    let mut out = Vec::new();
+    for s in block(c.list_sites())?.sites {
+        for r in block(c.list_commands(&s.id))?.commands {
+            if r.state == "awaiting-approval" {
+                out.push(command_of(r));
+            }
+        }
+    }
+    out.sort_by_key(|r| -r.created_ms);
+    Ok(out)
+}
+
+pub fn catalog() -> Result<Vec<CatalogEntry>> {
+    Ok(block(client()?.catalog())?
+        .packages
+        .into_iter()
+        .map(|e| CatalogEntry {
+            sha256: e.sha256,
+            name: e.name,
+            version: e.version,
+            size: e.size,
+            uploaded_by: e.uploaded_by,
+            uploaded_ms: e.uploaded_ms,
+            description: e.description,
+        })
+        .collect())
+}
+
+/// Owners/admins: add a signed plugin package (.tar.gz) file to the catalog. adminsvr cannot
+/// sign packages; each site checks the signature and the files itself on install.
+pub fn upload_plugin(path: String) -> Result<CatalogEntry> {
+    let bytes = std::fs::read(&path)?;
+    let e = block(client()?.upload_plugin(bytes))?;
+    Ok(CatalogEntry {
+        sha256: e.sha256,
+        name: e.name,
+        version: e.version,
+        size: e.size,
+        uploaded_by: e.uploaded_by,
+        uploaded_ms: e.uploaded_ms,
+        description: e.description,
+    })
+}
+
+pub fn freeze() -> Result<Freeze> {
+    let f = block(client()?.freeze())?;
+    Ok(Freeze {
+        frozen: f.frozen,
+        by: f.by,
+        since_ms: f.since_ms,
+    })
+}
+
+/// Owners only: stop every command and approval (global freeze), or lift it.
+pub fn set_freeze(frozen: bool) -> Result<Freeze> {
+    let f = block(client()?.set_freeze(frozen))?;
+    Ok(Freeze {
+        frozen: f.frozen,
+        by: f.by,
+        since_ms: f.since_ms,
     })
 }

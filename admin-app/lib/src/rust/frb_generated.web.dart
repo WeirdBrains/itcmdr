@@ -48,6 +48,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SiteStatus dco_decode_box_autoadd_site_status(dynamic raw);
 
   @protected
+  CatalogEntry dco_decode_catalog_entry(dynamic raw);
+
+  @protected
+  Change dco_decode_change(dynamic raw);
+
+  @protected
   CommandRow dco_decode_command_row(dynamic raw);
 
   @protected
@@ -57,10 +63,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Enrolled dco_decode_enrolled(dynamic raw);
 
   @protected
+  Freeze dco_decode_freeze(dynamic raw);
+
+  @protected
   int dco_decode_i_32(dynamic raw);
 
   @protected
   PlatformInt64 dco_decode_i_64(dynamic raw);
+
+  @protected
+  InstalledPlugin dco_decode_installed_plugin(dynamic raw);
 
   @protected
   List<String> dco_decode_list_String(dynamic raw);
@@ -72,10 +84,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<AuditRow> dco_decode_list_audit_row(dynamic raw);
 
   @protected
+  List<CatalogEntry> dco_decode_list_catalog_entry(dynamic raw);
+
+  @protected
+  List<Change> dco_decode_list_change(dynamic raw);
+
+  @protected
   List<CommandRow> dco_decode_list_command_row(dynamic raw);
 
   @protected
   List<Device> dco_decode_list_device(dynamic raw);
+
+  @protected
+  List<InstalledPlugin> dco_decode_list_installed_plugin(dynamic raw);
 
   @protected
   List<Machine> dco_decode_list_machine(dynamic raw);
@@ -87,7 +108,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
 
   @protected
+  List<Quarantined> dco_decode_list_quarantined(dynamic raw);
+
+  @protected
   List<Sample> dco_decode_list_sample(dynamic raw);
+
+  @protected
+  List<Schedule> dco_decode_list_schedule(dynamic raw);
+
+  @protected
+  List<Setting> dco_decode_list_setting(dynamic raw);
 
   @protected
   List<Site> dco_decode_list_site(dynamic raw);
@@ -117,10 +147,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PushResult dco_decode_push_result(dynamic raw);
 
   @protected
+  Quarantined dco_decode_quarantined(dynamic raw);
+
+  @protected
   Sample dco_decode_sample(dynamic raw);
 
   @protected
+  Schedule dco_decode_schedule(dynamic raw);
+
+  @protected
+  Setting dco_decode_setting(dynamic raw);
+
+  @protected
   Site dco_decode_site(dynamic raw);
+
+  @protected
+  SiteConfig dco_decode_site_config(dynamic raw);
+
+  @protected
+  SitePlugins dco_decode_site_plugins(dynamic raw);
 
   @protected
   SiteStatus dco_decode_site_status(dynamic raw);
@@ -159,6 +204,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SiteStatus sse_decode_box_autoadd_site_status(SseDeserializer deserializer);
 
   @protected
+  CatalogEntry sse_decode_catalog_entry(SseDeserializer deserializer);
+
+  @protected
+  Change sse_decode_change(SseDeserializer deserializer);
+
+  @protected
   CommandRow sse_decode_command_row(SseDeserializer deserializer);
 
   @protected
@@ -168,10 +219,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Enrolled sse_decode_enrolled(SseDeserializer deserializer);
 
   @protected
+  Freeze sse_decode_freeze(SseDeserializer deserializer);
+
+  @protected
   int sse_decode_i_32(SseDeserializer deserializer);
 
   @protected
   PlatformInt64 sse_decode_i_64(SseDeserializer deserializer);
+
+  @protected
+  InstalledPlugin sse_decode_installed_plugin(SseDeserializer deserializer);
 
   @protected
   List<String> sse_decode_list_String(SseDeserializer deserializer);
@@ -183,10 +240,23 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<AuditRow> sse_decode_list_audit_row(SseDeserializer deserializer);
 
   @protected
+  List<CatalogEntry> sse_decode_list_catalog_entry(
+    SseDeserializer deserializer,
+  );
+
+  @protected
+  List<Change> sse_decode_list_change(SseDeserializer deserializer);
+
+  @protected
   List<CommandRow> sse_decode_list_command_row(SseDeserializer deserializer);
 
   @protected
   List<Device> sse_decode_list_device(SseDeserializer deserializer);
+
+  @protected
+  List<InstalledPlugin> sse_decode_list_installed_plugin(
+    SseDeserializer deserializer,
+  );
 
   @protected
   List<Machine> sse_decode_list_machine(SseDeserializer deserializer);
@@ -198,7 +268,16 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
 
   @protected
+  List<Quarantined> sse_decode_list_quarantined(SseDeserializer deserializer);
+
+  @protected
   List<Sample> sse_decode_list_sample(SseDeserializer deserializer);
+
+  @protected
+  List<Schedule> sse_decode_list_schedule(SseDeserializer deserializer);
+
+  @protected
+  List<Setting> sse_decode_list_setting(SseDeserializer deserializer);
 
   @protected
   List<Site> sse_decode_list_site(SseDeserializer deserializer);
@@ -230,10 +309,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   PushResult sse_decode_push_result(SseDeserializer deserializer);
 
   @protected
+  Quarantined sse_decode_quarantined(SseDeserializer deserializer);
+
+  @protected
   Sample sse_decode_sample(SseDeserializer deserializer);
 
   @protected
+  Schedule sse_decode_schedule(SseDeserializer deserializer);
+
+  @protected
+  Setting sse_decode_setting(SseDeserializer deserializer);
+
+  @protected
   Site sse_decode_site(SseDeserializer deserializer);
+
+  @protected
+  SiteConfig sse_decode_site_config(SseDeserializer deserializer);
+
+  @protected
+  SitePlugins sse_decode_site_plugins(SseDeserializer deserializer);
 
   @protected
   SiteStatus sse_decode_site_status(SseDeserializer deserializer);
@@ -278,6 +372,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_catalog_entry(CatalogEntry self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_change(Change self, SseSerializer serializer);
+
+  @protected
   void sse_encode_command_row(CommandRow self, SseSerializer serializer);
 
   @protected
@@ -287,10 +387,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_enrolled(Enrolled self, SseSerializer serializer);
 
   @protected
+  void sse_encode_freeze(Freeze self, SseSerializer serializer);
+
+  @protected
   void sse_encode_i_32(int self, SseSerializer serializer);
 
   @protected
   void sse_encode_i_64(PlatformInt64 self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_installed_plugin(
+    InstalledPlugin self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_String(List<String> self, SseSerializer serializer);
@@ -302,6 +411,15 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_list_audit_row(List<AuditRow> self, SseSerializer serializer);
 
   @protected
+  void sse_encode_list_catalog_entry(
+    List<CatalogEntry> self,
+    SseSerializer serializer,
+  );
+
+  @protected
+  void sse_encode_list_change(List<Change> self, SseSerializer serializer);
+
+  @protected
   void sse_encode_list_command_row(
     List<CommandRow> self,
     SseSerializer serializer,
@@ -309,6 +427,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_list_device(List<Device> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_installed_plugin(
+    List<InstalledPlugin> self,
+    SseSerializer serializer,
+  );
 
   @protected
   void sse_encode_list_machine(List<Machine> self, SseSerializer serializer);
@@ -323,7 +447,19 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_quarantined(
+    List<Quarantined> self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_list_sample(List<Sample> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_schedule(List<Schedule> self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_list_setting(List<Setting> self, SseSerializer serializer);
 
   @protected
   void sse_encode_list_site(List<Site> self, SseSerializer serializer);
@@ -356,10 +492,25 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_push_result(PushResult self, SseSerializer serializer);
 
   @protected
+  void sse_encode_quarantined(Quarantined self, SseSerializer serializer);
+
+  @protected
   void sse_encode_sample(Sample self, SseSerializer serializer);
 
   @protected
+  void sse_encode_schedule(Schedule self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_setting(Setting self, SseSerializer serializer);
+
+  @protected
   void sse_encode_site(Site self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_site_config(SiteConfig self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_site_plugins(SitePlugins self, SseSerializer serializer);
 
   @protected
   void sse_encode_site_status(SiteStatus self, SseSerializer serializer);

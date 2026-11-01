@@ -7,7 +7,7 @@ import '../frb_generated.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `alerts3`, `authenticator`, `block`, `client`, `command_of`, `connect`, `device_of`, `me_of`, `platform`, `rt`, `site_of`, `status_of`, `user_of`, `which`
+// These functions are ignored because they are not marked as `pub`: `alerts3`, `authenticator`, `block`, `change_of`, `client`, `command_of`, `connect`, `device_of`, `me_of`, `platform`, `rt`, `site_of`, `status_of`, `user_of`, `which`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `Session`
 
 /// Sign in with the identity stored in `dir` (None: this device is not enrolled yet).
@@ -153,6 +153,55 @@ Future<void> unregisterPush() =>
 
 Future<PushResult> testPush() => RustLib.instance.api.crateApiAdminTestPush();
 
+Future<SiteConfig> siteConfig({required String site}) =>
+    RustLib.instance.api.crateApiAdminSiteConfig(site: site);
+
+Future<SitePlugins> sitePlugins({required String site}) =>
+    RustLib.instance.api.crateApiAdminSitePlugins(site: site);
+
+/// Any allowlisted kind (setting.set, schedule.run|pause|resume, plugin.install|enable|disable,
+/// ...). `args` are "key=value". `dry_run`: the site previews and changes nothing. Plugin kinds
+/// come back `awaiting-approval` until a second owner/admin approves.
+Future<CommandRow> sendCommand({
+  required String site,
+  required String kind,
+  required List<String> args,
+  required bool dryRun,
+}) => RustLib.instance.api.crateApiAdminSendCommand(
+  site: site,
+  kind: kind,
+  args: args,
+  dryRun: dryRun,
+);
+
+/// The command's current row (state, result, preview).
+Future<CommandRow> getCommand({required String id}) =>
+    RustLib.instance.api.crateApiAdminGetCommand(id: id);
+
+Future<CommandRow> approveCommand({required String id}) =>
+    RustLib.instance.api.crateApiAdminApproveCommand(id: id);
+
+Future<CommandRow> rejectCommand({required String id}) =>
+    RustLib.instance.api.crateApiAdminRejectCommand(id: id);
+
+/// Commands waiting for a second person, across the sites this user can see.
+Future<List<CommandRow>> pendingApprovals() =>
+    RustLib.instance.api.crateApiAdminPendingApprovals();
+
+Future<List<CatalogEntry>> catalog() =>
+    RustLib.instance.api.crateApiAdminCatalog();
+
+/// Owners/admins: add a signed plugin package (.tar.gz) file to the catalog. adminsvr cannot
+/// sign packages; each site checks the signature and the files itself on install.
+Future<CatalogEntry> uploadPlugin({required String path}) =>
+    RustLib.instance.api.crateApiAdminUploadPlugin(path: path);
+
+Future<Freeze> freeze() => RustLib.instance.api.crateApiAdminFreeze();
+
+/// Owners only: stop every command and approval (global freeze), or lift it.
+Future<Freeze> setFreeze({required bool frozen}) =>
+    RustLib.instance.api.crateApiAdminSetFreeze(frozen: frozen);
+
 class Alert {
   final String site;
   final String id;
@@ -255,6 +304,74 @@ class AuditRow {
           target == other.target;
 }
 
+class CatalogEntry {
+  final String sha256;
+  final String name;
+  final String version;
+  final PlatformInt64 size;
+  final String uploadedBy;
+  final PlatformInt64 uploadedMs;
+  final String description;
+
+  const CatalogEntry({
+    required this.sha256,
+    required this.name,
+    required this.version,
+    required this.size,
+    required this.uploadedBy,
+    required this.uploadedMs,
+    required this.description,
+  });
+
+  @override
+  int get hashCode =>
+      sha256.hashCode ^
+      name.hashCode ^
+      version.hashCode ^
+      size.hashCode ^
+      uploadedBy.hashCode ^
+      uploadedMs.hashCode ^
+      description.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CatalogEntry &&
+          runtimeType == other.runtimeType &&
+          sha256 == other.sha256 &&
+          name == other.name &&
+          version == other.version &&
+          size == other.size &&
+          uploadedBy == other.uploadedBy &&
+          uploadedMs == other.uploadedMs &&
+          description == other.description;
+}
+
+/// One before/after line of a dry run or an applied command.
+class Change {
+  final String target;
+  final String before;
+  final String after;
+
+  const Change({
+    required this.target,
+    required this.before,
+    required this.after,
+  });
+
+  @override
+  int get hashCode => target.hashCode ^ before.hashCode ^ after.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Change &&
+          runtimeType == other.runtimeType &&
+          target == other.target &&
+          before == other.before &&
+          after == other.after;
+}
+
 class CommandRow {
   final String id;
   final String site;
@@ -263,6 +380,12 @@ class CommandRow {
   final String resultCode;
   final String requestedBy;
   final PlatformInt64 createdMs;
+  final bool dryRun;
+  final List<Change> preview;
+  final String approvedBy;
+
+  /// "key=value" pairs, sorted
+  final List<String> args;
 
   const CommandRow({
     required this.id,
@@ -272,6 +395,10 @@ class CommandRow {
     required this.resultCode,
     required this.requestedBy,
     required this.createdMs,
+    required this.dryRun,
+    required this.preview,
+    required this.approvedBy,
+    required this.args,
   });
 
   @override
@@ -282,7 +409,11 @@ class CommandRow {
       state.hashCode ^
       resultCode.hashCode ^
       requestedBy.hashCode ^
-      createdMs.hashCode;
+      createdMs.hashCode ^
+      dryRun.hashCode ^
+      preview.hashCode ^
+      approvedBy.hashCode ^
+      args.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -295,7 +426,11 @@ class CommandRow {
           state == other.state &&
           resultCode == other.resultCode &&
           requestedBy == other.requestedBy &&
-          createdMs == other.createdMs;
+          createdMs == other.createdMs &&
+          dryRun == other.dryRun &&
+          preview == other.preview &&
+          approvedBy == other.approvedBy &&
+          args == other.args;
 }
 
 class Device {
@@ -350,6 +485,54 @@ class Enrolled {
           runtimeType == other.runtimeType &&
           words == other.words &&
           me == other.me;
+}
+
+class Freeze {
+  final bool frozen;
+  final String by;
+  final PlatformInt64 sinceMs;
+
+  const Freeze({required this.frozen, required this.by, required this.sinceMs});
+
+  @override
+  int get hashCode => frozen.hashCode ^ by.hashCode ^ sinceMs.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Freeze &&
+          runtimeType == other.runtimeType &&
+          frozen == other.frozen &&
+          by == other.by &&
+          sinceMs == other.sinceMs;
+}
+
+class InstalledPlugin {
+  final String name;
+  final String version;
+  final bool enabled;
+  final String sha256;
+
+  const InstalledPlugin({
+    required this.name,
+    required this.version,
+    required this.enabled,
+    required this.sha256,
+  });
+
+  @override
+  int get hashCode =>
+      name.hashCode ^ version.hashCode ^ enabled.hashCode ^ sha256.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is InstalledPlugin &&
+          runtimeType == other.runtimeType &&
+          name == other.name &&
+          version == other.version &&
+          enabled == other.enabled &&
+          sha256 == other.sha256;
 }
 
 class Machine {
@@ -540,6 +723,32 @@ class PushResult {
           providers == other.providers;
 }
 
+class Quarantined {
+  final String sha256;
+
+  /// A reason code (no file names or messages leave the site)
+  final String reason;
+  final PlatformInt64 tsMs;
+
+  const Quarantined({
+    required this.sha256,
+    required this.reason,
+    required this.tsMs,
+  });
+
+  @override
+  int get hashCode => sha256.hashCode ^ reason.hashCode ^ tsMs.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Quarantined &&
+          runtimeType == other.runtimeType &&
+          sha256 == other.sha256 &&
+          reason == other.reason &&
+          tsMs == other.tsMs;
+}
+
 class Sample {
   final PlatformInt64 tsMs;
   final int agentsOnline;
@@ -595,6 +804,121 @@ class Sample {
           uptimeSecs == other.uptimeSecs;
 }
 
+class Schedule {
+  /// Opaque id (the site maps it back)
+  final String id;
+
+  /// Only with the site's display-name opt-in
+  final String name;
+  final bool enabled;
+  final String when;
+  final String timezone;
+  final String action;
+  final String builtin;
+  final bool allMachines;
+  final int machines;
+  final PlatformInt64 lastFireMs;
+
+  const Schedule({
+    required this.id,
+    required this.name,
+    required this.enabled,
+    required this.when,
+    required this.timezone,
+    required this.action,
+    required this.builtin,
+    required this.allMachines,
+    required this.machines,
+    required this.lastFireMs,
+  });
+
+  @override
+  int get hashCode =>
+      id.hashCode ^
+      name.hashCode ^
+      enabled.hashCode ^
+      when.hashCode ^
+      timezone.hashCode ^
+      action.hashCode ^
+      builtin.hashCode ^
+      allMachines.hashCode ^
+      machines.hashCode ^
+      lastFireMs.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Schedule &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          name == other.name &&
+          enabled == other.enabled &&
+          when == other.when &&
+          timezone == other.timezone &&
+          action == other.action &&
+          builtin == other.builtin &&
+          allMachines == other.allMachines &&
+          machines == other.machines &&
+          lastFireMs == other.lastFireMs;
+}
+
+class Setting {
+  final String key;
+
+  /// int | bool | time | path | text
+  final String kind;
+
+  /// Empty when the site hides it (paths and text never leave the site)
+  final String value;
+  final bool hidden;
+
+  /// May be set from here (setting.set)
+  final bool remote;
+  final String source;
+  final String scope;
+  final PlatformInt64 min;
+  final PlatformInt64 max;
+
+  const Setting({
+    required this.key,
+    required this.kind,
+    required this.value,
+    required this.hidden,
+    required this.remote,
+    required this.source,
+    required this.scope,
+    required this.min,
+    required this.max,
+  });
+
+  @override
+  int get hashCode =>
+      key.hashCode ^
+      kind.hashCode ^
+      value.hashCode ^
+      hidden.hashCode ^
+      remote.hashCode ^
+      source.hashCode ^
+      scope.hashCode ^
+      min.hashCode ^
+      max.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Setting &&
+          runtimeType == other.runtimeType &&
+          key == other.key &&
+          kind == other.kind &&
+          value == other.value &&
+          hidden == other.hidden &&
+          remote == other.remote &&
+          source == other.source &&
+          scope == other.scope &&
+          min == other.min &&
+          max == other.max;
+}
+
 class Site {
   final String id;
   final String name;
@@ -638,6 +962,67 @@ class Site {
           lastStatus == other.lastStatus;
 }
 
+class SiteConfig {
+  /// 0: the site has not sent its document yet
+  final PlatformInt64 receivedMs;
+  final List<Setting> settings;
+  final List<Schedule> schedules;
+  final bool requireTwoPerson;
+  final List<String> allowed;
+
+  const SiteConfig({
+    required this.receivedMs,
+    required this.settings,
+    required this.schedules,
+    required this.requireTwoPerson,
+    required this.allowed,
+  });
+
+  @override
+  int get hashCode =>
+      receivedMs.hashCode ^
+      settings.hashCode ^
+      schedules.hashCode ^
+      requireTwoPerson.hashCode ^
+      allowed.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SiteConfig &&
+          runtimeType == other.runtimeType &&
+          receivedMs == other.receivedMs &&
+          settings == other.settings &&
+          schedules == other.schedules &&
+          requireTwoPerson == other.requireTwoPerson &&
+          allowed == other.allowed;
+}
+
+class SitePlugins {
+  final PlatformInt64 receivedMs;
+  final List<InstalledPlugin> installed;
+  final List<Quarantined> quarantine;
+
+  const SitePlugins({
+    required this.receivedMs,
+    required this.installed,
+    required this.quarantine,
+  });
+
+  @override
+  int get hashCode =>
+      receivedMs.hashCode ^ installed.hashCode ^ quarantine.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SitePlugins &&
+          runtimeType == other.runtimeType &&
+          receivedMs == other.receivedMs &&
+          installed == other.installed &&
+          quarantine == other.quarantine;
+}
+
 class SiteStatus {
   final String version;
   final PlatformInt64 uptimeSecs;
@@ -654,6 +1039,14 @@ class SiteStatus {
   final PlatformInt64 alertsCautious;
   final PlatformInt64 alertsInformational;
   final List<Machine> machines;
+  final PlatformInt64 diskFreeBytes;
+  final PlatformInt64 diskTotalBytes;
+  final PlatformInt64 runs24H;
+  final PlatformInt64 runsFailed24H;
+  final PlatformInt64 runSecsAvg24H;
+  final PlatformInt64 runSecsMax24H;
+  final PlatformInt64 pluginErrors24H;
+  final PlatformInt64 alertsOpened24H;
 
   const SiteStatus({
     required this.version,
@@ -671,6 +1064,14 @@ class SiteStatus {
     required this.alertsCautious,
     required this.alertsInformational,
     required this.machines,
+    required this.diskFreeBytes,
+    required this.diskTotalBytes,
+    required this.runs24H,
+    required this.runsFailed24H,
+    required this.runSecsAvg24H,
+    required this.runSecsMax24H,
+    required this.pluginErrors24H,
+    required this.alertsOpened24H,
   });
 
   @override
@@ -689,7 +1090,15 @@ class SiteStatus {
       alertsCritical.hashCode ^
       alertsCautious.hashCode ^
       alertsInformational.hashCode ^
-      machines.hashCode;
+      machines.hashCode ^
+      diskFreeBytes.hashCode ^
+      diskTotalBytes.hashCode ^
+      runs24H.hashCode ^
+      runsFailed24H.hashCode ^
+      runSecsAvg24H.hashCode ^
+      runSecsMax24H.hashCode ^
+      pluginErrors24H.hashCode ^
+      alertsOpened24H.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -710,7 +1119,15 @@ class SiteStatus {
           alertsCritical == other.alertsCritical &&
           alertsCautious == other.alertsCautious &&
           alertsInformational == other.alertsInformational &&
-          machines == other.machines;
+          machines == other.machines &&
+          diskFreeBytes == other.diskFreeBytes &&
+          diskTotalBytes == other.diskTotalBytes &&
+          runs24H == other.runs24H &&
+          runsFailed24H == other.runsFailed24H &&
+          runSecsAvg24H == other.runSecsAvg24H &&
+          runSecsMax24H == other.runSecsMax24H &&
+          pluginErrors24H == other.pluginErrors24H &&
+          alertsOpened24H == other.alertsOpened24H;
 }
 
 class User {

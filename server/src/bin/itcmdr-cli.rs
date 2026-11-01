@@ -112,7 +112,7 @@ enum AdminsvrCmd {
         #[arg(value_parser = ["on", "off"])]
         state: String,
     },
-    /// Site owner: commands adminsvr may send (subset of backup.start, alert.ack, alert.resolve; restore is never possible)
+    /// Site owner: commands adminsvr may send (any of backup.start, alert.ack, alert.resolve, setting.set, schedule.run/pause/resume, plugin.install/enable/disable; restore, keys and auth are never possible)
     Allow { kinds: Vec<String> },
 }
 
