@@ -1,0 +1,474 @@
+//! itcmdr-admin: every admin app action as a command (ADMINSVR.md decision 4, parity).
+use anyhow::{bail, Result};
+use clap::{Parser, Subcommand};
+use itcmdr_admin::{proto as pb, Client, Identity};
+use std::io::{BufRead, Write};
+use std::path::PathBuf;
+
+#[derive(Parser)]
+#[command(
+    name = "itcmdr-admin",
+    version,
+    about = "itcmdr adminsvr CLI (same signed API as the admin app)"
+)]
+struct Cli {
+    /// Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+    #[arg(long, global = true)]
+    home: Option<PathBuf>,
+    #[command(subcommand)]
+    cmd: Cmd,
+}
+
+#[derive(Subcommand)]
+enum Cmd {
+    /// adminsvr version and root key (unsigned)
+    Info {
+        addr: String,
+        #[arg(long)]
+        pin: String,
+    },
+    /// Enroll this device with a one-time code: shows your 24 words ONCE, then asks three back
+    Enroll {
+        code: String,
+        /// Don't store the encrypted key backup on adminsvr (it is on by default)
+        #[arg(long)]
+        no_key_backup: bool,
+        /// Write the words to this file (0600) instead of showing them (automation)
+        #[arg(long)]
+        words_file: Option<PathBuf>,
+    },
+    /// New device from your 24 words (read from stdin): restore the backed-up key or certify a new one
+    Recover {
+        addr: String,
+        #[arg(long)]
+        pin: String,
+        #[arg(long)]
+        email: String,
+        #[arg(long)]
+        from_backup: bool,
+    },
+    Whoami,
+    #[command(subcommand)]
+    User(UserCmd),
+    #[command(subcommand)]
+    Device(DeviceCmd),
+    #[command(subcommand, name = "key-backup")]
+    KeyBackup(KbCmd),
+    #[command(subcommand)]
+    Site(SiteCmd),
+    #[command(subcommand)]
+    Alert(AlertCmd),
+    #[command(subcommand)]
+    Backup(BackupCmd),
+    #[command(subcommand)]
+    Command(CommandCmd),
+    #[command(subcommand)]
+    Audit(AuditCmd),
+}
+
+#[derive(Subcommand)]
+enum UserCmd {
+    List,
+    /// Create a user (role sre by default); prints their one-time enrollment code
+    Create {
+        email: String,
+        #[arg(long)]
+        name: String,
+        #[arg(long, default_value = "sre")]
+        role: String,
+    },
+    Role {
+        user: String,
+        role: String,
+    },
+    Disable {
+        user: String,
+    },
+    Enable {
+        user: String,
+    },
+    /// Assign sites to an SRE (replaces the list)
+    Scopes {
+        user: String,
+        sites: Vec<String>,
+    },
+    /// Approve a pending device after checking its fingerprint with the user
+    Approve {
+        user: String,
+        fingerprint: String,
+    },
+    /// A new one-time enrollment code
+    Code {
+        user: String,
+    },
+}
+
+#[derive(Subcommand)]
+enum DeviceCmd {
+    List {
+        #[arg(default_value = "")]
+        user: String,
+    },
+    Revoke {
+        fingerprint: String,
+        #[arg(long, default_value = "")]
+        user: String,
+    },
+}
+
+#[derive(Subcommand)]
+enum KbCmd {
+    /// Store the encrypted key backup again (needs your 24 words on stdin)
+    On,
+    /// Opt out: delete the backup from adminsvr
+    Off,
+}
+
+#[derive(Subcommand)]
+enum SiteCmd {
+    /// Create a site; prints its one-time site token for `itcmdr-cli adminsvr enroll` on the site
+    Create {
+        name: String,
+    },
+    List,
+    Revoke {
+        site: String,
+    },
+}
+
+#[derive(Subcommand)]
+enum AlertCmd {
+    List {
+        #[arg(long, default_value = "")]
+        site: String,
+        #[arg(long, default_value = "open")]
+        state: String,
+        #[arg(long, default_value_t = 200)]
+        limit: i32,
+    },
+    Ack {
+        site: String,
+        alert: String,
+    },
+    Resolve {
+        site: String,
+        alert: String,
+    },
+}
+
+#[derive(Subcommand)]
+enum BackupCmd {
+    /// Ask a site to start a local backup (the archive stays on the site)
+    Start { site: String },
+}
+
+#[derive(Subcommand)]
+enum CommandCmd {
+    List {
+        #[arg(default_value = "")]
+        site: String,
+    },
+}
+
+#[derive(Subcommand)]
+enum AuditCmd {
+    List {
+        #[arg(long, default_value = "")]
+        user: String,
+        #[arg(long, default_value_t = 50)]
+        limit: i32,
+    },
+    Verify,
+}
+
+fn ts(ms: i64) -> String {
+    if ms <= 0 {
+        return "-".into();
+    }
+    format!("{}s ago", (itcmdr_keys::now_ms() - ms) / 1000)
+}
+
+fn user(u: &pb::UserInfo) {
+    println!(
+        "{}  {}  {}  {}  {}  sites=[{}]  key_backup={}{}",
+        u.id,
+        u.email,
+        u.name,
+        u.role,
+        u.status,
+        u.sites.join(","),
+        u.key_backup,
+        if u.key_backup_opt_out {
+            " (opted out)"
+        } else {
+            ""
+        }
+    );
+    for d in &u.devices {
+        println!("    device {}  {}  {}", d.fingerprint, d.status, d.platform);
+    }
+}
+
+fn read_words() -> Result<String> {
+    eprint!("24 words: ");
+    let mut s = String::new();
+    std::io::stdin().lock().read_line(&mut s)?;
+    Ok(s.trim().to_string())
+}
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    let cli = Cli::parse();
+    let home = cli.home.clone().unwrap_or_else(itcmdr_admin::default_dir);
+    let platform = format!("cli-{}", std::env::consts::OS);
+    match cli.cmd {
+        Cmd::Info { addr, pin } => {
+            let mut api = pb::admin_api_client::AdminApiClient::new(
+                itcmdr_admin::channel(&addr, &pin).await?,
+            );
+            let i = api.info(pb::Empty {}).await?.into_inner();
+            println!(
+                "adminsvr {}  initialized={}  root={}",
+                i.version, i.initialized, i.root_public_key
+            );
+        }
+        Cmd::Enroll {
+            code,
+            no_key_backup,
+            words_file,
+        } => {
+            if Identity::path(&home).exists() {
+                bail!(
+                    "this device is already enrolled ({}); remove it first",
+                    Identity::path(&home).display()
+                );
+            }
+            let e = itcmdr_admin::enroll(&code, &platform, no_key_backup, None).await?;
+            e.identity.save(&home)?;
+            match words_file {
+                Some(p) => {
+                    std::fs::write(&p, e.words.as_bytes())?;
+                    #[cfg(unix)]
+                    {
+                        use std::os::unix::fs::PermissionsExt;
+                        std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o600))?;
+                    }
+                }
+                None => {
+                    let w: Vec<&str> = e.words.split_whitespace().collect();
+                    println!("Your 24 words (write them down on paper now; they are shown once):");
+                    for (i, c) in w.chunks(6).enumerate() {
+                        println!("  {:>2}-{:>2}: {}", i * 6 + 1, i * 6 + 6, c.join(" "));
+                    }
+                    for i in [3usize, 11, 20] {
+                        loop {
+                            print!("word {}: ", i + 1);
+                            std::io::stdout().flush()?;
+                            let mut s = String::new();
+                            std::io::stdin().lock().read_line(&mut s)?;
+                            if s.trim().eq_ignore_ascii_case(w[i]) {
+                                break;
+                            }
+                            println!("  not that one, try again");
+                        }
+                    }
+                    print!("\x1b[2J\x1b[H");
+                }
+            }
+            let d = e
+                .user
+                .devices
+                .last()
+                .map(|d| (d.fingerprint.clone(), d.status.clone()))
+                .unwrap_or_default();
+            println!(
+                "Enrolled {} ({}); device {} is {}.",
+                e.user.email, e.user.role, d.0, d.1
+            );
+            if d.1 == "pending" {
+                println!("Read this fingerprint to the owner/admin who created you; they run: itcmdr-admin user approve {} {}", e.user.email, d.0);
+            }
+            println!(
+                "Key backup on adminsvr: {}",
+                if no_key_backup {
+                    "off (opted out)"
+                } else {
+                    "on (encrypted with your words)"
+                }
+            );
+        }
+        Cmd::Recover {
+            addr,
+            pin,
+            email,
+            from_backup,
+        } => {
+            let words = read_words()?;
+            let id =
+                itcmdr_admin::recover(&addr, &pin, &email, &words, from_backup, &platform).await?;
+            id.save(&home)?;
+            println!(
+                "device key {} on this device",
+                if from_backup {
+                    "restored from the backup"
+                } else {
+                    "certified"
+                }
+            );
+        }
+        cmd => {
+            let id = Identity::load(&home)?;
+            let c = Client::connect(&id).await?;
+            match cmd {
+                Cmd::Whoami => user(&c.whoami().await?),
+                Cmd::User(u) => match u {
+                    UserCmd::List => {
+                        for x in c.list_users().await?.users {
+                            user(&x)
+                        }
+                    }
+                    UserCmd::Create { email, name, role } => {
+                        let r = c.create_user(&email, &name, &role).await?;
+                        user(r.user.as_ref().unwrap());
+                        println!("enrollment code (24 h, single use):\n{}", r.enroll_code);
+                    }
+                    UserCmd::Role { user: u, role } => user(&c.set_role(&u, &role).await?),
+                    UserCmd::Disable { user: u } => user(&c.set_disabled(&u, true).await?),
+                    UserCmd::Enable { user: u } => user(&c.set_disabled(&u, false).await?),
+                    UserCmd::Scopes { user: u, sites } => user(&c.set_scopes(&u, sites).await?),
+                    UserCmd::Approve {
+                        user: u,
+                        fingerprint,
+                    } => user(&c.approve_device(&u, &fingerprint).await?),
+                    UserCmd::Code { user: u } => println!("{}", c.new_code(&u).await?.enroll_code),
+                },
+                Cmd::Device(d) => {
+                    let l = match d {
+                        DeviceCmd::List { user: u } => c.list_devices(&u).await?,
+                        DeviceCmd::Revoke {
+                            fingerprint,
+                            user: u,
+                        } => c.revoke_device(&u, &fingerprint).await?,
+                    };
+                    for d in l.devices {
+                        println!(
+                            "{}  {}  {}  used {}",
+                            d.fingerprint,
+                            d.status,
+                            d.platform,
+                            ts(d.last_used_ms)
+                        );
+                    }
+                }
+                Cmd::KeyBackup(k) => match k {
+                    KbCmd::On => {
+                        let words = read_words()?;
+                        let seed: [u8; 32] = hex::decode(&id.device_seed)?
+                            .try_into()
+                            .map_err(|_| anyhow::anyhow!("bad seed"))?;
+                        let w = itcmdr_keys::wrap::wrap(&words, &id.email.to_lowercase(), &seed)?;
+                        c.put_key_backup(serde_json::to_string(&w)?).await?;
+                        println!("key backup stored (encrypted with your words)");
+                    }
+                    KbCmd::Off => user(&c.key_backup_opt_out(true).await?),
+                },
+                Cmd::Site(s) => match s {
+                    SiteCmd::Create { name } => {
+                        let r = c.create_site(&name).await?;
+                        println!("site {} created. Site token (24 h, single use), on the site server run:\n  itcmdr-cli adminsvr enroll {}", r.site.unwrap().id, r.token);
+                    }
+                    SiteCmd::List => {
+                        for s in c.list_sites().await?.sites {
+                            let st = s.last_status.unwrap_or_default();
+                            println!("{}  {}  {}  v{}  seen {}  backup_age={}s ({})  agents online/late/nr={}/{}/{}  names_shared={}", s.id, s.name, s.status, s.version, ts(s.last_seen_ms), st.backup_age_secs, st.backup_last_result, st.agents_online, st.agents_late, st.agents_non_responsive, s.share_display_names);
+                        }
+                    }
+                    SiteCmd::Revoke { site } => {
+                        println!("{} {}", site, c.revoke_site(&site).await?.status)
+                    }
+                },
+                Cmd::Alert(a) => match a {
+                    AlertCmd::List { site, state, limit } => {
+                        for a in c.list_alerts(&site, &state, limit).await?.alerts {
+                            let x = a.alert.unwrap_or_default();
+                            println!(
+                                "{}  {}  {}  {}  {}  machine={}{}  plugin={}  x{}  last {}",
+                                a.site,
+                                x.id,
+                                x.severity,
+                                x.state,
+                                x.code,
+                                x.machine,
+                                if x.machine_display_name.is_empty() {
+                                    String::new()
+                                } else {
+                                    format!(" ({})", x.machine_display_name)
+                                },
+                                x.plugin,
+                                x.count,
+                                ts(x.last_seen_ms)
+                            );
+                        }
+                    }
+                    AlertCmd::Ack { site, alert } => println!(
+                        "{:?}",
+                        c.command(&site, "alert.ack", &[("alert_id", &alert)])
+                            .await?
+                    ),
+                    AlertCmd::Resolve { site, alert } => println!(
+                        "{:?}",
+                        c.command(&site, "alert.resolve", &[("alert_id", &alert)])
+                            .await?
+                    ),
+                },
+                Cmd::Backup(BackupCmd::Start { site }) => {
+                    let r = c.command(&site, "backup.start", &[]).await?;
+                    println!("queued {} (the backup runs and stays on the site)", r.id);
+                }
+                Cmd::Command(CommandCmd::List { site }) => {
+                    for x in c.list_commands(&site).await?.commands {
+                        println!(
+                            "{}  {}  {}  {}  {}  by {}  {}",
+                            x.id,
+                            x.site,
+                            x.kind,
+                            x.state,
+                            x.result_code,
+                            x.requested_by,
+                            ts(x.created_ms)
+                        );
+                    }
+                }
+                Cmd::Audit(a) => match a {
+                    AuditCmd::List { user: u, limit } => {
+                        for e in c.list_audit(&u, limit).await?.entries {
+                            println!(
+                                "{:>6}  {}  {}  {}  {}  {}",
+                                e.seq,
+                                ts(e.ts_ms),
+                                e.actor,
+                                e.action,
+                                e.target,
+                                &e.hash[..16]
+                            );
+                        }
+                    }
+                    AuditCmd::Verify => {
+                        let v = c.verify_audit().await?;
+                        if v.ok {
+                            println!("audit chain OK ({} entries)", v.entries)
+                        } else {
+                            bail!(
+                                "audit chain BROKEN at seq {}: {}",
+                                v.first_bad_seq,
+                                v.problem
+                            )
+                        }
+                    }
+                },
+                _ => unreachable!(),
+            }
+        }
+    }
+    Ok(())
+}
