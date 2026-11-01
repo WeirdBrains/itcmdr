@@ -389,6 +389,42 @@ pub async fn set_maintenance(pool: &DbPool, machine: &str, on: bool) -> Result<O
     get(pool, &a.id).await
 }
 
+/// v0.18.0 Prepare: the CA and its certification for a valid (unused, unexpired) token, without
+/// using it, so the agent can check the root key before the server records an enrollment.
+pub async fn prepare(pool: &DbPool, layout: &Layout, secret: &str) -> Result<pb::PrepareResponse> {
+    let hash = itcmdr_agentlink::sha256_hex(secret.trim().as_bytes());
+    let row: Option<(i64, Option<i64>)> =
+        sqlx::query_as("SELECT expires_ms, used_ms FROM enroll_tokens WHERE secret_hash = ?")
+            .bind(&hash)
+            .fetch_optional(pool)
+            .await?;
+    let Some((exp, used)) = row else {
+        bail!("unknown enrollment token")
+    };
+    ensure!(used.is_none(), "this enrollment token was already used");
+    ensure!(exp > now(), "this enrollment token has expired");
+    let m = ensure_material(layout)?;
+    let (pk, sig) = m.ca_sig.unwrap_or_default();
+    Ok(pb::PrepareResponse {
+        ca_cert_pem: m.ca.cert,
+        ca_signature: sig,
+        root_public_key: pk,
+    })
+}
+
+/// v0.18.0 Check: is this agent id revoked? (No client certificate: a revoked agent's handshake
+/// fails, so this is how it learns to stop retrying.)
+pub async fn check(pool: &DbPool, agent_id: &str) -> Result<pb::CheckResponse> {
+    let st: Option<String> = sqlx::query_scalar("SELECT state FROM agents WHERE id = ?")
+        .bind(agent_id)
+        .fetch_optional(pool)
+        .await?;
+    Ok(pb::CheckResponse {
+        revoked: st.as_deref() == Some("revoked"),
+        known: st.is_some(),
+    })
+}
+
 /// Enroll: check and burn the token, register the key, sign the CSR.
 pub async fn enroll(
     pool: &DbPool,
@@ -506,6 +542,14 @@ pub async fn machine_i64(pool: &DbPool, key: &str, machine: &str) -> i64 {
                 .and_then(|d| d.default.as_i64())
                 .unwrap_or_default()
         })
+}
+
+/// A text setting resolved for one machine (None when unset/empty).
+pub async fn machine_text(pool: &DbPool, key: &str, machine: &str) -> Option<String> {
+    machine_value(pool, key, machine)
+        .await
+        .and_then(|v| v.as_str().map(str::to_string))
+        .filter(|s| !s.trim().is_empty())
 }
 
 async fn machine_value(pool: &DbPool, key: &str, machine: &str) -> Option<serde_json::Value> {
@@ -660,15 +704,20 @@ pub async fn request_renew(pool: &DbPool, machine: &str) -> Result<Option<Agent>
 }
 
 /// A queued alert from the agent (`itcmdr-agent alert`), delivered once even across reconnects.
-async fn agent_alert(pool: &DbPool, a: &Agent, seq: u64, al: &pb::AgentAlert) -> Result<()> {
+/// Record a durable queue seq; false when it was already delivered.
+pub async fn claim_seq(pool: &DbPool, agent_id: &str, seq: u64) -> Result<bool> {
     let seq = seq as i64;
     let r = sqlx::query("UPDATE agents SET last_seq = ? WHERE id = ? AND last_seq < ?")
         .bind(seq)
-        .bind(&a.id)
+        .bind(agent_id)
         .bind(seq)
         .execute(pool)
         .await?;
-    if r.rows_affected() == 0 {
+    Ok(r.rows_affected() > 0)
+}
+
+async fn agent_alert(pool: &DbPool, a: &Agent, seq: u64, al: &pb::AgentAlert) -> Result<()> {
+    if !claim_seq(pool, &a.id, seq).await? {
         return Ok(()); // already delivered
     }
     let k: String = al
@@ -881,6 +930,26 @@ type LinkStream = Pin<Box<dyn Stream<Item = Result<pb::ServerMessage, Status>> +
 
 #[tonic::async_trait]
 impl pb::agent_service_server::AgentService for AgentLink {
+    async fn prepare(
+        &self,
+        req: Request<pb::PrepareRequest>,
+    ) -> Result<Response<pb::PrepareResponse>, Status> {
+        prepare(&self.pool, &self.layout, &req.get_ref().token_secret)
+            .await
+            .map(Response::new)
+            .map_err(|e| Status::permission_denied(format!("enrollment refused: {e}")))
+    }
+
+    async fn check(
+        &self,
+        req: Request<pb::CheckRequest>,
+    ) -> Result<Response<pb::CheckResponse>, Status> {
+        check(&self.pool, &req.get_ref().agent_id)
+            .await
+            .map(Response::new)
+            .map_err(|e| Status::internal(e.to_string()))
+    }
+
     async fn enroll(
         &self,
         req: Request<pb::EnrollRequest>,
@@ -989,6 +1058,10 @@ impl pb::agent_service_server::AgentService for AgentLink {
                     reconnect_max_secs: reconnect as i32,
                     queue_max_mib: machine_i64(&self.pool, "agent.queueMaxMib", &a.machine).await
                         as i32,
+                    root_public_key: ensure_material(&self.layout)
+                        .ok()
+                        .and_then(|m| m.ca_sig.map(|(pk, _)| pk))
+                        .unwrap_or_default(),
                 })),
             }))
             .await;
@@ -1009,12 +1082,32 @@ impl pb::agent_service_server::AgentService for AgentLink {
         let pool = self.pool.clone();
         let layout = self.layout.clone();
         let agent = a.clone();
+        let mut have = crate::agent_plugins::parse_have(&h.plugins);
+        let mut sched_ver = h.schedule_version.clone();
         tokio::spawn(async move {
             let mut ticker = tokio::time::interval(Duration::from_secs(hb as u64));
             ticker.tick().await;
             let mut last_seq = first.seq;
+            // v0.18.0: plugin/schedule sync now and every 30 s; RunNow requests every 2 s.
+            let mut sync_t = tokio::time::interval(Duration::from_secs(30));
+            let mut req_t = tokio::time::interval(Duration::from_secs(2));
             loop {
                 tokio::select! {
+                    _ = sync_t.tick() => {
+                        match crate::agent_plugins::sync_messages(&pool, &layout, &agent.machine, &mut have, &mut sched_ver).await {
+                            Ok(msgs) => for b in msgs {
+                                if tx.send(Ok(pb::ServerMessage { ack_seq: last_seq, body: Some(b) })).await.is_err() { break; }
+                            },
+                            Err(e) => tracing::warn!(machine=%agent.machine, error=%format!("{e:#}"), "agent plugin sync"),
+                        }
+                    }
+                    _ = req_t.tick() => {
+                        if let Ok(rs) = crate::agent_plugins::take_requests(&pool, &agent.machine).await {
+                            for r in rs {
+                                let _ = tx.send(Ok(pb::ServerMessage { ack_seq: last_seq, body: Some(pb::server_message::Body::RunNow(r)) })).await;
+                            }
+                        }
+                    }
                     _ = stop_rx.changed() => {
                         let _ = tx.send(Ok(pb::ServerMessage { ack_seq: last_seq, body: Some(pb::server_message::Body::Bye(pb::Bye { reason: "revoked or replaced".into() })) })).await;
                         break;
@@ -1034,7 +1127,21 @@ impl pb::agent_service_server::AgentService for AgentLink {
                                     }
                                     continue;
                                 }
+                                if let Some(pb::agent_message::Body::Run(rep)) = &msg.body {
+                                    match crate::agent_plugins::store_report(&pool, &layout, &agent, msg.seq, rep).await {
+                                        Ok(_) => { let _ = tx.send(Ok(pb::ServerMessage { ack_seq: msg.seq, body: None })).await; }
+                                        Err(e) => tracing::warn!(machine=%agent.machine, error=%format!("{e:#}"), "agent run report"),
+                                    }
+                                    continue;
+                                }
                                 if msg.seq <= last_seq { continue; } // replay/duplicate
+                                if let Some(pb::agent_message::Body::Applied(ap)) = &msg.body {
+                                    last_seq = msg.seq;
+                                    if let Err(e) = crate::agent_plugins::applied(&pool, &agent, ap).await {
+                                        tracing::warn!(machine=%agent.machine, error=%format!("{e:#}"), "agent applied");
+                                    }
+                                    continue;
+                                }
                                 last_seq = msg.seq;
                                 if let Some(pb::agent_message::Body::Renew(r)) = &msg.body {
                                     match renew(&pool, &layout, &agent, &r.csr_pem).await {
@@ -1131,7 +1238,11 @@ pub async fn serve(
         });
         tonic::transport::Server::builder()
             .http2_keepalive_interval(Some(Duration::from_secs(30)))
-            .add_service(pb::agent_service_server::AgentServiceServer::new(AgentLink::new(pool, layout)))
+            .add_service(
+                pb::agent_service_server::AgentServiceServer::new(AgentLink::new(pool, layout))
+                    .max_decoding_message_size(32 * 1024 * 1024)
+                    .max_encoding_message_size(128 * 1024 * 1024),
+            )
             .serve_with_incoming_shutdown(tls::incoming(listener, tls_cfg, on_fail), shutdown)
             .await?;
         anyhow::Ok(())

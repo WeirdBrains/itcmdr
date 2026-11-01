@@ -21,6 +21,51 @@ pub struct Item {
     pub ts_ms: i64,
     #[serde(default)]
     pub resolve: bool,
+    /// v0.18.0: a RunReport (prost bytes, base64) instead of an alert.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub report: Option<String>,
+}
+
+/// Queue a plugin RunReport for delivery (same durable path as alerts).
+pub fn spool_report(dir: &Path, rep: &itcmdr_agentlink::pb::RunReport) -> Result<PathBuf> {
+    use base64::Engine;
+    use prost::Message;
+    spool(
+        dir,
+        &Item {
+            seq: 0,
+            key: format!("run:{}", rep.plugin),
+            level: "report".into(),
+            title: rep.status.clone(),
+            detail: String::new(),
+            ts_ms: rep.finished_ms,
+            resolve: false,
+            report: Some(base64::engine::general_purpose::STANDARD.encode(rep.encode_to_vec())),
+        },
+    )
+}
+
+/// The agent message body for a queued item.
+pub fn body(it: Item) -> Option<itcmdr_agentlink::pb::agent_message::Body> {
+    use itcmdr_agentlink::pb;
+    match it.report {
+        Some(b) => {
+            use base64::Engine;
+            use prost::Message;
+            let bytes = base64::engine::general_purpose::STANDARD.decode(b).ok()?;
+            Some(pb::agent_message::Body::Run(
+                pb::RunReport::decode(bytes.as_slice()).ok()?,
+            ))
+        }
+        None => Some(pb::agent_message::Body::Alert(pb::AgentAlert {
+            key: it.key,
+            level: it.level,
+            title: it.title,
+            detail: it.detail,
+            ts_ms: it.ts_ms,
+            resolve: it.resolve,
+        })),
+    }
 }
 
 pub fn spool_dir(dir: &Path) -> PathBuf {
@@ -121,6 +166,7 @@ pub fn ingest(dir: &Path, max_mib: u64) -> Result<Vec<Item>> {
                 detail: format!("The queue is capped at {max_mib} MiB (agent.queueMaxMib)."),
                 ts_ms: chrono::Utc::now().timestamp_millis(),
                 resolve: false,
+                report: None,
             },
         )?;
     }
@@ -171,6 +217,7 @@ mod tests {
             detail: "x".repeat(detail),
             ts_ms: 1,
             resolve: false,
+            report: None,
         }
     }
     #[test]

@@ -11,6 +11,15 @@ path = "src/main.rs"
 
 [dependencies]
 itcmdr-agentlink = { path = "../agentlink" }
+itcmdr-plugin = { path = "../plugin" }
+itcmdr-common = { path = "../common" }
+prost = "0.13"
+base64 = "0.22"
+toml = "0.8"
+cron = "0.15"
+chrono-tz = "0.10"
+iana-time-zone = "0.1"
+uuid = { version = "1.10", features = ["v4"] }
 anyhow = "1.0"
 clap = { version = "4.5", features = ["derive"] }
 serde = { version = "1.0", features = ["derive"] }

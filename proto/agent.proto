@@ -8,7 +8,21 @@ service AgentService {
   rpc Enroll(EnrollRequest) returns (EnrollResponse);
   // Long-lived stream: Hello first, then Pong for every Ping.
   rpc Link(stream AgentMessage) returns (stream ServerMessage);
+  // v0.18.0: before Enroll, without using the token: the CA and its certification, so the agent
+  // can refuse a server whose root key is not the token's before the server records anything.
+  rpc Prepare(PrepareRequest) returns (PrepareResponse);
+  // v0.18.0: no client certificate needed; tells a refused agent whether it was revoked.
+  rpc Check(CheckRequest) returns (CheckResponse);
 }
+
+message PrepareRequest { string token_secret = 1; }
+message PrepareResponse {
+  string ca_cert_pem = 1;
+  string ca_signature = 2;
+  string root_public_key = 3;
+}
+message CheckRequest { string agent_id = 1; string cert_fingerprint = 2; }
+message CheckResponse { bool revoked = 1; bool known = 2; }
 
 message EnrollRequest {
   string token_secret = 1;
@@ -36,7 +50,37 @@ message AgentMessage {
     Pong pong = 3;
     Renew renew = 4;           // v0.17.1: new CSR (new key), on RenewNow or at 2/3 of the lifetime
     AgentAlert alert = 5;      // v0.17.1: from the offline queue; seq is durable, acked by ack_seq
+    RunReport run = 6;         // v0.18.0: from the offline queue too (durable seq, acked)
+    Applied applied = 7;       // v0.18.0: result of a PluginUpdate / PluginRemove / ScheduleSet
   }
+}
+
+// v0.18.0: one plugin run on the agent (report-only until the cutover to the agent).
+message RunReport {
+  string run_id = 1;
+  string plugin = 2;
+  string version = 3;
+  string trigger = 4;        // schedule:<id> | run-now:<request id>
+  int64 started_ms = 5;
+  int64 finished_ms = 6;
+  string status = 7;         // ok | failed | verify-failed | error
+  string message = 8;
+  repeated StageResult stages = 9;
+  repeated CheckResult results = 10;
+  string errors_json = 11;   // PluginErrorRecord list (itcmdr-common), JSON
+  string log_lines = 12;     // this run's itcmdr.log/v1 lines (capped)
+  repeated Artifact artifacts = 13;
+  bool report_only = 14;
+}
+message StageResult { string stage = 1; bool ok = 2; string message = 3; }
+message CheckResult { string check_id = 1; string status = 2; string message = 3; }
+message Artifact { string name = 1; string sha256 = 2; bytes data = 3; }
+message Applied {
+  string kind = 1;           // plugin | plugin-remove | schedules
+  string name = 2;
+  string version = 3;
+  bool ok = 4;
+  string error = 5;
 }
 message Hello {
   string agent_id = 1;
@@ -47,6 +91,8 @@ message Hello {
   int64 ts_ms = 6;
   string nonce = 7;
   string signature = 8;      // hex Ed25519 over itcmdr_agentlink::hello_bytes
+  repeated string plugins = 9;      // v0.18.0: installed, as name@version:sha256(package.toml)
+  string schedule_version = 10;     // v0.18.0: version of the ScheduleSet it holds
 }
 message Renew { string csr_pem = 1; }
 message AgentAlert {
@@ -70,13 +116,46 @@ message ServerMessage {
     Bye bye = 4;
     RenewNow renew_now = 5;
     Renewed renewed = 6;
+    PluginUpdate plugin = 7;       // v0.18.0
+    PluginRemove plugin_remove = 8;
+    ScheduleSet schedules = 9;
+    RunNow run_now = 10;
   }
+}
+// The files of a package the server validated (admin/owner signature, checksums), endorsed by the
+// server root key: Ed25519 over itcmdr_agentlink::plugin_bytes(name, version, sha256(package.toml)).
+message PluginUpdate {
+  string name = 1;
+  string version = 2;
+  repeated PluginFile files = 3;   // package.toml, package.sig and every listed file
+  string endorsement = 4;
+}
+message PluginFile { string name = 1; bytes data = 2; }
+message PluginRemove { string name = 1; }
+message ScheduleSet {
+  string version = 1;
+  repeated AgentSchedule schedules = 2;
+}
+message AgentSchedule {
+  string id = 1;
+  string name = 2;
+  string cron = 3;           // 6-field, seconds first (cron crate)
+  string timezone = 4;       // IANA name, or "" / local
+  repeated string plugins = 5;   // "*" = every plugin pushed to this agent
+  bool catch_up = 6;
+  map<string, string> args = 7;
+}
+message RunNow {
+  string request_id = 1;
+  string plugin = 2;
+  map<string, string> args = 3;
 }
 message Welcome {
   int64 server_ts_ms = 1;
   int32 heartbeat_secs = 2;
   int32 reconnect_max_secs = 3;
   int32 queue_max_mib = 4;
+  string root_public_key = 5;    // v0.18.0: for agents enrolled before tokens carried it
 }
 message RenewNow { string reason = 1; }
 message Renewed { string cert_pem = 1; int64 expires_ms = 2; }

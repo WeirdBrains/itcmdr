@@ -1,4 +1,5 @@
 #![allow(clippy::result_large_err, clippy::field_reassign_with_default)]
+pub mod agent_plugins;
 pub mod agents;
 pub mod alerts;
 pub mod api;
