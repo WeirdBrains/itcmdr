@@ -14,10 +14,16 @@ app build needs clang, cmake, pkg-config, GTK 3 headers and ninja; a user-local 
 
 ## macOS step (Mac)
 
-Clone the tag on the Mac and run `scripts/release-local.sh unix` with a Flutter that matches `app/pubspec.yaml`.
-Produces `itcmdr-cli-X.Y.Z-macos-aarch64.tar.gz`. The macOS app archive is produced once the app has a `macos/`
-desktop project (not yet; it is unsigned and not notarized until the Mac signing step). Copy the files into
-`dist/X.Y.Z/` on the dev box.
+Clone the tag on the Mac and run `scripts/release-local.sh unix`, `android` and `ios-check` with a Flutter that
+matches `app/pubspec.yaml`. Produces the CLI, admin CLI and adminsvr tarballs and the app and admin app zips
+(unsigned, not notarized until the Mac signing step), plus the admin app APK. Copy the files into `dist/X.Y.Z/`
+on the dev box.
+
+No CocoaPods (v0.20.0): iOS and macOS use Flutter's Swift Package Manager integration and the Rust bridges are
+built by flutter_rust_bridge native assets (`hook/build.dart`, toolchain pinned in `rust/rust-toolchain.toml`,
+installed by rustup). Once per user: `flutter config --enable-swift-package-manager` (the script turns it on if
+off). The script refuses to build when a Podfile or Pods folder exists. All plugins in both apps support this
+(the only native code is the bridge; `path_provider` and `objective_c` need no pods).
 
 ## Windows VM step
 

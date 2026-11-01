@@ -41,7 +41,7 @@ jobs:
         run: |
           git clone --depth 1 -b $env:FLUTTER_VERSION https://github.com/flutter/flutter.git "$env:RUNNER_TEMP\flutter"
           Add-Content -Path $env:GITHUB_PATH -Value "$env:RUNNER_TEMP\flutter\bin"
-      - name: Build Flutter Windows app (cargokit builds the itcmdr-keys bridge)
+      - name: Build Flutter Windows app (the native-assets hook builds the itcmdr-keys bridge)
         working-directory: app
         run: |
           flutter config --enable-windows-desktop

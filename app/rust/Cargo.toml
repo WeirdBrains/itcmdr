@@ -17,5 +17,5 @@ hex = "0.4"
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }
 
-# Separate workspace: cargokit builds it for each Flutter platform.
+# Separate workspace: the flutter_rust_bridge native-assets hook (app/hook/build.dart) builds it for each Flutter platform.
 [workspace]
