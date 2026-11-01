@@ -94,6 +94,26 @@ enum Cmd {
     /// Rust agents (v0.17.0): enrollment tokens, list, revoke, maintenance.
     #[command(subcommand)]
     Agent(AgentCmd),
+    /// Offsite adminsvr link (v0.19.0): enroll, status, unlink, share-names, allow. In person on the site server.
+    #[command(subcommand)]
+    Adminsvr(AdminsvrCmd),
+}
+
+#[derive(Subcommand)]
+enum AdminsvrCmd {
+    /// Link this site with a one-time site token from `itcmdr-admin site create`
+    Enroll { token: String },
+    /// Link state, the local allowlist and the name-sharing opt-in
+    Status,
+    /// Remove the link (the site keeps running standalone)
+    Unlink,
+    /// Site owner: share machine display names with adminsvr (off by default). Paths, IPs, usernames and messages never leave.
+    ShareNames {
+        #[arg(value_parser = ["on", "off"])]
+        state: String,
+    },
+    /// Site owner: commands adminsvr may send (subset of backup.start, alert.ack, alert.resolve; restore is never possible)
+    Allow { kinds: Vec<String> },
 }
 
 #[derive(Subcommand)]
@@ -1711,6 +1731,59 @@ fn run(rt: &tokio::runtime::Runtime) -> Result<()> {
                     }
                 }
                 Ok::<(), anyhow::Error>(())
+            })
+        }
+        Cmd::Adminsvr(ac) => {
+            let cfg = load()?;
+            rt.block_on(async {
+                let pool = srv::db::init_db(&cfg).await?;
+                let show = |s: &srv::sitelink::State| {
+                    println!(
+                        "linked: site {} via {} (pinned {}...)",
+                        s.site_id,
+                        s.addr,
+                        &s.pin[..12]
+                    );
+                    println!(
+                        "share display names: {}",
+                        if s.share_display_names { "on" } else { "off" }
+                    );
+                    println!(
+                        "allowed commands: {}",
+                        if s.allowed.is_empty() {
+                            "(none)".to_string()
+                        } else {
+                            s.allowed.join(", ")
+                        }
+                    );
+                };
+                match ac {
+                    AdminsvrCmd::Enroll { token } => {
+                        show(&srv::sitelink::enroll(&pool, &cfg, &token, "itcmdr-cli").await?)
+                    }
+                    AdminsvrCmd::Status => match srv::sitelink::load(&cfg) {
+                        Some(s) => {
+                            show(&s);
+                            println!(
+                                "adminsvr.enabled: {}",
+                                srv::settings::get_bool(&pool, None, "adminsvr.enabled").await
+                            );
+                        }
+                        None => println!("not linked to an adminsvr"),
+                    },
+                    AdminsvrCmd::Unlink => {
+                        srv::sitelink::unlink(&pool, &cfg, "itcmdr-cli").await?;
+                        println!("unlinked (restart the server service to close a live link now)");
+                    }
+                    AdminsvrCmd::ShareNames { state } => show(
+                        &srv::sitelink::set_share_names(&pool, &cfg, state == "on", "itcmdr-cli")
+                            .await?,
+                    ),
+                    AdminsvrCmd::Allow { kinds } => {
+                        show(&srv::sitelink::set_allowed(&pool, &cfg, &kinds, "itcmdr-cli").await?)
+                    }
+                }
+                anyhow::Ok(())
             })
         }
         Cmd::Agent(ac) => {

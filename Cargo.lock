@@ -1367,6 +1367,7 @@ name = "itcmdr-adminsvr"
 version = "0.19.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "clap",
  "ed25519-dalek",
  "hex",
@@ -1374,6 +1375,7 @@ dependencies = [
  "itcmdr-adminlink",
  "itcmdr-agentlink",
  "itcmdr-keys",
+ "itcmdr-server",
  "parking_lot",
  "prost",
  "rand",
@@ -1541,6 +1543,7 @@ dependencies = [
  "http",
  "http-body",
  "iana-time-zone",
+ "itcmdr-adminlink",
  "itcmdr-agent",
  "itcmdr-agentlink",
  "itcmdr-common",
