@@ -10,7 +10,7 @@ The Rust agent runs plugins and schedules (report-only), with run reports, artif
 - Agent runs are always report-only. Reports (stages, results, log lines, artifacts up to 1 MiB each / 4 MiB per run) travel through the durable queue, so offline runs are delivered later, once. Logs go to `plugin-logs/<plugin>/agents/<machine>.jsonl`, artifacts to `<data>/agent-artifacts/<run>/`. A failing run raises `agent-run:<machine>:<plugin>`.
 - Parity: each agent report is compared with the machine's latest nightly checks (36 h) and recorded as `agent:<run>` in the parity tables.
 - New `Prepare` RPC: the agent verifies the site CA and root key before enrolling, so a refused root key no longer leaves an enrolled machine on the server (the token is not used).
-- New `Check` RPC: a revoked agent learns it is revoked (it only saw handshake resets before) and stops retrying.
+- New `Check` RPC: a revoked agent learns it is revoked (it only saw handshake resets before), logs "enroll it again" and checks only every 15 min instead of reconnecting.
 - Agent package ships `itcmdr-plugin-ps.exe`. Schema 9; settings 49.
 
 ## v0.17.1 (2026-11-01)

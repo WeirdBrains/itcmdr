@@ -119,4 +119,4 @@ button in the app, and queue items from the PowerShell agent.
 - `itcmdr-cli agent run <machine> <plugin> [--arg k=v]` runs a plugin now; `agent runs` and `agent plugins` list reports and installed plugins.
 - Runs are report-only (`ITCMDR_REPORT_ONLY=1`). Reports go through the offline queue; artifacts land in `<data>/agent-artifacts/<run>/`, logs in `plugin-logs/<plugin>/agents/<machine>.jsonl`, parity as `agent:<run>`.
 - Alerts: `agent-plugin:<machine>:<name>` (install refused), `agent-run:<machine>:<plugin>` (run failed).
-- Enrollment calls `Prepare` first (CA and root key verified before the token is used); a disconnected agent calls `Check` and stops when it is revoked.
+- Enrollment calls `Prepare` first (CA and root key verified before the token is used); a disconnected agent calls `Check` and, when revoked, stops reconnecting (logs "enroll it again", checks every 15 min).
