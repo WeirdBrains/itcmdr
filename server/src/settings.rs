@@ -106,6 +106,7 @@ pub fn registry() -> Vec<Def> {
         Def { from_cfg: Some(|c| json!(c.ingest_interval_secs)), ..d("server.ingest_interval_secs", Server, int(5, 3600), json!(30), "Seconds between log ingest / request sync passes.") },
         Def { from_cfg: Some(|c| json!(c.request_timeout_secs)), ..d("server.request_timeout_secs", Server, int(60, 7 * 86400), json!(3 * 3600), "On-demand requests still queued/running after this many seconds become timed_out.") },
         Def { from_cfg: Some(|c| json!(c.retention_days)), ..d("server.retention_days", Server, int(30, 3650), json!(400), "Days of run/check data kept in the database.") },
+        d("alerts.dedupe_window_mins", Server, int(0, 7 * 24 * 60), json!(60), "A resolved alert raised again within this many minutes reopens instead of starting a new one (v0.16.0)."),
         d("calllog.retention_days", Server, int(1, 3650), json!(30), "Days of the call log (every RPC) kept in the database; finished days are exported to server-logs/calls first (v0.15.0)."),
         Def { from_cfg: Some(|c| json!(c.bind_addr)), read_only: true, applies: "restart",
             ..d("server.bind_addr", Server, Kind::Text, json!("127.0.0.1:50051"), "gRPC listen address (server.json only).") },

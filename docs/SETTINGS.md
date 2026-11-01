@@ -41,6 +41,7 @@ Every tunable value in itcmdr is a typed setting with today's behaviour as its d
 | `backup.keep_daily` | server | int 0..3650 | `7` | next pass / next use | admin/owner (RPC, app, CLI) | Nightly backups kept: newest per day, for this many days. |
 | `backup.keep_weekly` | server | int 0..520 | `4` | next pass / next use | admin/owner (RPC, app, CLI) | Nightly backups kept: newest per ISO week, for this many weeks. |
 | `backup.nightly` | server | bool | `true` | next pass / next use | admin/owner (RPC, app, CLI) | Default of the built-in nightly-backup schedule: on (v0.11.0; afterwards pause/resume the schedule). |
+| `alerts.dedupe_window_mins` | server | int 0..10080 | `60` | next pass / next use | admin/owner (RPC, app, CLI) | A resolved alert raised again within this many minutes reopens instead of starting a new one (v0.16.0). |
 | `calllog.retention_days` | server | int 1..3650 | `30` | next pass / next use | admin/owner (RPC, app, CLI) | Days of the call log (every RPC) kept in the database; finished days are exported to server-logs/calls first (v0.15.0). |
 | `metrics.flap_min` | server | int 2..1000 | `3` | next pass / next use | admin/owner (RPC, app, CLI) | ok<->failed changes in the window before a check counts as flapping. |
 | `metrics.repeat_min` | server | int 2..1000 | `3` | next pass / next use | admin/owner (RPC, app, CLI) | Incidents in the window before a machine/check is a repeat offender. |

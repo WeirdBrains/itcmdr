@@ -541,6 +541,132 @@ final $typed_data.Uint8List listCallsResponseDescriptor = $convert.base64Decode(
     'ChFMaXN0Q2FsbHNSZXNwb25zZRInCgVjYWxscxgBIAMoCzIRLml0Y21kci5DYWxsRW50cnlSBW'
     'NhbGxz');
 
+@$core.Deprecated('Use alertDescriptor instead')
+const Alert$json = {
+  '1': 'Alert',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
+    {'1': 'key', '3': 2, '4': 1, '5': 9, '10': 'key'},
+    {'1': 'level', '3': 3, '4': 1, '5': 9, '10': 'level'},
+    {'1': 'source', '3': 4, '4': 1, '5': 9, '10': 'source'},
+    {'1': 'machine', '3': 5, '4': 1, '5': 9, '10': 'machine'},
+    {'1': 'title', '3': 6, '4': 1, '5': 9, '10': 'title'},
+    {'1': 'detail', '3': 7, '4': 1, '5': 9, '10': 'detail'},
+    {'1': 'first_seen_ms', '3': 8, '4': 1, '5': 3, '10': 'firstSeenMs'},
+    {'1': 'last_seen_ms', '3': 9, '4': 1, '5': 3, '10': 'lastSeenMs'},
+    {'1': 'count', '3': 10, '4': 1, '5': 3, '10': 'count'},
+    {'1': 'state', '3': 11, '4': 1, '5': 9, '10': 'state'},
+    {'1': 'acked_by', '3': 12, '4': 1, '5': 9, '10': 'ackedBy'},
+    {'1': 'acked_ms', '3': 13, '4': 1, '5': 3, '10': 'ackedMs'},
+    {'1': 'resolved_by', '3': 14, '4': 1, '5': 9, '10': 'resolvedBy'},
+    {'1': 'resolved_ms', '3': 15, '4': 1, '5': 3, '10': 'resolvedMs'},
+    {'1': 'run_id', '3': 16, '4': 1, '5': 9, '10': 'runId'},
+  ],
+};
+
+/// Descriptor for `Alert`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List alertDescriptor = $convert.base64Decode(
+    'CgVBbGVydBIOCgJpZBgBIAEoCVICaWQSEAoDa2V5GAIgASgJUgNrZXkSFAoFbGV2ZWwYAyABKA'
+    'lSBWxldmVsEhYKBnNvdXJjZRgEIAEoCVIGc291cmNlEhgKB21hY2hpbmUYBSABKAlSB21hY2hp'
+    'bmUSFAoFdGl0bGUYBiABKAlSBXRpdGxlEhYKBmRldGFpbBgHIAEoCVIGZGV0YWlsEiIKDWZpcn'
+    'N0X3NlZW5fbXMYCCABKANSC2ZpcnN0U2Vlbk1zEiAKDGxhc3Rfc2Vlbl9tcxgJIAEoA1IKbGFz'
+    'dFNlZW5NcxIUCgVjb3VudBgKIAEoA1IFY291bnQSFAoFc3RhdGUYCyABKAlSBXN0YXRlEhkKCG'
+    'Fja2VkX2J5GAwgASgJUgdhY2tlZEJ5EhkKCGFja2VkX21zGA0gASgDUgdhY2tlZE1zEh8KC3Jl'
+    'c29sdmVkX2J5GA4gASgJUgpyZXNvbHZlZEJ5Eh8KC3Jlc29sdmVkX21zGA8gASgDUgpyZXNvbH'
+    'ZlZE1zEhUKBnJ1bl9pZBgQIAEoCVIFcnVuSWQ=');
+
+@$core.Deprecated('Use listAlertsRequestDescriptor instead')
+const ListAlertsRequest$json = {
+  '1': 'ListAlertsRequest',
+  '2': [
+    {'1': 'state', '3': 1, '4': 1, '5': 9, '10': 'state'},
+    {'1': 'level', '3': 2, '4': 1, '5': 9, '10': 'level'},
+    {'1': 'machine', '3': 3, '4': 1, '5': 9, '10': 'machine'},
+    {'1': 'source', '3': 4, '4': 1, '5': 9, '10': 'source'},
+    {'1': 'limit', '3': 5, '4': 1, '5': 5, '10': 'limit'},
+  ],
+};
+
+/// Descriptor for `ListAlertsRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List listAlertsRequestDescriptor = $convert.base64Decode(
+    'ChFMaXN0QWxlcnRzUmVxdWVzdBIUCgVzdGF0ZRgBIAEoCVIFc3RhdGUSFAoFbGV2ZWwYAiABKA'
+    'lSBWxldmVsEhgKB21hY2hpbmUYAyABKAlSB21hY2hpbmUSFgoGc291cmNlGAQgASgJUgZzb3Vy'
+    'Y2USFAoFbGltaXQYBSABKAVSBWxpbWl0');
+
+@$core.Deprecated('Use listAlertsResponseDescriptor instead')
+const ListAlertsResponse$json = {
+  '1': 'ListAlertsResponse',
+  '2': [
+    {
+      '1': 'alerts',
+      '3': 1,
+      '4': 3,
+      '5': 11,
+      '6': '.itcmdr.Alert',
+      '10': 'alerts'
+    },
+    {'1': 'open_critical', '3': 2, '4': 1, '5': 3, '10': 'openCritical'},
+    {'1': 'open_cautious', '3': 3, '4': 1, '5': 3, '10': 'openCautious'},
+    {
+      '1': 'open_informational',
+      '3': 4,
+      '4': 1,
+      '5': 3,
+      '10': 'openInformational'
+    },
+  ],
+};
+
+/// Descriptor for `ListAlertsResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List listAlertsResponseDescriptor = $convert.base64Decode(
+    'ChJMaXN0QWxlcnRzUmVzcG9uc2USJQoGYWxlcnRzGAEgAygLMg0uaXRjbWRyLkFsZXJ0UgZhbG'
+    'VydHMSIwoNb3Blbl9jcml0aWNhbBgCIAEoA1IMb3BlbkNyaXRpY2FsEiMKDW9wZW5fY2F1dGlv'
+    'dXMYAyABKANSDG9wZW5DYXV0aW91cxItChJvcGVuX2luZm9ybWF0aW9uYWwYBCABKANSEW9wZW'
+    '5JbmZvcm1hdGlvbmFs');
+
+@$core.Deprecated('Use alertRefDescriptor instead')
+const AlertRef$json = {
+  '1': 'AlertRef',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
+  ],
+};
+
+/// Descriptor for `AlertRef`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List alertRefDescriptor =
+    $convert.base64Decode('CghBbGVydFJlZhIOCgJpZBgBIAEoCVICaWQ=');
+
+@$core.Deprecated('Use silenceAlertsRequestDescriptor instead')
+const SilenceAlertsRequest$json = {
+  '1': 'SilenceAlertsRequest',
+  '2': [
+    {'1': 'machine', '3': 1, '4': 1, '5': 9, '10': 'machine'},
+    {'1': 'source', '3': 2, '4': 1, '5': 9, '10': 'source'},
+    {'1': 'until_ms', '3': 3, '4': 1, '5': 3, '10': 'untilMs'},
+    {'1': 'reason', '3': 4, '4': 1, '5': 9, '10': 'reason'},
+  ],
+};
+
+/// Descriptor for `SilenceAlertsRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List silenceAlertsRequestDescriptor = $convert.base64Decode(
+    'ChRTaWxlbmNlQWxlcnRzUmVxdWVzdBIYCgdtYWNoaW5lGAEgASgJUgdtYWNoaW5lEhYKBnNvdX'
+    'JjZRgCIAEoCVIGc291cmNlEhkKCHVudGlsX21zGAMgASgDUgd1bnRpbE1zEhYKBnJlYXNvbhgE'
+    'IAEoCVIGcmVhc29u');
+
+@$core.Deprecated('Use silenceAlertsResponseDescriptor instead')
+const SilenceAlertsResponse$json = {
+  '1': 'SilenceAlertsResponse',
+  '2': [
+    {'1': 'silence_id', '3': 1, '4': 1, '5': 9, '10': 'silenceId'},
+    {'1': 'silenced', '3': 2, '4': 1, '5': 3, '10': 'silenced'},
+  ],
+};
+
+/// Descriptor for `SilenceAlertsResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List silenceAlertsResponseDescriptor = $convert.base64Decode(
+    'ChVTaWxlbmNlQWxlcnRzUmVzcG9uc2USHQoKc2lsZW5jZV9pZBgBIAEoCVIJc2lsZW5jZUlkEh'
+    'oKCHNpbGVuY2VkGAIgASgDUghzaWxlbmNlZA==');
+
 @$core.Deprecated('Use watchUpdatesRequestDescriptor instead')
 const WatchUpdatesRequest$json = {
   '1': 'WatchUpdatesRequest',

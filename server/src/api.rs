@@ -382,6 +382,111 @@ impl Itcmdr for ItcmdrService {
         Ok(Response::new(ExpireExceptionResponse {}))
     }
 
+    async fn list_alerts(
+        &self,
+        req: Request<ListAlertsRequest>,
+    ) -> Result<Response<ListAlertsResponse>, Status> {
+        self.read_guard(&req, "/itcmdr.Itcmdr/ListAlerts", crate::auth::Role::User)
+            .await?;
+        let r = req.into_inner();
+        let opt = |s: String| (!s.trim().is_empty()).then(|| s.trim().to_string());
+        let rows = crate::alerts::list(
+            &self.pool,
+            &crate::alerts::Filter {
+                state: opt(r.state),
+                level: opt(r.level),
+                machine: opt(r.machine),
+                source: opt(r.source),
+                limit: r.limit as i64,
+            },
+        )
+        .await
+        .map_err(internal_err)?;
+        let c = crate::alerts::open_counts(&self.pool)
+            .await
+            .map_err(internal_err)?;
+        Ok(Response::new(ListAlertsResponse {
+            alerts: rows.into_iter().map(alert_pb).collect(),
+            open_critical: c[0],
+            open_cautious: c[1],
+            open_informational: c[2],
+        }))
+    }
+
+    async fn ack_alert(&self, req: Request<AlertRef>) -> Result<Response<Alert>, Status> {
+        let actor = self
+            .authz(&req, "/itcmdr.Itcmdr/AckAlert", crate::auth::Role::User)
+            .await?;
+        let id = req.into_inner().id;
+        let a = crate::alerts::ack(&self.pool, &id, &actor)
+            .await
+            .map_err(internal_err)?
+            .ok_or_else(|| Status::not_found("no alert with that id"))?;
+        self.audit(
+            &actor,
+            "alert-ack",
+            &serde_json::json!({ "id": id, "key": a.key, "state": a.state }),
+        )
+        .await;
+        Ok(Response::new(alert_pb(a)))
+    }
+
+    async fn resolve_alert(&self, req: Request<AlertRef>) -> Result<Response<Alert>, Status> {
+        let actor = self
+            .authz(
+                &req,
+                "/itcmdr.Itcmdr/ResolveAlert",
+                crate::auth::Role::Admin,
+            )
+            .await?;
+        let id = req.into_inner().id;
+        let a = crate::alerts::resolve(&self.pool, &id, &actor)
+            .await
+            .map_err(internal_err)?
+            .ok_or_else(|| Status::not_found("no alert with that id"))?;
+        self.audit(
+            &actor,
+            "alert-resolve",
+            &serde_json::json!({ "id": id, "key": a.key }),
+        )
+        .await;
+        Ok(Response::new(alert_pb(a)))
+    }
+
+    async fn silence_alerts(
+        &self,
+        req: Request<SilenceAlertsRequest>,
+    ) -> Result<Response<SilenceAlertsResponse>, Status> {
+        let actor = self
+            .authz(
+                &req,
+                "/itcmdr.Itcmdr/SilenceAlerts",
+                crate::auth::Role::Admin,
+            )
+            .await?;
+        let r = req.into_inner();
+        let (sid, n) = crate::alerts::silence(
+            &self.pool,
+            r.machine.trim(),
+            r.source.trim(),
+            r.until_ms,
+            &r.reason,
+            &actor,
+        )
+        .await
+        .map_err(|e| Status::invalid_argument(format!("{e:#}")))?;
+        self.audit(
+            &actor,
+            "alert-silence",
+            &serde_json::json!({ "silence_id": sid, "machine": r.machine, "source": r.source, "until_ms": r.until_ms, "reason": r.reason, "silenced": n }),
+        )
+        .await;
+        Ok(Response::new(SilenceAlertsResponse {
+            silence_id: sid,
+            silenced: n as i64,
+        }))
+    }
+
     async fn search_logs(
         &self,
         req: Request<SearchLogsRequest>,
@@ -486,9 +591,16 @@ impl Itcmdr for ItcmdrService {
                 crate::auth::Role::Admin,
             )
             .await?;
-        let b = crate::backup::create(&self.pool, &self.cfg, "manual", None)
-            .await
-            .map_err(|e| Status::failed_precondition(format!("backup failed: {e:#}")))?;
+        let b = match crate::backup::create(&self.pool, &self.cfg, "manual", None).await {
+            Ok(b) => {
+                crate::alerts::from_backup(&self.pool, "manual", Ok(())).await;
+                b
+            }
+            Err(e) => {
+                crate::alerts::from_backup(&self.pool, "manual", Err(format!("{e:#}"))).await;
+                return Err(Status::failed_precondition(format!("backup failed: {e:#}")));
+            }
+        };
         self.audit(
             &actor,
             "backup-create",
@@ -1675,6 +1787,27 @@ fn to_proto_backup(b: &crate::config::BackupConfig) -> BackupSettings {
         keep_daily: b.keep_daily as u32,
         keep_weekly: b.keep_weekly as u32,
         keep_blocks: b.keep_blocks as u32,
+    }
+}
+
+fn alert_pb(a: crate::alerts::Alert) -> Alert {
+    Alert {
+        id: a.id,
+        key: a.key,
+        level: a.level,
+        source: a.source,
+        machine: a.machine,
+        title: a.title,
+        detail: a.detail,
+        first_seen_ms: a.first_seen_ms,
+        last_seen_ms: a.last_seen_ms,
+        count: a.count,
+        state: a.state,
+        acked_by: a.acked_by,
+        acked_ms: a.acked_ms,
+        resolved_by: a.resolved_by,
+        resolved_ms: a.resolved_ms,
+        run_id: a.run_id,
     }
 }
 

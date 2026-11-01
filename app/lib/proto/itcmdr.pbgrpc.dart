@@ -102,6 +102,34 @@ class ItcmdrClient extends $grpc.Client {
     return $createUnaryCall(_$listCalls, request, options: options);
   }
 
+  $grpc.ResponseFuture<$0.ListAlertsResponse> listAlerts(
+    $0.ListAlertsRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$listAlerts, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.Alert> ackAlert(
+    $0.AlertRef request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$ackAlert, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.Alert> resolveAlert(
+    $0.AlertRef request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$resolveAlert, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.SilenceAlertsResponse> silenceAlerts(
+    $0.SilenceAlertsRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$silenceAlerts, request, options: options);
+  }
+
   $grpc.ResponseFuture<$0.CreateBackupResponse> createBackup(
     $0.CreateBackupRequest request, {
     $grpc.CallOptions? options,
@@ -397,6 +425,24 @@ class ItcmdrClient extends $grpc.Client {
           '/itcmdr.Itcmdr/ListCalls',
           ($0.ListCallsRequest value) => value.writeToBuffer(),
           $0.ListCallsResponse.fromBuffer);
+  static final _$listAlerts =
+      $grpc.ClientMethod<$0.ListAlertsRequest, $0.ListAlertsResponse>(
+          '/itcmdr.Itcmdr/ListAlerts',
+          ($0.ListAlertsRequest value) => value.writeToBuffer(),
+          $0.ListAlertsResponse.fromBuffer);
+  static final _$ackAlert = $grpc.ClientMethod<$0.AlertRef, $0.Alert>(
+      '/itcmdr.Itcmdr/AckAlert',
+      ($0.AlertRef value) => value.writeToBuffer(),
+      $0.Alert.fromBuffer);
+  static final _$resolveAlert = $grpc.ClientMethod<$0.AlertRef, $0.Alert>(
+      '/itcmdr.Itcmdr/ResolveAlert',
+      ($0.AlertRef value) => value.writeToBuffer(),
+      $0.Alert.fromBuffer);
+  static final _$silenceAlerts =
+      $grpc.ClientMethod<$0.SilenceAlertsRequest, $0.SilenceAlertsResponse>(
+          '/itcmdr.Itcmdr/SilenceAlerts',
+          ($0.SilenceAlertsRequest value) => value.writeToBuffer(),
+          $0.SilenceAlertsResponse.fromBuffer);
   static final _$createBackup =
       $grpc.ClientMethod<$0.CreateBackupRequest, $0.CreateBackupResponse>(
           '/itcmdr.Itcmdr/CreateBackup',
@@ -656,6 +702,36 @@ abstract class ItcmdrServiceBase extends $grpc.Service {
         false,
         ($core.List<$core.int> value) => $0.ListCallsRequest.fromBuffer(value),
         ($0.ListCallsResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.ListAlertsRequest, $0.ListAlertsResponse>(
+        'ListAlerts',
+        listAlerts_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.ListAlertsRequest.fromBuffer(value),
+        ($0.ListAlertsResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.AlertRef, $0.Alert>(
+        'AckAlert',
+        ackAlert_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.AlertRef.fromBuffer(value),
+        ($0.Alert value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.AlertRef, $0.Alert>(
+        'ResolveAlert',
+        resolveAlert_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $0.AlertRef.fromBuffer(value),
+        ($0.Alert value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.SilenceAlertsRequest, $0.SilenceAlertsResponse>(
+            'SilenceAlerts',
+            silenceAlerts_Pre,
+            false,
+            false,
+            ($core.List<$core.int> value) =>
+                $0.SilenceAlertsRequest.fromBuffer(value),
+            ($0.SilenceAlertsResponse value) => value.writeToBuffer()));
     $addMethod(
         $grpc.ServiceMethod<$0.CreateBackupRequest, $0.CreateBackupResponse>(
             'CreateBackup',
@@ -1020,6 +1096,38 @@ abstract class ItcmdrServiceBase extends $grpc.Service {
 
   $async.Future<$0.ListCallsResponse> listCalls(
       $grpc.ServiceCall call, $0.ListCallsRequest request);
+
+  $async.Future<$0.ListAlertsResponse> listAlerts_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.ListAlertsRequest> $request) async {
+    return listAlerts($call, await $request);
+  }
+
+  $async.Future<$0.ListAlertsResponse> listAlerts(
+      $grpc.ServiceCall call, $0.ListAlertsRequest request);
+
+  $async.Future<$0.Alert> ackAlert_Pre(
+      $grpc.ServiceCall $call, $async.Future<$0.AlertRef> $request) async {
+    return ackAlert($call, await $request);
+  }
+
+  $async.Future<$0.Alert> ackAlert($grpc.ServiceCall call, $0.AlertRef request);
+
+  $async.Future<$0.Alert> resolveAlert_Pre(
+      $grpc.ServiceCall $call, $async.Future<$0.AlertRef> $request) async {
+    return resolveAlert($call, await $request);
+  }
+
+  $async.Future<$0.Alert> resolveAlert(
+      $grpc.ServiceCall call, $0.AlertRef request);
+
+  $async.Future<$0.SilenceAlertsResponse> silenceAlerts_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.SilenceAlertsRequest> $request) async {
+    return silenceAlerts($call, await $request);
+  }
+
+  $async.Future<$0.SilenceAlertsResponse> silenceAlerts(
+      $grpc.ServiceCall call, $0.SilenceAlertsRequest request);
 
   $async.Future<$0.CreateBackupResponse> createBackup_Pre(
       $grpc.ServiceCall $call,

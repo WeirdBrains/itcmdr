@@ -8,7 +8,7 @@ pub type DbPool = Pool<Sqlite>;
 
 /// Bumped whenever the schema changes. Stored as `PRAGMA user_version`; backups record it and
 /// restore refuses archives from a newer schema (older ones are migrated by `create_schema`).
-pub const SCHEMA_VERSION: i64 = 5;
+pub const SCHEMA_VERSION: i64 = 6;
 
 /// Open (creating if needed) the SQLCipher database. The data dir layout and DB key are created
 /// on first use. A pre-0.6 plaintext database at the target path, or `itcmdr.sqlite` next to it,
@@ -422,7 +422,7 @@ async fn create_schema(pool: &DbPool) -> anyhow::Result<()> {
         value TEXT NOT NULL
     )
     "#;
-    for stmt in schema.split(';') {
+    for stmt in schema.split(';').chain(crate::alerts::SCHEMA.split(';')) {
         let s = stmt.trim();
         if !s.is_empty() {
             sqlx::query(s).execute(pool).await?;
@@ -614,6 +614,7 @@ pub async fn record_check(
     if res.rows_affected() != 1 {
         return Ok(false);
     }
+    crate::alerts::from_check(pool, rec).await;
     let opened = update_incidents_for_check(pool, rec, ts_ms).await?;
     let failed_repair = rec.attempted_repair()
         && rec

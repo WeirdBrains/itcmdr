@@ -150,6 +150,47 @@ message ListCallsRequest {
 }
 message ListCallsResponse { repeated CallEntry calls = 1; }
 
+// Alerts (v0.16.0): site alerts, shown in the on-site app and CLI. No external notifiers.
+message Alert {
+  string id = 1;
+  string key = 2;           // dedupe key, e.g. check:<id>:<machine>
+  string level = 3;         // critical | cautious | informational
+  string source = 4;        // plugin | check | backup | package | server
+  string machine = 5;
+  string title = 6;
+  string detail = 7;
+  int64 first_seen_ms = 8;
+  int64 last_seen_ms = 9;
+  int64 count = 10;
+  string state = 11;        // open | acked | silenced | resolved
+  string acked_by = 12;
+  int64 acked_ms = 13;
+  string resolved_by = 14;  // a key name, or "auto"
+  int64 resolved_ms = 15;
+  string run_id = 16;
+}
+message ListAlertsRequest {
+  string state = 1;         // open (default: open+acked+silenced) | resolved | all | acked | silenced
+  string level = 2;
+  string machine = 3;
+  string source = 4;
+  int32 limit = 5;          // default 200, max 5000
+}
+message ListAlertsResponse {
+  repeated Alert alerts = 1;
+  int64 open_critical = 2;  // open + acked, for the badge
+  int64 open_cautious = 3;
+  int64 open_informational = 4;
+}
+message AlertRef { string id = 1; }
+message SilenceAlertsRequest {
+  string machine = 1;       // empty = any machine
+  string source = 2;        // empty = any source (one of the two is required)
+  int64 until_ms = 3;
+  string reason = 4;
+}
+message SilenceAlertsResponse { string silence_id = 1; int64 silenced = 2; }
+
 // Live updates
 message WatchUpdatesRequest {}
 message Update {
@@ -363,6 +404,10 @@ service Itcmdr {
   rpc SearchLogs(SearchLogsRequest) returns (SearchLogsResponse);
   rpc ListAudit(ListAuditRequest) returns (ListAuditResponse);
   rpc ListCalls(ListCallsRequest) returns (ListCallsResponse); // v0.15.0, admin
+  rpc ListAlerts(ListAlertsRequest) returns (ListAlertsResponse); // v0.16.0, user
+  rpc AckAlert(AlertRef) returns (Alert);                         // v0.16.0, user
+  rpc ResolveAlert(AlertRef) returns (Alert);                     // v0.16.0, admin
+  rpc SilenceAlerts(SilenceAlertsRequest) returns (SilenceAlertsResponse); // v0.16.0, admin
   rpc CreateBackup(CreateBackupRequest) returns (CreateBackupResponse);
   rpc ListBackups(ListBackupsRequest) returns (ListBackupsResponse);
   rpc VerifyBackup(VerifyBackupRequest) returns (VerifyBackupResponse);

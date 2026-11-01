@@ -2127,6 +2127,655 @@ class ListCallsResponse extends $pb.GeneratedMessage {
   $pb.PbList<CallEntry> get calls => $_getList(0);
 }
 
+/// Alerts (v0.16.0): site alerts, shown in the on-site app and CLI. No external notifiers.
+class Alert extends $pb.GeneratedMessage {
+  factory Alert({
+    $core.String? id,
+    $core.String? key,
+    $core.String? level,
+    $core.String? source,
+    $core.String? machine,
+    $core.String? title,
+    $core.String? detail,
+    $fixnum.Int64? firstSeenMs,
+    $fixnum.Int64? lastSeenMs,
+    $fixnum.Int64? count,
+    $core.String? state,
+    $core.String? ackedBy,
+    $fixnum.Int64? ackedMs,
+    $core.String? resolvedBy,
+    $fixnum.Int64? resolvedMs,
+    $core.String? runId,
+  }) {
+    final result = Alert._();
+    if (id != null) result.id = id;
+    if (key != null) result.key = key;
+    if (level != null) result.level = level;
+    if (source != null) result.source = source;
+    if (machine != null) result.machine = machine;
+    if (title != null) result.title = title;
+    if (detail != null) result.detail = detail;
+    if (firstSeenMs != null) result.firstSeenMs = firstSeenMs;
+    if (lastSeenMs != null) result.lastSeenMs = lastSeenMs;
+    if (count != null) result.count = count;
+    if (state != null) result.state = state;
+    if (ackedBy != null) result.ackedBy = ackedBy;
+    if (ackedMs != null) result.ackedMs = ackedMs;
+    if (resolvedBy != null) result.resolvedBy = resolvedBy;
+    if (resolvedMs != null) result.resolvedMs = resolvedMs;
+    if (runId != null) result.runId = runId;
+    return result;
+  }
+
+  Alert._();
+
+  factory Alert.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      Alert()..mergeFromBuffer(data, registry);
+  factory Alert.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      Alert()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'Alert',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: Alert.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'key')
+    ..aOS(3, _omitFieldNames ? '' : 'level')
+    ..aOS(4, _omitFieldNames ? '' : 'source')
+    ..aOS(5, _omitFieldNames ? '' : 'machine')
+    ..aOS(6, _omitFieldNames ? '' : 'title')
+    ..aOS(7, _omitFieldNames ? '' : 'detail')
+    ..aInt64(8, _omitFieldNames ? '' : 'firstSeenMs')
+    ..aInt64(9, _omitFieldNames ? '' : 'lastSeenMs')
+    ..aInt64(10, _omitFieldNames ? '' : 'count')
+    ..aOS(11, _omitFieldNames ? '' : 'state')
+    ..aOS(12, _omitFieldNames ? '' : 'ackedBy')
+    ..aInt64(13, _omitFieldNames ? '' : 'ackedMs')
+    ..aOS(14, _omitFieldNames ? '' : 'resolvedBy')
+    ..aInt64(15, _omitFieldNames ? '' : 'resolvedMs')
+    ..aOS(16, _omitFieldNames ? '' : 'runId')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  Alert clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  Alert copyWith(void Function(Alert) updates) =>
+      super.copyWith((message) => updates(message as Alert)) as Alert;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use Alert() / Alert.new instead')
+  static Alert create() => Alert._();
+  static $pb.GeneratedMessage $_createMessage() => Alert._();
+  @$core.override
+  Alert createEmptyInstance() => Alert._();
+  @$core.pragma('dart2js:noInline')
+  static Alert getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<Alert>(Alert.$_createMessage);
+  static Alert? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get key => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set key($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasKey() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearKey() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get level => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set level($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasLevel() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearLevel() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get source => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set source($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasSource() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearSource() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get machine => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set machine($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasMachine() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearMachine() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get title => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set title($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasTitle() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearTitle() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.String get detail => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set detail($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasDetail() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearDetail() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $fixnum.Int64 get firstSeenMs => $_getI64(7);
+  @$pb.TagNumber(8)
+  set firstSeenMs($fixnum.Int64 value) => $_setInt64(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasFirstSeenMs() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearFirstSeenMs() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $fixnum.Int64 get lastSeenMs => $_getI64(8);
+  @$pb.TagNumber(9)
+  set lastSeenMs($fixnum.Int64 value) => $_setInt64(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasLastSeenMs() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearLastSeenMs() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $fixnum.Int64 get count => $_getI64(9);
+  @$pb.TagNumber(10)
+  set count($fixnum.Int64 value) => $_setInt64(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasCount() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearCount() => $_clearField(10);
+
+  @$pb.TagNumber(11)
+  $core.String get state => $_getSZ(10);
+  @$pb.TagNumber(11)
+  set state($core.String value) => $_setString(10, value);
+  @$pb.TagNumber(11)
+  $core.bool hasState() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearState() => $_clearField(11);
+
+  @$pb.TagNumber(12)
+  $core.String get ackedBy => $_getSZ(11);
+  @$pb.TagNumber(12)
+  set ackedBy($core.String value) => $_setString(11, value);
+  @$pb.TagNumber(12)
+  $core.bool hasAckedBy() => $_has(11);
+  @$pb.TagNumber(12)
+  void clearAckedBy() => $_clearField(12);
+
+  @$pb.TagNumber(13)
+  $fixnum.Int64 get ackedMs => $_getI64(12);
+  @$pb.TagNumber(13)
+  set ackedMs($fixnum.Int64 value) => $_setInt64(12, value);
+  @$pb.TagNumber(13)
+  $core.bool hasAckedMs() => $_has(12);
+  @$pb.TagNumber(13)
+  void clearAckedMs() => $_clearField(13);
+
+  @$pb.TagNumber(14)
+  $core.String get resolvedBy => $_getSZ(13);
+  @$pb.TagNumber(14)
+  set resolvedBy($core.String value) => $_setString(13, value);
+  @$pb.TagNumber(14)
+  $core.bool hasResolvedBy() => $_has(13);
+  @$pb.TagNumber(14)
+  void clearResolvedBy() => $_clearField(14);
+
+  @$pb.TagNumber(15)
+  $fixnum.Int64 get resolvedMs => $_getI64(14);
+  @$pb.TagNumber(15)
+  set resolvedMs($fixnum.Int64 value) => $_setInt64(14, value);
+  @$pb.TagNumber(15)
+  $core.bool hasResolvedMs() => $_has(14);
+  @$pb.TagNumber(15)
+  void clearResolvedMs() => $_clearField(15);
+
+  @$pb.TagNumber(16)
+  $core.String get runId => $_getSZ(15);
+  @$pb.TagNumber(16)
+  set runId($core.String value) => $_setString(15, value);
+  @$pb.TagNumber(16)
+  $core.bool hasRunId() => $_has(15);
+  @$pb.TagNumber(16)
+  void clearRunId() => $_clearField(16);
+}
+
+class ListAlertsRequest extends $pb.GeneratedMessage {
+  factory ListAlertsRequest({
+    $core.String? state,
+    $core.String? level,
+    $core.String? machine,
+    $core.String? source,
+    $core.int? limit,
+  }) {
+    final result = ListAlertsRequest._();
+    if (state != null) result.state = state;
+    if (level != null) result.level = level;
+    if (machine != null) result.machine = machine;
+    if (source != null) result.source = source;
+    if (limit != null) result.limit = limit;
+    return result;
+  }
+
+  ListAlertsRequest._();
+
+  factory ListAlertsRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListAlertsRequest()..mergeFromBuffer(data, registry);
+  factory ListAlertsRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListAlertsRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ListAlertsRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: ListAlertsRequest.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'state')
+    ..aOS(2, _omitFieldNames ? '' : 'level')
+    ..aOS(3, _omitFieldNames ? '' : 'machine')
+    ..aOS(4, _omitFieldNames ? '' : 'source')
+    ..aI(5, _omitFieldNames ? '' : 'limit')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListAlertsRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListAlertsRequest copyWith(void Function(ListAlertsRequest) updates) =>
+      super.copyWith((message) => updates(message as ListAlertsRequest))
+          as ListAlertsRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ListAlertsRequest() / ListAlertsRequest.new instead')
+  static ListAlertsRequest create() => ListAlertsRequest._();
+  static $pb.GeneratedMessage $_createMessage() => ListAlertsRequest._();
+  @$core.override
+  ListAlertsRequest createEmptyInstance() => ListAlertsRequest._();
+  @$core.pragma('dart2js:noInline')
+  static ListAlertsRequest getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ListAlertsRequest>(
+          ListAlertsRequest.$_createMessage);
+  static ListAlertsRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get state => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set state($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasState() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearState() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get level => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set level($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasLevel() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearLevel() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get machine => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set machine($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasMachine() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearMachine() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get source => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set source($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasSource() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearSource() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get limit => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set limit($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasLimit() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearLimit() => $_clearField(5);
+}
+
+class ListAlertsResponse extends $pb.GeneratedMessage {
+  factory ListAlertsResponse({
+    $core.Iterable<Alert>? alerts,
+    $fixnum.Int64? openCritical,
+    $fixnum.Int64? openCautious,
+    $fixnum.Int64? openInformational,
+  }) {
+    final result = ListAlertsResponse._();
+    if (alerts != null) result.alerts.addAll(alerts);
+    if (openCritical != null) result.openCritical = openCritical;
+    if (openCautious != null) result.openCautious = openCautious;
+    if (openInformational != null) result.openInformational = openInformational;
+    return result;
+  }
+
+  ListAlertsResponse._();
+
+  factory ListAlertsResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListAlertsResponse()..mergeFromBuffer(data, registry);
+  factory ListAlertsResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ListAlertsResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ListAlertsResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: ListAlertsResponse.$_createMessage)
+    ..pPM<Alert>(1, _omitFieldNames ? '' : 'alerts',
+        subBuilder: Alert.$_createMessage)
+    ..aInt64(2, _omitFieldNames ? '' : 'openCritical')
+    ..aInt64(3, _omitFieldNames ? '' : 'openCautious')
+    ..aInt64(4, _omitFieldNames ? '' : 'openInformational')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListAlertsResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ListAlertsResponse copyWith(void Function(ListAlertsResponse) updates) =>
+      super.copyWith((message) => updates(message as ListAlertsResponse))
+          as ListAlertsResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ListAlertsResponse() / ListAlertsResponse.new instead')
+  static ListAlertsResponse create() => ListAlertsResponse._();
+  static $pb.GeneratedMessage $_createMessage() => ListAlertsResponse._();
+  @$core.override
+  ListAlertsResponse createEmptyInstance() => ListAlertsResponse._();
+  @$core.pragma('dart2js:noInline')
+  static ListAlertsResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ListAlertsResponse>(
+          ListAlertsResponse.$_createMessage);
+  static ListAlertsResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<Alert> get alerts => $_getList(0);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get openCritical => $_getI64(1);
+  @$pb.TagNumber(2)
+  set openCritical($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasOpenCritical() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearOpenCritical() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get openCautious => $_getI64(2);
+  @$pb.TagNumber(3)
+  set openCautious($fixnum.Int64 value) => $_setInt64(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasOpenCautious() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearOpenCautious() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $fixnum.Int64 get openInformational => $_getI64(3);
+  @$pb.TagNumber(4)
+  set openInformational($fixnum.Int64 value) => $_setInt64(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasOpenInformational() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearOpenInformational() => $_clearField(4);
+}
+
+class AlertRef extends $pb.GeneratedMessage {
+  factory AlertRef({
+    $core.String? id,
+  }) {
+    final result = AlertRef._();
+    if (id != null) result.id = id;
+    return result;
+  }
+
+  AlertRef._();
+
+  factory AlertRef.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      AlertRef()..mergeFromBuffer(data, registry);
+  factory AlertRef.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      AlertRef()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'AlertRef',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: AlertRef.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AlertRef clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AlertRef copyWith(void Function(AlertRef) updates) =>
+      super.copyWith((message) => updates(message as AlertRef)) as AlertRef;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use AlertRef() / AlertRef.new instead')
+  static AlertRef create() => AlertRef._();
+  static $pb.GeneratedMessage $_createMessage() => AlertRef._();
+  @$core.override
+  AlertRef createEmptyInstance() => AlertRef._();
+  @$core.pragma('dart2js:noInline')
+  static AlertRef getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<AlertRef>(AlertRef.$_createMessage);
+  static AlertRef? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+}
+
+class SilenceAlertsRequest extends $pb.GeneratedMessage {
+  factory SilenceAlertsRequest({
+    $core.String? machine,
+    $core.String? source,
+    $fixnum.Int64? untilMs,
+    $core.String? reason,
+  }) {
+    final result = SilenceAlertsRequest._();
+    if (machine != null) result.machine = machine;
+    if (source != null) result.source = source;
+    if (untilMs != null) result.untilMs = untilMs;
+    if (reason != null) result.reason = reason;
+    return result;
+  }
+
+  SilenceAlertsRequest._();
+
+  factory SilenceAlertsRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SilenceAlertsRequest()..mergeFromBuffer(data, registry);
+  factory SilenceAlertsRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SilenceAlertsRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SilenceAlertsRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: SilenceAlertsRequest.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'machine')
+    ..aOS(2, _omitFieldNames ? '' : 'source')
+    ..aInt64(3, _omitFieldNames ? '' : 'untilMs')
+    ..aOS(4, _omitFieldNames ? '' : 'reason')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SilenceAlertsRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SilenceAlertsRequest copyWith(void Function(SilenceAlertsRequest) updates) =>
+      super.copyWith((message) => updates(message as SilenceAlertsRequest))
+          as SilenceAlertsRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use SilenceAlertsRequest() / SilenceAlertsRequest.new instead')
+  static SilenceAlertsRequest create() => SilenceAlertsRequest._();
+  static $pb.GeneratedMessage $_createMessage() => SilenceAlertsRequest._();
+  @$core.override
+  SilenceAlertsRequest createEmptyInstance() => SilenceAlertsRequest._();
+  @$core.pragma('dart2js:noInline')
+  static SilenceAlertsRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SilenceAlertsRequest>(
+          SilenceAlertsRequest.$_createMessage);
+  static SilenceAlertsRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get machine => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set machine($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasMachine() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearMachine() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get source => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set source($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSource() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSource() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get untilMs => $_getI64(2);
+  @$pb.TagNumber(3)
+  set untilMs($fixnum.Int64 value) => $_setInt64(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasUntilMs() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearUntilMs() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get reason => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set reason($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasReason() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearReason() => $_clearField(4);
+}
+
+class SilenceAlertsResponse extends $pb.GeneratedMessage {
+  factory SilenceAlertsResponse({
+    $core.String? silenceId,
+    $fixnum.Int64? silenced,
+  }) {
+    final result = SilenceAlertsResponse._();
+    if (silenceId != null) result.silenceId = silenceId;
+    if (silenced != null) result.silenced = silenced;
+    return result;
+  }
+
+  SilenceAlertsResponse._();
+
+  factory SilenceAlertsResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SilenceAlertsResponse()..mergeFromBuffer(data, registry);
+  factory SilenceAlertsResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      SilenceAlertsResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SilenceAlertsResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: SilenceAlertsResponse.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'silenceId')
+    ..aInt64(2, _omitFieldNames ? '' : 'silenced')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SilenceAlertsResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SilenceAlertsResponse copyWith(
+          void Function(SilenceAlertsResponse) updates) =>
+      super.copyWith((message) => updates(message as SilenceAlertsResponse))
+          as SilenceAlertsResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use SilenceAlertsResponse() / SilenceAlertsResponse.new instead')
+  static SilenceAlertsResponse create() => SilenceAlertsResponse._();
+  static $pb.GeneratedMessage $_createMessage() => SilenceAlertsResponse._();
+  @$core.override
+  SilenceAlertsResponse createEmptyInstance() => SilenceAlertsResponse._();
+  @$core.pragma('dart2js:noInline')
+  static SilenceAlertsResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SilenceAlertsResponse>(
+          SilenceAlertsResponse.$_createMessage);
+  static SilenceAlertsResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get silenceId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set silenceId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasSilenceId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearSilenceId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get silenced => $_getI64(1);
+  @$pb.TagNumber(2)
+  set silenced($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSilenced() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSilenced() => $_clearField(2);
+}
+
 /// Live updates
 class WatchUpdatesRequest extends $pb.GeneratedMessage {
   factory WatchUpdatesRequest() => WatchUpdatesRequest._();

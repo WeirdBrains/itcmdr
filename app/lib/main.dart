@@ -8,6 +8,7 @@ import 'src/rust/frb_generated.dart';
 import 'package:grpc/grpc_or_grpcweb.dart';
 
 import 'backup_page.dart';
+import 'alerts_page.dart';
 import 'calls_page.dart';
 import 'charts.dart';
 import 'exceptions_form.dart';
@@ -65,6 +66,8 @@ class _HomeShellState extends State<HomeShell> {
   StreamSubscription<Update>? _updates;
   final _updatesCtl = StreamController<Update>.broadcast();
   bool _live = false;
+  int _alertBadge = 0;
+  Timer? _alertTimer;
 
   @override
   void initState() {
@@ -89,6 +92,22 @@ class _HomeShellState extends State<HomeShell> {
       _live = false;
     });
     _watch(client);
+    _alertTimer?.cancel();
+    _alertTimer = Timer.periodic(
+      const Duration(seconds: 60),
+      (_) => _pollAlerts(),
+    );
+    _pollAlerts();
+  }
+
+  Future<void> _pollAlerts() async {
+    final c = _client;
+    if (c == null) return;
+    try {
+      final r = await c.listAlerts(ListAlertsRequest(limit: 1));
+      final n = alertBadgeCount(r);
+      if (mounted && n != _alertBadge) setState(() => _alertBadge = n);
+    } catch (_) {}
   }
 
   void _watch(ItcmdrClient client) {
@@ -108,6 +127,7 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   void dispose() {
+    _alertTimer?.cancel();
     _updates?.cancel();
     _channel?.shutdown();
     _updatesCtl.close();
@@ -133,6 +153,16 @@ class _HomeShellState extends State<HomeShell> {
         Icons.grid_view,
         'Overview',
         OverviewPage(key: key, client: c, updates: updates),
+      ),
+      (
+        Icons.notifications,
+        'Alerts',
+        AlertsPage(
+          key: key,
+          client: c,
+          errText: errText,
+          onChanged: _pollAlerts,
+        ),
       ),
       (Icons.query_stats, 'Metrics', MetricsPage(key: key, client: c)),
       (
@@ -215,7 +245,12 @@ class _HomeShellState extends State<HomeShell> {
             labelType: NavigationRailLabelType.all,
             destinations: [
               for (final p in pages)
-                NavigationRailDestination(icon: Icon(p.$1), label: Text(p.$2)),
+                NavigationRailDestination(
+                  icon: p.$2 == 'Alerts' && _alertBadge > 0
+                      ? Badge(label: Text('$_alertBadge'), child: Icon(p.$1))
+                      : Icon(p.$1),
+                  label: Text(p.$2),
+                ),
             ],
             onDestinationSelected: (i) => setState(() => _index = i),
           ),

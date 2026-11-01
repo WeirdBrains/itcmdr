@@ -143,6 +143,9 @@ message PluginError {
 }
 enum Criticality { CRITICALITY_UNSPECIFIED = 0; CRITICAL = 1; CAUTIOUS = 2; INFORMATIONAL = 3; }
 
+// v0.16.0 as built: ListAlerts, AckAlert, ResolveAlert and SilenceAlerts live on the Itcmdr service
+// (one signed-auth path); there are no notifier channels and no WatchAlerts yet (the app polls
+// every 60 s for its badge). AlertService/WatchAlerts may follow with the agent stream (v0.17).
 service AlertService {                                  // app/CLI, signed, admin
   rpc ListAlerts(ListAlertsRequest) returns (ListAlertsResponse);       // filter: level, state, machine, source
   rpc AckAlert(AlertRef) returns (Alert);
