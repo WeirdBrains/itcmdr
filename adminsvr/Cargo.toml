@@ -39,6 +39,9 @@ itcmdr-keys = { path = "../keys" }
 itcmdr-adminlink = { path = "../adminlink" }
 itcmdr-agentlink = { path = "../agentlink" }
 
+[target.'cfg(windows)'.dependencies]
+windows-service = "0.7"
+
 [dev-dependencies]
 sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "sqlite"] }
 tempfile = "3.10"

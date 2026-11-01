@@ -1,0 +1,23 @@
+#!/sbin/openrc-run
+# itcmdr-adminsvr (v0.19.2) OpenRC service. Settings: /etc/itcmdr-adminsvr/adminsvr.env.
+# Installed by install.sh as /etc/init.d/itcmdr-adminsvr on OpenRC systems (Alpine, Gentoo).
+name="itcmdr-adminsvr"
+description="itcmdr offsite admin server"
+command="/usr/local/bin/itcmdr-adminsvr"
+command_args="--env-file /etc/itcmdr-adminsvr/adminsvr.env serve"
+command_user="itcmdr-adminsvr:itcmdr-adminsvr"
+command_background=true
+pidfile="/run/${RC_SVCNAME}.pid"
+output_log="/var/log/itcmdr-adminsvr.log"
+error_log="/var/log/itcmdr-adminsvr.log"
+retry="TERM/20/KILL/5"
+
+depend() {
+	need net
+	after firewall
+}
+
+start_pre() {
+	checkpath --file --owner itcmdr-adminsvr --mode 0640 /var/log/itcmdr-adminsvr.log
+	checkpath --directory --owner itcmdr-adminsvr --mode 0700 /var/lib/itcmdr-adminsvr
+}

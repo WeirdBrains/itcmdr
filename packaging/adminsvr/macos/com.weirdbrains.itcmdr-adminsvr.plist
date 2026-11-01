@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- itcmdr-adminsvr (v0.19.2) LaunchDaemon. Installed by install-macos.sh into /Library/LaunchDaemons.
+     Settings: /usr/local/etc/itcmdr-adminsvr/adminsvr.env -->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.weirdbrains.itcmdr-adminsvr</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/local/bin/itcmdr-adminsvr</string>
+		<string>--env-file</string>
+		<string>/usr/local/etc/itcmdr-adminsvr/adminsvr.env</string>
+		<string>serve</string>
+	</array>
+	<key>UserName</key>
+	<string>_itcmdradminsvr</string>
+	<key>GroupName</key>
+	<string>_itcmdradminsvr</string>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>ITCMDR_ADMINSVR_DATA_DIR</key>
+		<string>/usr/local/var/itcmdr-adminsvr</string>
+	</dict>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<dict>
+		<key>SuccessfulExit</key>
+		<false/>
+	</dict>
+	<key>ThrottleInterval</key>
+	<integer>10</integer>
+	<key>ExitTimeOut</key>
+	<integer>20</integer>
+	<key>StandardOutPath</key>
+	<string>/usr/local/var/log/itcmdr-adminsvr.log</string>
+	<key>StandardErrorPath</key>
+	<string>/usr/local/var/log/itcmdr-adminsvr.log</string>
+	<key>Umask</key>
+	<integer>63</integer>
+</dict>
+</plist>

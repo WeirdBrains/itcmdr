@@ -12,3 +12,5 @@
 #define CliAppId    "bf8d258c-96b2-465f-81f0-d95d83d06cc6"
 #define AppAppId    "61fbffb5-44e6-4c75-bc85-a397d58b9de8"
 #define AdminAppId  "baf17c7c-c912-46da-afd6-0283f3615a97"
+#define AdminsvrAppId "2437d20d-62ac-4675-8505-3d3641e3135e"
+#define AdminAppAppId "071c85d4-834f-45f1-aa2d-48ea939ef96d"

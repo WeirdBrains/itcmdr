@@ -1,0 +1,101 @@
+#!/bin/sh
+# itcmdr-adminsvr (v0.19.2) SysV init script. Settings: /etc/itcmdr-adminsvr/adminsvr.env.
+# Installed by install.sh as /etc/init.d/itcmdr-adminsvr on systems without systemd or OpenRC.
+### BEGIN INIT INFO
+# Provides:          itcmdr-adminsvr
+# Required-Start:    $network $remote_fs $syslog
+# Required-Stop:     $network $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: itcmdr offsite admin server
+# Description:       The itcmdr admin API and SiteLink (itcmdr-adminsvr serve).
+### END INIT INFO
+
+NAME=itcmdr-adminsvr
+DAEMON=${DAEMON:-/usr/local/bin/itcmdr-adminsvr}
+ENV_FILE=${ENV_FILE:-/etc/itcmdr-adminsvr/adminsvr.env}
+RUN_USER=${RUN_USER:-itcmdr-adminsvr}
+PIDFILE=${PIDFILE:-/run/itcmdr-adminsvr.pid}
+LOGFILE=${LOGFILE:-/var/log/itcmdr-adminsvr.log}
+STOP_TIMEOUT=${STOP_TIMEOUT:-20}
+
+[ -x "$DAEMON" ] || { echo "$DAEMON missing" >&2; exit 5; }
+
+running() {
+	[ -f "$PIDFILE" ] || return 1
+	pid=$(cat "$PIDFILE" 2>/dev/null) || return 1
+	[ -n "$pid" ] && kill -0 "$pid" 2>/dev/null
+}
+
+start() {
+	if running; then
+		echo "$NAME already running (pid $(cat "$PIDFILE"))"
+		return 0
+	fi
+	printf 'Starting %s: ' "$NAME"
+	touch "$LOGFILE" && chown "$RUN_USER" "$LOGFILE" && chmod 0640 "$LOGFILE"
+	if [ "$(id -u)" = 0 ] && [ "$RUN_USER" != root ]; then
+		# su gives the daemon the service user; the shell writes its pid for us.
+		pid=$(su -s /bin/sh "$RUN_USER" -c "exec \"\$0\" --env-file \"\$1\" serve >>\"\$2\" 2>&1 </dev/null & echo \$!" \
+			"$DAEMON" "$ENV_FILE" "$LOGFILE")
+	else
+		"$DAEMON" --env-file "$ENV_FILE" serve >>"$LOGFILE" 2>&1 </dev/null &
+		pid=$!
+	fi
+	echo "$pid" >"$PIDFILE"
+	sleep 1
+	if running; then
+		echo "ok (pid $pid)"
+	else
+		rm -f "$PIDFILE"
+		echo "failed (see $LOGFILE)"
+		return 1
+	fi
+}
+
+stop() {
+	if ! running; then
+		echo "$NAME not running"
+		rm -f "$PIDFILE"
+		return 0
+	fi
+	printf 'Stopping %s: ' "$NAME"
+	pid=$(cat "$PIDFILE")
+	kill -TERM "$pid" 2>/dev/null
+	i=0
+	while kill -0 "$pid" 2>/dev/null; do
+		i=$((i + 1))
+		if [ "$i" -ge "$STOP_TIMEOUT" ]; then
+			kill -KILL "$pid" 2>/dev/null
+			break
+		fi
+		sleep 1
+	done
+	rm -f "$PIDFILE"
+	echo ok
+}
+
+case "${1:-}" in
+start) start ;;
+stop) stop ;;
+restart | force-reload)
+	stop
+	start
+	;;
+status)
+	if running; then
+		echo "$NAME is running (pid $(cat "$PIDFILE"))"
+		exit 0
+	fi
+	if [ -f "$PIDFILE" ]; then
+		echo "$NAME is dead but the pidfile exists"
+		exit 1
+	fi
+	echo "$NAME is stopped"
+	exit 3
+	;;
+*)
+	echo "Usage: $0 {start|stop|restart|force-reload|status}" >&2
+	exit 2
+	;;
+esac

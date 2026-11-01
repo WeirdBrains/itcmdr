@@ -1,4 +1,7 @@
-//! itcmdr-adminsvr: serve | init | recover-owner | audit-verify
+//! itcmdr-adminsvr: serve | init | recover-owner | audit-verify | service (Windows SCM)
+//! Settings: flags, the environment, or an env file (--env-file / ITCMDR_ADMINSVR_ENV_FILE; on
+//! Windows %ProgramData%\itcmdr-adminsvr\adminsvr.env by default). Values already in the
+//! environment win over the file.
 use clap::{Parser, Subcommand};
 use itcmdr_adminsvr::config::Config;
 use std::path::PathBuf;
@@ -10,14 +13,13 @@ use std::path::PathBuf;
     about = "itcmdr offsite admin server"
 )]
 struct Cli {
+    /// KEY=VALUE settings file (read before the other flags; the environment wins)
+    #[arg(long, env = "ITCMDR_ADMINSVR_ENV_FILE")]
+    env_file: Option<PathBuf>,
     /// Database: postgres://user:pass@host/db, or sqlite://<path> (default: SQLite in the data dir)
     #[arg(long, env = "ITCMDR_ADMINSVR_DB_URL", default_value = "")]
     db_url: String,
-    #[arg(
-        long,
-        env = "ITCMDR_ADMINSVR_DATA_DIR",
-        default_value = "/var/lib/itcmdr-adminsvr"
-    )]
+    #[arg(long, env = "ITCMDR_ADMINSVR_DATA_DIR", default_value_os_t = default_data_dir())]
     data_dir: PathBuf,
     #[arg(long, env = "ITCMDR_ADMINSVR_API_ADDR", default_value = "0.0.0.0:8444")]
     api_addr: String,
@@ -102,16 +104,120 @@ enum Cmd {
     },
     /// Check the audit hash chain
     AuditVerify,
+    /// Run as a Windows service (started by the service manager; installed by the Setup)
+    #[command(hide = true)]
+    Service,
 }
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
+fn default_data_dir() -> PathBuf {
+    if cfg!(windows) {
+        program_data().join("data")
+    } else {
+        PathBuf::from("/var/lib/itcmdr-adminsvr")
+    }
+}
+
+/// %ProgramData%\itcmdr-adminsvr (Windows)
+fn program_data() -> PathBuf {
+    PathBuf::from(std::env::var_os("ProgramData").unwrap_or_else(|| "C:\\ProgramData".into()))
+        .join("itcmdr-adminsvr")
+}
+
+/// Load KEY=VALUE lines (# comments, optional quotes) into the environment, without overriding.
+fn load_env_file(p: &std::path::Path) -> anyhow::Result<()> {
+    let text = std::fs::read_to_string(p)
+        .map_err(|e| anyhow::anyhow!("env file {}: {e}", p.display()))?;
+    for (k, v) in parse_env(&text) {
+        if std::env::var_os(&k).is_none() {
+            std::env::set_var(k, v);
+        }
+    }
+    Ok(())
+}
+
+fn parse_env(text: &str) -> Vec<(String, String)> {
+    text.lines()
+        .filter_map(|l| {
+            let l = l.trim();
+            if l.is_empty() || l.starts_with('#') {
+                return None;
+            }
+            let l = l.strip_prefix("export ").unwrap_or(l);
+            let (k, v) = l.split_once('=')?;
+            let k = k.trim();
+            if k.is_empty() || !k.chars().all(|c| c.is_ascii_alphanumeric() || c == '_') {
+                return None;
+            }
+            let v = v.trim();
+            let v = if v.len() >= 2
+                && ((v.starts_with('"') && v.ends_with('"'))
+                    || (v.starts_with('\'') && v.ends_with('\'')))
+            {
+                &v[1..v.len() - 1]
+            } else {
+                v
+            };
+            Some((k.to_string(), v.to_string()))
+        })
+        .collect()
+}
+
+/// The env file named on the command line or in the environment (or the Windows default).
+fn pre_env() -> anyhow::Result<()> {
+    let args: Vec<String> = std::env::args().collect();
+    let mut f = std::env::var_os("ITCMDR_ADMINSVR_ENV_FILE").map(PathBuf::from);
+    for (i, a) in args.iter().enumerate() {
+        if a == "--env-file" {
+            f = args.get(i + 1).map(PathBuf::from);
+        } else if let Some(v) = a.strip_prefix("--env-file=") {
+            f = Some(PathBuf::from(v));
+        }
+    }
+    match f {
+        Some(p) if !p.as_os_str().is_empty() => load_env_file(&p),
+        _ => {
+            let d = program_data().join("adminsvr.env");
+            if cfg!(windows) && d.is_file() {
+                load_env_file(&d)?;
+            }
+            Ok(())
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn env_file_lines() {
+        let v = super::parse_env("# c\n\nA=1\nexport B = \"two words\"\nC='x=y'\nbad line\n-X=1\n");
+        assert_eq!(
+            v,
+            vec![
+                ("A".into(), "1".into()),
+                ("B".into(), "two words".into()),
+                ("C".into(), "x=y".into())
+            ]
+        );
+    }
+}
+
+fn main() -> anyhow::Result<()> {
+    pre_env()?;
+    let mut c = Cli::parse();
+    if matches!(c.cmd, Cmd::Service) {
+        return service::run(config(c));
+    }
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
         )
         .init();
-    let c = Cli::parse();
+    let cmd = std::mem::replace(&mut c.cmd, Cmd::Service);
+    let cfg = config(c);
+    tokio::runtime::Runtime::new()?.block_on(dispatch(cfg, cmd))
+}
+
+fn config(c: Cli) -> Config {
     let host = |a: &str, p: &str| {
         if p.is_empty() {
             a.replace("0.0.0.0", "127.0.0.1")
@@ -119,7 +225,7 @@ async fn main() -> anyhow::Result<()> {
             p.to_string()
         }
     };
-    let cfg = Config {
+    Config {
         db_url: if c.db_url.trim().is_empty() {
             format!("sqlite://{}", c.data_dir.join("adminsvr.db").display())
         } else {
@@ -150,8 +256,12 @@ async fn main() -> anyhow::Result<()> {
             apns_url: c.apns_url,
             min_severity: c.push_min_severity,
         },
-    };
-    match c.cmd {
+    }
+}
+
+async fn dispatch(cfg: Config, cmd: Cmd) -> anyhow::Result<()> {
+    match cmd {
+        Cmd::Service => unreachable!(),
         Cmd::Serve => {
             itcmdr_adminsvr::run(cfg, async {
                 let _ = tokio::signal::ctrl_c().await;
@@ -182,5 +292,110 @@ async fn main() -> anyhow::Result<()> {
                 )
             }
         }
+    }
+}
+
+#[cfg(not(windows))]
+mod service {
+    pub fn run(_cfg: super::Config) -> anyhow::Result<()> {
+        anyhow::bail!("`service` is for Windows; use systemd, SysV init, OpenRC or launchd (see packaging/adminsvr)")
+    }
+}
+
+#[cfg(windows)]
+mod service {
+    use super::Config;
+    use std::ffi::OsString;
+    use std::sync::{Mutex, OnceLock};
+    use std::time::Duration;
+    use windows_service::service::{
+        ServiceControl, ServiceControlAccept, ServiceExitCode, ServiceState, ServiceStatus,
+        ServiceType,
+    };
+    use windows_service::service_control_handler::{self, ServiceControlHandlerResult};
+    use windows_service::{define_windows_service, service_dispatcher};
+
+    pub const SERVICE_NAME: &str = "itcmdr-adminsvr";
+    static CFG: OnceLock<Config> = OnceLock::new();
+
+    define_windows_service!(ffi_service_main, service_main);
+
+    pub fn run(cfg: Config) -> anyhow::Result<()> {
+        let logs = super::program_data().join("logs");
+        let _ = std::fs::create_dir_all(&logs);
+        let file = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(logs.join("itcmdr-adminsvr.log"))?;
+        tracing_subscriber::fmt()
+            .with_env_filter(
+                tracing_subscriber::EnvFilter::try_from_default_env()
+                    .unwrap_or_else(|_| "info".into()),
+            )
+            .with_ansi(false)
+            .with_writer(Mutex::new(file))
+            .init();
+        let _ = CFG.set(cfg);
+        service_dispatcher::start(SERVICE_NAME, ffi_service_main)?;
+        Ok(())
+    }
+
+    fn service_main(_args: Vec<OsString>) {
+        if let Err(e) = run_service() {
+            tracing::error!(error=%e, "service failed");
+        }
+    }
+
+    fn status(state: ServiceState, accept: ServiceControlAccept, code: u32) -> ServiceStatus {
+        ServiceStatus {
+            service_type: ServiceType::OWN_PROCESS,
+            current_state: state,
+            controls_accepted: accept,
+            exit_code: ServiceExitCode::Win32(code),
+            checkpoint: 0,
+            wait_hint: Duration::from_secs(15),
+            process_id: None,
+        }
+    }
+
+    fn run_service() -> anyhow::Result<()> {
+        let (tx, rx) = tokio::sync::oneshot::channel::<()>();
+        let tx = Mutex::new(Some(tx));
+        let handler = move |control| match control {
+            ServiceControl::Stop | ServiceControl::Shutdown => {
+                if let Some(t) = tx.lock().ok().and_then(|mut g| g.take()) {
+                    let _ = t.send(());
+                }
+                ServiceControlHandlerResult::NoError
+            }
+            ServiceControl::Interrogate => ServiceControlHandlerResult::NoError,
+            _ => ServiceControlHandlerResult::NotImplemented,
+        };
+        let handle = service_control_handler::register(SERVICE_NAME, handler)?;
+        handle.set_service_status(status(
+            ServiceState::StartPending,
+            ServiceControlAccept::empty(),
+            0,
+        ))?;
+        let cfg = CFG.get().cloned().ok_or_else(|| anyhow::anyhow!("no config"))?;
+        let rt = tokio::runtime::Runtime::new()?;
+        handle.set_service_status(status(
+            ServiceState::Running,
+            ServiceControlAccept::STOP | ServiceControlAccept::SHUTDOWN,
+            0,
+        ))?;
+        let result = rt.block_on(itcmdr_adminsvr::run(cfg, async {
+            let _ = rx.await;
+        }));
+        if let Err(e) = &result {
+            tracing::error!(error=%e, "adminsvr exited with error");
+        }
+        // A non-zero exit makes the service manager apply the recovery actions (restart).
+        handle.set_service_status(status(
+            ServiceState::Stopped,
+            ServiceControlAccept::empty(),
+            if result.is_ok() { 0 } else { 1 },
+        ))?;
+        result
     }
 }
