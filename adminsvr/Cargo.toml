@@ -32,6 +32,9 @@ clap = { version = "4.5", features = ["derive", "env"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
 parking_lot = "0.12"
+# v0.19.2 push (FCM / APNs over HTTPS; HTTP/2 for APNs)
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls-webpki-roots", "http2", "json"] }
+jsonwebtoken = "9"
 itcmdr-keys = { path = "../keys" }
 itcmdr-adminlink = { path = "../adminlink" }
 itcmdr-agentlink = { path = "../agentlink" }
@@ -42,6 +45,8 @@ tempfile = "3.10"
 itcmdr-admin-cli = { path = "../admin-cli", features = ["soft-authenticator"] }
 itcmdr-server = { path = "../server" }
 chrono = "0.4"
+rsa = { version = "0.9", features = ["pem"] }
+p256 = { version = "0.13", features = ["pkcs8", "pem"] }
 
 [lints]
 workspace = true

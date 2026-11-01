@@ -15,6 +15,7 @@ pub mod config;
 pub mod link;
 pub mod material;
 pub mod passkeys;
+pub mod push;
 pub mod rbac;
 pub mod schema;
 pub mod store;
@@ -33,7 +34,7 @@ pub async fn run(
     let pool = store::connect(&cfg.db_url).await?;
     store::migrate(&pool).await?;
     let m = material::load(&cfg)?;
-    let hub = link::Hub::default();
+    let hub = link::Hub::with_push(push::Push::new(&cfg.push)?);
     let (tx, rx) = tokio::sync::watch::channel(false);
     let api = api::serve(pool.clone(), cfg.clone(), m.clone(), hub.clone(), {
         let mut r = rx.clone();

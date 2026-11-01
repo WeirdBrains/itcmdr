@@ -54,11 +54,15 @@ pub async fn refresh_revoked(pool: &Pool) {
     }
 }
 
+pub const METRICS_KEEP_MS: i64 = 30 * 24 * 3600 * 1000;
+
 type Tx = mpsc::Sender<Result<pb::AdminMessage, Status>>;
 
 #[derive(Clone, Default)]
 pub struct Hub {
     inner: Arc<HubInner>,
+    /// v0.19.2 alert pushes (none configured = off)
+    pub push: Arc<crate::push::Push>,
 }
 
 #[derive(Default)]
@@ -69,6 +73,12 @@ struct HubInner {
 }
 
 impl Hub {
+    pub fn with_push(push: Arc<crate::push::Push>) -> Self {
+        Hub {
+            push,
+            ..Default::default()
+        }
+    }
     fn notify(&self, site: &str) -> Arc<Notify> {
         self.inner
             .kicks
@@ -157,9 +167,14 @@ async fn take_token(pool: &Pool, secret: &str, burn: bool) -> Result<String> {
 
 type Out = Pin<Box<dyn Stream<Item = Result<pb::AdminMessage, Status>> + Send>>;
 
-pub async fn store_alert(pool: &Pool, site: &str, origin: &str, a: &pb::SiteAlert) -> Result<()> {
+/// Store an alert; true when it is newly open (new, or reopened).
+pub async fn store_alert(pool: &Pool, site: &str, origin: &str, a: &pb::SiteAlert) -> Result<bool> {
     let (site, origin, a) = (site.to_string(), origin.to_string(), a.clone());
     pool.run(move |c| {
+        let key2 = alerts::table.filter(alerts::site_id.eq(&site).and(alerts::alert_id.eq(&a.id)));
+        let before: Option<String> = key2.select(alerts::state).first(c).optional()?;
+        let opened = a.state == "open" && before.as_deref() != Some("open")
+            && before.as_deref() != Some("acked") && before.as_deref() != Some("silenced");
         let key = alerts::table.filter(alerts::site_id.eq(&site).and(alerts::alert_id.eq(&a.id)));
         let n = diesel::update(key)
             .set((
@@ -182,12 +197,32 @@ pub async fn store_alert(pool: &Pool, site: &str, origin: &str, a: &pb::SiteAler
                 ))
                 .execute(c)?;
         }
-        Ok(())
+        Ok(opened)
     })
     .await
 }
 
-async fn unreachable_alert(pool: &Pool, site: &str, open: bool) {
+/// Store an alert and push it when it is newly open.
+pub async fn store_and_push(
+    pool: &Pool,
+    hub: &Hub,
+    site: &str,
+    origin: &str,
+    a: &pb::SiteAlert,
+) -> Result<()> {
+    if store_alert(pool, site, origin, a).await? {
+        crate::push::alert_opened(
+            hub.push.clone(),
+            pool.clone(),
+            site.to_string(),
+            a.id.clone(),
+            a.severity.clone(),
+        );
+    }
+    Ok(())
+}
+
+async fn unreachable_alert(pool: &Pool, hub: &Hub, site: &str, open: bool) {
     let now = crate::now_ms();
     let a = pb::SiteAlert {
         id: "site-unreachable".into(),
@@ -217,7 +252,7 @@ async fn unreachable_alert(pool: &Pool, site: &str, open: bool) {
         .await
         .unwrap_or(false);
     if open != exists {
-        if let Err(e) = store_alert(pool, site, "adminsvr", &a).await {
+        if let Err(e) = store_and_push(pool, hub, site, "adminsvr", &a).await {
             tracing::warn!(error=%e, "site unreachable alert");
         }
     }
@@ -270,6 +305,28 @@ impl Link {
                                     sites::version.eq(&st.version),
                                 ))
                                 .execute(c)?;
+                            // v0.19.2 history for the app's metrics view (30 days)
+                            let now = crate::now_ms();
+                            diesel::delete(site_metrics::table.filter(
+                                site_metrics::site_id
+                                    .eq(&site)
+                                    .and(site_metrics::ts_ms.lt(now - METRICS_KEEP_MS)),
+                            ))
+                            .execute(c)?;
+                            let ts = msg.ts_ms.max(1);
+                            let have: i64 = site_metrics::table
+                                .filter(site_metrics::site_id.eq(&site).and(site_metrics::ts_ms.eq(ts)))
+                                .count()
+                                .get_result(c)?;
+                            if have == 0 {
+                                diesel::insert_into(site_metrics::table)
+                                    .values((
+                                        site_metrics::site_id.eq(&site),
+                                        site_metrics::ts_ms.eq(ts),
+                                        site_metrics::body.eq(st.encode_to_vec()),
+                                    ))
+                                    .execute(c)?;
+                            }
                         }
                         Some(Body::Alert(a)) => return Ok(Some(a.clone())),
                         Some(Body::Result(r)) => {
@@ -293,7 +350,7 @@ impl Link {
             })
             .await?;
         if let Some(a) = alert {
-            store_alert(&self.pool, site_id, "site", &a).await?;
+            store_and_push(&self.pool, &self.hub, site_id, "site", &a).await?;
         }
         Ok(Some(seq))
     }
@@ -434,7 +491,7 @@ impl pb::site_link_server::SiteLink for Link {
             Ok(None) => {}
             Err(e) => return Err(Status::unauthenticated(e.to_string())),
         }
-        unreachable_alert(&self.pool, &site, false).await;
+        unreachable_alert(&self.pool, &self.hub, &site, false).await;
         let sid = self.hub.add(&site, tx.clone());
         tracing::info!(site=%site, "site linked");
         let hub = self.hub.clone();
@@ -561,7 +618,7 @@ pub async fn monitor(
                     .await;
             }
             if st == "unreachable" {
-                unreachable_alert(&pool, &id, true).await;
+                unreachable_alert(&pool, &hub, &id, true).await;
             }
         }
     }
