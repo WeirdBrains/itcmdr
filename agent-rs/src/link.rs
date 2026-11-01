@@ -380,6 +380,10 @@ pub async fn run(
             match end {
                 End::Renewed => break, // reload state with the new certificate
                 End::Lost(why) => {
+                    // Offline: still move spooled alerts into the capped queue.
+                    if let Err(e) = crate::queue::ingest(dir, st.queue_max_mib) {
+                        tracing::warn!(error=%format!("{e:#}"), "offline queue");
+                    }
                     let d = backoff(attempt, reconnect_cap);
                     attempt = attempt.saturating_add(1);
                     tracing::warn!(%why, retry_in_ms = d.as_millis() as u64, "link lost");

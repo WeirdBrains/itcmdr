@@ -575,6 +575,7 @@ JSON. The rest sounds good to me").
 | v0.15.2 ✅ | No office values in core (site.json targets), plugin errors for failing checks, fault-injection suite, app macos/ |
 | v0.15.3 ✅ | Generic names, legacy site.json generic rule, history scrub |
 | v0.17.0 ✅ | Rust agents: `agents` + `enroll_tokens` (schema 7), agent link on `agent_bind_addr` (TLS, site CA, client certs required for `Link`), `AgentService.Enroll/Link` (agent.proto), heartbeat state machine + alerts, ListAgents/CreateEnrollToken/RevokeAgent/SetAgentMaintenance, `itcmdr-cli agent`, crates `agentlink` and `agent-rs` |
+| v0.17.1 ✅ | Agent link: renewal over the stream (`Renew`/`Renewed`, `RenewNow`, `agent.certLifetimeMins`, 24 h overlap), `agent-cert:<m>` expiry alerts, serial allow-list in a custom TLS acceptor (`serve_with_incoming`), CA signed by the root key, `agent.officeHours`, offline queue (`AgentAlert`, `agents.last_seq` dedupe, bare acks, `agent.queueMaxMib`), schema 8, `itcmdr-cli agent renew` |
 | v0.16.0 ✅ | Site alerts: `alerts` + `alert_silences` (schema 6), dedupe by key with level escalation and reopen within `alerts.dedupe_window_mins`, auto-resolve, sources: checks, plugin errors, backups, package quarantine; ListAlerts/AckAlert (user), ResolveAlert/SilenceAlerts (admin), audited; `itcmdr-cli alerts`; app Alerts page + badge |
 
 ### Notes from the v0.12.0 build
