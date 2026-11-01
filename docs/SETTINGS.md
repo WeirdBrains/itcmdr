@@ -24,6 +24,8 @@ Every tunable value in itcmdr is a typed setting with today's behaviour as its d
 
 | Name | Scope | Type / range | Default | Applies | Who can change | Description |
 |---|---|---|---|---|---|---|
+| `adminsvr.enabled` | server | bool | `true` | next pass | admin/owner (RPC, app, CLI) | Kill switch for the adminsvr link: false closes it and nothing from adminsvr is accepted. Only matters once linked (`itcmdr-cli adminsvr enroll`) (v0.19.0). |
+| `adminsvr.heartbeatSecs` | server | int 0..3600 | `0` | next link | admin/owner (RPC, app, CLI) | Seconds between status messages to adminsvr; 0 = adminsvr's value from enrollment (default 60) (v0.19.0). |
 | `agent.backupMaxAgeHours` | agent | int 1..720 | `26` | next run | admin/owner (RPC, app, CLI) | Default max age of a backup task run / newest backup file (per-item maxAgeHours wins). |
 | `agent.backupMinBytes` | agent | int 0..1_000_000_000_000 | `1` | next run | admin/owner (RPC, app, CLI) | Default minimum size of the newest backup file (per-item minBytes wins). |
 | `agent.nightlyTime` | agent | time | `01:30` | agent reinstall | admin/owner (RPC, app, CLI) | Nightly maintenance task time (before stagger); also the default time of the built-in nightly-agent-run schedule. |
