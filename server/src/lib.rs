@@ -1,4 +1,5 @@
 #![allow(clippy::result_large_err, clippy::field_reassign_with_default)]
+pub mod alerts;
 pub mod api;
 pub mod auth;
 pub mod backup;
@@ -127,6 +128,9 @@ pub async fn run(
             }
             if let Err(e) = cutover::export_state(&bg_pool, &bg_cfg).await {
                 tracing::warn!(error=%e, "schedule state export failed");
+            }
+            if let Err(e) = alerts::expire_silences(&bg_pool).await {
+                tracing::warn!(error=%e, "alert silence expiry failed");
             }
             if last_retention.elapsed() > Duration::from_secs(24 * 3600) {
                 last_retention = std::time::Instant::now();

@@ -239,6 +239,7 @@ pub async fn run_plugin(
     )
     .await;
     mirror_to_share(cfg, &p.name, &log_path);
+    crate::alerts::from_plugin_run(pool, &rep, &ctx.machine).await;
     Ok(rep)
 }
 
@@ -376,7 +377,7 @@ async fn run_stages(
     out
 }
 
-fn hostname() -> String {
+pub fn hostname() -> String {
     std::env::var("COMPUTERNAME")
         .or_else(|_| std::env::var("HOSTNAME"))
         .unwrap_or_else(|_| "server".into())

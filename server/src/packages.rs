@@ -550,6 +550,7 @@ pub async fn install(
         Err(Reject(reason)) => {
             let q = quarantine(layout, &bytes, &label, &reason)?;
             tracing::warn!(source=%label, %reason, file=%q.file, "plugin package quarantined");
+            crate::alerts::from_quarantine(pool, &label, &reason).await;
             crate::db::insert_audit(
                 pool,
                 actor,

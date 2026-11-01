@@ -337,6 +337,99 @@ pub struct ListCallsResponse {
     #[prost(message, repeated, tag = "1")]
     pub calls: ::prost::alloc::vec::Vec<CallEntry>,
 }
+/// Alerts (v0.16.0): site alerts, shown in the on-site app and CLI. No external notifiers.
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Alert {
+    #[prost(string, tag = "1")]
+    pub id: ::prost::alloc::string::String,
+    /// dedupe key, e.g. check:<id>:<machine>
+    #[prost(string, tag = "2")]
+    pub key: ::prost::alloc::string::String,
+    /// critical | cautious | informational
+    #[prost(string, tag = "3")]
+    pub level: ::prost::alloc::string::String,
+    /// plugin | check | backup | package | server
+    #[prost(string, tag = "4")]
+    pub source: ::prost::alloc::string::String,
+    #[prost(string, tag = "5")]
+    pub machine: ::prost::alloc::string::String,
+    #[prost(string, tag = "6")]
+    pub title: ::prost::alloc::string::String,
+    #[prost(string, tag = "7")]
+    pub detail: ::prost::alloc::string::String,
+    #[prost(int64, tag = "8")]
+    pub first_seen_ms: i64,
+    #[prost(int64, tag = "9")]
+    pub last_seen_ms: i64,
+    #[prost(int64, tag = "10")]
+    pub count: i64,
+    /// open | acked | silenced | resolved
+    #[prost(string, tag = "11")]
+    pub state: ::prost::alloc::string::String,
+    #[prost(string, tag = "12")]
+    pub acked_by: ::prost::alloc::string::String,
+    #[prost(int64, tag = "13")]
+    pub acked_ms: i64,
+    /// a key name, or "auto"
+    #[prost(string, tag = "14")]
+    pub resolved_by: ::prost::alloc::string::String,
+    #[prost(int64, tag = "15")]
+    pub resolved_ms: i64,
+    #[prost(string, tag = "16")]
+    pub run_id: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListAlertsRequest {
+    /// open (default: open+acked+silenced) | resolved | all | acked | silenced
+    #[prost(string, tag = "1")]
+    pub state: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub level: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub machine: ::prost::alloc::string::String,
+    #[prost(string, tag = "4")]
+    pub source: ::prost::alloc::string::String,
+    /// default 200, max 5000
+    #[prost(int32, tag = "5")]
+    pub limit: i32,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ListAlertsResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub alerts: ::prost::alloc::vec::Vec<Alert>,
+    /// open + acked, for the badge
+    #[prost(int64, tag = "2")]
+    pub open_critical: i64,
+    #[prost(int64, tag = "3")]
+    pub open_cautious: i64,
+    #[prost(int64, tag = "4")]
+    pub open_informational: i64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AlertRef {
+    #[prost(string, tag = "1")]
+    pub id: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SilenceAlertsRequest {
+    /// empty = any machine
+    #[prost(string, tag = "1")]
+    pub machine: ::prost::alloc::string::String,
+    /// empty = any source (one of the two is required)
+    #[prost(string, tag = "2")]
+    pub source: ::prost::alloc::string::String,
+    #[prost(int64, tag = "3")]
+    pub until_ms: i64,
+    #[prost(string, tag = "4")]
+    pub reason: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct SilenceAlertsResponse {
+    #[prost(string, tag = "1")]
+    pub silence_id: ::prost::alloc::string::String,
+    #[prost(int64, tag = "2")]
+    pub silenced: i64,
+}
 /// Live updates
 #[derive(Clone, Copy, PartialEq, ::prost::Message)]
 pub struct WatchUpdatesRequest {}
@@ -1334,6 +1427,90 @@ pub mod itcmdr_client {
             req.extensions_mut().insert(GrpcMethod::new("itcmdr.Itcmdr", "ListCalls"));
             self.inner.unary(req, path, codec).await
         }
+        pub async fn list_alerts(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ListAlertsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListAlertsResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static("/itcmdr.Itcmdr/ListAlerts");
+            let mut req = request.into_request();
+            req.extensions_mut().insert(GrpcMethod::new("itcmdr.Itcmdr", "ListAlerts"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn ack_alert(
+            &mut self,
+            request: impl tonic::IntoRequest<super::AlertRef>,
+        ) -> std::result::Result<tonic::Response<super::Alert>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static("/itcmdr.Itcmdr/AckAlert");
+            let mut req = request.into_request();
+            req.extensions_mut().insert(GrpcMethod::new("itcmdr.Itcmdr", "AckAlert"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn resolve_alert(
+            &mut self,
+            request: impl tonic::IntoRequest<super::AlertRef>,
+        ) -> std::result::Result<tonic::Response<super::Alert>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/itcmdr.Itcmdr/ResolveAlert",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("itcmdr.Itcmdr", "ResolveAlert"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn silence_alerts(
+            &mut self,
+            request: impl tonic::IntoRequest<super::SilenceAlertsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::SilenceAlertsResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/itcmdr.Itcmdr/SilenceAlerts",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("itcmdr.Itcmdr", "SilenceAlerts"));
+            self.inner.unary(req, path, codec).await
+        }
         pub async fn create_backup(
             &mut self,
             request: impl tonic::IntoRequest<super::CreateBackupRequest>,
@@ -2215,6 +2392,28 @@ pub mod itcmdr_server {
             tonic::Response<super::ListCallsResponse>,
             tonic::Status,
         >;
+        async fn list_alerts(
+            &self,
+            request: tonic::Request<super::ListAlertsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::ListAlertsResponse>,
+            tonic::Status,
+        >;
+        async fn ack_alert(
+            &self,
+            request: tonic::Request<super::AlertRef>,
+        ) -> std::result::Result<tonic::Response<super::Alert>, tonic::Status>;
+        async fn resolve_alert(
+            &self,
+            request: tonic::Request<super::AlertRef>,
+        ) -> std::result::Result<tonic::Response<super::Alert>, tonic::Status>;
+        async fn silence_alerts(
+            &self,
+            request: tonic::Request<super::SilenceAlertsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::SilenceAlertsResponse>,
+            tonic::Status,
+        >;
         async fn create_backup(
             &self,
             request: tonic::Request<super::CreateBackupRequest>,
@@ -2959,6 +3158,180 @@ pub mod itcmdr_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = ListCallsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/itcmdr.Itcmdr/ListAlerts" => {
+                    #[allow(non_camel_case_types)]
+                    struct ListAlertsSvc<T: Itcmdr>(pub Arc<T>);
+                    impl<T: Itcmdr> tonic::server::UnaryService<super::ListAlertsRequest>
+                    for ListAlertsSvc<T> {
+                        type Response = super::ListAlertsResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ListAlertsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Itcmdr>::list_alerts(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ListAlertsSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/itcmdr.Itcmdr/AckAlert" => {
+                    #[allow(non_camel_case_types)]
+                    struct AckAlertSvc<T: Itcmdr>(pub Arc<T>);
+                    impl<T: Itcmdr> tonic::server::UnaryService<super::AlertRef>
+                    for AckAlertSvc<T> {
+                        type Response = super::Alert;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::AlertRef>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Itcmdr>::ack_alert(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = AckAlertSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/itcmdr.Itcmdr/ResolveAlert" => {
+                    #[allow(non_camel_case_types)]
+                    struct ResolveAlertSvc<T: Itcmdr>(pub Arc<T>);
+                    impl<T: Itcmdr> tonic::server::UnaryService<super::AlertRef>
+                    for ResolveAlertSvc<T> {
+                        type Response = super::Alert;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::AlertRef>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Itcmdr>::resolve_alert(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ResolveAlertSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/itcmdr.Itcmdr/SilenceAlerts" => {
+                    #[allow(non_camel_case_types)]
+                    struct SilenceAlertsSvc<T: Itcmdr>(pub Arc<T>);
+                    impl<
+                        T: Itcmdr,
+                    > tonic::server::UnaryService<super::SilenceAlertsRequest>
+                    for SilenceAlertsSvc<T> {
+                        type Response = super::SilenceAlertsResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::SilenceAlertsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Itcmdr>::silence_alerts(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = SilenceAlertsSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

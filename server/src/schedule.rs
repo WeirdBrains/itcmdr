@@ -501,8 +501,14 @@ pub async fn fire(
             return Ok(("skipped".into(), None, note));
         }
         let (o, note) = match crate::backup::nightly_now(pool, cfg).await {
-            Ok(n) => ("done", format!("{reason}; {n}")),
-            Err(e) => ("failed", format!("{reason}; {e:#}")),
+            Ok(n) => {
+                crate::alerts::from_backup(pool, "nightly", Ok(())).await;
+                ("done", format!("{reason}; {n}"))
+            }
+            Err(e) => {
+                crate::alerts::from_backup(pool, "nightly", Err(format!("{e:#}"))).await;
+                ("failed", format!("{reason}; {e:#}"))
+            }
         };
         record(pool, &s.id, due_ms, None, o, &note).await?;
         let _ = crate::db::insert_audit(

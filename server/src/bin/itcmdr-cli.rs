@@ -88,6 +88,44 @@ enum Cmd {
     /// Call log (v0.15.0): one row per RPC, newest first. Same data as the app's Calls view.
     #[command(subcommand)]
     Calls(CallsCmd),
+    /// Site alerts (v0.16.0): list, ack, resolve, silence. Same data as the app's Alerts screen.
+    #[command(subcommand)]
+    Alerts(AlertsCmd),
+}
+
+#[derive(Subcommand)]
+enum AlertsCmd {
+    /// List alerts, worst level first (default: unresolved).
+    List {
+        /// open (open+acked+silenced) | resolved | all | acked | silenced
+        #[arg(long, default_value = "open")]
+        state: String,
+        /// critical | cautious | informational
+        #[arg(long)]
+        level: Option<String>,
+        #[arg(long)]
+        machine: Option<String>,
+        /// plugin | check | backup | package | server
+        #[arg(long)]
+        source: Option<String>,
+        #[arg(long, default_value_t = 50)]
+        limit: i64,
+    },
+    /// Acknowledge an alert (seen; stays unresolved).
+    Ack { id: String },
+    /// Resolve an alert by hand.
+    Resolve { id: String },
+    /// Silence a machine and/or a source for some hours (new matching alerts are stored silenced).
+    Silence {
+        #[arg(long, default_value = "")]
+        machine: String,
+        #[arg(long, default_value = "")]
+        source: String,
+        #[arg(long)]
+        hours: i64,
+        #[arg(long, default_value = "")]
+        reason: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -1554,6 +1592,70 @@ fn run(rt: &tokio::runtime::Runtime) -> Result<()> {
                     bail!("restore did not finish in 10 minutes");
                 }
                 Ok(())
+            })
+        }
+        Cmd::Alerts(ac) => {
+            let cfg = load()?;
+            let json = cli.json;
+            rt.block_on(async {
+                let pool = srv::db::init_db(&cfg).await?;
+                let show = |a: &srv::alerts::Alert| {
+                    if json {
+                        println!("{}", serde_json::to_string(a).unwrap_or_default());
+                    } else {
+                        println!(
+                            "{}  {:<13} {:<9} {:<8} x{:<4} {:<14} {}  {}",
+                            ms_local(a.last_seen_ms),
+                            a.level,
+                            a.state,
+                            a.source,
+                            a.count,
+                            a.machine,
+                            a.title,
+                            a.id
+                        );
+                    }
+                };
+                let audit = |action: &'static str, d: serde_json::Value| {
+                    let pool = pool.clone();
+                    async move { srv::db::insert_audit(&pool, "itcmdr-cli", action, &d.to_string()).await }
+                };
+                match ac {
+                    AlertsCmd::List { state, level, machine, source, limit } => {
+                        let f = srv::alerts::Filter {
+                            state: Some(state.clone()),
+                            level: level.clone(),
+                            machine: machine.clone(),
+                            source: source.clone(),
+                            limit: *limit,
+                        };
+                        let rows = srv::alerts::list(&pool, &f).await?;
+                        if !json {
+                            let c = srv::alerts::open_counts(&pool).await?;
+                            println!("open: {} critical, {} cautious, {} informational", c[0], c[1], c[2]);
+                        }
+                        for a in &rows {
+                            show(a);
+                        }
+                    }
+                    AlertsCmd::Ack { id } => {
+                        let a = srv::alerts::ack(&pool, id, "itcmdr-cli").await?.ok_or_else(|| anyhow::anyhow!("no alert {id}"))?;
+                        audit("alert-ack", serde_json::json!({"id": id, "key": a.key, "state": a.state})).await?;
+                        show(&a);
+                    }
+                    AlertsCmd::Resolve { id } => {
+                        let a = srv::alerts::resolve(&pool, id, "itcmdr-cli").await?.ok_or_else(|| anyhow::anyhow!("no alert {id}"))?;
+                        audit("alert-resolve", serde_json::json!({"id": id, "key": a.key})).await?;
+                        show(&a);
+                    }
+                    AlertsCmd::Silence { machine, source, hours, reason } => {
+                        let until = chrono::Utc::now().timestamp_millis() + hours.max(&0) * 3_600_000;
+                        let (sid, n) = srv::alerts::silence(&pool, machine, source, until, reason, "itcmdr-cli").await?;
+                        audit("alert-silence", serde_json::json!({"silence_id": sid, "machine": machine, "source": source, "until_ms": until, "reason": reason, "silenced": n})).await?;
+                        println!("silence {sid} until {}; {n} open alert(s) silenced", ms_local(until));
+                    }
+                }
+                Ok::<(), anyhow::Error>(())
             })
         }
         Cmd::Calls(cc) => {

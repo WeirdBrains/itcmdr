@@ -52,7 +52,9 @@ void main() {
     expect(find.text('c-1'), findsOneWidget);
     expect(find.text('missing x-itcmdr-key'), findsWidgets);
     await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: CallsTable(calls: []))),
+      const MaterialApp(
+        home: Scaffold(body: CallsTable(calls: [])),
+      ),
     );
     expect(find.text('No calls'), findsOneWidget);
   });

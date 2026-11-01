@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## v0.16.0 (2026-10-31)
+Site alerts.
+- New `alerts` and `alert_silences` tables (schema 6). An alert has a level (critical, cautious, informational), a source (check, plugin, backup, package), a machine and a dedupe key. Repeats bump the count and can only raise the level; a resolved alert raised again within `alerts.dedupe_window_mins` (new setting, default 60) reopens instead of adding a row.
+- Sources: a failed check raises a cautious alert and a passing one resolves it (a repair that worked is informational; excepted checks raise nothing); plugin errors raise at the plugin's criticality and an ok run of that plugin on that machine resolves them; a failed nightly or manual backup is critical and the next good one resolves it; a quarantined package is cautious.
+- RPCs on the Itcmdr service: `ListAlerts` (filters, worst first, open counts for a badge) and `AckAlert` for users; `ResolveAlert` and `SilenceAlerts` (machine and/or source, until a time) for admins. All changes are audited. Silences expire on their own and the alerts come back.
+- `itcmdr-cli alerts list|ack|resolve|silence`.
+- App: Alerts page (state and level filters, ack, resolve, silence) and a badge on the rail with open critical + cautious alerts.
+- Deviation from docs/design/SERVER-AGENT.md: no separate AlertService, no notifier channels and no WatchAlerts yet.
+
 ## v0.15.3 (2026-10-31)
 Generic names everywhere, and the history scrubbed of vendor and share names.
 - History scrub (approved one-time exception): vendor/product names, the share name and the clinic-type site name were replaced in the whole history of itcmdr and itcmdr-plugins (force-pushed, tags re-pointed to the rewritten commits). Existing clones must be re-cloned. The Windows installers of v0.15.0 to v0.15.2 were rebuilt from the rewritten tags and replaced on their releases; short commit ids in the docs were updated to the rewritten commits.

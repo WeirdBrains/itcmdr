@@ -574,6 +574,7 @@ JSON. The rest sounds good to me").
 | v0.15.1 ✅ | Windows restore: wait for the DB to be released and retry the swap; restore_app on a real server process; local release builds |
 | v0.15.2 ✅ | No office values in core (site.json targets), plugin errors for failing checks, fault-injection suite, app macos/ |
 | v0.15.3 ✅ | Generic names, legacy site.json generic rule, history scrub |
+| v0.16.0 ✅ | Site alerts: `alerts` + `alert_silences` (schema 6), dedupe by key with level escalation and reopen within `alerts.dedupe_window_mins`, auto-resolve, sources: checks, plugin errors, backups, package quarantine; ListAlerts/AckAlert (user), ResolveAlert/SilenceAlerts (admin), audited; `itcmdr-cli alerts`; app Alerts page + badge |
 
 ### Notes from the v0.12.0 build
 
@@ -625,7 +626,7 @@ Recorded in docs/design/ADMINSVR.md ("Decisions"):
 
 - `itcmdr-common` holds the contract; the SDK re-exports it, the server and the PowerShell module implement the same fields and limits. The server alone writes `plugin-error` lines (runtime.rs), using the plugin's criticality, else the package `default_error_criticality`, else `cautious`.
 - The call log is a tower wrapper inside `tonic_web::enable`, so it sees plain gRPC trailers for web and native calls alike. A task-local call context carries the call id (picked up by `insert_audit`) and the principal (set by auth after verification). Rows are written by a batched background task (queue 10,000; drops are counted, never block a call).
-- Deviations from docs/design/SERVER-AGENT.md section 7: the export folder is `<data>/server-logs/calls/`; AgentService/AlertService and the per-minute stream aggregation come with those services (v0.16/v0.17); PluginService calls are covered through the plugin run records and plugin-error lines.
+- Deviations from docs/design/SERVER-AGENT.md section 7: the export folder is `<data>/server-logs/calls/`; AgentService and the per-minute stream aggregation come with those services (v0.16/v0.17); PluginService calls are covered through the plugin run records and plugin-error lines.
 
 ### Notes from the v0.14.3 build (packaging)
 
