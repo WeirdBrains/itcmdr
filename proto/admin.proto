@@ -1,0 +1,276 @@
+// v0.19.0: offsite admin server (adminsvr). Two services:
+// - SiteLink: site servers dial adminsvr (pinned TLS + mTLS client certificate issued at site
+//   enrollment). Everything the site sends is redacted on the site (ADMINSVR.md decision 19):
+//   opaque site-scoped ids, alert codes, severity, plugin names, timestamps, counts and numeric
+//   rollups only. No hostnames, IPs, paths, usernames, message text, backup bytes or key material.
+// - AdminApi: the admin CLI and app. Every call is signed with the user's device key
+//   (x-itcmdr-key/ts/nonce/sig, keys::request_message), like the site server.
+// Placeholders only in comments.
+syntax = "proto3";
+package itcmdr.admin;
+
+service SiteLink {
+  // Before Enroll, without using the token: adminsvr's root key, so the site can refuse a server
+  // whose root key is not the token's before anything is recorded.
+  rpc Prepare(SitePrepareRequest) returns (SitePrepareResponse);
+  rpc Enroll(SiteEnrollRequest) returns (SiteEnrollResponse);
+  // Long-lived stream: SiteHello first. Every SiteMessage is signed with the site key.
+  rpc Link(stream SiteMessage) returns (stream AdminMessage);
+}
+
+message SitePrepareRequest { string token_secret = 1; }
+message SitePrepareResponse { string root_public_key = 1; string ca_cert_pem = 2; }
+
+message SiteEnrollRequest {
+  string token_secret = 1;
+  string site_public_key = 2;  // Ed25519 hex, signs every SiteMessage
+  string csr_pem = 3;          // TLS client key CSR (the key stays on the site)
+  string version = 4;
+}
+message SiteEnrollResponse {
+  string site_id = 1;
+  string client_cert_pem = 2;
+  string ca_cert_pem = 3;
+  int64 cert_expires_ms = 4;
+  string root_public_key = 5;
+  int32 heartbeat_secs = 6;
+}
+
+message SiteMessage {
+  uint64 seq = 1;
+  int64 ts_ms = 2;
+  // hex Ed25519 by the site key over adminlink::site_bytes(seq, ts_ms, encoded body)
+  string sig = 3;
+  oneof body {
+    SiteHello hello = 4;
+    SiteStatus status = 5;
+    SiteAlert alert = 6;
+    CommandResult result = 7;
+    Pong pong = 8;
+  }
+}
+
+message SiteHello {
+  string site_id = 1;
+  string version = 2;
+  bool share_display_names = 3;  // the site owner's opt-in (decision 19)
+}
+
+// Numbers and enums only.
+message SiteStatus {
+  string version = 1;
+  int64 uptime_secs = 2;
+  string auth_mode = 3;          // enum: signed | migrating | token
+  int64 backup_age_secs = 4;     // -1 = no backup
+  int64 backup_size_bytes = 5;
+  string backup_last_result = 6; // enum: ok | failed | none
+  int32 agents_online = 7;
+  int32 agents_late = 8;
+  int32 agents_non_responsive = 9;
+  int32 agents_other = 10;
+  repeated int64 open_alerts = 11;  // critical, cautious, informational
+  repeated SiteMachine machines = 12;
+  string cutover_state = 13;     // enum
+}
+
+message SiteMachine {
+  string id = 1;            // opaque, site-scoped (HMAC with a site-local secret)
+  string state = 2;         // enum
+  int64 last_seen_ms = 3;
+  string version = 4;
+  string display_name = 5;  // only with the site's opt-in
+}
+
+message SiteAlert {
+  string id = 1;            // opaque
+  string code = 2;          // the alert key with names replaced by opaque ids
+  string severity = 3;      // critical | cautious | informational
+  string state = 4;         // open | acked | silenced | resolved
+  string source = 5;        // enum
+  string plugin = 6;        // plugin package name, if any
+  string machine = 7;       // opaque machine id, if any
+  int64 first_seen_ms = 8;
+  int64 last_seen_ms = 9;
+  int64 count = 10;
+  string machine_display_name = 11;  // only with the site's opt-in
+}
+
+message CommandResult {
+  string command_id = 1;
+  bool ok = 2;
+  string code = 3;  // result code only (no output text): ok | refused | not-allowed | bad-signature | failed | expired
+}
+
+message Ping { int64 ts_ms = 1; }
+message Pong { int64 ts_ms = 1; }
+
+message AdminMessage {
+  uint64 ack_seq = 1;
+  oneof body {
+    Ping ping = 2;
+    Command command = 3;
+  }
+}
+
+// A command from adminsvr, signed by the acting user's device key and the adminsvr root key.
+// The site checks both, its own allowlist and the never-remote list, and audits it locally.
+message Command {
+  string id = 1;
+  string kind = 2;                 // backup.start | alert.ack | alert.resolve
+  map<string, string> args = 3;
+  string user_id = 4;
+  string user_role = 5;
+  string user_key = 6;             // device public key (hex)
+  string user_endorsement = 7;     // root sig over adminlink::endorse_bytes(user_id, role, user_key)
+  int64 issued_ms = 8;
+  int64 expires_ms = 9;
+  string user_sig = 10;            // over adminlink::command_bytes(...)
+  string root_sig = 11;            // over the same bytes
+  string site_id = 12;             // the site it is for (checked by the site)
+}
+
+// ---- Admin API (CLI and app) ----
+
+service AdminApi {
+  // Unsigned: anyone may ask; returns versions and whether this server is initialized.
+  rpc Info(Empty) returns (InfoResponse);
+  // Signed by the new device key; authorized by the one-time code.
+  rpc EnrollDevice(EnrollDeviceRequest) returns (UserInfo);
+  rpc WhoAmI(Empty) returns (UserInfo);
+
+  rpc ListUsers(Empty) returns (UserList);
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse);
+  rpc SetRole(SetRoleRequest) returns (UserInfo);
+  rpc SetUserStatus(SetUserStatusRequest) returns (UserInfo);
+  rpc SetScopes(SetScopesRequest) returns (UserInfo);
+  rpc ApproveDevice(ApproveDeviceRequest) returns (UserInfo);
+  rpc NewEnrollCode(UserRef) returns (CreateUserResponse);
+  rpc ListDevices(UserRef) returns (DeviceList);
+  rpc RevokeDevice(RevokeDeviceRequest) returns (DeviceList);
+
+  // Client-side encrypted device key backup (adminsvr only holds ciphertext).
+  rpc PutKeyBackup(KeyBackup) returns (Empty);
+  // Signed with the user's master key (re-derived from the 24 words) or a device key.
+  rpc GetKeyBackup(UserRef) returns (KeyBackup);
+  rpc SetKeyBackupOptOut(KeyBackupOptOut) returns (UserInfo);
+  // Signed with the master key: certify a new device key for this user (no code needed).
+  rpc AddDevice(AddDeviceRequest) returns (UserInfo);
+
+  rpc CreateSite(CreateSiteRequest) returns (CreateSiteResponse);
+  rpc ListSites(Empty) returns (SiteList);
+  rpc RevokeSite(SiteRef) returns (SiteInfo);
+
+  rpc ListAlerts(AlertFilter) returns (AlertList);
+  // The client builds the Command (kind, args, its user id/role, times) and signs it with its
+  // device key; adminsvr checks it, adds the root endorsement and signature and queues it.
+  rpc AckAlert(CommandRequest) returns (CommandInfo);
+  rpc ResolveAlert(CommandRequest) returns (CommandInfo);
+  rpc StartBackup(CommandRequest) returns (CommandInfo);
+  rpc ListCommands(SiteRef) returns (CommandList);
+
+  rpc ListAudit(AuditFilter) returns (AuditList);
+  rpc VerifyAudit(Empty) returns (AuditVerify);
+}
+
+message Empty {}
+message InfoResponse { string version = 1; bool initialized = 2; string root_public_key = 3; }
+
+message UserInfo {
+  string id = 1;
+  string email = 2;
+  string name = 3;
+  string role = 4;
+  string status = 5;            // active | disabled
+  repeated string sites = 6;    // scoped site ids (sre)
+  bool key_backup = 7;          // a backup blob is stored
+  bool key_backup_opt_out = 8;
+  int64 created_ms = 9;
+  repeated DeviceInfo devices = 10;
+  string master_fingerprint = 11;
+}
+message UserList { repeated UserInfo users = 1; }
+message UserRef { string user = 1; }  // id or email ("" = me)
+
+message CreateUserRequest { string email = 1; string name = 2; string role = 3; }
+message CreateUserResponse { UserInfo user = 1; string enroll_code = 2; int64 expires_ms = 3; }
+message SetRoleRequest { string user = 1; string role = 2; }
+message SetUserStatusRequest { string user = 1; bool disabled = 2; }
+message SetScopesRequest { string user = 1; repeated string sites = 2; }
+message ApproveDeviceRequest { string user = 1; string device_fingerprint = 2; }
+
+message EnrollDeviceRequest {
+  string code = 1;                // the one-time code's secret
+  string master_public_key = 2;   // hex
+  string device_public_key = 3;   // hex
+  string certificate_json = 4;    // keys::Certificate by the master over the device key
+  string platform = 5;
+  KeyBackup key_backup = 6;       // on by default; empty = opted out
+}
+
+message DeviceInfo {
+  string fingerprint = 1;
+  string platform = 2;
+  string status = 3;   // pending | active | revoked
+  int64 created_ms = 4;
+  int64 last_used_ms = 5;
+}
+message DeviceList { repeated DeviceInfo devices = 1; }
+message RevokeDeviceRequest { string user = 1; string device_fingerprint = 2; }
+
+message KeyBackup { string user = 1; string blob_json = 2; }
+message KeyBackupOptOut { bool opt_out = 1; }
+message AddDeviceRequest {
+  string device_public_key = 1;
+  string certificate_json = 2;
+  string platform = 3;
+}
+
+message CreateSiteRequest { string name = 1; }
+message CreateSiteResponse { SiteInfo site = 1; string token = 2; int64 expires_ms = 3; }
+message SiteRef { string site = 1; }
+message SiteInfo {
+  string id = 1;
+  string name = 2;
+  string status = 3;       // pending | online | late | unreachable | revoked
+  string version = 4;
+  int64 last_seen_ms = 5;
+  bool share_display_names = 6;
+  SiteStatus last_status = 7;
+}
+message SiteList { repeated SiteInfo sites = 1; }
+
+message AlertFilter { string site = 1; string state = 2; int32 limit = 3; }
+message AlertInfo {
+  string site = 1;
+  SiteAlert alert = 2;
+  string origin = 3;   // site | adminsvr (e.g. site unreachable)
+}
+message AlertList { repeated AlertInfo alerts = 1; }
+message CommandRequest { Command command = 1; }
+
+message CommandInfo {
+  string id = 1;
+  string site = 2;
+  string kind = 3;
+  string state = 4;   // pending | sent | applied | failed | expired
+  string result_code = 5;
+  string requested_by = 6;
+  int64 created_ms = 7;
+}
+message CommandList { repeated CommandInfo commands = 1; }
+
+message AuditFilter { int32 limit = 1; string user = 2; }
+message AuditEntry {
+  int64 seq = 1;
+  int64 ts_ms = 2;
+  string actor = 3;
+  string actor_key = 4;
+  string action = 5;
+  string target = 6;
+  string payload_sha256 = 7;
+  string request_sig = 8;
+  string prev_hash = 9;
+  string hash = 10;
+}
+message AuditList { repeated AuditEntry entries = 1; }
+message AuditVerify { bool ok = 1; int64 entries = 2; int64 first_bad_seq = 3; string problem = 4; }

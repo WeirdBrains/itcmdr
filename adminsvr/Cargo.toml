@@ -1,0 +1,39 @@
+[package]
+name = "itcmdr-adminsvr"
+version = "0.19.0"
+edition.workspace = true
+license.workspace = true
+description = "itcmdr offsite admin server: users and roles, signed admin API, hash-chained audit, SiteLink"
+
+[[bin]]
+name = "itcmdr-adminsvr"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+hex = "0.4"
+sha2 = "0.10"
+rand = "0.8"
+ed25519-dalek = { version = "2.1", features = ["rand_core"] }
+tokio = { version = "1.40", features = ["rt-multi-thread", "macros", "signal", "time", "sync", "net", "fs"] }
+tokio-stream = { version = "0.1", features = ["net"] }
+tonic = { version = "0.12", features = ["transport", "tls"] }
+prost = "0.13"
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "postgres", "tls-none"] }
+uuid = { version = "1.10", features = ["v4"] }
+clap = { version = "4.5", features = ["derive", "env"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
+parking_lot = "0.12"
+itcmdr-keys = { path = "../keys" }
+itcmdr-adminlink = { path = "../adminlink" }
+itcmdr-agentlink = { path = "../agentlink" }
+
+[dev-dependencies]
+tempfile = "3.10"
+itcmdr-admin-cli = { path = "../admin-cli" }
+
+[lints]
+workspace = true
