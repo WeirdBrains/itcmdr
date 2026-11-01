@@ -1,13 +1,19 @@
-# itcmdr-adminsvr container (v0.19.0; not tested yet: no container runtime on the build host).
-# Build from the repo root: podman build -f packaging/adminsvr/Containerfile -t itcmdr-adminsvr .
+# itcmdr-adminsvr container (v0.19.2; built and tested with rootless Podman).
+# Build from the repo root:  podman build -f packaging/adminsvr/Containerfile -t itcmdr-adminsvr .
+# Run (SQLite in the volume): podman run -d --name itcmdr-adminsvr -p 8443:8443 -p 8444:8444 \
+#   -v itcmdr-adminsvr:/var/lib/itcmdr-adminsvr -e ITCMDR_ADMINSVR_PUBLIC_API=<host>:8444 \
+#   -e ITCMDR_ADMINSVR_PUBLIC_SITE=<host>:8443 itcmdr-adminsvr
+# First owner: podman exec itcmdr-adminsvr itcmdr-adminsvr init --email you@example.com --name "Your Name"
 FROM docker.io/library/rust:1-bookworm AS build
 WORKDIR /src
 COPY . .
-RUN cargo build --release --locked -p itcmdr-adminsvr
+RUN cargo build --release --locked -p itcmdr-adminsvr -p itcmdr-admin-cli
 FROM docker.io/library/debian:bookworm-slim
 RUN useradd --system --home /var/lib/itcmdr-adminsvr itcmdr-adminsvr && install -d -m 0700 -o itcmdr-adminsvr /var/lib/itcmdr-adminsvr
 COPY --from=build /src/target/release/itcmdr-adminsvr /usr/local/bin/itcmdr-adminsvr
+COPY --from=build /src/target/release/itcmdr-admin /usr/local/bin/itcmdr-admin
 USER itcmdr-adminsvr
+ENV ITCMDR_ADMINSVR_DATA_DIR=/var/lib/itcmdr-adminsvr
 VOLUME /var/lib/itcmdr-adminsvr
 EXPOSE 8443 8444
 ENTRYPOINT ["/usr/local/bin/itcmdr-adminsvr"]

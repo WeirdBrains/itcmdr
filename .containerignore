@@ -1,0 +1,12 @@
+# podman/docker build context (packaging/adminsvr/Containerfile): sources only.
+.git
+target
+dist
+app
+admin-app/build
+admin-app/rust/target
+third_party
+**/node_modules
+HANDOVER.local.md
+config/*.local.*
+testResults.xml

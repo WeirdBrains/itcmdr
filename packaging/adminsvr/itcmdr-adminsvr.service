@@ -1,4 +1,4 @@
-# itcmdr-adminsvr (v0.19.0). Settings: /etc/itcmdr-adminsvr/adminsvr.env (see adminsvr.env.example).
+# itcmdr-adminsvr (v0.19.2). Settings: /etc/itcmdr-adminsvr/adminsvr.env (see adminsvr.env.example).
 [Unit]
 Description=itcmdr offsite admin server
 After=network-online.target
