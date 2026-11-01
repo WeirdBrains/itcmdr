@@ -77,7 +77,9 @@ beat and the start of today's hours, so a PC switched on at 07:10 is not reporte
 - **Revocation in the handshake.** The link's TLS layer only accepts client certificates whose serial is
   the current one of a non-revoked agent (or the one just replaced, during the 24 h overlap). A revoked
   or superseded certificate fails the TLS handshake itself (logged as `agent link handshake refused`);
-  the agent reports it as refused and stops retrying until it is enrolled again. The set is reloaded on
+  the agent reports it as refused and stops retrying until it is enrolled again (on Windows the TLS alert
+  often arrives as a plain connection reset, so the agent keeps retrying with backoff; every attempt is
+  refused). The set is reloaded on
   every heartbeat pass and right after an enroll, renewal or revoke.
 
 ## Offline queue (v0.17.1)
