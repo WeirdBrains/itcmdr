@@ -1,17 +1,11 @@
-# itcmdr_admin
+# itcmdr Admin
 
-itcmdr Admin: the adminsvr app for owners, admins and SREs
+The adminsvr app for owners, admins and SREs (Flutter). The Rust bridge in `rust/` wraps
+`itcmdr-admin-cli`'s signed client (device key, pinned TLS, passkey step-up); regenerate the Dart
+bindings with `flutter_rust_bridge_codegen generate` after changing `rust/src/api`.
 
-## Getting Started
+    flutter test                      # widget tests (fake backend)
+    (cd rust && cargo test)           # the bridge end to end against an in-process adminsvr
+    flutter build linux|macos|windows|apk --release
 
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+See docs/ADMINSVR.md ("itcmdr Admin app", "Push notifications").
