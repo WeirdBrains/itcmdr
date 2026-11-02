@@ -414,6 +414,8 @@ async fn the_switch_needs_a_clean_week_the_vm_flag_and_agents_that_see_schedules
     assert_eq!(n, 1);
     assert!(srv::jobs::supports_run_all("0.22.0") && srv::jobs::supports_run_all("0.23.1"));
     assert!(!srv::jobs::supports_run_all("0.21.0"));
+    assert!(srv::jobs::supports_run_all("0.22.0-pre1"));
+    assert!(!srv::jobs::supports_run_all("0.21.9-rc1"));
 
     // One-command rollback.
     cutover::rollback(&pool, &c, "t").await.unwrap();
