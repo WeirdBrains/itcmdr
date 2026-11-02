@@ -373,7 +373,10 @@ async fn site_link_is_redacted_and_commands_are_checked(db: String) {
         "{ls:?}"
     );
     // v1.0.0: no deep check yet: reported as never (date and result only) and flagged.
-    assert_eq!((ls.deep_check_ms, ls.deep_check_result.as_str()), (0, "none"));
+    assert_eq!(
+        (ls.deep_check_ms, ls.deep_check_result.as_str()),
+        (0, "none")
+    );
     let (days, warn) = itcmdr_adminlink::deep_check(&ls, 90, itcmdr_keys::now_ms());
     assert!(days.is_none() && warn.unwrap().contains("never"));
 
