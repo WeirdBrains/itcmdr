@@ -1,0 +1,4 @@
+drafts/
+__pycache__/
+config/banned.local.txt
+scripts/
