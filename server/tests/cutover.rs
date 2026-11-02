@@ -327,6 +327,39 @@ async fn the_switch_needs_a_clean_week_the_vm_flag_and_agents_that_see_schedules
         .unwrap();
     assert_eq!(g.state, "agent");
 
+    // v0.22.0: the share flows are retired: no more schedule-state.json / agent-settings.json
+    // writes, and on-demand agent runs go over the link as RunNow "*", not to requests/.
+    assert!(cutover::share_retired(&pool).await);
+    std::fs::remove_file(cutover::state_path(&c)).unwrap();
+    let _ = std::fs::remove_file(c.logs_dir.join("agent-settings.json"));
+    cutover::export_state(&pool, &c).await.unwrap();
+    srv::settings::export_agent(&pool, &c).await.unwrap();
+    assert!(!cutover::state_path(&c).exists());
+    assert!(!c.logs_dir.join("agent-settings.json").exists());
+    let rid = srv::jobs::queue_run(
+        &pool,
+        &c,
+        &srv::jobs::RunRequest {
+            machines: vec!["WS-02".into()],
+            categories: vec![],
+            plugins: vec![],
+            report_only: true,
+            repair: false,
+            force: false,
+            schedule_id: None,
+        },
+        "t",
+    )
+    .await
+    .unwrap();
+    assert!(!c.requests_dir().join(format!("{rid}.json")).exists());
+    let rr: Vec<(String, String)> =
+        sqlx::query_as("SELECT machine, plugin FROM agent_run_requests")
+            .fetch_all(&pool)
+            .await
+            .unwrap();
+    assert_eq!(rr, vec![("WS-02".to_string(), "*".to_string())]);
+
     // One-command rollback.
     cutover::rollback(&pool, &c, "t").await.unwrap();
     assert_eq!(cutover::state(&pool).await.unwrap(), "task");

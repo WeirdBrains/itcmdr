@@ -524,6 +524,10 @@ pub async fn unset(pool: &DbPool, key: &str, machine: Option<&str>) -> Result<()
 
 /// Write `<logs_dir>/agent-settings.json` for the agents (atomic).
 pub async fn export_agent(pool: &DbPool, cfg: &ServerConfig) -> Result<std::path::PathBuf> {
+    // v0.22.0: retired with the share once the agents take config over the link (ConfigUpdate).
+    if crate::cutover::share_retired(pool).await {
+        return Ok(cfg.logs_dir.join(AGENT_EXPORT));
+    }
     let s = load(pool).await?;
     let mut global = BTreeMap::new();
     for r in resolve_all(pool, Some(cfg), None).await? {

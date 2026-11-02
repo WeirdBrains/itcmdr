@@ -546,7 +546,7 @@ pub async fn switch_agent(
         &serde_json::json!({"to": "agent", "schedule": s.id}).to_string(),
     )
     .await;
-    export_state(pool, cfg).await?;
+    export_state_inner(pool, cfg, true).await?;
     gate(pool, now).await
 }
 
@@ -572,8 +572,24 @@ pub fn state_path(cfg: &ServerConfig) -> PathBuf {
     cfg.logs_dir.join(STATE_FILE)
 }
 
-/// Write `<logs_dir>/schedule-state.json` for the agents (every scheduler pass).
+/// v0.22.0: after `cutover switch --to agent` the share flows are retired: no schedule-state.json
+/// or agent-settings.json updates, and on-demand agent runs go over the link (RunNow), not
+/// `requests/` on the share. `cutover rollback` brings them back.
+pub async fn share_retired(pool: &DbPool) -> bool {
+    state(pool).await.map(|s| s == "agent").unwrap_or(false)
+}
+
+/// Write `<logs_dir>/schedule-state.json` for the agents (every scheduler pass). Once the share
+/// is retired (agent state) it is written only by the switch itself, so the PowerShell agents see
+/// the agent state once, then the file stops changing.
 pub async fn export_state(pool: &DbPool, cfg: &ServerConfig) -> Result<PathBuf> {
+    export_state_inner(pool, cfg, false).await
+}
+
+async fn export_state_inner(pool: &DbPool, cfg: &ServerConfig, force: bool) -> Result<PathBuf> {
+    if !force && share_retired(pool).await {
+        return Ok(state_path(cfg));
+    }
     let nightly = find_builtin(pool, AGENT_KEY).await?;
     let backup = find_builtin(pool, BACKUP_KEY).await?;
     let doc = serde_json::json!({
