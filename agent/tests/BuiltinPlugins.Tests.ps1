@@ -187,19 +187,28 @@ Describe 'cutover' {
   It 'v0.20.1: follows the agent state, keeps the task disabled, never falls back, and rolls back' {
     Mock Set-ItcmdrNightlyTaskEnabled { $true }
     Mock Test-ItcmdrNightlyTaskDisabled { $false }
+    Mock Send-ItcmdrAgentAlert { $true }
     Write-TestState 'agent' (Get-Date)
     $c = Sync-ItcmdrCutover -Site $site
     $c.State | Should -Be 'agent'
     Should -Invoke Set-ItcmdrNightlyTaskEnabled -Times 1 -ParameterFilter { $Enabled -eq $false }
-    # Re-enabled by hand: the next sync disables it again.
+    # The switch itself raises no alert.
+    Should -Invoke Send-ItcmdrAgentAlert -Times 0
+    # Re-enabled by hand: the next sync disables it again and raises the alert.
     (Sync-ItcmdrCutover -Site $site).State | Should -Be 'agent'
     Should -Invoke Set-ItcmdrNightlyTaskEnabled -Times 2 -ParameterFilter { $Enabled -eq $false }
+    Should -Invoke Send-ItcmdrAgentAlert -Times 1 -ParameterFilter { $Key -eq 'nightly-task-reenabled' -and -not $Resolve }
     Resolve-ItcmdrPluginMode -Site $site -CutoverState 'agent' | Should -Be 'plugins'
     $stale = [pscustomobject]@{ Doc = $null; Ts = $null; Fresh = $false; Source = 'none' }
     Test-ItcmdrFallbackDue -Site $site -Now (Get-Date).Date.AddHours(5) -ScheduleState $stale -Cutover $c | Should -BeFalse
     Write-TestState 'task' (Get-Date)
     (Sync-ItcmdrCutover -Site $site).State | Should -Be 'task'
     Should -Invoke Set-ItcmdrNightlyTaskEnabled -Times 1 -ParameterFilter { $Enabled -eq $true }
+    Should -Invoke Send-ItcmdrAgentAlert -Times 1 -ParameterFilter { $Key -eq 'nightly-task-reenabled' -and $Resolve }
+  }
+
+  It 'queues agent alerts through itcmdr-agent alert and skips a missing agent' {
+    Send-ItcmdrAgentAlert -Key k -Title t -AgentExe (Join-Path $TestDrive 'nope.exe') | Should -BeFalse
   }
 
   It 'runs the nightly locally only when it is overdue after the switch' {

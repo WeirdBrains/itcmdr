@@ -264,6 +264,20 @@ function Test-ItcmdrNightlyTaskDisabled {
   return ([string]$t.State -eq 'Disabled')
 }
 
+function Send-ItcmdrAgentAlert {
+  <#
+    Queue an alert through the Rust agent's durable queue (`itcmdr-agent alert`, next to this
+    script). False when the agent is not installed here or the call failed.
+  #>
+  param([string]$Key, [string]$Title, [ValidateSet('critical', 'cautious', 'informational')][string]$Level = 'cautious', [string]$Detail = '', [switch]$Resolve, [string]$AgentExe = (Join-Path $PSScriptRoot 'itcmdr-agent.exe'))
+  if (-not $AgentExe -or -not (Test-Path -LiteralPath $AgentExe)) { return $false }
+  # Windows PowerShell 5.1 drops empty native arguments, so only pass --detail when set.
+  $a = @('alert', $Key, $Title, '--level', $Level)
+  if ($Detail) { $a += @('--detail', $Detail) }
+  if ($Resolve) { $a += '--resolve' }
+  try { & $AgentExe @a *> $null; return ($LASTEXITCODE -eq 0) } catch { return $false }
+}
+
 function Sync-ItcmdrCutover {
   <#
     Follow the server: when schedule-state.json is fresh and says a different state, disable the
@@ -274,11 +288,18 @@ function Sync-ItcmdrCutover {
   if ($null -eq $ScheduleState) { $ScheduleState = Get-ItcmdrScheduleState -Site $Site }
   $cur = Get-ItcmdrCutoverState -Site $Site
   # v0.20.1: in the agent state the Rust agent owns the nightly; keep the task disabled (self-heal).
-  if ($cur.State -eq 'agent' -and -not (Test-ItcmdrNightlyTaskDisabled)) { $null = Set-ItcmdrNightlyTaskEnabled -Enabled $false }
+  # Whoever heals it first (this poller or the Rust agent) raises the same alert key.
+  if ($cur.State -eq 'agent' -and -not (Test-ItcmdrNightlyTaskDisabled)) {
+    if (Set-ItcmdrNightlyTaskEnabled -Enabled $false) {
+      $null = Send-ItcmdrAgentAlert -Key 'nightly-task-reenabled' -Title 'PowerShell nightly task was re-enabled' -Detail 'The agent owns the nightly run (cutover agent); it disabled the task again. Use itcmdr-cli cutover rollback to hand it back.'
+    }
+  }
   if ($cur.Pinned -or -not $ScheduleState.Fresh -or -not $ScheduleState.Doc) { return $cur }
   $want = [string]$ScheduleState.Doc.cutover
   if ($want -notin @('task', 'schedule', 'agent') -or $want -eq $cur.State) { return $cur }
   $null = Set-ItcmdrNightlyTaskEnabled -Enabled ($want -eq 'task')
+  # Handed back from the agent: a re-enable alert no longer applies.
+  if ($cur.State -eq 'agent') { $null = Send-ItcmdrAgentAlert -Key 'nightly-task-reenabled' -Title 'resolved' -Resolve }
   Set-ItcmdrCutoverState -Site $Site -State $want -Reason 'server schedule-state.json'
   return (Get-ItcmdrCutoverState -Site $Site)
 }

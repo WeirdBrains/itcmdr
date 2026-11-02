@@ -4,7 +4,8 @@
 //! checked again every time it is loaded: a bad or tampered file is deleted, the agent stays
 //! report-only, reports an empty config version (so the server resends it) and raises an alert.
 //! In the `agent` cutover state the Rust agent runs plugins for real and keeps the PowerShell
-//! agent's nightly task disabled (self-heal); on rollback it re-enables the task.
+//! agent's nightly task disabled (self-heal); on rollback it re-enables the task. A missing or
+//! rejected config never re-enables it (only a signed `task` config from the server does).
 
 use anyhow::{anyhow, ensure, Context, Result};
 use itcmdr_agentlink::pb;
@@ -162,7 +163,14 @@ pub fn heal_task(dir: &Path, state: &str) -> Option<String> {
     let enabled = task_enabled()?;
     if enabled == want_enabled {
         if want_enabled {
+            // Handed back (the poller may have re-enabled it first): drop the marker and any
+            // re-enable alert.
             let _ = std::fs::remove_file(&marker);
+            resolve_reenabled(dir);
+        } else if !marker.exists() {
+            // The PowerShell poller disabled it first: the agent still owns it, so a later
+            // re-enable is reported.
+            let _ = std::fs::write(&marker, b"1");
         }
         return None;
     }
@@ -176,6 +184,7 @@ pub fn heal_task(dir: &Path, state: &str) -> Option<String> {
     }
     if want_enabled {
         let _ = std::fs::remove_file(&marker);
+        resolve_reenabled(dir);
         Some("re-enabled the nightly task (rollback)".into())
     } else {
         let again = marker.exists();
@@ -194,6 +203,17 @@ pub fn heal_task(dir: &Path, state: &str) -> Option<String> {
             Some("disabled the nightly task (cutover agent)".into())
         }
     }
+}
+
+fn resolve_reenabled(dir: &Path) {
+    alert(dir, "nightly-task-reenabled", "informational", "", "", true);
+}
+
+/// The cutover state of a valid stored config; None when there is none (missing or rejected).
+/// The scheduler's self-heal leaves the task alone then: a tampered or deleted config.json must
+/// not hand the nightly back to the PowerShell task (only a signed config from the server does).
+pub fn cutover_if_valid(dir: &Path) -> Option<String> {
+    load(dir).map(|(_, d)| d.cutover)
 }
 
 #[cfg(windows)]
@@ -283,5 +303,18 @@ mod tests {
         // unknown state
         assert!(verify(&root, &signed(&k, r#"{"cutover":"yolo"}"#)).is_err());
         assert!(verify("", &s).is_err());
+    }
+
+    #[test]
+    fn missing_or_bad_config_gives_no_cutover_for_the_self_heal() {
+        let d = std::env::temp_dir().join(format!("itcmdr-cfg-{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        assert_eq!(cutover_if_valid(&d), None);
+        std::fs::write(d.join(FILE), b"{not json").unwrap();
+        assert_eq!(cutover_if_valid(&d), None);
+        // the bad file is removed; report-only still applies
+        assert!(!d.join(FILE).exists());
+        assert!(report_only(&d));
+        let _ = std::fs::remove_dir_all(&d);
     }
 }

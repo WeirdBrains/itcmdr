@@ -439,7 +439,9 @@ pub async fn scheduler(dir: std::path::PathBuf, machine: String) {
     let mut t = tokio::time::interval(Duration::from_secs(30));
     loop {
         t.tick().await;
-        if let Some(did) = crate::config::heal_task(&dir, &crate::config::cutover(&dir)) {
+        if let Some(did) =
+            crate::config::cutover_if_valid(&dir).and_then(|c| crate::config::heal_task(&dir, &c))
+        {
             tracing::warn!("{did}");
         }
         let due = match crate::plugins::due(&dir, now()) {

@@ -178,7 +178,7 @@ async fn create_default(
         let midnight = Local::now()
             .date_naive()
             .and_hms_opt(0, 0, 0)
-            .and_then(|t| Local.from_local_datetime(&t).single())
+            .and_then(|t| Local.from_local_datetime(&t).earliest())
             .map(|t| t.timestamp_millis())
             .unwrap_or(s.last_fire_ms);
         schedule::set_last_fire(pool, &s.id, midnight).await?;
@@ -342,7 +342,7 @@ pub async fn gate(pool: &DbPool, now: DateTime<Utc>) -> Result<Gate> {
         .await?;
         let start = Local
             .from_local_datetime(&(today - Duration::days(d)).and_hms_opt(0, 0, 0).unwrap())
-            .single()
+            .earliest()
             .map(|t| t.timestamp_millis())
             .unwrap_or(0);
         let ran: Vec<String> = sqlx::query_scalar(
@@ -520,6 +520,11 @@ pub async fn switch_agent(
     actor: &str,
     now: DateTime<Utc>,
 ) -> Result<Gate> {
+    // Already switched: nothing to do (the agents are still picking up the new config, so the
+    // acked-config check would refuse a repeat for no reason).
+    if state(pool).await? == "agent" {
+        return gate(pool, now).await;
+    }
     let mut g = gate(pool, now).await?;
     g.problems.extend(agent_problems(pool, now).await?);
     if !g.problems.is_empty() {
