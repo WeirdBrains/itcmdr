@@ -63,7 +63,13 @@ fn agent_healthy(data: &std::path::Path) -> impl Fn(&wd::Request, i64) -> bool +
 fn pass(c: &Cli, svc: &dyn wd::Service, last_alive: &mut Instant) {
     let (root, data) = defaults(c);
     let check = agent_healthy(&data);
-    let r = wd::handle(&root, &data, svc, &check, &wd::Timing::default());
+    let r = wd::handle(
+        &wd::Dirs::under(&root),
+        &data,
+        svc,
+        &check,
+        &wd::Timing::default(),
+    );
     match r {
         Ok(Some(o)) => wd::log(&format!("upgrade result: {o:?}")),
         Ok(None) => {
