@@ -206,6 +206,43 @@ message Command {
   string approver_key = 16;
   string approver_endorsement = 17;
   string approver_sig = 18;
+  // v0.21.0: the organization's "require a second approver" setting when the command was made
+  // (signed with the command). A site requires the approver (or two release approvals) when this
+  // is set or its own adminsvr.requireTwoPerson is on.
+  bool two_person = 19;
+  // v0.21.0 release.rollout: the one-time approvals of that release (name, version, sha256).
+  repeated ReleaseApproval release_approvals = 20;
+}
+
+// v0.21.0: an owner or admin approves one release once; adminsvr may then roll it out to sites
+// and push it. sig over adminlink::release_bytes(name, version, sha256); the key endorsed by the
+// root like a command's user.
+message OrgPolicy {
+  bool require_second_approver = 1;   // default false
+  string updated_by = 2;
+  int64 updated_ms = 3;
+}
+message ReleaseState {
+  string sha256 = 1;
+  string name = 2;
+  string version = 3;
+  repeated string approved_by = 4;   // user ids
+  int32 needed = 5;                  // 1, or 2 with require_second_approver
+  bool approved = 6;
+}
+message ReleaseList { repeated ReleaseState releases = 1; }
+message ApproveReleaseRequest {
+  string sha256 = 1;
+  string sig = 2;   // the caller's device key over adminlink::release_bytes(name, version, sha256)
+}
+
+message ReleaseApproval {
+  string user_id = 1;
+  string role = 2;
+  string key = 3;
+  string endorsement = 4;
+  string sig = 5;
+  int64 ts_ms = 6;
 }
 
 // ---- Admin API (CLI and app) ----
@@ -252,6 +289,14 @@ service AdminApi {
   rpc GetCommand(CommandRef) returns (CommandDetail);
   // The approver signs adminlink::approve_bytes(command) with their device key.
   rpc ApproveCommand(ApproveRequest) returns (CommandInfo);
+  // v0.21.0. The organization's two-person setting (read: anyone signed; set: owners, audited).
+  rpc GetOrgPolicy(Empty) returns (OrgPolicy);
+  rpc SetOrgPolicy(OrgPolicy) returns (OrgPolicy);
+  // v0.21.0 releases: catalog packages named itcmdr-agent-release / itcmdr-server-release, their
+  // approvals, approve once (owners/admins). Then SendCommand release.rollout per site
+  // (args name, version, sha256, push) rolls it out; push = now, ignoring the site's window.
+  rpc ListReleases(Empty) returns (ReleaseList);
+  rpc ApproveRelease(ApproveReleaseRequest) returns (ReleaseState);
   rpc RejectCommand(CommandRef) returns (CommandInfo);
   rpc GetSiteConfig(SiteRef) returns (SiteConfigInfo);
   rpc GetSitePlugins(SiteRef) returns (SitePluginsInfo);

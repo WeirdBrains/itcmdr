@@ -304,6 +304,82 @@ impl Client {
             }
         )
     }
+    pub async fn get_org_policy(&self) -> Result<pb::OrgPolicy> {
+        call!(self, get_org_policy, "GetOrgPolicy", pb::Empty {})
+    }
+    /// Owner only, audited: turn the second-approver requirement on or off for the org.
+    pub async fn set_org_policy(&self, on: bool) -> Result<pb::OrgPolicy> {
+        call!(
+            self,
+            set_org_policy,
+            "SetOrgPolicy",
+            pb::OrgPolicy {
+                require_second_approver: on,
+                ..Default::default()
+            }
+        )
+    }
+    pub async fn list_releases(&self) -> Result<pb::ReleaseList> {
+        call!(self, list_releases, "ListReleases", pb::Empty {})
+    }
+    /// Sign a one-time approval of exactly this release (name, version, checksum).
+    pub async fn approve_release(&self, sha256: &str) -> Result<pb::ReleaseState> {
+        let sha = sha256.to_lowercase();
+        let st = self
+            .list_releases()
+            .await?
+            .releases
+            .into_iter()
+            .find(|r| r.sha256 == sha)
+            .ok_or_else(|| anyhow::anyhow!("no release {sha} in the catalog"))?;
+        let me = self.whoami().await?;
+        let a = itcmdr_adminlink::sign_release(
+            &self.key,
+            &me.id,
+            &me.role,
+            &st.name,
+            &st.version,
+            &sha,
+        );
+        call!(
+            self,
+            approve_release,
+            "ApproveRelease",
+            pb::ApproveReleaseRequest {
+                sha256: sha,
+                sig: a.sig
+            }
+        )
+    }
+    /// Roll an approved release out to one site; `push` ignores the site's update window.
+    pub async fn rollout_release(
+        &self,
+        site: &str,
+        sha256: &str,
+        push: bool,
+    ) -> Result<pb::CommandInfo> {
+        let sha = sha256.to_lowercase();
+        let st = self
+            .list_releases()
+            .await?
+            .releases
+            .into_iter()
+            .find(|r| r.sha256 == sha)
+            .ok_or_else(|| anyhow::anyhow!("no release {sha} in the catalog"))?;
+        let push = if push { "true" } else { "false" };
+        self.command_ex(
+            site,
+            "release.rollout",
+            &[
+                ("name", &st.name),
+                ("version", &st.version),
+                ("sha256", &sha),
+                ("push", push),
+            ],
+            false,
+        )
+        .await
+    }
     pub async fn get_auth_policy(&self) -> Result<pb::AuthPolicy> {
         call!(self, get_auth_policy, "GetAuthPolicy", pb::Empty {})
     }
@@ -564,6 +640,11 @@ impl Client {
         dry_run: bool,
     ) -> Result<pb::CommandInfo> {
         let me = self.whoami().await?;
+        // v0.21.0: the org setting decides whether a second approver is needed; the
+        // command carries it signed so the site can hold adminsvr to it.
+        let two_person = !dry_run
+            && (itcmdr_adminlink::TWO_PERSON.contains(&kind) || kind == "release.rollout")
+            && self.get_org_policy().await?.require_second_approver;
         let now = itcmdr_keys::now_ms();
         let mut c = pb::Command {
             id: uuid::Uuid::new_v4().to_string(),
@@ -583,6 +664,7 @@ impl Client {
                     10 * 60 * 1000
                 },
             dry_run,
+            two_person,
             ..Default::default()
         };
         itcmdr_adminlink::sign_user(&self.key, &mut c);
@@ -850,6 +932,10 @@ pub const PARITY: &[(&str, &str)] = &[
     ),
     ("GetCommand", "command show"),
     ("ApproveCommand", "command approve"),
+    ("GetOrgPolicy", "org policy"),
+    ("SetOrgPolicy", "org policy --second-approver"),
+    ("ListReleases", "release list"),
+    ("ApproveRelease", "release approve"),
     ("RejectCommand", "command reject"),
     ("GetSiteConfig", "config show"),
     ("GetSitePlugins", "plugin status"),

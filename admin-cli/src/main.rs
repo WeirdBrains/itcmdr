@@ -73,6 +73,12 @@ enum Cmd {
     /// Push notifications for alerts on this device (FCM / APNs token; the admin app does this itself)
     #[command(subcommand)]
     Push(PushCmd),
+    /// Org-wide settings: whether every approval needs a second owner/admin (owners set it)
+    #[command(subcommand)]
+    Org(OrgCmd),
+    /// Server/agent releases: approve one once, then roll it out to sites (v0.21.0)
+    #[command(subcommand)]
+    Release(ReleaseCmd),
     /// A site's settings and schedules as adminsvr sees them; set a setting (v0.20.0)
     #[command(subcommand)]
     Config(ConfigCmd),
@@ -125,6 +131,30 @@ enum ScheduleCmd {
         id: String,
         #[arg(long)]
         dry_run: bool,
+    },
+}
+
+#[derive(Subcommand)]
+enum OrgCmd {
+    /// Show the org policy; `--second-approver on|off` changes it (owner only, audited)
+    Policy {
+        #[arg(long)]
+        second_approver: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
+enum ReleaseCmd {
+    /// Server and agent releases in the catalog, and who approved each
+    List,
+    /// Sign a one-time approval of a release (owners/admins)
+    Approve { sha256: String },
+    /// Roll an approved release out to a site, in its update window; `--now` ignores the window
+    Rollout {
+        site: String,
+        sha256: String,
+        #[arg(long)]
+        now: bool,
     },
 }
 
@@ -587,6 +617,71 @@ async fn main() -> Result<()> {
                         }
                     }
                 }
+                Cmd::Org(OrgCmd::Policy { second_approver }) => {
+                    let p = match second_approver.as_deref() {
+                        None => c.get_org_policy().await?,
+                        Some("on" | "true") => c.set_org_policy(true).await?,
+                        Some("off" | "false") => c.set_org_policy(false).await?,
+                        Some(x) => anyhow::bail!("--second-approver on|off, not {x}"),
+                    };
+                    println!(
+                        "second approver: {}{}",
+                        if p.require_second_approver {
+                            "required"
+                        } else {
+                            "off"
+                        },
+                        if p.updated_ms > 0 {
+                            format!("  (changed {} by {})", ts(p.updated_ms), p.updated_by)
+                        } else {
+                            String::new()
+                        }
+                    );
+                }
+                Cmd::Release(rc) => match rc {
+                    ReleaseCmd::List => {
+                        for r in c.list_releases().await?.releases {
+                            println!(
+                                "{}  {} {}  {}  approved by [{}] ({} needed)",
+                                &r.sha256[..r.sha256.len().min(16)],
+                                r.name,
+                                r.version,
+                                if r.approved {
+                                    "approved"
+                                } else {
+                                    "not approved"
+                                },
+                                r.approved_by.join(", "),
+                                r.needed
+                            );
+                        }
+                    }
+                    ReleaseCmd::Approve { sha256 } => {
+                        let r = c.approve_release(&sha256).await?;
+                        println!(
+                            "{} {}: {} of {} approvals{}",
+                            r.name,
+                            r.version,
+                            r.approved_by.len(),
+                            r.needed,
+                            if r.approved {
+                                ", ready to roll out"
+                            } else {
+                                ""
+                            }
+                        );
+                    }
+                    ReleaseCmd::Rollout { site, sha256, now } => {
+                        let x = c.rollout_release(&site, &sha256, now).await?;
+                        show_command(&x);
+                        if x.state == "awaiting-approval" {
+                            println!(
+                                "needs a second owner or admin: itcmdr-admin command approve {}",
+                                x.id
+                            );
+                        }
+                    }
+                },
                 Cmd::Push(pc) => match pc {
                     PushCmd::Register {
                         provider,

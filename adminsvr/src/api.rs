@@ -31,7 +31,10 @@ pub const SEND_KINDS: &[&str] = &[
     "backup.start",
     "alert.ack",
     "alert.resolve",
+    "release.rollout",
 ];
+/// Release package names (v0.21.0).
+pub const RELEASES: &[&str] = &["itcmdr-agent-release", "itcmdr-server-release"];
 /// Largest catalog package (MiB).
 pub const MAX_PACKAGE_MIB: usize = 256;
 
@@ -488,6 +491,110 @@ impl Api {
         })
     }
 
+    /// v0.21.0: the organization's "require a second approver" setting (default off).
+    pub async fn second_required(&self) -> Result<bool, Status> {
+        let v: Option<String> = self
+            .pool
+            .run(|c| {
+                Ok(meta::table
+                    .filter(meta::k.eq("org.require_second_approver"))
+                    .select(meta::v)
+                    .first(c)
+                    .optional()?)
+            })
+            .await
+            .map_err(dberr)?;
+        Ok(v.as_deref() == Some("true"))
+    }
+
+    async fn org_policy(&self) -> Result<pb::OrgPolicy, Status> {
+        let rows: Vec<(String, String)> = self
+            .pool
+            .run(|c| Ok(meta::table.filter(meta::k.like("org.%")).load(c)?))
+            .await
+            .map_err(dberr)?;
+        let get = |k: &str| rows.iter().find(|(a, _)| a == k).map(|(_, v)| v.clone());
+        Ok(pb::OrgPolicy {
+            require_second_approver: get("org.require_second_approver").as_deref() == Some("true"),
+            updated_by: get("org.policy_updated_by").unwrap_or_default(),
+            updated_ms: get("org.policy_updated_ms")
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(0),
+        })
+    }
+
+    async fn release_approvals(&self, sha: &str) -> Result<Vec<pb::ReleaseApproval>, Status> {
+        let s = sha.to_string();
+        let rows: Vec<(String, String, String, String, String, i64)> = self
+            .pool
+            .run(move |c| {
+                Ok(release_approvals::table
+                    .filter(release_approvals::sha256.eq(s))
+                    .select((
+                        release_approvals::user_id,
+                        release_approvals::role,
+                        release_approvals::pubkey,
+                        release_approvals::endorsement,
+                        release_approvals::sig,
+                        release_approvals::ts_ms,
+                    ))
+                    .order(release_approvals::ts_ms.asc())
+                    .load(c)?)
+            })
+            .await
+            .map_err(dberr)?;
+        Ok(rows
+            .into_iter()
+            .map(
+                |(user_id, role, key, endorsement, sig, ts_ms)| pb::ReleaseApproval {
+                    user_id,
+                    role,
+                    key,
+                    endorsement,
+                    sig,
+                    ts_ms,
+                },
+            )
+            .collect())
+    }
+
+    async fn release_state(&self, sha: &str) -> Result<pb::ReleaseState, Status> {
+        let s = sha.to_string();
+        let row: Option<(String, String)> = self
+            .pool
+            .run(move |c| {
+                Ok(catalog::table
+                    .filter(catalog::sha256.eq(s))
+                    .select((catalog::name, catalog::version))
+                    .first(c)
+                    .optional()?)
+            })
+            .await
+            .map_err(dberr)?;
+        let Some((name, version)) = row else {
+            return Err(Status::not_found("no such package in the catalog"));
+        };
+        if !RELEASES.contains(&name.as_str()) {
+            return Err(Status::invalid_argument(format!(
+                "{name} is not a release package"
+            )));
+        }
+        let needed = if self.second_required().await? { 2 } else { 1 };
+        let root = self.m.root.verifying_key();
+        let ap = self.release_approvals(sha).await?;
+        let ok =
+            itcmdr_adminlink::check_release_approvals(&root, &ap, &name, &version, sha, needed)
+                .is_ok();
+        Ok(pb::ReleaseState {
+            sha256: sha.into(),
+            name,
+            version,
+            approved_by: ap.into_iter().map(|a| a.user_id).collect(),
+            needed: needed as i32,
+            approved: ok,
+        })
+    }
+
     async fn command(
         &self,
         req: Request<pb::CommandRequest>,
@@ -517,7 +624,23 @@ impl Api {
                 "approver fields are filled by ApproveCommand",
             ));
         }
-        let two = !c.dry_run && itcmdr_adminlink::TWO_PERSON.contains(&kind);
+        if !c.release_approvals.is_empty() {
+            return Err(Status::invalid_argument(
+                "release approvals are attached by adminsvr (ApproveRelease)",
+            ));
+        }
+        let second = self.second_required().await?;
+        let gated = itcmdr_adminlink::TWO_PERSON.contains(&kind) || kind == "release.rollout";
+        if c.two_person != (second && gated) {
+            return Err(Status::invalid_argument(format!(
+                "two_person must be {} (the organization's second-approver setting, GetOrgPolicy)",
+                second && gated
+            )));
+        }
+        let two = !c.dry_run && second && itcmdr_adminlink::TWO_PERSON.contains(&kind);
+        if kind == "release.rollout" && p.role < Role::Admin {
+            return Err(denied("only owners and admins roll releases out"));
+        }
         self.may_site(&p, &c.site_id).await?;
         let now = crate::now_ms();
         if c.user_id != p.user_id || c.user_role != p.role.as_str() || c.user_key != p.key_hex {
@@ -542,6 +665,7 @@ impl Api {
             "schedule.run" | "schedule.pause" | "schedule.resume" => need("schedule"),
             "plugin.enable" | "plugin.disable" => need("name"),
             "plugin.install" => need("sha256"),
+            "release.rollout" => need("sha256") || need("name") || need("version"),
             _ => false,
         };
         if missing || c.args.len() > 8 {
@@ -583,6 +707,25 @@ impl Api {
                 return Err(Status::failed_precondition("site is not linked"))
             }
             _ => {}
+        }
+        if kind == "release.rollout" {
+            let sha = c.args["sha256"].to_lowercase();
+            let st = self.release_state(&sha).await?;
+            if st.name != c.args["name"] || st.version != c.args["version"] {
+                return Err(Status::invalid_argument(
+                    "name/version do not match the catalog package",
+                ));
+            }
+            if !st.approved {
+                return Err(Status::failed_precondition(format!(
+                    "{} {} has {} of {} approvals (ApproveRelease)",
+                    st.name,
+                    st.version,
+                    st.approved_by.len(),
+                    st.needed
+                )));
+            }
+            c.release_approvals = self.release_approvals(&sha).await?;
         }
         // The user's signature must already be valid; adminsvr then signs as root.
         let uk = itcmdr_keys::parse_public_key(&c.user_key)
@@ -1091,7 +1234,9 @@ impl pb::admin_api_server::AdminApi for Api {
         let r = req.get_ref();
         rbac::require(p.role, Role::Admin).map_err(denied)?;
         let id = self.target(&r.user, &p).await?;
-        if id == p.user_id {
+        // v0.21.0: with the organization's second-approver setting on, someone else approves your
+        // devices; off (default), you may approve your own new device from an active one.
+        if id == p.user_id && self.second_required().await? {
             return Err(denied("another owner or admin approves your devices"));
         }
         rbac::can_edit(p.role, false, self.role_of(&id).await?).map_err(denied)?;
@@ -2055,6 +2200,136 @@ impl pb::admin_api_server::AdminApi for Api {
             .signed_opts(&req, "/itcmdr.admin.AdminApi/BeginStepUp", true, false)
             .await?;
         self.pk.begin(&p, false).await.map(Response::new)
+    }
+
+    async fn get_org_policy(
+        &self,
+        req: Request<pb::Empty>,
+    ) -> Result<Response<pb::OrgPolicy>, Status> {
+        self.signed(&req, "/itcmdr.admin.AdminApi/GetOrgPolicy")
+            .await?;
+        self.org_policy().await.map(Response::new)
+    }
+
+    async fn set_org_policy(
+        &self,
+        req: Request<pb::OrgPolicy>,
+    ) -> Result<Response<pb::OrgPolicy>, Status> {
+        let p = self
+            .signed(&req, "/itcmdr.admin.AdminApi/SetOrgPolicy")
+            .await?;
+        rbac::require(p.role, Role::Owner).map_err(denied)?;
+        let on = req.get_ref().require_second_approver;
+        let (uid, now) = (p.user_id.clone(), crate::now_ms());
+        self.pool
+            .run(move |c| {
+                crate::passkeys::put_meta(
+                    c,
+                    "org.require_second_approver",
+                    if on { "true" } else { "false" },
+                )?;
+                crate::passkeys::put_meta(c, "org.policy_updated_by", &uid)?;
+                crate::passkeys::put_meta(c, "org.policy_updated_ms", &now.to_string())?;
+                Ok(())
+            })
+            .await
+            .map_err(dberr)?;
+        self.audit(&p, "org.policy", "org", req.get_ref()).await?;
+        self.org_policy().await.map(Response::new)
+    }
+
+    async fn list_releases(
+        &self,
+        req: Request<pb::Empty>,
+    ) -> Result<Response<pb::ReleaseList>, Status> {
+        self.signed(&req, "/itcmdr.admin.AdminApi/ListReleases")
+            .await?;
+        let shas: Vec<String> = self
+            .pool
+            .run(|c| {
+                Ok(catalog::table
+                    .filter(catalog::name.eq_any(RELEASES))
+                    .order(catalog::uploaded_ms.desc())
+                    .select(catalog::sha256)
+                    .load(c)?)
+            })
+            .await
+            .map_err(dberr)?;
+        let mut releases = vec![];
+        for s in shas {
+            releases.push(self.release_state(&s).await?);
+        }
+        Ok(Response::new(pb::ReleaseList { releases }))
+    }
+
+    async fn approve_release(
+        &self,
+        req: Request<pb::ApproveReleaseRequest>,
+    ) -> Result<Response<pb::ReleaseState>, Status> {
+        let p = self
+            .signed(&req, "/itcmdr.admin.AdminApi/ApproveRelease")
+            .await?;
+        if p.role < Role::Admin {
+            return Err(denied("only owners and admins approve releases"));
+        }
+        let sha = req.get_ref().sha256.to_lowercase();
+        let st = self.release_state(&sha).await?;
+        let mut a = pb::ReleaseApproval {
+            user_id: p.user_id.clone(),
+            role: p.role.as_str().into(),
+            key: p.key_hex.clone(),
+            endorsement: String::new(),
+            sig: req.get_ref().sig.clone(),
+            ts_ms: crate::now_ms(),
+        };
+        itcmdr_adminlink::endorse_release(&self.m.root, &mut a);
+        let root = self.m.root.verifying_key();
+        if itcmdr_adminlink::check_release_approvals(
+            &root,
+            std::slice::from_ref(&a),
+            &st.name,
+            &st.version,
+            &sha,
+            1,
+        )
+        .is_err()
+        {
+            return Err(Status::unauthenticated("bad release approval signature"));
+        }
+        let (aa, s2) = (a.clone(), sha.clone());
+        self.pool
+            .run(move |c| {
+                diesel::delete(
+                    release_approvals::table.filter(
+                        release_approvals::sha256
+                            .eq(&s2)
+                            .and(release_approvals::user_id.eq(&aa.user_id)),
+                    ),
+                )
+                .execute(c)?;
+                diesel::insert_into(release_approvals::table)
+                    .values((
+                        release_approvals::sha256.eq(&s2),
+                        release_approvals::user_id.eq(&aa.user_id),
+                        release_approvals::role.eq(&aa.role),
+                        release_approvals::pubkey.eq(&aa.key),
+                        release_approvals::endorsement.eq(&aa.endorsement),
+                        release_approvals::sig.eq(&aa.sig),
+                        release_approvals::ts_ms.eq(aa.ts_ms),
+                    ))
+                    .execute(c)?;
+                Ok(())
+            })
+            .await
+            .map_err(dberr)?;
+        self.audit(
+            &p,
+            "release.approve",
+            &format!("{} {}", st.name, st.version),
+            req.get_ref(),
+        )
+        .await?;
+        self.release_state(&sha).await.map(Response::new)
     }
 
     async fn get_auth_policy(

@@ -529,6 +529,90 @@ pub async fn run(
                 Err(crate::packages::InstallError::Other(e)) => Err(e),
             }
         }
+        "release.rollout" => {
+            // Approvals were checked by the caller (sitelink); here: fetch, check it is the
+            // approved release and owner-signed, install, start (window unless pushed).
+            let (name, version) = (arg(c, "name"), arg(c, "version"));
+            let sha = arg(c, "sha256").to_lowercase();
+            let push = arg(c, "push") == "true";
+            if !crate::upgrades::is_release(name)
+                || sha.len() != 64
+                || !sha.chars().all(|ch| ch.is_ascii_hexdigit())
+            {
+                return Ok(Outcome {
+                    code: "invalid",
+                    preview: vec![],
+                });
+            }
+            let p = vec![change(
+                format!("release:{name}"),
+                String::new(),
+                format!(
+                    "{}{}",
+                    version_token(version),
+                    if push { " (now)" } else { "" }
+                ),
+            )];
+            if dry {
+                return Ok(ok(p));
+            }
+            let Some(f) = fetch else {
+                return Ok(Outcome {
+                    code: "refused",
+                    preview: vec![],
+                });
+            };
+            let max = crate::settings::get_i64(pool, None, "plugins.max_package_mib").await as u64
+                * 1024
+                * 1024;
+            let bytes = f
+                .fetch(&sha, max)
+                .await
+                .map_err(|e| anyhow!("fetch: {e:#}"))?;
+            if itcmdr_agentlink::sha256_hex(&bytes) != sha {
+                return Ok(Outcome {
+                    code: "invalid",
+                    preview: vec![],
+                });
+            }
+            let installed = crate::packages::list(pool, &cfg.layout())
+                .await?
+                .into_iter()
+                .any(|p| p.name == name && p.version == version);
+            if !installed {
+                let label = format!("adminsvr:{}", &sha[..16]);
+                match crate::packages::install(
+                    pool,
+                    &cfg.layout(),
+                    crate::packages::Source::Bytes(&label, &bytes),
+                    None,
+                    actor,
+                )
+                .await
+                {
+                    Ok(_) => {}
+                    Err(crate::packages::InstallError::Quarantined { .. }) => {
+                        return Ok(Outcome {
+                            code: "quarantined",
+                            preview: vec![],
+                        })
+                    }
+                    Err(crate::packages::InstallError::Other(e)) => return Err(e),
+                }
+            }
+            // Owner signature, version match (refuses an admin-signed release).
+            crate::upgrades::release_of(pool, &cfg.layout(), name, version).await?;
+            if !push && !crate::update_window::auto_on(pool).await {
+                // Installed; automatic updates are off here, so it waits for a push or a local start.
+                return Ok(ok(p));
+            }
+            if name == crate::upgrades::SERVER_RELEASE {
+                crate::server_upgrade::start(pool, &cfg.layout(), version, actor, push).await?;
+            } else {
+                crate::upgrades::start(pool, &cfg.layout(), version, actor, push).await?;
+            }
+            Ok(ok(p))
+        }
         _ => Ok(Outcome {
             code: "not-allowed",
             preview: vec![],

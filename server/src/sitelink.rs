@@ -704,14 +704,33 @@ pub async fn apply(
     if code == "ok" && !st.allowed.iter().any(|k| k == &c.kind) {
         code = "not-allowed".into();
     }
-    // v0.20.0 two-person rule, checked here whatever adminsvr did (a dry run changes nothing).
+    // Two-person rule, checked here whatever adminsvr did (a dry run changes nothing): required
+    // when the organization's signed setting says so (v0.21.0) or the site's own switch is on.
+    let two =
+        c.two_person || crate::settings::get_bool(pool, None, "adminsvr.requireTwoPerson").await;
     if code == "ok"
         && !c.dry_run
+        && two
         && itcmdr_adminlink::TWO_PERSON.contains(&c.kind.as_str())
-        && crate::settings::get_bool(pool, None, "adminsvr.requireTwoPerson").await
         && !matches!(itcmdr_adminlink::check_approver(&root, c), Ok(true))
     {
         code = "needs-approval".into();
+    }
+    // v0.21.0 releases: one approval of that exact release, or two distinct ones when required.
+    if code == "ok" && c.kind == "release.rollout" {
+        let a = |k: &str| c.args.get(k).cloned().unwrap_or_default();
+        if itcmdr_adminlink::check_release_approvals(
+            &root,
+            &c.release_approvals,
+            &a("name"),
+            &a("version"),
+            &a("sha256").to_lowercase(),
+            if two { 2 } else { 1 },
+        )
+        .is_err()
+        {
+            code = "needs-approval".into();
+        }
     }
     let actor = format!("adminsvr:{}:{}", st.site_id, c.user_id);
     let kind: String = c
