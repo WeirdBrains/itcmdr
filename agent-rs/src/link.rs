@@ -211,6 +211,9 @@ pub async fn session(dir: &Path, st: &State, mut connected: impl FnMut(&pb::Welc
     let mut queue_mib = st.queue_max_mib;
     let mut sent: std::collections::HashSet<u64> = Default::default();
     let mut qtick = tokio::time::interval(Duration::from_secs(2));
+    // The new agent connects while the watchdog still waits for its health, so the result
+    // file usually appears after Welcome: look for it on every tick too.
+    let mut welcomed = false;
     let issued = if st.cert_issued_ms > 0 {
         st.cert_issued_ms
     } else {
@@ -220,6 +223,16 @@ pub async fn session(dir: &Path, st: &State, mut connected: impl FnMut(&pb::Welc
         let m = tokio::select! {
             m = inbound.message() => m,
             _ = qtick.tick() => {
+                if welcomed {
+                    if let Some(o) = crate::upgrade::pending_result(dir) {
+                        seq += 1;
+                        let r = if o.ok { Ok(()) } else { Err(anyhow::anyhow!("{}", o.error)) };
+                        if tx.send(applied(seq, "upgrade", "itcmdr-agent", &o.version, r)).await.is_err() {
+                            return End::Lost("send failed".into());
+                        }
+                        crate::upgrade::mark_reported(dir);
+                    }
+                }
                 match crate::queue::ingest(dir, queue_mib) {
                     Ok(items) => for it in items {
                         if !sent.insert(it.seq) { continue; }
@@ -238,6 +251,7 @@ pub async fn session(dir: &Path, st: &State, mut connected: impl FnMut(&pb::Welc
             Ok(Some(m)) => match m.body {
                 Some(pb::server_message::Body::Welcome(w)) => {
                     connected(&w);
+                    welcomed = true;
                     crate::upgrade::mark_connected();
                     crate::upgrade::write_health(dir);
                     // v0.21.0: report the watchdog's result of the last upgrade (rollback = failure).

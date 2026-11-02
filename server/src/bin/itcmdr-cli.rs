@@ -2214,7 +2214,9 @@ fn run(rt: &tokio::runtime::Runtime) -> Result<()> {
                     _ => unreachable!(),
                 };
                 let server = srv::server_upgrade::current(&pool).await?;
-                let gate = srv::upgrades::gate(&pool, false, chrono::Utc::now()).await;
+                // a pushed rollout ignores the window, so don't show it as waiting
+                let pushed = matches!(&r, Some(r) if r.push && (r.state == "active" || r.state == "paused"));
+                let gate = srv::upgrades::gate(&pool, pushed, chrono::Utc::now()).await;
                 let t = chrono::Utc::now().timestamp_millis();
                 let holds = match &r {
                     Some(r) if r.state == "active" || r.state == "paused" => {
