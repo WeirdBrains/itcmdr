@@ -72,6 +72,10 @@ pub fn request_path(data: &Path) -> PathBuf {
 pub fn result_path(data: &Path) -> PathBuf {
     upgrade_dir(data).join("result.json")
 }
+/// Present while the watchdog carries out an upgrade (the service refuses new offers then).
+pub fn busy_path(data: &Path) -> PathBuf {
+    upgrade_dir(data).join("in-progress.json")
+}
 pub fn health_path(data: &Path) -> PathBuf {
     data.join("health.json")
 }
@@ -240,6 +244,20 @@ pub fn handle(
         return Ok(None);
     };
     std::fs::remove_file(&rp)?;
+    write_json(&busy_path(data), &req)?;
+    let r = handle_req(dirs, data, svc, healthy, t, req);
+    let _ = std::fs::remove_file(busy_path(data));
+    r
+}
+
+fn handle_req(
+    dirs: &Dirs,
+    data: &Path,
+    svc: &dyn Service,
+    healthy: Check,
+    t: &Timing,
+    req: Request,
+) -> Result<Option<Outcome>> {
     let mut out = Outcome {
         version: req.version.clone(),
         from: req.from.clone(),
@@ -515,6 +533,7 @@ mod tests {
             "1.0"
         );
         assert!(!request_path(&data).exists());
+        assert!(!busy_path(&data).exists());
         assert_eq!(read_json::<Outcome>(&result_path(&data)).unwrap(), o);
         assert!(f.running());
     }
