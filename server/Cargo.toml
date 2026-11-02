@@ -63,6 +63,7 @@ itcmdr-plugin = { path = "../plugin" }
 itcmdr-keys = { path = "../keys" }
 itcmdr-common = { path = "../common" }
 itcmdr-agentlink = { path = "../agentlink" }
+itcmdr-watchdog = { path = "../watchdog" }
 itcmdr-adminlink = { path = "../adminlink" }
 http = "1"
 http-body = "1"
@@ -94,7 +95,6 @@ itcmdr-sample-data-gen = { path = "../tools/sample-data-gen" }
 itcmdr-agent = { path = "../agent-rs" }
 itcmdr-agentlink = { path = "../agentlink" }
 tempfile = "3.10"
-itcmdr-watchdog = { path = "../watchdog" }
 anyhow = "1.0"
 chrono = "0.4"
 assert_cmd = "2.0"

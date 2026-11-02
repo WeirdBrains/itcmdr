@@ -67,6 +67,30 @@ pub async fn tick(pool: &db::DbPool, cfg: &ServerConfig) {
     }
 }
 
+/// Test hook (VM break tests): while `<data>\health.pause` exists, no health file is written,
+/// as if the service hung.
+pub const HEALTH_PAUSE: &str = "health.pause";
+
+async fn write_health(pool: &db::DbPool, cfg: &ServerConfig, connected: &mut i64) {
+    let root = cfg.layout().root;
+    if root.join(HEALTH_PAUSE).exists() {
+        return;
+    }
+    let db_ok = sqlx::query("SELECT 1").execute(pool).await.is_ok();
+    if db_ok && restore::grpc_answers(cfg).await {
+        *connected = chrono::Utc::now().timestamp_millis();
+    }
+    let h = itcmdr_watchdog::Health {
+        version: env!("CARGO_PKG_VERSION").into(),
+        pid: std::process::id(),
+        ts_ms: chrono::Utc::now().timestamp_millis(),
+        connected_ms: *connected,
+    };
+    if let Err(e) = itcmdr_watchdog::write_health(&root, &h) {
+        tracing::warn!(error=%e, "health file");
+    }
+}
+
 fn calllog_machine() -> String {
     std::env::var("COMPUTERNAME")
         .or_else(|_| std::env::var("HOSTNAME"))
@@ -175,6 +199,16 @@ pub async fn run(
     ));
     // v0.19.0: the adminsvr link (only while enrolled and adminsvr.enabled).
     tokio::spawn(sitelink::run(pool.clone(), cfg.clone()));
+    // v0.21.0: health.json for itcmdr-server-watchdog (gRPC answers and the DB opens).
+    let (h_pool, h_cfg) = (pool.clone(), cfg.clone());
+    tokio::spawn(async move {
+        let mut connected = 0i64;
+        loop {
+            tokio::time::sleep(Duration::from_secs(10)).await;
+            write_health(&h_pool, &h_cfg, &mut connected).await;
+            tokio::time::sleep(Duration::from_secs(20)).await;
+        }
+    });
     let hb_pool = pool.clone();
     tokio::spawn(async move {
         loop {

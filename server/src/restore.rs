@@ -197,7 +197,7 @@ fn probe_addr(cfg: &ServerConfig) -> String {
 }
 
 /// gRPC answers at all (any status other than a transport failure).
-async fn grpc_answers(cfg: &ServerConfig) -> bool {
+pub(crate) async fn grpc_answers(cfg: &ServerConfig) -> bool {
     use crate::generated::itcmdr::itcmdr_client::ItcmdrClient;
     let Ok(ep) = tonic::transport::Endpoint::from_shared(probe_addr(cfg)) else {
         return false;
