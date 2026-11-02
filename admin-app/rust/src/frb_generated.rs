@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1214599240;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -980121569;
 
 // Section: executor
 
@@ -1227,6 +1227,41 @@ fn wire__crate__api__admin__send_command_impl(
         },
     )
 }
+fn wire__crate__api__admin__set_deep_check_days_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "set_deep_check_days",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_days = <i32>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
+                    (move || {
+                        let output_ok = crate::api::admin::set_deep_check_days(api_days)?;
+                        std::result::Result::Ok(output_ok)
+                    })(),
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__admin__set_disabled_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -2261,10 +2296,12 @@ impl SseDecode for crate::api::admin::OrgPolicy {
         let mut var_requireSecondApprover = <bool>::sse_decode(deserializer);
         let mut var_updatedBy = <String>::sse_decode(deserializer);
         let mut var_updatedMs = <i64>::sse_decode(deserializer);
+        let mut var_deepCheckMaxDays = <i32>::sse_decode(deserializer);
         return crate::api::admin::OrgPolicy {
             require_second_approver: var_requireSecondApprover,
             updated_by: var_updatedBy,
             updated_ms: var_updatedMs,
+            deep_check_max_days: var_deepCheckMaxDays,
         };
     }
 }
@@ -2515,6 +2552,8 @@ impl SseDecode for crate::api::admin::SiteStatus {
         let mut var_runSecsMax24H = <i64>::sse_decode(deserializer);
         let mut var_pluginErrors24H = <i64>::sse_decode(deserializer);
         let mut var_alertsOpened24H = <i64>::sse_decode(deserializer);
+        let mut var_deepCheckText = <String>::sse_decode(deserializer);
+        let mut var_deepCheckWarning = <String>::sse_decode(deserializer);
         return crate::api::admin::SiteStatus {
             version: var_version,
             uptime_secs: var_uptimeSecs,
@@ -2539,6 +2578,8 @@ impl SseDecode for crate::api::admin::SiteStatus {
             run_secs_max_24h: var_runSecsMax24H,
             plugin_errors_24h: var_pluginErrors24H,
             alerts_opened_24h: var_alertsOpened24H,
+            deep_check_text: var_deepCheckText,
+            deep_check_warning: var_deepCheckWarning,
         };
     }
 }
@@ -2625,21 +2666,22 @@ fn pde_ffi_dispatcher_primary_impl(
         31 => wire__crate__api__admin__revoke_site_impl(port, ptr, rust_vec_len, data_len),
         32 => wire__crate__api__admin__rollout_release_impl(port, ptr, rust_vec_len, data_len),
         33 => wire__crate__api__admin__send_command_impl(port, ptr, rust_vec_len, data_len),
-        34 => wire__crate__api__admin__set_disabled_impl(port, ptr, rust_vec_len, data_len),
-        35 => wire__crate__api__admin__set_freeze_impl(port, ptr, rust_vec_len, data_len),
-        36 => wire__crate__api__admin__set_org_policy_impl(port, ptr, rust_vec_len, data_len),
-        37 => wire__crate__api__admin__set_policy_impl(port, ptr, rust_vec_len, data_len),
-        38 => wire__crate__api__admin__set_role_impl(port, ptr, rust_vec_len, data_len),
-        39 => wire__crate__api__admin__set_scopes_impl(port, ptr, rust_vec_len, data_len),
-        40 => wire__crate__api__admin__site_config_impl(port, ptr, rust_vec_len, data_len),
-        41 => wire__crate__api__admin__site_plugins_impl(port, ptr, rust_vec_len, data_len),
-        42 => wire__crate__api__admin__sites_impl(port, ptr, rust_vec_len, data_len),
-        43 => wire__crate__api__admin__start_backup_impl(port, ptr, rust_vec_len, data_len),
-        44 => wire__crate__api__admin__test_push_impl(port, ptr, rust_vec_len, data_len),
-        45 => wire__crate__api__admin__unregister_push_impl(port, ptr, rust_vec_len, data_len),
-        46 => wire__crate__api__admin__upload_plugin_impl(port, ptr, rust_vec_len, data_len),
-        47 => wire__crate__api__admin__users_impl(port, ptr, rust_vec_len, data_len),
-        48 => wire__crate__api__admin__verify_audit_impl(port, ptr, rust_vec_len, data_len),
+        34 => wire__crate__api__admin__set_deep_check_days_impl(port, ptr, rust_vec_len, data_len),
+        35 => wire__crate__api__admin__set_disabled_impl(port, ptr, rust_vec_len, data_len),
+        36 => wire__crate__api__admin__set_freeze_impl(port, ptr, rust_vec_len, data_len),
+        37 => wire__crate__api__admin__set_org_policy_impl(port, ptr, rust_vec_len, data_len),
+        38 => wire__crate__api__admin__set_policy_impl(port, ptr, rust_vec_len, data_len),
+        39 => wire__crate__api__admin__set_role_impl(port, ptr, rust_vec_len, data_len),
+        40 => wire__crate__api__admin__set_scopes_impl(port, ptr, rust_vec_len, data_len),
+        41 => wire__crate__api__admin__site_config_impl(port, ptr, rust_vec_len, data_len),
+        42 => wire__crate__api__admin__site_plugins_impl(port, ptr, rust_vec_len, data_len),
+        43 => wire__crate__api__admin__sites_impl(port, ptr, rust_vec_len, data_len),
+        44 => wire__crate__api__admin__start_backup_impl(port, ptr, rust_vec_len, data_len),
+        45 => wire__crate__api__admin__test_push_impl(port, ptr, rust_vec_len, data_len),
+        46 => wire__crate__api__admin__unregister_push_impl(port, ptr, rust_vec_len, data_len),
+        47 => wire__crate__api__admin__upload_plugin_impl(port, ptr, rust_vec_len, data_len),
+        48 => wire__crate__api__admin__users_impl(port, ptr, rust_vec_len, data_len),
+        49 => wire__crate__api__admin__verify_audit_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -2903,6 +2945,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::admin::OrgPolicy {
             self.require_second_approver.into_into_dart().into_dart(),
             self.updated_by.into_into_dart().into_dart(),
             self.updated_ms.into_into_dart().into_dart(),
+            self.deep_check_max_days.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -3178,6 +3221,8 @@ impl flutter_rust_bridge::IntoDart for crate::api::admin::SiteStatus {
             self.run_secs_max_24h.into_into_dart().into_dart(),
             self.plugin_errors_24h.into_into_dart().into_dart(),
             self.alerts_opened_24h.into_into_dart().into_dart(),
+            self.deep_check_text.into_into_dart().into_dart(),
+            self.deep_check_warning.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -3590,6 +3635,7 @@ impl SseEncode for crate::api::admin::OrgPolicy {
         <bool>::sse_encode(self.require_second_approver, serializer);
         <String>::sse_encode(self.updated_by, serializer);
         <i64>::sse_encode(self.updated_ms, serializer);
+        <i32>::sse_encode(self.deep_check_max_days, serializer);
     }
 }
 
@@ -3751,6 +3797,8 @@ impl SseEncode for crate::api::admin::SiteStatus {
         <i64>::sse_encode(self.run_secs_max_24h, serializer);
         <i64>::sse_encode(self.plugin_errors_24h, serializer);
         <i64>::sse_encode(self.alerts_opened_24h, serializer);
+        <String>::sse_encode(self.deep_check_text, serializer);
+        <String>::sse_encode(self.deep_check_warning, serializer);
     }
 }
 

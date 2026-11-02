@@ -521,6 +521,9 @@ impl Api {
             updated_ms: get("org.policy_updated_ms")
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(0),
+            deep_check_max_days: get("org.deep_check_max_days")
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(itcmdr_adminlink::DEEP_CHECK_MAX_DAYS),
         })
     }
 
@@ -2222,6 +2225,12 @@ impl pb::admin_api_server::AdminApi for Api {
             .await?;
         rbac::require(p.role, Role::Owner).map_err(denied)?;
         let on = req.get_ref().require_second_approver;
+        let days = req.get_ref().deep_check_max_days;
+        if !(0..=3650).contains(&days) {
+            return Err(Status::invalid_argument(
+                "deep_check_max_days: 1..3650 (0 keeps it)",
+            ));
+        }
         let (uid, now) = (p.user_id.clone(), crate::now_ms());
         self.pool
             .run(move |c| {
@@ -2230,6 +2239,9 @@ impl pb::admin_api_server::AdminApi for Api {
                     "org.require_second_approver",
                     if on { "true" } else { "false" },
                 )?;
+                if days > 0 {
+                    crate::passkeys::put_meta(c, "org.deep_check_max_days", &days.to_string())?;
+                }
                 crate::passkeys::put_meta(c, "org.policy_updated_by", &uid)?;
                 crate::passkeys::put_meta(c, "org.policy_updated_ms", &now.to_string())?;
                 Ok(())

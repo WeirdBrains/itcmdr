@@ -213,7 +213,12 @@ message BackupInfo {
 message CreateBackupRequest {}
 message CreateBackupResponse { BackupInfo backup = 1; }
 message ListBackupsRequest {}
-message ListBackupsResponse { repeated BackupInfo backups = 1; }
+message ListBackupsResponse {
+  repeated BackupInfo backups = 1;
+  // v1.0.0: the last `backup drill --deep` (0 = never; result ok | failed | none)
+  int64 last_deep_check_ms = 2;
+  string last_deep_check_result = 3;
+}
 message VerifyBackupRequest { string name = 1; }
 message VerifyBackupResponse { bool ok = 1; string message = 2; }
 

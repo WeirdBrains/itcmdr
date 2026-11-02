@@ -480,6 +480,11 @@ pub struct ListBackupsRequest {}
 pub struct ListBackupsResponse {
     #[prost(message, repeated, tag = "1")]
     pub backups: ::prost::alloc::vec::Vec<BackupInfo>,
+    /// v1.0.0: the last `backup drill --deep` (0 = never; result ok | failed | none)
+    #[prost(int64, tag = "2")]
+    pub last_deep_check_ms: i64,
+    #[prost(string, tag = "3")]
+    pub last_deep_check_result: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct VerifyBackupRequest {

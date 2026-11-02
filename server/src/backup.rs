@@ -790,6 +790,15 @@ pub struct DrillReport {
 
 pub async fn drill(pool: &DbPool, cfg: &ServerConfig, words: Option<&str>) -> Result<DrillReport> {
     let res = drill_inner(pool, cfg, words).await;
+    if words.is_some() {
+        // v1.0.0: the deep check's date and result (reported to adminsvr; nothing else).
+        let v = serde_json::json!({"ms": chrono::Utc::now().timestamp_millis(), "ok": res.is_ok()});
+        let _ = sqlx::query("INSERT INTO server_meta(key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+            .bind("backup.deep.last")
+            .bind(v.to_string())
+            .execute(pool)
+            .await;
+    }
     let detail = match &res {
         Ok(r) => {
             serde_json::json!({"ok": true, "archive": r.archive, "depth": r.depth, "age_hours": r.age_hours})
@@ -857,4 +866,26 @@ pub async fn last_drill(pool: &DbPool) -> Option<serde_json::Value> {
         .ok()
         .flatten();
     v.and_then(|s| serde_json::from_str(&s).ok())
+}
+
+/// v1.0.0: the last deep check (`backup drill --deep`): (ms, "ok" | "failed"), or (0, "none").
+pub async fn last_deep_check(pool: &DbPool) -> (i64, String) {
+    let v: Option<String> = sqlx::query_scalar("SELECT value FROM server_meta WHERE key = ?")
+        .bind("backup.deep.last")
+        .fetch_optional(pool)
+        .await
+        .ok()
+        .flatten();
+    match v.and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok()) {
+        Some(j) => (
+            j["ms"].as_i64().unwrap_or(0),
+            if j["ok"].as_bool() == Some(true) {
+                "ok"
+            } else {
+                "failed"
+            }
+            .to_string(),
+        ),
+        None => (0, "none".into()),
+    }
 }

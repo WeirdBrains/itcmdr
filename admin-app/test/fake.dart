@@ -91,6 +91,8 @@ Site site(
     runSecsMax24H: 95,
     pluginErrors24H: 2,
     alertsOpened24H: 3,
+    deepCheckText: 'last deep check: never',
+    deepCheckWarning: 'deep backup check never run',
   ),
 );
 
@@ -492,6 +494,7 @@ class FakeBackend implements Backend {
     requireSecondApprover: false,
     updatedBy: '',
     updatedMs: 0,
+    deepCheckMaxDays: 90,
   );
   List<Release> rels = [];
   @override
@@ -503,6 +506,7 @@ class FakeBackend implements Backend {
       requireSecondApprover: requireSecondApprover,
       updatedBy: 'owner@example.com',
       updatedMs: 1,
+      deepCheckMaxDays: org.deepCheckMaxDays,
     );
     return org;
   }

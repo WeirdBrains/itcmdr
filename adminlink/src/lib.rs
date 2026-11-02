@@ -588,3 +588,64 @@ mod tests {
         assert!(check_approver(&rp, &t).is_err());
     }
 }
+
+/// v1.0.0: default for `OrgPolicy.deep_check_max_days`.
+pub const DEEP_CHECK_MAX_DAYS: i32 = 90;
+
+/// v1.0.0: "last deep check" for a site's status: (days since, or None when never run; warning
+/// when never run, failed, or older than `max_days`).
+pub fn deep_check(
+    st: &pb::SiteStatus,
+    max_days: i32,
+    now_ms: i64,
+) -> (Option<i64>, Option<String>) {
+    let max = if max_days > 0 {
+        max_days
+    } else {
+        DEEP_CHECK_MAX_DAYS
+    } as i64;
+    if st.deep_check_ms <= 0 {
+        return (None, Some("deep backup check never run".into()));
+    }
+    let days = (now_ms - st.deep_check_ms).max(0) / 86_400_000;
+    let warn = if st.deep_check_result == "failed" {
+        Some(format!("last deep backup check failed ({days} days ago)"))
+    } else if days > max {
+        Some(format!(
+            "last deep backup check {days} days ago (older than {max})"
+        ))
+    } else {
+        None
+    };
+    (Some(days), warn)
+}
+
+/// "last deep check: N days ago" / "never".
+pub fn deep_check_text(st: &pb::SiteStatus, now_ms: i64) -> String {
+    match deep_check(st, 0, now_ms).0 {
+        None => "last deep check: never".into(),
+        Some(d) => format!("last deep check: {d} days ago ({})", st.deep_check_result),
+    }
+}
+
+#[cfg(test)]
+mod deep_check_tests {
+    use super::*;
+    #[test]
+    fn deep_check_warns_when_never_failed_or_old() {
+        let day = 86_400_000;
+        let now = 1000 * day;
+        let mut st = pb::SiteStatus::default();
+        assert!(deep_check(&st, 0, now).1.unwrap().contains("never"));
+        assert_eq!(deep_check_text(&st, now), "last deep check: never");
+        st.deep_check_ms = now - 10 * day;
+        st.deep_check_result = "ok".into();
+        assert_eq!(deep_check(&st, 0, now), (Some(10), None));
+        assert_eq!(deep_check_text(&st, now), "last deep check: 10 days ago (ok)");
+        st.deep_check_ms = now - 91 * day;
+        assert!(deep_check(&st, 0, now).1.unwrap().contains("older than 90"));
+        assert_eq!(deep_check(&st, 120, now).1, None);
+        st.deep_check_result = "failed".into();
+        assert!(deep_check(&st, 120, now).1.unwrap().contains("failed"));
+    }
+}

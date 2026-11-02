@@ -147,6 +147,10 @@ pub struct SiteStatus {
     pub run_secs_max_24h: i64,
     pub plugin_errors_24h: i64,
     pub alerts_opened_24h: i64,
+    /// v1.0.0: "last deep check: N days ago (ok)" or "last deep check: never"
+    pub deep_check_text: String,
+    /// v1.0.0: empty, or why the deep backup check needs attention (never, failed, too old)
+    pub deep_check_warning: String,
 }
 
 pub struct Site {
@@ -285,8 +289,17 @@ fn alerts3(v: &[i64]) -> (i64, i64, i64) {
     (g(0), g(1), g(2))
 }
 
+/// The org's deep-check limit, refreshed by `sites()` (v1.0.0).
+static DEEP_MAX: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(0);
+
 fn status_of(s: pb::SiteStatus) -> SiteStatus {
     let (c, w, i) = alerts3(&s.open_alerts);
+    let now = itcmdr_keys::now_ms();
+    let deep_check_text = itcmdr_adminlink::deep_check_text(&s, now);
+    let deep_check_warning =
+        itcmdr_adminlink::deep_check(&s, DEEP_MAX.load(std::sync::atomic::Ordering::Relaxed), now)
+            .1
+            .unwrap_or_default();
     let v = s.version.clone();
     SiteStatus {
         machines: s
@@ -323,6 +336,8 @@ fn status_of(s: pb::SiteStatus) -> SiteStatus {
         run_secs_max_24h: s.run_secs_max_24h,
         plugin_errors_24h: s.plugin_errors_24h as i64,
         alerts_opened_24h: s.alerts_opened_24h as i64,
+        deep_check_text,
+        deep_check_warning,
     }
 }
 
@@ -350,7 +365,11 @@ fn command_of(c: pb::CommandInfo) -> CommandRow {
         dry_run: c.dry_run,
         preview: c.preview.into_iter().map(change_of).collect(),
         approved_by: c.approved_by,
-        args: c.args.into_iter().map(|(k, v)| format!("{k}={v}")).collect(),
+        args: c
+            .args
+            .into_iter()
+            .map(|(k, v)| format!("{k}={v}"))
+            .collect(),
     }
 }
 
@@ -488,6 +507,9 @@ pub fn new_enroll_code(user: String) -> Result<String> {
 // ---- Servers ----
 
 pub fn sites() -> Result<Vec<Site>> {
+    if let Ok(p) = block(client()?.get_org_policy()) {
+        DEEP_MAX.store(p.deep_check_max_days, std::sync::atomic::Ordering::Relaxed);
+    }
     Ok(block(client()?.list_sites())?
         .sites
         .into_iter()
@@ -876,7 +898,10 @@ pub fn send_command(
                 .ok_or_else(|| anyhow!("argument {a:?} is not key=value"))
         })
         .collect::<Result<_>>()?;
-    let refs: Vec<(&str, &str)> = pairs.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
+    let refs: Vec<(&str, &str)> = pairs
+        .iter()
+        .map(|(k, v)| (k.as_str(), v.as_str()))
+        .collect();
     Ok(command_of(block(
         client()?.command_ex(&site, &kind, &refs, dry_run),
     )?))
@@ -885,7 +910,9 @@ pub fn send_command(
 /// The command's current row (state, result, preview).
 pub fn get_command(id: String) -> Result<CommandRow> {
     let d = block(client()?.get_command(&id))?;
-    d.info.map(command_of).ok_or_else(|| anyhow!("no such command"))
+    d.info
+        .map(command_of)
+        .ok_or_else(|| anyhow!("no such command"))
 }
 
 pub fn approve_command(id: String) -> Result<CommandRow> {
@@ -968,10 +995,13 @@ pub struct OrgPolicy {
     pub require_second_approver: bool,
     pub updated_by: String,
     pub updated_ms: i64,
+    /// v1.0.0: warn when a site's last deep backup check is older than this (days)
+    pub deep_check_max_days: i32,
 }
 
 fn org_of(p: pb::OrgPolicy) -> OrgPolicy {
     OrgPolicy {
+        deep_check_max_days: p.deep_check_max_days,
         require_second_approver: p.require_second_approver,
         updated_by: p.updated_by,
         updated_ms: p.updated_ms,
@@ -987,6 +1017,11 @@ pub fn set_org_policy(require_second_approver: bool) -> Result<OrgPolicy> {
     Ok(org_of(block(
         client()?.set_org_policy(require_second_approver),
     )?))
+}
+
+/// Owners only; audited (v1.0.0): days before a site's deep backup check is flagged.
+pub fn set_deep_check_days(days: i32) -> Result<OrgPolicy> {
+    Ok(org_of(block(client()?.set_deep_check_days(days))?))
 }
 
 pub struct Release {

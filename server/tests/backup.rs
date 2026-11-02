@@ -916,6 +916,7 @@ async fn the_restore_drill_checks_the_newest_archive_on_site_and_cleans_up() {
         .filter(|e| e.file_name().to_string_lossy().starts_with("itcmdr-drill-"))
         .count()
         .to_string();
+    assert_eq!(srv::backup::last_deep_check(&pool).await, (0, "none".to_string()));
     let r = srv::backup::drill(&pool, &c, None).await.unwrap();
     assert_eq!(
         (r.depth.as_str(), r.archive.as_str()),
@@ -925,6 +926,14 @@ async fn the_restore_drill_checks_the_newest_archive_on_site_and_cleans_up() {
         .await
         .unwrap();
     assert_eq!(r.depth, "decrypted");
+    // v1.0.0: the deep check's date and result are kept (the quick drill doesn't touch them).
+    let (ms, res) = srv::backup::last_deep_check(&pool).await;
+    assert!(ms > 0 && res == "ok");
+    srv::backup::drill(&pool, &c, None).await.unwrap();
+    assert_eq!(srv::backup::last_deep_check(&pool).await.0, ms);
+    assert!(srv::backup::drill(&pool, &c, Some("not the words")).await.is_err());
+    assert_eq!(srv::backup::last_deep_check(&pool).await.1, "failed");
+    srv::backup::drill(&pool, &c, Some(&out.words)).await.unwrap();
     assert!(r.files > 0);
     let after: String = std::fs::read_dir(std::env::temp_dir())
         .unwrap()

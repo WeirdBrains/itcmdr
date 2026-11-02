@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.0.0 (2026-11-02)
+itcmdr 1.0: self-healing IT for small offices, with no file share needed.
+- **Fresh install with no share**, tested on the Windows VM: server and agent installed without a share or backup folder, the agent enrolled with only `/EnrollToken=` and came online, a backup and the restore drill passed on the local backup folder, and no share path appears in any config, report or log. docs/INSTALL.md says how.
+- **Deep-check reminder**: the site keeps the date and result of the last `backup drill --deep` and shows "Last deep check: N days ago" in the site app (Backup page), warning when it never ran, failed or is older than 90 days. Linked sites send only that date and result to adminsvr (`SiteStatus.deep_check_ms/deep_check_result`); `itcmdr-admin site list` and the admin app (Servers) show it and warn after the organization's limit (`OrgPolicy.deep_check_max_days`, default 90; `itcmdr-admin org policy --deep-check-days N`, owners only, audited). No migration (stored as settings on both databases).
+- The agent setup check no longer says that Run now needs the share (the Rust agent takes it over its link).
+- README rewritten for 1.0 (what each part is, where to get it, docs, privacy and security).
+- Versions 1.0.0 (app and admin app 1.0.0+38).
+- Known limits: Windows installers are not Authenticode-signed, the macOS builds are not signed or notarized, and the Android admin app is debug-signed. adminsvr's own backup and restore runbook comes after 1.0 (site backups and the restore drill are covered).
+
 ## v0.22.0 (2026-11-02)
 The share is retired after the switch to the Rust agent, and backups get a restore drill.
 - **Share flows retired** once a site has run `itcmdr-cli cutover switch --to agent`: the server stops rewriting `schedule-state.json` (written once by the switch) and `agent-settings.json` (the agents get config over the link), and on-demand runs from the app and CLI go to the Rust agents over the link (`RunNow`) instead of `requests\` on the share. The PowerShell poller no longer reads `requests\` in the agent state (it still keeps the nightly task disabled). `itcmdr-cli cutover rollback` brings all of it back. Sites that have not switched are unchanged. The share stays for backups when `backup.dir` points there, the PowerShell checks/plugins and log rotation; old share logs are still read.

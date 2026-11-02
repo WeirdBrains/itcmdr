@@ -212,6 +212,8 @@ void main() {
       await t.pumpAndSettle();
       expect(find.byKey(const Key('site-update')), findsOneWidget);
       expect(find.text('signed'), findsOneWidget);
+      expect(find.text('last deep check: never'), findsOneWidget);
+      expect(find.byKey(const Key('deep-check-warning')), findsOneWidget);
       expect(
         find.descendant(
           of: find.byKey(const Key('machine-m-1')),

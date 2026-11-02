@@ -62,8 +62,39 @@ class BackupPage extends StatefulWidget {
   State<BackupPage> createState() => _BackupPageState();
 }
 
+/// v1.0.0: the last `itcmdr-cli backup drill --deep` (date and result), with a warning when it
+/// never ran, failed or is older than [maxDays].
+({String text, bool warn}) deepCheckText(
+  int ms,
+  String result,
+  DateTime now, {
+  int maxDays = 90,
+}) {
+  if (ms <= 0) {
+    return (
+      text:
+          'Last deep check: never. Run `itcmdr-cli backup drill --deep` at the server with the 24 words.',
+      warn: true,
+    );
+  }
+  final days = now.difference(DateTime.fromMillisecondsSinceEpoch(ms)).inDays;
+  final ago = days == 1 ? '1 day ago' : '$days days ago';
+  if (result == 'failed') {
+    return (text: 'Last deep check: failed, $ago.', warn: true);
+  }
+  if (days > maxDays) {
+    return (
+      text: 'Last deep check: $ago (ok). It is due: more than $maxDays days.',
+      warn: true,
+    );
+  }
+  return (text: 'Last deep check: $ago (ok).', warn: false);
+}
+
 class _BackupPageState extends State<BackupPage> {
   WhoAmIResponse? _me;
+  int _deepMs = 0;
+  String _deepResult = 'none';
   List<BackupInfo> _backups = [];
   RestoreStatus? _status;
   String? _error;
@@ -91,10 +122,13 @@ class _BackupPageState extends State<BackupPage> {
       List<BackupInfo> b = [];
       RestoreStatus? st;
       if (me.role == 'admin' || me.role == 'owner') {
-        b = (await widget.client.listBackups(
+        final lb = await widget.client.listBackups(
           ListBackupsRequest(),
           options: _opts,
-        )).backups;
+        );
+        b = lb.backups;
+        _deepMs = lb.lastDeepCheckMs.toInt();
+        _deepResult = lb.lastDeepCheckResult;
         if (me.signed) {
           final r = await widget.client.getRestoreStatus(
             GetRestoreStatusRequest(),
@@ -213,6 +247,21 @@ class _BackupPageState extends State<BackupPage> {
         if (canAdmin && !canRestore)
           const Text(
             'Restoring needs an owner key (signed). Admins can back up and check backups.',
+          ),
+        if (canAdmin)
+          Builder(
+            builder: (_) {
+              final d = deepCheckText(_deepMs, _deepResult, DateTime.now());
+              return ListTile(
+                key: const Key('deep-check'),
+                dense: true,
+                leading: Icon(
+                  d.warn ? Icons.warning_amber : Icons.verified,
+                  color: d.warn ? Colors.orange : null,
+                ),
+                title: Text(d.text),
+              );
+            },
           ),
         if (_status != null) ...[
           const SizedBox(height: 8),

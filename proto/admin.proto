@@ -88,6 +88,9 @@ message SiteStatus {
   int64 run_secs_max_24h = 19;
   int32 plugin_errors_24h = 20;
   int32 alerts_opened_24h = 21;
+  // v1.0.0: the last `backup drill --deep` (date and result only; never backup contents)
+  int64 deep_check_ms = 22;      // 0 = never run
+  string deep_check_result = 23; // enum: ok | failed | none
 }
 
 // v0.20.0: the site's configuration as adminsvr may see it. Values are sent only for numbers,
@@ -221,6 +224,9 @@ message OrgPolicy {
   bool require_second_approver = 1;   // default false
   string updated_by = 2;
   int64 updated_ms = 3;
+  // v1.0.0: warn when a site's last deep backup check is older than this (default 90).
+  // SetOrgPolicy: 0 keeps the current value.
+  int32 deep_check_max_days = 4;
 }
 message ReleaseState {
   string sha256 = 1;

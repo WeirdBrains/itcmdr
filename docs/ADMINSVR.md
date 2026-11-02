@@ -101,6 +101,7 @@ the SysV script inside the image.
     itcmdr-admin site create <name>               # prints a one-time site token
     itcmdr-admin alert list | ack | resolve
     itcmdr-admin backup start <site>
+    itcmdr-admin org policy --deep-check-days 90  # v1.0.0: warn when a site's last deep backup check is older (owners)
     itcmdr-admin backup drill <site>              # v0.22.0: the site checks its newest backup; you get ok/failed
     itcmdr-admin audit list | verify
     itcmdr-admin recover <addr> --pin … --email … # new device from the 24 words
@@ -247,3 +248,12 @@ Push is off until configured. What it needs (accounts the operator creates):
 - The released app does not include a push SDK yet (`admin-app/lib/push.dart`: `NoPush`); it shows
   new alerts in a banner while open (checked every 30 s). The server side is tested against a
   local FCM/APNs stub (`adminsvr/tests/push.rs`).
+
+## Deep backup check reminder (v1.0.0)
+
+Each site status carries `deep_check_ms` and `deep_check_result` (ok | failed | none): the date and
+result of the site's last `itcmdr-cli backup drill --deep`, which only runs on the site with the 24
+words. Nothing else about backups is sent. `itcmdr-admin site list` and the admin app's Servers page
+show "last deep check: N days ago" and a warning when it never ran, failed, or is older than the
+organization's limit (`OrgPolicy.deep_check_max_days`, default 90, `itcmdr-admin org policy
+--deep-check-days N`, owners only, audited as `org.policy`).
