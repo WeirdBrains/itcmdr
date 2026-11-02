@@ -41,6 +41,42 @@ itcmdr-cli restore --from ARCHIVE [--dry-run]   # words on stdin; stop the servi
 
 gRPC: `CreateBackup`, `ListBackups`, `VerifyBackup` (admin or owner, audit-logged).
 
+## Restore drill (v0.22.0)
+
+The drill proves the newest backup can be restored without touching the live server. Everything
+happens on the site; adminsvr can only ask for it and see ok/failed.
+
+```
+itcmdr-cli backup drill           # copy the newest archive to a temp folder, check it, delete the copy
+itcmdr-cli backup drill --deep    # words on stdin: also decrypt it and check every file
+```
+
+The quick drill checks the signature chain, that the archive was made by this server (master
+key), the contents hash, the manifest and that its schema is not newer than this itcmdr. `--deep`
+adds decryption and every file's size and sha256. The result is audit-logged (`backup.drill`) and
+kept as the last drill result; the archive and the words never leave the machine.
+
+From adminsvr (once the site owner allows `backup.drill`; new links and sites on the v0.20/v0.21
+default list get it automatically):
+
+```
+itcmdr-admin backup drill <site>   # waits for the site's ok/failed
+```
+
+The admin app has a Restore drill button per server (Servers page).
+
+### Runbook: monthly restore test
+
+1. Monthly, from adminsvr or on the server: `backup drill`. A failure is a Critical problem:
+   take a fresh backup (`backup create`) and drill again; if it still fails, check the backup
+   folder (disk, permissions) and the server log.
+2. Quarterly (or after any key or backup setting change), on the server, in person:
+   `itcmdr-cli backup drill --deep` with the 24 words typed in. Never paste the words anywhere else.
+3. Once a year, a full restore onto a spare machine or VM ("Restore onto a replacement machine"
+   below) with the newest archive; check the app signs in and the machines and history are there,
+   then wipe the spare.
+4. Write the date and result in the site notes.
+
 ## Restore from the app (v0.10.0, server side)
 
 `StageRestore {backup, words}` (owner only, audited as `restore-stage`; the words are never logged):

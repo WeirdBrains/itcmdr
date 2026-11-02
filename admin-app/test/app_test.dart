@@ -232,6 +232,9 @@ void main() {
       await t.tap(find.byKey(const Key('backup')));
       await t.pumpAndSettle();
       expect(b.calls, contains('backup s1'));
+      await t.tap(find.byKey(const Key('drill')));
+      await t.pumpAndSettle();
+      expect(b.calls, contains('send backup.drill '));
     },
   );
 

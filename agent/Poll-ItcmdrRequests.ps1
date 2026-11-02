@@ -104,6 +104,12 @@ function Write-ItcmdrResponse {
   Move-Item -LiteralPath $tmp -Destination $path -Force
 }
 
+function Test-ItcmdrShareRetired {
+  # v0.22.0: in the agent cutover state the share request flow is retired.
+  param($Cutover)
+  return [bool]($Cutover -and $Cutover.PSObject.Properties['State'] -and $Cutover.State -eq 'agent')
+}
+
 function Invoke-ItcmdrPoll {
   # StaleLockMinutes: a lock older than this was left by a crashed/killed poller (the task's
   # limit is 2h), so it is removed and the request is claimed again.
@@ -174,7 +180,7 @@ if (-not $env:ITCMDR_IMPORT_ONLY) {
   # sync below still keeps the nightly task disabled; `cutover rollback` brings polling back.
   $localCut = $null
   try { if ($hsite) { $localCut = Get-ItcmdrCutoverState -Site $hsite } } catch { $localCut = $null }
-  if (-not ($localCut -and $localCut.State -eq 'agent')) {
+  if (-not (Test-ItcmdrShareRetired -Cutover $localCut)) {
     Invoke-ItcmdrPoll -RequestDirectory $dirs -Computer $env:COMPUTERNAME -AgentPath $agentPath -StaleLockMinutes $stale -PassTrigger -NightlyScheduleId $nightlyId | Out-Null
   }
   if ($hsite) {

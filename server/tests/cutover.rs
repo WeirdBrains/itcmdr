@@ -358,7 +358,62 @@ async fn the_switch_needs_a_clean_week_the_vm_flag_and_agents_that_see_schedules
             .fetch_all(&pool)
             .await
             .unwrap();
-    assert_eq!(rr, vec![("WS-02".to_string(), "*".to_string())]);
+    // The test agents report 0.20.1 (no "*"), so they get one request per installed plugin.
+    assert!(rr.is_empty(), "{rr:?}");
+    sqlx::query("INSERT INTO agent_plugins(machine, name, version, ok, error, ts_ms) VALUES ('WS-02','itcmdr-network','1',1,'',0)")
+        .execute(&pool).await.unwrap();
+    srv::jobs::queue_run(
+        &pool,
+        &c,
+        &srv::jobs::RunRequest {
+            machines: vec!["WS-02".into()],
+            categories: vec![],
+            plugins: vec![],
+            report_only: true,
+            repair: false,
+            force: false,
+            schedule_id: None,
+        },
+        "t",
+    )
+    .await
+    .unwrap();
+    let rr: Vec<(String, String)> =
+        sqlx::query_as("SELECT machine, plugin FROM agent_run_requests ORDER BY created_ms")
+            .fetch_all(&pool)
+            .await
+            .unwrap();
+    assert_eq!(
+        rr,
+        vec![("WS-02".to_string(), "itcmdr-network".to_string())]
+    );
+    sqlx::query("UPDATE agents SET version = '0.22.0'")
+        .execute(&pool)
+        .await
+        .unwrap();
+    srv::jobs::queue_run(
+        &pool,
+        &c,
+        &srv::jobs::RunRequest {
+            machines: vec!["WS-02".into()],
+            categories: vec![],
+            plugins: vec![],
+            report_only: true,
+            repair: false,
+            force: false,
+            schedule_id: None,
+        },
+        "t",
+    )
+    .await
+    .unwrap();
+    let n: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM agent_run_requests WHERE plugin = '*'")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(n, 1);
+    assert!(srv::jobs::supports_run_all("0.22.0") && srv::jobs::supports_run_all("0.23.1"));
+    assert!(!srv::jobs::supports_run_all("0.21.0"));
 
     // One-command rollback.
     cutover::rollback(&pool, &c, "t").await.unwrap();

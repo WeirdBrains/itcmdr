@@ -58,8 +58,24 @@ pub async fn queue_run(
                     .iter()
                     .any(|m| m.eq_ignore_ascii_case(&a.machine))
             {
-                crate::agent_plugins::request_run(pool, &a.machine, "*", &args, actor).await?;
-                sent.push(a.machine);
+                // Agents before 0.22.0 do not know "*": send them one request per plugin they
+                // reported as installed instead.
+                let names: Vec<String> = if supports_run_all(&a.version) {
+                    vec!["*".to_string()]
+                } else {
+                    crate::agent_plugins::list_plugins(pool, Some(&a.machine))
+                        .await?
+                        .iter()
+                        .filter(|p| p["ok"].as_bool().unwrap_or(false))
+                        .filter_map(|p| p["name"].as_str().map(str::to_string))
+                        .collect()
+                };
+                for n in &names {
+                    crate::agent_plugins::request_run(pool, &a.machine, n, &args, actor).await?;
+                }
+                if !names.is_empty() {
+                    sent.push(a.machine);
+                }
             }
         }
         if r.plugins.is_empty() {
@@ -118,4 +134,9 @@ pub async fn queue_run(
         tokio::spawn(fut);
     }
     Ok(id)
+}
+
+/// v0.22.0: agents from 0.22.0 on expand RunNow "*" to every installed plugin.
+pub fn supports_run_all(agent_version: &str) -> bool {
+    itcmdr_agentlink::version_cmp(agent_version, "0.22.0") != std::cmp::Ordering::Less
 }

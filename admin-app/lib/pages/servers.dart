@@ -266,6 +266,30 @@ class _ServerPageState extends State<ServerPage> {
                       _load();
                     },
             ),
+            // v0.22.0: restore drill. The site checks its newest backup on-site and reports
+            // only ok/failed; the archive never comes here.
+            IconButton(
+              key: const Key('drill'),
+              tooltip: 'Run the restore drill on the site',
+              icon: const Icon(Icons.fact_check),
+              onPressed: x.status == 'revoked'
+                  ? null
+                  : () async {
+                      await s.guard(
+                        context,
+                        Act.sendCommand,
+                        () => s.backend.sendCommand(
+                          x.id,
+                          'backup.drill',
+                          const [],
+                          false,
+                        ),
+                        done:
+                            'Restore drill requested (it runs on the site; see Commands for the result)',
+                      );
+                      _load();
+                    },
+            ),
             if (s.isAdmin && x.status != 'revoked')
               IconButton(
                 key: const Key('revoke-site'),

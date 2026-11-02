@@ -772,3 +772,89 @@ mod tests {
         assert_eq!(parse_name("itcmdr-junk.itcb"), None);
     }
 }
+
+/// v0.22.0 restore drill, on-site only. Copies the newest archive into a temp folder, checks the
+/// copy (signature chain, this server's master key, ciphertext hash, manifest, schema), deletes it
+/// and returns only metadata. With `words` it also decrypts and checks every file (the monthly
+/// hands-on drill; the words are never stored). Nothing from the archive leaves the site.
+#[derive(Serialize, Debug, Clone)]
+pub struct DrillReport {
+    pub archive: String,
+    pub created_ms: i64,
+    pub age_hours: i64,
+    pub size: u64,
+    pub files: usize,
+    /// "verified" (signature + hash) or "decrypted" (also every file, with the words).
+    pub depth: String,
+}
+
+pub async fn drill(pool: &DbPool, cfg: &ServerConfig, words: Option<&str>) -> Result<DrillReport> {
+    let res = drill_inner(pool, cfg, words).await;
+    let detail = match &res {
+        Ok(r) => {
+            serde_json::json!({"ok": true, "archive": r.archive, "depth": r.depth, "age_hours": r.age_hours})
+        }
+        Err(e) => serde_json::json!({"ok": false, "error": e.to_string()}),
+    };
+    let _ = crate::db::insert_audit(pool, "system", "backup.drill", &detail.to_string()).await;
+    let _ = sqlx::query("INSERT INTO server_meta(key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+        .bind("backup.drill.last")
+        .bind(detail.to_string())
+        .execute(pool)
+        .await;
+    res
+}
+
+async fn drill_inner(
+    pool: &DbPool,
+    cfg: &ServerConfig,
+    words: Option<&str>,
+) -> Result<DrillReport> {
+    let dir = crate::settings::backup_dir(pool, cfg).await?;
+    let newest = list(&dir)?
+        .into_iter()
+        .next()
+        .ok_or_else(|| anyhow!("no backups in the backup folder"))?;
+    let expected = auth::master_public(pool)
+        .await?
+        .ok_or_else(|| anyhow!("first-run setup is not done (no master key)"))?;
+    let tmp = std::env::temp_dir().join(format!("itcmdr-drill-{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&tmp)?;
+    let res = (|| -> Result<DrillReport> {
+        let copy = tmp.join(&newest.name);
+        std::fs::copy(&newest.path, &copy)?;
+        let h = verify(&copy, Some(&expected.ed25519))?;
+        ensure!(
+            h.manifest.schema_version <= db::SCHEMA_VERSION,
+            "archive schema {} is newer than this itcmdr",
+            h.manifest.schema_version
+        );
+        let mut depth = "verified";
+        if let Some(w) = words {
+            let master = Master::from_words(w)?;
+            open(&copy, &master)?;
+            depth = "decrypted";
+        }
+        Ok(DrillReport {
+            archive: newest.name.clone(),
+            created_ms: h.manifest.created_ms,
+            age_hours: (chrono::Utc::now().timestamp_millis() - h.manifest.created_ms) / 3_600_000,
+            size: newest.size,
+            files: h.manifest.files.len(),
+            depth: depth.into(),
+        })
+    })();
+    let _ = std::fs::remove_dir_all(&tmp);
+    res
+}
+
+/// The last drill result (`backup.drill.last`), for status screens and the site link.
+pub async fn last_drill(pool: &DbPool) -> Option<serde_json::Value> {
+    let v: Option<String> = sqlx::query_scalar("SELECT value FROM server_meta WHERE key = ?")
+        .bind("backup.drill.last")
+        .fetch_optional(pool)
+        .await
+        .ok()
+        .flatten();
+    v.and_then(|s| serde_json::from_str(&s).ok())
+}

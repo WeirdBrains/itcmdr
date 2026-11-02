@@ -16,6 +16,7 @@ pub const API_PORT: u16 = 8444;
 /// Command kinds adminsvr may send. Anything else is refused by the site (unknown = denied).
 pub const COMMANDS: &[&str] = &[
     "backup.start",
+    "backup.drill",
     "alert.ack",
     "alert.resolve",
     // v0.20.0

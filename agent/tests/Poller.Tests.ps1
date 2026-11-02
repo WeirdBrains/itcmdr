@@ -81,3 +81,12 @@ if (`$Categories -contains 'boom') { throw 'agent failed' }
     Invoke-ItcmdrPoll -RequestDirectory $req -Computer 'WS-01' -AgentPath $agent | Should -Be 0
   }
 }
+
+Describe 'Test-ItcmdrShareRetired' {
+  It 'is true only in the agent cutover state' {
+    Test-ItcmdrShareRetired -Cutover ([pscustomobject]@{ State = 'agent' }) | Should -BeTrue
+    Test-ItcmdrShareRetired -Cutover ([pscustomobject]@{ State = 'schedule' }) | Should -BeFalse
+    Test-ItcmdrShareRetired -Cutover ([pscustomobject]@{ State = 'task' }) | Should -BeFalse
+    Test-ItcmdrShareRetired -Cutover $null | Should -BeFalse
+  }
+}

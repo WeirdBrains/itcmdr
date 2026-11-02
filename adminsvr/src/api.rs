@@ -29,6 +29,7 @@ pub const SEND_KINDS: &[&str] = &[
     "plugin.disable",
     "plugin.install",
     "backup.start",
+    "backup.drill",
     "alert.ack",
     "alert.resolve",
     "release.rollout",

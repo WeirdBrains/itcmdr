@@ -11,7 +11,8 @@
 //! Commands from adminsvr carry the acting user's signature and the adminsvr root signature; the
 //! site checks both against the root key pinned at enrollment, refuses never-remote kinds
 //! (restore, keys, auth mode, ...) and anything off its local allowlist, and audits every one.
-//! Backups never leave the site: `backup.start` runs a local backup; there is no restore.
+//! Backups never leave the site: `backup.start` runs a local backup and `backup.drill` (v0.22.0)
+//! checks the newest archive on-site and reports only ok/failed; there is no remote restore.
 use crate::config::ServerConfig;
 use crate::db::DbPool;
 use anyhow::{anyhow, bail, Context, Result};
@@ -30,6 +31,7 @@ use tokio::sync::mpsc;
 /// v0.20.0 adds the schedule, setting and plugin kinds (ADMINSVR.md section 5 defaults).
 pub const DEFAULT_ALLOWED: &[&str] = &[
     "backup.start",
+    "backup.drill",
     "alert.ack",
     "alert.resolve",
     "setting.set",
@@ -84,6 +86,11 @@ pub fn load(cfg: &ServerConfig) -> Option<State> {
             .iter()
             .map(String::as_str)
             .eq(DEFAULT_ALLOWED_V019.iter().copied())
+            // v0.22.0: a site still on the v0.20/v0.21 default also gets backup.drill.
+            || s.allowed.iter().map(String::as_str).eq(DEFAULT_ALLOWED
+                .iter()
+                .copied()
+                .filter(|k| *k != "backup.drill"))
         {
             s.allowed = default_allowed();
         }
@@ -755,7 +762,7 @@ pub async fn apply(
         if c.dry_run
             && matches!(
                 c.kind.as_str(),
-                "backup.start" | "alert.ack" | "alert.resolve"
+                "backup.start" | "backup.drill" | "alert.ack" | "alert.resolve"
             )
         {
             preview.push(pb::ConfigChange {
@@ -776,6 +783,7 @@ pub async fn apply(
                 .await;
                 out.map(|_| ())
             }
+            "backup.drill" => crate::backup::drill(pool, cfg, None).await.map(|_| ()),
             "alert.ack" | "alert.resolve" => {
                 let want = c.args.get("alert_id").cloned().unwrap_or_default();
                 let all = crate::alerts::list(
