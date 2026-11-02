@@ -35,7 +35,8 @@ pub const SCHEMA: &str = r#"
         ring_ok_ms INTEGER NOT NULL,
         reason TEXT NOT NULL,
         actor TEXT NOT NULL,
-        updated_ms INTEGER NOT NULL
+        updated_ms INTEGER NOT NULL,
+        push INTEGER NOT NULL DEFAULT 0
     );
     CREATE TABLE IF NOT EXISTS agent_upgrades (
         machine TEXT PRIMARY KEY,
@@ -58,6 +59,10 @@ pub struct ReleaseToml {
     /// Oldest version this release upgrades from ("" = any).
     #[serde(default)]
     pub min_from: String,
+    /// Agent releases: the server must run at least this version before agents get the offer
+    /// (the server updates first). "" = no requirement (v0.21.0).
+    #[serde(default)]
+    pub min_server: String,
 }
 
 pub fn parse_release(b: &[u8]) -> Result<ReleaseToml> {
@@ -92,6 +97,8 @@ pub struct Rollout {
     pub reason: String,
     pub actor: String,
     pub updated_ms: i64,
+    /// Pushed: installs at once, outside the update window and with automatic updates off.
+    pub push: bool,
 }
 
 fn row(r: &sqlx::sqlite::SqliteRow) -> Rollout {
@@ -106,7 +113,28 @@ fn row(r: &sqlx::sqlite::SqliteRow) -> Rollout {
         reason: r.get("reason"),
         actor: r.get("actor"),
         updated_ms: r.get("updated_ms"),
+        push: r.get::<i64, _>("push") != 0,
     }
+}
+
+/// May upgrades start now? Pushed: always. Otherwise automatic updates must be on and the update
+/// window open. Returns the reason when not.
+pub async fn gate(pool: &DbPool, push: bool, at: chrono::DateTime<chrono::Utc>) -> Option<String> {
+    if push {
+        return None;
+    }
+    if !crate::update_window::auto_on(pool).await {
+        return Some("automatic updates are off for this site (push to install)".into());
+    }
+    if !crate::update_window::site_open(pool, at).await {
+        let w = crate::settings::get_str(pool, None, "updates.window").await;
+        return Some(format!("waiting for the update window ({w})"));
+    }
+    None
+}
+
+fn at_ms(ms: i64) -> chrono::DateTime<chrono::Utc> {
+    chrono::DateTime::from_timestamp_millis(ms).unwrap_or_else(chrono::Utc::now)
 }
 
 /// The newest rollout that is not finished (active or paused).
@@ -154,14 +182,24 @@ pub async fn release(
     layout: &Layout,
     version: &str,
 ) -> Result<(InstalledPlugin, ReleaseToml, String, String)> {
+    release_of(pool, layout, AGENT_RELEASE, version).await
+}
+
+/// [`release`] for either kind of release package (`AGENT_RELEASE` or `SERVER_RELEASE`).
+pub async fn release_of(
+    pool: &DbPool,
+    layout: &Layout,
+    name: &str,
+    version: &str,
+) -> Result<(InstalledPlugin, ReleaseToml, String, String)> {
     let p = packages::list(pool, layout)
         .await?
         .into_iter()
-        .find(|p| p.name == AGENT_RELEASE && p.version == version)
-        .with_context(|| format!("{AGENT_RELEASE} {version} is not installed"))?;
+        .find(|p| p.name == name && p.version == version)
+        .with_context(|| format!("{name} {version} is not installed"))?;
     let rel = parse_release(
         &std::fs::read(p.dir.join(RELEASE_TOML))
-            .with_context(|| format!("{AGENT_RELEASE} {version} has no {RELEASE_TOML}"))?,
+            .with_context(|| format!("{name} {version} has no {RELEASE_TOML}"))?,
     )?;
     ensure!(
         rel.version == p.version,
@@ -176,19 +214,25 @@ pub async fn release(
     let fp = ps.signer;
     let Some((pk, role)) = signer_role(pool, &fp).await? else {
         bail!(
-            "{AGENT_RELEASE} {version}: signer {} is unknown or revoked",
+            "{name} {version}: signer {} is unknown or revoked",
             p.signer
         );
     };
     ensure!(
         role == "owner",
-        "{AGENT_RELEASE} {version} is signed by a {role} key; agent releases need an owner signature"
+        "{name} {version} is signed by a {role} key; releases need an owner signature"
     );
     Ok((p, rel, pk, fp))
 }
 
 /// Start a rollout at ring 0. Refused while another is active or paused.
-pub async fn start(pool: &DbPool, layout: &Layout, version: &str, actor: &str) -> Result<Rollout> {
+pub async fn start(
+    pool: &DbPool,
+    layout: &Layout,
+    version: &str,
+    actor: &str,
+    push: bool,
+) -> Result<Rollout> {
     release(pool, layout, version).await?;
     if let Some(c) = current(pool).await? {
         bail!(
@@ -200,20 +244,21 @@ pub async fn start(pool: &DbPool, layout: &Layout, version: &str, actor: &str) -
     }
     let t = now();
     let id = uuid::Uuid::new_v4().to_string();
-    sqlx::query("INSERT INTO agent_rollouts(id, version, ring, state, started_ms, ring_started_ms, ring_ok_ms, reason, actor, updated_ms) VALUES (?,?,0,'active',?,?,0,'',?,?)")
+    sqlx::query("INSERT INTO agent_rollouts(id, version, ring, state, started_ms, ring_started_ms, ring_ok_ms, reason, actor, updated_ms, push) VALUES (?,?,0,'active',?,?,0,'',?,?,?)")
         .bind(&id)
         .bind(version)
         .bind(t)
         .bind(t)
         .bind(actor)
         .bind(t)
+        .bind(push as i64)
         .execute(pool)
         .await?;
     crate::db::insert_audit(
         pool,
         actor,
         "agent-upgrade-start",
-        &serde_json::json!({"version": version, "id": id}).to_string(),
+        &serde_json::json!({"version": version, "id": id, "push": push}).to_string(),
     )
     .await?;
     tracing::info!(%version, "agent rollout started at ring 0");
@@ -305,6 +350,13 @@ async fn enabled_for(pool: &DbPool, machine: &str) -> bool {
         .unwrap_or(true)
 }
 
+/// The server runs at least the release's `min_server`.
+pub fn server_ok(rel: &ReleaseToml) -> bool {
+    rel.min_server.is_empty()
+        || itcmdr_agentlink::version_cmp(env!("CARGO_PKG_VERSION"), &rel.min_server)
+            != Ordering::Less
+}
+
 /// The offer for this machine, if the active rollout covers it and it runs an older version
 /// (and did not already fail this version).
 pub async fn offer_for(
@@ -333,7 +385,13 @@ pub async fn offer_for(
     if failed == Some(0) {
         return Ok(None);
     }
+    if gate(pool, c.push, chrono::Utc::now()).await.is_some() {
+        return Ok(None);
+    }
     let (p, rel, pk, fp) = release(pool, layout, &c.version).await?;
+    if !server_ok(&rel) {
+        return Ok(None);
+    }
     if !rel.min_from.is_empty()
         && itcmdr_agentlink::version_cmp(running, &rel.min_from) == Ordering::Less
     {
@@ -500,7 +558,20 @@ pub async fn tick(pool: &DbPool, now_ms: i64) -> Result<Option<Rollout>> {
     } else {
         r.ring_ok_ms
     };
-    if empty || now_ms - ok_since >= soak {
+    let advance = empty || now_ms - ok_since >= soak;
+    if advance && r.ring < TOP_RING && gate(pool, r.push, at_ms(now_ms)).await.is_some() {
+        // Soaked, but the next ring only starts inside the update window (unless pushed).
+        if r.ring_ok_ms == 0 {
+            sqlx::query("UPDATE agent_rollouts SET ring_ok_ms = ?, updated_ms = ? WHERE id = ?")
+                .bind(ok_since)
+                .bind(now_ms)
+                .bind(&r.id)
+                .execute(pool)
+                .await?;
+        }
+        return current(pool).await;
+    }
+    if advance {
         if r.ring >= TOP_RING {
             sqlx::query("UPDATE agent_rollouts SET state = 'done', ring_ok_ms = ?, updated_ms = ? WHERE id = ?")
                 .bind(ok_since)

@@ -209,7 +209,7 @@ async fn owner_release_is_offered_staged_and_a_rollback_pauses_the_rollout() {
     let e = env().await;
     // An admin-signed release installs (it is a valid package) but cannot be rolled out.
     install_release(&e, "98.0.0", &e.admin).await.unwrap();
-    let err = srv::upgrades::start(&e.pool, &e.c.layout(), "98.0.0", "t")
+    let err = srv::upgrades::start(&e.pool, &e.c.layout(), "98.0.0", "t", true)
         .await
         .unwrap_err();
     assert!(format!("{err:#}").contains("owner signature"), "{err:#}");
@@ -238,12 +238,12 @@ async fn owner_release_is_offered_staged_and_a_rollback_pauses_the_rollout() {
         .await
         .unwrap();
 
-    let r = srv::upgrades::start(&e.pool, &e.c.layout(), "99.0.0", "t")
+    let r = srv::upgrades::start(&e.pool, &e.c.layout(), "99.0.0", "t", true)
         .await
         .unwrap();
     assert_eq!((r.ring, r.state.as_str()), (0, "active"));
     assert!(
-        srv::upgrades::start(&e.pool, &e.c.layout(), "99.0.0", "t")
+        srv::upgrades::start(&e.pool, &e.c.layout(), "99.0.0", "t", true)
             .await
             .is_err(),
         "one rollout at a time"
@@ -395,7 +395,7 @@ async fn rings_soak_advance_and_pause_on_critical() {
     srv::settings::set(&e.pool, "agent.upgradeSoakMins", "60", None)
         .await
         .unwrap();
-    srv::upgrades::start(&e.pool, &e.c.layout(), "99.0.0", "t")
+    srv::upgrades::start(&e.pool, &e.c.layout(), "99.0.0", "t", true)
         .await
         .unwrap();
     let offered = |m: &'static str| {

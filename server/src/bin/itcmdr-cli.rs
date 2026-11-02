@@ -559,7 +559,12 @@ enum UpgradeCmd {
     /// The current rollout (version, ring, state, what holds the ring) and the last few.
     Status,
     /// Roll an installed, owner-signed itcmdr-agent-release out, starting at ring 0.
-    Start { version: String },
+    Start {
+        version: String,
+        /// Push: install now, outside the update window (and with automatic updates off).
+        #[arg(long)]
+        now: bool,
+    },
     /// Pause the rollout (no new offers).
     Pause {
         #[arg(long, default_value = "paused by an administrator")]
@@ -2148,8 +2153,9 @@ fn run(rt: &tokio::runtime::Runtime) -> Result<()> {
                 let pool = srv::db::init_db(&cfg).await?;
                 let r = match uc {
                     UpgradeCmd::Status => srv::upgrades::current(&pool).await?,
-                    UpgradeCmd::Start { version } => Some(
-                        srv::upgrades::start(&pool, &cfg.layout(), version, "itcmdr-cli").await?,
+                    UpgradeCmd::Start { version, now } => Some(
+                        srv::upgrades::start(&pool, &cfg.layout(), version, "itcmdr-cli", *now)
+                            .await?,
                     ),
                     UpgradeCmd::Pause { reason } => {
                         Some(srv::upgrades::pause(&pool, "itcmdr-cli", reason).await?)
