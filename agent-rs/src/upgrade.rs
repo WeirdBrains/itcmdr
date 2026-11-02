@@ -206,6 +206,10 @@ pub fn apply(
         !wd::request_path(dir).exists(),
         "an upgrade is already waiting for the watchdog"
     );
+    ensure!(
+        !wd::busy_path(dir).exists(),
+        "the watchdog is carrying out an upgrade"
+    );
     let stage = program.join(wd::STAGED).join(&o.version);
     let _ = std::fs::remove_dir_all(&stage);
     // The release replaces the whole of current\ except what it does not ship: keep the
