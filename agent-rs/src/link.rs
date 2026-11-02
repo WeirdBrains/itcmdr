@@ -395,14 +395,23 @@ pub async fn session(dir: &Path, st: &State, mut connected: impl FnMut(&pb::Welc
                     tracing::info!(plugin=%rn.plugin, request=%rn.request_id, "run requested");
                     tokio::spawn(async move {
                         let args = rn.args.into_iter().collect();
-                        run_and_queue(
-                            &d,
-                            &machine,
-                            &rn.plugin,
-                            &args,
-                            &format!("run-now:{}", rn.request_id),
-                        )
-                        .await;
+                        // v0.22.0: "*" = every plugin this agent holds (on-demand runs from the
+                        // app/CLI once the share is retired).
+                        let names = if rn.plugin == "*" {
+                            crate::plugins::installed_names(&d)
+                        } else {
+                            vec![rn.plugin.clone()]
+                        };
+                        for n in names {
+                            run_and_queue(
+                                &d,
+                                &machine,
+                                &n,
+                                &args,
+                                &format!("run-now:{}", rn.request_id),
+                            )
+                            .await;
+                        }
                     });
                 }
                 Some(pb::server_message::Body::Renewed(r)) => {

@@ -169,7 +169,14 @@ if (-not $env:ITCMDR_IMPORT_ONLY) {
     $ss = Get-ItcmdrScheduleState -Site $hsite
     if ($ss.Doc -and $ss.Doc.PSObject.Properties['nightly'] -and $ss.Doc.nightly) { $nightlyId = [string]$ss.Doc.nightly.id }
   } catch { Write-Verbose "cutover state unavailable: $_" }
-  Invoke-ItcmdrPoll -RequestDirectory $dirs -Computer $env:COMPUTERNAME -AgentPath $agentPath -StaleLockMinutes $stale -PassTrigger -NightlyScheduleId $nightlyId | Out-Null
+  # v0.22.0: after the switch to the Rust agent the share flows are retired: on-demand runs arrive
+  # over the agent link (RunNow), so requests\ on the share are no longer read here. The cutover
+  # sync below still keeps the nightly task disabled; `cutover rollback` brings polling back.
+  $localCut = $null
+  try { if ($hsite) { $localCut = Get-ItcmdrCutoverState -Site $hsite } } catch { $localCut = $null }
+  if (-not ($localCut -and $localCut.State -eq 'agent')) {
+    Invoke-ItcmdrPoll -RequestDirectory $dirs -Computer $env:COMPUTERNAME -AgentPath $agentPath -StaleLockMinutes $stale -PassTrigger -NightlyScheduleId $nightlyId | Out-Null
+  }
   if ($hsite) {
     try {
       $cut = Sync-ItcmdrCutover -Site $hsite -ScheduleState $ss

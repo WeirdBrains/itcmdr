@@ -40,7 +40,41 @@ pub async fn queue_run(
         "scheduleId": r.schedule_id,
     });
     crate::db::insert_request(pool, &id, &options.to_string()).await?;
-    if agent_part {
+    // v0.22.0: with the share retired (agent state), agent checks go to the Rust agents as RunNow
+    // ("*" = every plugin the agent holds), never to requests/ on the share.
+    if agent_part && crate::cutover::share_retired(pool).await {
+        let mut args = std::collections::BTreeMap::new();
+        args.insert("requestId".to_string(), id.clone());
+        args.insert("reportOnly".to_string(), r.report_only.to_string());
+        args.insert("repair".to_string(), r.repair.to_string());
+        args.insert("force".to_string(), r.force.to_string());
+        if !r.categories.is_empty() {
+            args.insert("categories".to_string(), r.categories.join(","));
+        }
+        let mut sent = vec![];
+        for a in crate::agents::list(pool, false).await? {
+            if r.machines.is_empty()
+                || r.machines
+                    .iter()
+                    .any(|m| m.eq_ignore_ascii_case(&a.machine))
+            {
+                crate::agent_plugins::request_run(pool, &a.machine, "*", &args, actor).await?;
+                sent.push(a.machine);
+            }
+        }
+        if r.plugins.is_empty() {
+            let msg = if sent.is_empty() {
+                "no enrolled agent matched".to_string()
+            } else {
+                format!(
+                    "sent to {} agent(s) over the link; results arrive as agent runs",
+                    sent.len()
+                )
+            };
+            let st = if sent.is_empty() { "failed" } else { "done" };
+            crate::db::set_request_status(pool, &id, st, &msg).await?;
+        }
+    } else if agent_part {
         let dir = cfg.requests_dir();
         std::fs::create_dir_all(&dir)?;
         std::fs::write(dir.join(format!("{id}.json")), options.to_string())?;
