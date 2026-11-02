@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-## v0.20.1 (2026-11-01)
+## v0.20.1 (2026-11-02)
 The Rust agent takes over: agent config over the link and a gated `cutover switch --to agent`.
 - Agent config over the link (`ConfigUpdate`): the cutover state and the machine's agent settings, endorsed by the server root key. The agent stores it in `config.json` only when the endorsement checks and re-checks it on every load; a tampered or broken file is deleted, the agent stays report-only, raises `config-rejected` and the server resends the config. The server records each agent's acknowledged version (`agent_config`).
 - `itcmdr-cli cutover switch --to agent`: refused until the existing gate passes and every machine active in the last two days has a non-revoked Rust agent seen in the last 10 minutes that acknowledged the current config and has Rust-agent parity results with no mismatch. After it, the Rust agent runs plugins for real (not report-only) and the PowerShell agent is retired for scheduled runs, with no fallback (on-demand runs still work until v0.22.0).
