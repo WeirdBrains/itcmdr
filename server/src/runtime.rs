@@ -58,6 +58,10 @@ pub async fn find_enabled(
         Some((n, v)) => (n, Some(v)),
         None => (spec, None),
     };
+    // v0.21.0: releases are installed like plugins but are never run as one.
+    if crate::upgrades::is_release(name) {
+        return Err(anyhow!("{name} is a release package, not a runnable plugin"));
+    }
     let all = packages::list(pool, &cfg.layout()).await?;
     let p = all
         .into_iter()
