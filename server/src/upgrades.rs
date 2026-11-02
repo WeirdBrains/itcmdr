@@ -531,3 +531,80 @@ pub async fn tick(pool: &DbPool, now_ms: i64) -> Result<Option<Rollout>> {
         None => history(pool, 1).await?.into_iter().next(),
     })
 }
+
+/// An installed agent release and whether it can be rolled out.
+#[derive(Debug, Clone, Serialize)]
+pub struct ReleaseInfo {
+    pub version: String,
+    pub min_from: String,
+    pub enabled: bool,
+    pub signer: String,
+    pub owner_signed: bool,
+    pub problem: String,
+}
+
+pub async fn releases(pool: &DbPool, layout: &Layout) -> Result<Vec<ReleaseInfo>> {
+    let mut out = vec![];
+    for p in packages::list(pool, layout).await? {
+        if p.name != AGENT_RELEASE {
+            continue;
+        }
+        let (min_from, owner_signed, problem) = match release(pool, layout, &p.version).await {
+            Ok((_, r, _, _)) => (r.min_from, true, String::new()),
+            Err(e) => {
+                let e = format!("{e:#}");
+                (String::new(), !e.contains("owner signature"), e)
+            }
+        };
+        out.push(ReleaseInfo {
+            version: p.version,
+            min_from,
+            enabled: p.enabled,
+            signer: p.signer,
+            owner_signed,
+            problem,
+        });
+    }
+    out.sort_by(|a, b| itcmdr_agentlink::version_cmp(&b.version, &a.version));
+    Ok(out)
+}
+
+/// Every agent's ring, version and last upgrade result.
+#[derive(Debug, Clone, Serialize)]
+pub struct MachineInfo {
+    pub machine: String,
+    pub ring: i64,
+    pub version: String,
+    pub state: String,
+    pub upgrades: bool,
+    pub last_version: String,
+    pub last_ok: bool,
+    pub last_error: String,
+    pub last_ms: i64,
+}
+
+pub async fn machines(pool: &DbPool) -> Result<Vec<MachineInfo>> {
+    let mut out = vec![];
+    for a in crate::agents::list(pool, false).await? {
+        let last: Option<(String, i64, String, i64)> = sqlx::query_as(
+            "SELECT version, ok, error, ts_ms FROM agent_upgrades WHERE machine = ? COLLATE NOCASE",
+        )
+        .bind(&a.machine)
+        .fetch_optional(pool)
+        .await?;
+        let (lv, lok, le, lms) = last.unwrap_or_default();
+        out.push(MachineInfo {
+            ring: ring_of(pool, &a.machine).await,
+            upgrades: enabled_for(pool, &a.machine).await,
+            machine: a.machine,
+            version: a.version,
+            state: a.state,
+            last_version: lv,
+            last_ok: lok == 1,
+            last_error: le,
+            last_ms: lms,
+        });
+    }
+    out.sort_by(|a, b| (a.ring, &a.machine).cmp(&(b.ring, &b.machine)));
+    Ok(out)
+}

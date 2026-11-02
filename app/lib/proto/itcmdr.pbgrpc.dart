@@ -402,6 +402,42 @@ class ItcmdrClient extends $grpc.Client {
     return $createUnaryCall(_$listQuarantine, request, options: options);
   }
 
+  /// v0.21.0: agent self-upgrade (Updates screen). Rings per machine: UpdateSetting agent.ring.
+  $grpc.ResponseFuture<$0.AgentUpgrades> getAgentUpgrades(
+    $0.GetAgentUpgradesRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$getAgentUpgrades, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.AgentUpgrades> startAgentUpgrade(
+    $0.StartAgentUpgradeRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$startAgentUpgrade, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.AgentUpgrades> pauseAgentUpgrade(
+    $0.PauseAgentUpgradeRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$pauseAgentUpgrade, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.AgentUpgrades> resumeAgentUpgrade(
+    $0.ResumeAgentUpgradeRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$resumeAgentUpgrade, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.AgentUpgrades> abortAgentUpgrade(
+    $0.AbortAgentUpgradeRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$abortAgentUpgrade, request, options: options);
+  }
+
   // method descriptors
 
   static final _$listMachines =
@@ -662,6 +698,31 @@ class ItcmdrClient extends $grpc.Client {
           '/itcmdr.Itcmdr/ListQuarantine',
           ($0.ListQuarantineRequest value) => value.writeToBuffer(),
           $0.ListQuarantineResponse.fromBuffer);
+  static final _$getAgentUpgrades =
+      $grpc.ClientMethod<$0.GetAgentUpgradesRequest, $0.AgentUpgrades>(
+          '/itcmdr.Itcmdr/GetAgentUpgrades',
+          ($0.GetAgentUpgradesRequest value) => value.writeToBuffer(),
+          $0.AgentUpgrades.fromBuffer);
+  static final _$startAgentUpgrade =
+      $grpc.ClientMethod<$0.StartAgentUpgradeRequest, $0.AgentUpgrades>(
+          '/itcmdr.Itcmdr/StartAgentUpgrade',
+          ($0.StartAgentUpgradeRequest value) => value.writeToBuffer(),
+          $0.AgentUpgrades.fromBuffer);
+  static final _$pauseAgentUpgrade =
+      $grpc.ClientMethod<$0.PauseAgentUpgradeRequest, $0.AgentUpgrades>(
+          '/itcmdr.Itcmdr/PauseAgentUpgrade',
+          ($0.PauseAgentUpgradeRequest value) => value.writeToBuffer(),
+          $0.AgentUpgrades.fromBuffer);
+  static final _$resumeAgentUpgrade =
+      $grpc.ClientMethod<$0.ResumeAgentUpgradeRequest, $0.AgentUpgrades>(
+          '/itcmdr.Itcmdr/ResumeAgentUpgrade',
+          ($0.ResumeAgentUpgradeRequest value) => value.writeToBuffer(),
+          $0.AgentUpgrades.fromBuffer);
+  static final _$abortAgentUpgrade =
+      $grpc.ClientMethod<$0.AbortAgentUpgradeRequest, $0.AgentUpgrades>(
+          '/itcmdr.Itcmdr/AbortAgentUpgrade',
+          ($0.AbortAgentUpgradeRequest value) => value.writeToBuffer(),
+          $0.AgentUpgrades.fromBuffer);
 }
 
 @$pb.GrpcServiceName('itcmdr.Itcmdr')
@@ -1090,6 +1151,51 @@ abstract class ItcmdrServiceBase extends $grpc.Service {
         ($core.List<$core.int> value) =>
             $0.ListQuarantineRequest.fromBuffer(value),
         ($0.ListQuarantineResponse value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.GetAgentUpgradesRequest, $0.AgentUpgrades>(
+            'GetAgentUpgrades',
+            getAgentUpgrades_Pre,
+            false,
+            false,
+            ($core.List<$core.int> value) =>
+                $0.GetAgentUpgradesRequest.fromBuffer(value),
+            ($0.AgentUpgrades value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.StartAgentUpgradeRequest, $0.AgentUpgrades>(
+            'StartAgentUpgrade',
+            startAgentUpgrade_Pre,
+            false,
+            false,
+            ($core.List<$core.int> value) =>
+                $0.StartAgentUpgradeRequest.fromBuffer(value),
+            ($0.AgentUpgrades value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.PauseAgentUpgradeRequest, $0.AgentUpgrades>(
+            'PauseAgentUpgrade',
+            pauseAgentUpgrade_Pre,
+            false,
+            false,
+            ($core.List<$core.int> value) =>
+                $0.PauseAgentUpgradeRequest.fromBuffer(value),
+            ($0.AgentUpgrades value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.ResumeAgentUpgradeRequest, $0.AgentUpgrades>(
+            'ResumeAgentUpgrade',
+            resumeAgentUpgrade_Pre,
+            false,
+            false,
+            ($core.List<$core.int> value) =>
+                $0.ResumeAgentUpgradeRequest.fromBuffer(value),
+            ($0.AgentUpgrades value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.AbortAgentUpgradeRequest, $0.AgentUpgrades>(
+            'AbortAgentUpgrade',
+            abortAgentUpgrade_Pre,
+            false,
+            false,
+            ($core.List<$core.int> value) =>
+                $0.AbortAgentUpgradeRequest.fromBuffer(value),
+            ($0.AgentUpgrades value) => value.writeToBuffer()));
   }
 
   $async.Future<$0.ListMachinesResponse> listMachines_Pre(
@@ -1527,4 +1633,45 @@ abstract class ItcmdrServiceBase extends $grpc.Service {
 
   $async.Future<$0.ListQuarantineResponse> listQuarantine(
       $grpc.ServiceCall call, $0.ListQuarantineRequest request);
+
+  $async.Future<$0.AgentUpgrades> getAgentUpgrades_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.GetAgentUpgradesRequest> $request) async {
+    return getAgentUpgrades($call, await $request);
+  }
+
+  $async.Future<$0.AgentUpgrades> getAgentUpgrades(
+      $grpc.ServiceCall call, $0.GetAgentUpgradesRequest request);
+
+  $async.Future<$0.AgentUpgrades> startAgentUpgrade_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.StartAgentUpgradeRequest> $request) async {
+    return startAgentUpgrade($call, await $request);
+  }
+
+  $async.Future<$0.AgentUpgrades> startAgentUpgrade(
+      $grpc.ServiceCall call, $0.StartAgentUpgradeRequest request);
+
+  $async.Future<$0.AgentUpgrades> pauseAgentUpgrade_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.PauseAgentUpgradeRequest> $request) async {
+    return pauseAgentUpgrade($call, await $request);
+  }
+
+  $async.Future<$0.AgentUpgrades> pauseAgentUpgrade(
+      $grpc.ServiceCall call, $0.PauseAgentUpgradeRequest request);
+
+  $async.Future<$0.AgentUpgrades> resumeAgentUpgrade_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.ResumeAgentUpgradeRequest> $request) async {
+    return resumeAgentUpgrade($call, await $request);
+  }
+
+  $async.Future<$0.AgentUpgrades> resumeAgentUpgrade(
+      $grpc.ServiceCall call, $0.ResumeAgentUpgradeRequest request);
+
+  $async.Future<$0.AgentUpgrades> abortAgentUpgrade_Pre($grpc.ServiceCall $call,
+      $async.Future<$0.AbortAgentUpgradeRequest> $request) async {
+    return abortAgentUpgrade($call, await $request);
+  }
+
+  $async.Future<$0.AgentUpgrades> abortAgentUpgrade(
+      $grpc.ServiceCall call, $0.AbortAgentUpgradeRequest request);
 }

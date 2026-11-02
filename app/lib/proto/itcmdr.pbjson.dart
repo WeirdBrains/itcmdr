@@ -1883,6 +1883,177 @@ final $typed_data.Uint8List getRestoreStatusResponseDescriptor =
         'ChhHZXRSZXN0b3JlU3RhdHVzUmVzcG9uc2USLQoGc3RhdHVzGAEgASgLMhUuaXRjbWRyLlJlc3'
         'RvcmVTdGF0dXNSBnN0YXR1cw==');
 
+@$core.Deprecated('Use agentRolloutDescriptor instead')
+const AgentRollout$json = {
+  '1': 'AgentRollout',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
+    {'1': 'version', '3': 2, '4': 1, '5': 9, '10': 'version'},
+    {'1': 'ring', '3': 3, '4': 1, '5': 3, '10': 'ring'},
+    {'1': 'state', '3': 4, '4': 1, '5': 9, '10': 'state'},
+    {'1': 'started_ms', '3': 5, '4': 1, '5': 3, '10': 'startedMs'},
+    {'1': 'ring_started_ms', '3': 6, '4': 1, '5': 3, '10': 'ringStartedMs'},
+    {'1': 'ring_ok_ms', '3': 7, '4': 1, '5': 3, '10': 'ringOkMs'},
+    {'1': 'reason', '3': 8, '4': 1, '5': 9, '10': 'reason'},
+    {'1': 'actor', '3': 9, '4': 1, '5': 9, '10': 'actor'},
+    {'1': 'updated_ms', '3': 10, '4': 1, '5': 3, '10': 'updatedMs'},
+  ],
+};
+
+/// Descriptor for `AgentRollout`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List agentRolloutDescriptor = $convert.base64Decode(
+    'CgxBZ2VudFJvbGxvdXQSDgoCaWQYASABKAlSAmlkEhgKB3ZlcnNpb24YAiABKAlSB3ZlcnNpb2'
+    '4SEgoEcmluZxgDIAEoA1IEcmluZxIUCgVzdGF0ZRgEIAEoCVIFc3RhdGUSHQoKc3RhcnRlZF9t'
+    'cxgFIAEoA1IJc3RhcnRlZE1zEiYKD3Jpbmdfc3RhcnRlZF9tcxgGIAEoA1INcmluZ1N0YXJ0ZW'
+    'RNcxIcCgpyaW5nX29rX21zGAcgASgDUghyaW5nT2tNcxIWCgZyZWFzb24YCCABKAlSBnJlYXNv'
+    'bhIUCgVhY3RvchgJIAEoCVIFYWN0b3ISHQoKdXBkYXRlZF9tcxgKIAEoA1IJdXBkYXRlZE1z');
+
+@$core.Deprecated('Use agentReleaseDescriptor instead')
+const AgentRelease$json = {
+  '1': 'AgentRelease',
+  '2': [
+    {'1': 'version', '3': 1, '4': 1, '5': 9, '10': 'version'},
+    {'1': 'min_from', '3': 2, '4': 1, '5': 9, '10': 'minFrom'},
+    {'1': 'enabled', '3': 3, '4': 1, '5': 8, '10': 'enabled'},
+    {'1': 'signer', '3': 4, '4': 1, '5': 9, '10': 'signer'},
+    {'1': 'owner_signed', '3': 5, '4': 1, '5': 8, '10': 'ownerSigned'},
+    {'1': 'problem', '3': 6, '4': 1, '5': 9, '10': 'problem'},
+  ],
+};
+
+/// Descriptor for `AgentRelease`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List agentReleaseDescriptor = $convert.base64Decode(
+    'CgxBZ2VudFJlbGVhc2USGAoHdmVyc2lvbhgBIAEoCVIHdmVyc2lvbhIZCghtaW5fZnJvbRgCIA'
+    'EoCVIHbWluRnJvbRIYCgdlbmFibGVkGAMgASgIUgdlbmFibGVkEhYKBnNpZ25lchgEIAEoCVIG'
+    'c2lnbmVyEiEKDG93bmVyX3NpZ25lZBgFIAEoCFILb3duZXJTaWduZWQSGAoHcHJvYmxlbRgGIA'
+    'EoCVIHcHJvYmxlbQ==');
+
+@$core.Deprecated('Use machineUpgradeDescriptor instead')
+const MachineUpgrade$json = {
+  '1': 'MachineUpgrade',
+  '2': [
+    {'1': 'machine', '3': 1, '4': 1, '5': 9, '10': 'machine'},
+    {'1': 'ring', '3': 2, '4': 1, '5': 3, '10': 'ring'},
+    {'1': 'version', '3': 3, '4': 1, '5': 9, '10': 'version'},
+    {'1': 'state', '3': 4, '4': 1, '5': 9, '10': 'state'},
+    {'1': 'upgrades', '3': 5, '4': 1, '5': 8, '10': 'upgrades'},
+    {'1': 'last_version', '3': 6, '4': 1, '5': 9, '10': 'lastVersion'},
+    {'1': 'last_ok', '3': 7, '4': 1, '5': 8, '10': 'lastOk'},
+    {'1': 'last_error', '3': 8, '4': 1, '5': 9, '10': 'lastError'},
+    {'1': 'last_ms', '3': 9, '4': 1, '5': 3, '10': 'lastMs'},
+  ],
+};
+
+/// Descriptor for `MachineUpgrade`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List machineUpgradeDescriptor = $convert.base64Decode(
+    'Cg5NYWNoaW5lVXBncmFkZRIYCgdtYWNoaW5lGAEgASgJUgdtYWNoaW5lEhIKBHJpbmcYAiABKA'
+    'NSBHJpbmcSGAoHdmVyc2lvbhgDIAEoCVIHdmVyc2lvbhIUCgVzdGF0ZRgEIAEoCVIFc3RhdGUS'
+    'GgoIdXBncmFkZXMYBSABKAhSCHVwZ3JhZGVzEiEKDGxhc3RfdmVyc2lvbhgGIAEoCVILbGFzdF'
+    'ZlcnNpb24SFwoHbGFzdF9vaxgHIAEoCFIGbGFzdE9rEh0KCmxhc3RfZXJyb3IYCCABKAlSCWxh'
+    'c3RFcnJvchIXCgdsYXN0X21zGAkgASgDUgZsYXN0TXM=');
+
+@$core.Deprecated('Use getAgentUpgradesRequestDescriptor instead')
+const GetAgentUpgradesRequest$json = {
+  '1': 'GetAgentUpgradesRequest',
+};
+
+/// Descriptor for `GetAgentUpgradesRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List getAgentUpgradesRequestDescriptor =
+    $convert.base64Decode('ChdHZXRBZ2VudFVwZ3JhZGVzUmVxdWVzdA==');
+
+@$core.Deprecated('Use agentUpgradesDescriptor instead')
+const AgentUpgrades$json = {
+  '1': 'AgentUpgrades',
+  '2': [
+    {
+      '1': 'current',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.itcmdr.AgentRollout',
+      '10': 'current'
+    },
+    {'1': 'ring_holds', '3': 2, '4': 3, '5': 9, '10': 'ringHolds'},
+    {
+      '1': 'history',
+      '3': 3,
+      '4': 3,
+      '5': 11,
+      '6': '.itcmdr.AgentRollout',
+      '10': 'history'
+    },
+    {
+      '1': 'releases',
+      '3': 4,
+      '4': 3,
+      '5': 11,
+      '6': '.itcmdr.AgentRelease',
+      '10': 'releases'
+    },
+    {
+      '1': 'machines',
+      '3': 5,
+      '4': 3,
+      '5': 11,
+      '6': '.itcmdr.MachineUpgrade',
+      '10': 'machines'
+    },
+    {'1': 'soak_mins', '3': 6, '4': 1, '5': 3, '10': 'soakMins'},
+  ],
+};
+
+/// Descriptor for `AgentUpgrades`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List agentUpgradesDescriptor = $convert.base64Decode(
+    'Cg1BZ2VudFVwZ3JhZGVzEi4KB2N1cnJlbnQYASABKAsyFC5pdGNtZHIuQWdlbnRSb2xsb3V0Ug'
+    'djdXJyZW50Eh0KCnJpbmdfaG9sZHMYAiADKAlSCXJpbmdIb2xkcxIuCgdoaXN0b3J5GAMgAygL'
+    'MhQuaXRjbWRyLkFnZW50Um9sbG91dFIHaGlzdG9yeRIwCghyZWxlYXNlcxgEIAMoCzIULml0Y2'
+    '1kci5BZ2VudFJlbGVhc2VSCHJlbGVhc2VzEjIKCG1hY2hpbmVzGAUgAygLMhYuaXRjbWRyLk1h'
+    'Y2hpbmVVcGdyYWRlUghtYWNoaW5lcxIbCglzb2FrX21pbnMYBiABKANSCHNvYWtNaW5z');
+
+@$core.Deprecated('Use startAgentUpgradeRequestDescriptor instead')
+const StartAgentUpgradeRequest$json = {
+  '1': 'StartAgentUpgradeRequest',
+  '2': [
+    {'1': 'version', '3': 1, '4': 1, '5': 9, '10': 'version'},
+  ],
+};
+
+/// Descriptor for `StartAgentUpgradeRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List startAgentUpgradeRequestDescriptor =
+    $convert.base64Decode(
+        'ChhTdGFydEFnZW50VXBncmFkZVJlcXVlc3QSGAoHdmVyc2lvbhgBIAEoCVIHdmVyc2lvbg==');
+
+@$core.Deprecated('Use pauseAgentUpgradeRequestDescriptor instead')
+const PauseAgentUpgradeRequest$json = {
+  '1': 'PauseAgentUpgradeRequest',
+  '2': [
+    {'1': 'reason', '3': 1, '4': 1, '5': 9, '10': 'reason'},
+  ],
+};
+
+/// Descriptor for `PauseAgentUpgradeRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List pauseAgentUpgradeRequestDescriptor =
+    $convert.base64Decode(
+        'ChhQYXVzZUFnZW50VXBncmFkZVJlcXVlc3QSFgoGcmVhc29uGAEgASgJUgZyZWFzb24=');
+
+@$core.Deprecated('Use resumeAgentUpgradeRequestDescriptor instead')
+const ResumeAgentUpgradeRequest$json = {
+  '1': 'ResumeAgentUpgradeRequest',
+};
+
+/// Descriptor for `ResumeAgentUpgradeRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List resumeAgentUpgradeRequestDescriptor =
+    $convert.base64Decode('ChlSZXN1bWVBZ2VudFVwZ3JhZGVSZXF1ZXN0');
+
+@$core.Deprecated('Use abortAgentUpgradeRequestDescriptor instead')
+const AbortAgentUpgradeRequest$json = {
+  '1': 'AbortAgentUpgradeRequest',
+};
+
+/// Descriptor for `AbortAgentUpgradeRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List abortAgentUpgradeRequestDescriptor =
+    $convert.base64Decode('ChhBYm9ydEFnZW50VXBncmFkZVJlcXVlc3Q=');
+
 @$core.Deprecated('Use agentInfoDescriptor instead')
 const AgentInfo$json = {
   '1': 'AgentInfo',
