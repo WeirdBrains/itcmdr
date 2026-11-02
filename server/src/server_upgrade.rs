@@ -267,7 +267,10 @@ pub async fn tick(
             wd::result_path(&data),
             wd::upgrade_dir(&data).join("result.reported.json"),
         );
-        let row: Option<ServerUpgrade> = sqlx::query("SELECT * FROM server_upgrades WHERE version = ? AND state = 'staged' ORDER BY started_ms DESC LIMIT 1")
+        // After a rollback the database is the safety copy, taken before the row was marked
+        // staged, so the row reads `waiting` again: match it too, or the server would stage the
+        // same broken release again and loop (found on the VM in v0.22.0).
+        let row: Option<ServerUpgrade> = sqlx::query("SELECT * FROM server_upgrades WHERE version = ? AND state IN ('staged', 'waiting') ORDER BY started_ms DESC LIMIT 1")
             .bind(&out.version)
             .fetch_optional(pool)
             .await?

@@ -91,7 +91,7 @@ Key backup on by default (opt-out), locked with the 24 words; COOP/COEP accepted
 | v0.20.0 | Agent config over the stream + gated switch (PS agent retired, no fallback); adminsvr commands down (allowlist, preview, two-person approval, kill switch), metrics summaries up; SRE app Service Plugins category, Servers configs + metrics; adminsvr as plugin source of truth | ✅ Released 2026-11-01 without the agent switch (moved to v0.20.1) |
 | v0.20.1 | Agent config over the link (root-key endorsed `ConfigUpdate`), gated `cutover switch --to agent` with rollback, PS agent retired (no fallback), nightly-task self-heal | ✅ Released 2026-11-02 |
 | v0.21.0 | Agent + server self-upgrade (rings, watchdogs, rollback), update window with push-now, approve-once releases from adminsvr, two-person approval as an org option (off by default); Updates screen | ✅ Released 2026-11-02 |
-| v0.22.0 | Retire the share flows; SRE app Windows/macOS builds; adminsvr restore drill | ✅ Approved (2026-11-01); restore drill on-site only |
+| v0.22.0 | Retire the share flows; SRE app Windows/macOS builds; adminsvr restore drill | ✅ Released 2026-11-02 (restore drill on-site only) |
 | v1.0.0 | Product website (GitHub Pages from a separate `site` branch, the one allowed branch, site only; custom domain itcmdr.weirdbrains.com; Weird Brains branding), launch announcement (X and the internal Weird Brains Slack, drafted for Michael's review, never posted by us), 1.0 stabilization (nothing published or announced without Michael's review; no office-specific names, IPs or domains on the site) | ✅ Approved (2026-11-01), not started |
 
 ## Cross-cutting items

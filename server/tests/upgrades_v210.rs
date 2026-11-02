@@ -686,8 +686,14 @@ async fn server_upgrade_waits_stages_and_reports_a_rollback() {
         "already with the watchdog"
     );
 
-    // The watchdog rolled back: failed, Critical alert.
+    // The watchdog rolled back: failed, Critical alert. The database is now the safety copy,
+    // taken before the row was marked staged, so the row reads `waiting` again (v0.22.0 VM
+    // finding): it must still be marked failed and never be staged again.
     std::fs::remove_file(wd::request_path(&l.root)).unwrap();
+    sqlx::query("UPDATE server_upgrades SET state = 'waiting', reason = '' WHERE state = 'staged'")
+        .execute(&e.pool)
+        .await
+        .unwrap();
     wd::write_json(
         &wd::result_path(&l.root),
         &wd::Outcome {
@@ -712,6 +718,11 @@ async fn server_upgrade_waits_stages_and_reports_a_rollback() {
     let n: i64 = sqlx::query_scalar("SELECT count(*) FROM alerts WHERE key = 'server-upgrade' AND level = 'critical' AND state = 'open'")
         .fetch_one(&e.pool).await.unwrap();
     assert_eq!(n, 1);
+    assert!(srv::server_upgrade::tick(&e.pool, &e.c)
+        .await
+        .unwrap()
+        .is_none());
+    assert!(!wd::request_path(&l.root).exists(), "not staged again");
 
     // The rollback step puts the copy back.
     let db = e.root.join("copy.db");
