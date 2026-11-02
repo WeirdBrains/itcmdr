@@ -361,6 +361,9 @@ enum AlertCmd {
 enum BackupCmd {
     /// Ask a site to start a local backup (the archive stays on the site)
     Start { site: String },
+    /// Ask a site to run its restore drill: it checks its newest backup on-site and reports only
+    /// ok/failed (adminsvr never sees the archive)
+    Drill { site: String },
 }
 
 #[derive(Subcommand)]
@@ -855,6 +858,13 @@ async fn main() -> Result<()> {
                 Cmd::Backup(BackupCmd::Start { site }) => {
                     let r = c.command(&site, "backup.start", &[]).await?;
                     println!("queued {} (the backup runs and stays on the site)", r.id);
+                }
+                Cmd::Backup(BackupCmd::Drill { site }) => {
+                    let r = c.command(&site, "backup.drill", &[]).await?;
+                    show_command(
+                        &c.wait_command(&r.id, std::time::Duration::from_secs(60))
+                            .await?,
+                    );
                 }
                 Cmd::Command(CommandCmd::Show { id }) => {
                     show_command(&c.get_command(&id).await?.info.unwrap_or_default());

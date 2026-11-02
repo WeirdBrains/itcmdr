@@ -101,6 +101,7 @@ the SysV script inside the image.
     itcmdr-admin site create <name>               # prints a one-time site token
     itcmdr-admin alert list | ack | resolve
     itcmdr-admin backup start <site>
+    itcmdr-admin backup drill <site>              # v0.22.0: the site checks its newest backup; you get ok/failed
     itcmdr-admin audit list | verify
     itcmdr-admin recover <addr> --pin … --email … # new device from the 24 words
     itcmdr-admin key-backup off                   # opt out of the encrypted key backup
@@ -113,7 +114,7 @@ On the site server, in person:
 
     itcmdr-cli adminsvr enroll <site token>
     itcmdr-cli adminsvr status
-    itcmdr-cli adminsvr allow backup.start alert.ack alert.resolve   # local command allowlist
+    itcmdr-cli adminsvr allow backup.start backup.drill alert.ack alert.resolve   # local command allowlist
     itcmdr-cli adminsvr unlink
 
 Setting `adminsvr.enabled=false` closes the link at once (kill switch); `adminsvr.heartbeatSecs`

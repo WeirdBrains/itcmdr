@@ -382,6 +382,11 @@ done. **The nightly SYSTEM task and the cutover gate stay authoritative until th
    Kept: the share for backups (if `backup.dir` points there), the PS checks and plugins, `Rotate-ItcmdrLogs.ps1` for
    server logs, and the local fallback (the agent's cached schedules replace the nightly fallback).
 
+   **Done in v0.22.0** (gated on the agent cutover state, undone by rollback): the server stops rewriting
+   `schedule-state.json` and `agent-settings.json`; on-demand runs go out as `RunNow` (`*` for 0.22+ agents, one per
+   installed plugin for older ones); the poller skips `requests/`. Share log ingest stays read-only for old files.
+   `Push-Install-ItcmdrAgent.ps1` stays in the tree for first installs only; upgrades use release plugins (v0.21.0).
+
 ## 10. Roadmap (proposed)
 
 Every step must be testable on the VM, and the server, agent and app keep working at every step.

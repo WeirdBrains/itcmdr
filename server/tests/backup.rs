@@ -897,3 +897,52 @@ fn cli_config_get_set_unset() {
         "global unaffected"
     );
 }
+
+#[tokio::test]
+async fn the_restore_drill_checks_the_newest_archive_on_site_and_cleans_up() {
+    let a = tempfile::tempdir().unwrap();
+    let c = cfg(a.path());
+    let pool = srv::db::init_db(&c).await.unwrap();
+    let out = srv::auth::init(&pool, &c.layout()).await.unwrap();
+    assert!(srv::backup::drill(&pool, &c, None).await.is_err());
+    assert_eq!(srv::backup::last_drill(&pool).await.unwrap()["ok"], false);
+    seed(&pool, 3).await;
+    let b = srv::backup::create(&pool, &c, "manual", None)
+        .await
+        .unwrap();
+    let before: String = std::fs::read_dir(std::env::temp_dir())
+        .unwrap()
+        .flatten()
+        .filter(|e| e.file_name().to_string_lossy().starts_with("itcmdr-drill-"))
+        .count()
+        .to_string();
+    let r = srv::backup::drill(&pool, &c, None).await.unwrap();
+    assert_eq!(
+        (r.depth.as_str(), r.archive.as_str()),
+        ("verified", b.path.file_name().unwrap().to_str().unwrap())
+    );
+    let r = srv::backup::drill(&pool, &c, Some(&out.words))
+        .await
+        .unwrap();
+    assert_eq!(r.depth, "decrypted");
+    assert!(r.files > 0);
+    let after: String = std::fs::read_dir(std::env::temp_dir())
+        .unwrap()
+        .flatten()
+        .filter(|e| e.file_name().to_string_lossy().starts_with("itcmdr-drill-"))
+        .count()
+        .to_string();
+    assert_eq!(before, after, "the drill removes its temp copy");
+    let last = srv::backup::last_drill(&pool).await.unwrap();
+    assert_eq!(
+        (last["ok"].as_bool(), last["depth"].as_str()),
+        (Some(true), Some("decrypted"))
+    );
+    // A changed archive fails the drill.
+    let mut bytes = std::fs::read(&b.path).unwrap();
+    let n = bytes.len();
+    bytes[n - 1] ^= 1;
+    std::fs::write(&b.path, bytes).unwrap();
+    assert!(srv::backup::drill(&pool, &c, None).await.is_err());
+    assert_eq!(srv::backup::last_drill(&pool).await.unwrap()["ok"], false);
+}

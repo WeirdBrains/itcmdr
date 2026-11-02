@@ -45,3 +45,12 @@ the installers are unsigned and the release notes say so.
 `check` unpacks every artifact, greps it for `config/banned.local.txt` plus the extra patterns (VM and machine
 host names), refuses on any hit, then writes `SHA256SUMS`. `publish` needs the tag on origin and creates the GitHub
 release with the CHANGELOG section as notes (`--verify-tag`), or uploads to an existing release.
+
+## Admin app desktop builds (v0.22.0)
+
+- macOS: `release-local.sh unix` on the Mac builds `itcmdr-admin-app-<v>-macos-aarch64.zip` with
+  Swift Package Manager (`flutter config --enable-swift-package-manager`; there is no Podfile and
+  the script refuses to call `pod`). Unsigned and not notarized.
+- Windows: built on the Windows VM (`flutter build windows` in `admin-app`, then Inno Setup) as
+  `itcmdr-admin-app-Setup-<v>.exe`. Unsigned.
+- Linux tarball and Android APK (debug-signed) come from the Linux and Mac runs.

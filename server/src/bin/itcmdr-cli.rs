@@ -444,6 +444,13 @@ enum BackupCmd {
         #[arg(long)]
         deep: bool,
     },
+    /// Restore drill (v0.22.0): copy the newest archive to a temp folder, check it against this
+    /// server's master key, delete the copy and report. --deep also decrypts it with the words
+    /// (the monthly drill). Everything stays on this machine.
+    Drill {
+        #[arg(long)]
+        deep: bool,
+    },
     /// Apply nightly retention now.
     Prune {
         #[arg(long)]
@@ -1579,6 +1586,18 @@ fn run(rt: &tokio::runtime::Runtime) -> Result<()> {
                             h.manifest.schema_version
                         );
                     }
+                    Ok(())
+                }
+                BackupCmd::Drill { deep } => {
+                    let words = if *deep { Some(read_words()?) } else { None };
+                    let r = rt.block_on(async {
+                        let pool = srv::db::init_db(&cfg).await?;
+                        srv::backup::drill(&pool, &cfg, words.as_ref().map(|w| w.as_str())).await
+                    })?;
+                    println!(
+                        "OK ({}): {} ({} files, {} bytes, {} h old); the temp copy was deleted",
+                        r.depth, r.archive, r.files, r.size, r.age_hours
+                    );
                     Ok(())
                 }
                 BackupCmd::Prune { dir } => {
