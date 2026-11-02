@@ -133,5 +133,8 @@ until the normal gate passes (`cutover status`) and every machine active in the 
 a Rust agent that is enrolled, not revoked, seen in the last 10 minutes, holds the current config
 and has clean parity. After the switch the agent runs plugins for real and keeps the PowerShell
 `itcmdr Agent Nightly` task disabled (it disables it again and alerts if someone turns it back
-on). There is no PowerShell fallback. `itcmdr-cli cutover rollback` undoes it: the agents
-re-enable the task and go back to report-only.
+on; the PowerShell poller does the same through `itcmdr-agent alert`, so the alert is raised
+whichever of them notices first). A missing or rejected `config.json` leaves the task as it is;
+only a signed config from the server hands it back. There is no PowerShell fallback. Running the
+switch again once it is done changes nothing. `itcmdr-cli cutover rollback` undoes it: the agents
+re-enable the task, resolve any `nightly-task-reenabled` alert and go back to report-only.

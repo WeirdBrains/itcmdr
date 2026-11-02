@@ -137,7 +137,8 @@ fn day_ts(days_ago: i64, hour: u32) -> chrono::DateTime<Local> {
     let d = Local::now().date_naive() - Duration::days(days_ago);
     Local
         .from_local_datetime(&d.and_hms_opt(hour, 30, 0).unwrap())
-        .single()
+        // earliest: 01:30 is ambiguous on a DST fall-back day
+        .earliest()
         .unwrap()
 }
 
@@ -320,6 +321,11 @@ async fn the_switch_needs_a_clean_week_the_vm_flag_and_agents_that_see_schedules
             .unwrap(),
         v2
     );
+    // A repeat switch is a no-op, also before the agents acked the new config.
+    let g = cutover::switch_agent(&pool, &c, "t", Utc::now())
+        .await
+        .unwrap();
+    assert_eq!(g.state, "agent");
 
     // One-command rollback.
     cutover::rollback(&pool, &c, "t").await.unwrap();

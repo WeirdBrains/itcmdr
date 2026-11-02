@@ -2135,6 +2135,11 @@ fn run(rt: &tokio::runtime::Runtime) -> Result<()> {
                         println!("Windows VM verification {}", if *off { "cleared" } else { "recorded" });
                     }
                     CutoverCmd::Switch { to } if to == "agent" => {
+                        if srv::cutover::state(&pool).await? == "agent" {
+                            println!("already switched to the agent (nothing changed). Undo: itcmdr-cli cutover rollback");
+                            print_gate(&srv::cutover::gate(&pool, now).await?, json)?;
+                            return Ok(());
+                        }
                         let g = srv::cutover::switch_agent(&pool, &cfg, "itcmdr-cli", now).await?;
                         println!("switched to the agent: the Rust agent runs the nightly for real; the PowerShell agent is retired (its task stays disabled, no fallback). Undo: itcmdr-cli cutover rollback");
                         print_gate(&g, json)?;
