@@ -326,6 +326,9 @@ pub async fn session(dir: &Path, st: &State, mut connected: impl FnMut(&pb::Welc
                         return End::Lost("send failed".into());
                     }
                 }
+                Some(pb::server_message::Body::Upgrade(u)) if crate::upgrade::busy(dir) => {
+                    tracing::info!(version=%u.version, "upgrade offer ignored: the watchdog is busy with an upgrade");
+                }
                 Some(pb::server_message::Body::Upgrade(u)) => {
                     let root = state::load(dir)
                         .ok()

@@ -191,6 +191,12 @@ pub fn verify(
     Ok(files)
 }
 
+/// An upgrade is waiting for or being carried out by the watchdog. A new offer then is not a
+/// failure: the running release (perhaps one the watchdog is about to roll back) just ignores it.
+pub fn busy(dir: &Path) -> bool {
+    wd::request_path(dir).exists() || wd::busy_path(dir).exists()
+}
+
 /// Verify, stage and hand over. `program` is the program folder (see [`program_root`]).
 pub fn apply(
     dir: &Path,
