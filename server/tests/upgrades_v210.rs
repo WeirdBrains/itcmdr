@@ -357,7 +357,12 @@ async fn rings_soak_advance_and_pause_on_critical() {
     let e = env().await;
     install_release(&e, "99.0.0", &e.owner).await.unwrap();
     let t0 = chrono::Utc::now().timestamp_millis() - 10 * 3_600_000;
-    for (m, ring) in [("WS-20", "0"), ("WS-31", "1"), ("WS-32", "2"), ("WS-33", "2")] {
+    for (m, ring) in [
+        ("WS-20", "0"),
+        ("WS-31", "1"),
+        ("WS-32", "2"),
+        ("WS-33", "2"),
+    ] {
         fake_agent(&e, m, "0.21.0", t0).await;
         srv::settings::set(&e.pool, "agent.ring", ring, Some(m))
             .await
