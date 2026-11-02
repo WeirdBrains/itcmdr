@@ -26,7 +26,7 @@ Every tunable value in itcmdr is a typed setting with today's behaviour as its d
 |---|---|---|---|---|---|---|
 | `adminsvr.enabled` | server | bool | `true` | next pass | admin/owner (RPC, app, CLI) | Kill switch for the adminsvr link: false closes it and nothing from adminsvr is accepted. Only matters once linked (`itcmdr-cli adminsvr enroll`) (v0.19.0). |
 | `adminsvr.heartbeatSecs` | server | int 0..3600 | `0` | next link | admin/owner (RPC, app, CLI) | Seconds between status messages to adminsvr; 0 = adminsvr's value from enrollment (default 60) (v0.19.0). |
-| `adminsvr.requireTwoPerson` | server | bool | `true` | next command | admin/owner (RPC, app, CLI); never remotely | Plugin install/enable/disable from adminsvr need a second owner or admin's signed approval; the site checks it itself, whatever adminsvr does (v0.20.0). |
+| `adminsvr.requireTwoPerson` | server | bool | `false` | next command | admin/owner (RPC, app, CLI); never remotely | Always require a second owner or admin's signature on plugin commands and release approvals from adminsvr, whatever the organization's setting says. Default off since v0.21.0: the site follows the organization's signed setting (v0.20.0). |
 | `agent.backupMaxAgeHours` | agent | int 1..720 | `26` | next run | admin/owner (RPC, app, CLI) | Default max age of a backup task run / newest backup file (per-item maxAgeHours wins). |
 | `agent.backupMinBytes` | agent | int 0..1_000_000_000_000 | `1` | next run | admin/owner (RPC, app, CLI) | Default minimum size of the newest backup file (per-item minBytes wins). |
 | `agent.nightlyTime` | agent | time | `01:30` | agent reinstall | admin/owner (RPC, app, CLI) | Nightly maintenance task time (before stagger); also the default time of the built-in nightly-agent-run schedule. |
@@ -80,6 +80,9 @@ Every tunable value in itcmdr is a typed setting with today's behaviour as its d
 | `server.ingest_interval_secs` | server | int 5..3600 | `30` | next pass / next use | admin/owner (RPC, app, CLI) | Seconds between log ingest / request sync passes. |
 | `server.request_timeout_secs` | server | int 60..604800 | `10800` | next pass / next use | admin/owner (RPC, app, CLI) | On-demand requests still queued/running after this many seconds become timed_out. |
 | `server.retention_days` | server | int 30..3650 | `400` | next pass / next use | admin/owner (RPC, app, CLI) | Days of run/check data kept in the database. |
+| `updates.auto` | server | bool | `true` | next tick | admin/owner (RPC, app, CLI); adminsvr | Install approved server and agent releases automatically inside the update window; false turns automatic updates off for this site (a push from adminsvr or `upgrade start --now` still installs) (v0.21.0). |
+| `updates.timezone` | server | text | `local` | next tick | admin/owner (RPC, app, CLI); adminsvr | Zone of updates.window: an IANA name like America/New_York, or local = this server's zone (v0.21.0). |
+| `updates.window` | server | text | `daily 01:00-04:00` | next tick | admin/owner (RPC, app, CLI); adminsvr | When upgrades (the server, agent offers and ring advances) may start, in site time: "daily 01:00-04:00", "Mon-Fri 22:00-02:00" (a range ending before it starts runs past midnight and belongs to its start day) (v0.21.0). |
 
 ## server.json only
 

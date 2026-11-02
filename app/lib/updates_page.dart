@@ -64,7 +64,7 @@ String machineStatus(MachineUpgrade m, AgentRollout? r) {
 class UpdatesView extends StatelessWidget {
   final AgentUpgrades u;
   final bool canStart, canStop;
-  final void Function(String version) onStart;
+  final void Function(String version, bool now) onStart;
   final VoidCallback onPause, onResume, onAbort;
   final void Function(MachineUpgrade m, int ring) onRing;
   final DateTime now;
@@ -88,11 +88,37 @@ class UpdatesView extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        Text('Automatic updates', style: t.titleMedium),
+        Text(
+          u.auto
+              ? 'On: window ${u.window} (${u.timezone})'
+              : 'Off for this site: releases wait for "Now" (updates.auto)',
+          key: const Key('updates-auto'),
+        ),
+        Text(
+          u.windowHold.isEmpty
+              ? 'Upgrades may start now.'
+              : 'Waiting: ${u.windowHold}',
+          key: const Key('updates-hold'),
+        ),
+        if (u.serverUpgrade.isNotEmpty)
+          Text(
+            'Server upgrade: ${u.serverUpgrade}',
+            key: const Key('server-upgrade'),
+          ),
+        const Text(
+          'Change updates.auto, updates.window and updates.timezone on the Settings screen. '
+          '"Now" ignores the window; machines with agent.upgrades off are held back either way.',
+        ),
+        const SizedBox(height: 16),
         Text('Rollout', style: t.titleMedium),
         if (cur == null)
           const Text('No agent upgrade in progress.')
         else ...[
-          Text(rolloutSummary(cur, u.soakMins, now)),
+          Text(
+            rolloutSummary(cur, u.soakMins, now) +
+                (cur.push ? ' (pushed: ignores the window)' : ''),
+          ),
           for (final h in u.ringHolds)
             Text('Hold: $h', style: const TextStyle(color: Colors.orange)),
           Wrap(
@@ -130,12 +156,32 @@ class UpdatesView extends StatelessWidget {
                   ? r.problem
                   : 'signed by ${r.signer}${r.minFrom.isEmpty ? '' : ', from ${r.minFrom}'}',
             ),
-            trailing: FilledButton(
-              onPressed:
-                  canStart && cur == null && r.ownerSigned && r.problem.isEmpty
-                  ? () => onStart(r.version)
-                  : null,
-              child: const Text('Roll out'),
+            trailing: Wrap(
+              spacing: 4,
+              children: [
+                FilledButton(
+                  key: Key('rollout-${r.version}'),
+                  onPressed:
+                      canStart &&
+                          cur == null &&
+                          r.ownerSigned &&
+                          r.problem.isEmpty
+                      ? () => onStart(r.version, false)
+                      : null,
+                  child: const Text('Roll out'),
+                ),
+                OutlinedButton(
+                  key: Key('rollout-now-${r.version}'),
+                  onPressed:
+                      canStart &&
+                          cur == null &&
+                          r.ownerSigned &&
+                          r.problem.isEmpty
+                      ? () => onStart(r.version, true)
+                      : null,
+                  child: const Text('Now'),
+                ),
+              ],
             ),
           ),
         const SizedBox(height: 16),
@@ -279,13 +325,13 @@ class _UpdatesPageState extends State<UpdatesPage> {
               now: DateTime.now(),
               canStart: owner,
               canStop: admin,
-              onStart: (v) async {
+              onStart: (v, now) async {
                 if (await _confirm(
                   'Roll out agent $v, starting with ring 0?',
                 )) {
                   _act(
                     () => c.startAgentUpgrade(
-                      StartAgentUpgradeRequest(version: v),
+                      StartAgentUpgradeRequest(version: v, now: now),
                       options: _opts,
                     ),
                   );

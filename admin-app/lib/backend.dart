@@ -26,7 +26,9 @@ export 'src/rust/api/admin.dart'
         Quarantined,
         SitePlugins,
         CatalogEntry,
-        Freeze;
+        Freeze,
+        OrgPolicy,
+        Release;
 
 abstract class Backend {
   Future<api.Me?> open(String dir);
@@ -76,6 +78,12 @@ abstract class Backend {
   Future<api.CatalogEntry> uploadPlugin(String path);
   Future<api.Freeze> freeze();
   Future<api.Freeze> setFreeze(bool frozen);
+  // v0.21.0
+  Future<api.OrgPolicy> orgPolicy();
+  Future<api.OrgPolicy> setOrgPolicy(bool requireSecondApprover);
+  Future<List<api.Release>> releases();
+  Future<api.Release> approveRelease(String sha256);
+  Future<api.CommandRow> rolloutRelease(String site, String sha256, bool push);
 }
 
 class RustBackend implements Backend {
@@ -184,6 +192,22 @@ class RustBackend implements Backend {
   Future<api.Freeze> freeze() => api.freeze();
   @override
   Future<api.Freeze> setFreeze(bool frozen) => api.setFreeze(frozen: frozen);
+  @override
+  Future<api.OrgPolicy> orgPolicy() => api.orgPolicy();
+  @override
+  Future<api.OrgPolicy> setOrgPolicy(bool requireSecondApprover) =>
+      api.setOrgPolicy(requireSecondApprover: requireSecondApprover);
+  @override
+  Future<List<api.Release>> releases() => api.releases();
+  @override
+  Future<api.Release> approveRelease(String sha256) =>
+      api.approveRelease(sha256: sha256);
+  @override
+  Future<api.CommandRow> rolloutRelease(
+    String site,
+    String sha256,
+    bool push,
+  ) => api.rolloutRelease(site: site, sha256: sha256, push: push);
 }
 
 /// Poll a command until the site answered (or `timeout`): applied, previewed, failed, ...
@@ -204,7 +228,7 @@ Future<api.CommandRow> waitCommand(
   }
 }
 
-/// Plugin commands need a second owner/admin (when the site requires it).
+/// Plugin commands need a second owner/admin when the org setting (or the site) requires it.
 const twoPersonKinds = ['plugin.install', 'plugin.enable', 'plugin.disable'];
 
 /// AdminApi method names of each app action (for the step-up list).
@@ -229,6 +253,8 @@ class Act {
   static const rejectCommand = 'RejectCommand';
   static const uploadPlugin = 'UploadPlugin';
   static const setFreeze = 'SetFreeze';
+  static const setOrgPolicy = 'SetOrgPolicy';
+  static const approveRelease = 'ApproveRelease';
 }
 
 String roleLabel(String r) => switch (r) {

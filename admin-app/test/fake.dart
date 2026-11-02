@@ -486,4 +486,57 @@ class FakeBackend implements Backend {
     fz = Freeze(frozen: frozen, by: 'owner@example.com', sinceMs: 1);
     return fz;
   }
+
+  // v0.21.0
+  OrgPolicy org = OrgPolicy(
+    requireSecondApprover: false,
+    updatedBy: '',
+    updatedMs: 0,
+  );
+  List<Release> rels = [];
+  @override
+  Future<OrgPolicy> orgPolicy() async => org;
+  @override
+  Future<OrgPolicy> setOrgPolicy(bool requireSecondApprover) async {
+    calls.add('org-policy $requireSecondApprover');
+    org = OrgPolicy(
+      requireSecondApprover: requireSecondApprover,
+      updatedBy: 'owner@example.com',
+      updatedMs: 1,
+    );
+    return org;
+  }
+
+  @override
+  Future<List<Release>> releases() async => List.of(rels);
+  @override
+  Future<Release> approveRelease(String sha256) async {
+    calls.add('approve-release $sha256');
+    final need = org.requireSecondApprover ? 2 : 1;
+    rels = [
+      for (final r in rels)
+        if (r.sha256 == sha256)
+          Release(
+            sha256: r.sha256,
+            name: r.name,
+            version: r.version,
+            approvedBy: [...r.approvedBy, 'me'],
+            needed: need,
+            approved: r.approvedBy.length + 1 >= need,
+          )
+        else
+          r,
+    ];
+    return rels.firstWhere((r) => r.sha256 == sha256);
+  }
+
+  @override
+  Future<CommandRow> rolloutRelease(
+    String site,
+    String sha256,
+    bool push,
+  ) async {
+    calls.add('rollout $site $sha256 $push');
+    return cmd('x');
+  }
 }

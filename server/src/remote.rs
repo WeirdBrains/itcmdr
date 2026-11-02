@@ -23,8 +23,12 @@ use sha2::Digest;
 /// Settings that never change from adminsvr, whatever their kind (the link, auth, keys).
 const NEVER_PREFIX: &[&str] = &["adminsvr.", "auth.", "server.auth_mode", "server.bind_addr"];
 
+/// Text settings with a fixed grammar the site validates on set (v0.21.0: the update window
+/// and its zone, so adminsvr can schedule upgrades). Nothing free-form.
+const STRUCTURED_TEXT: &[&str] = &["updates.window", "updates.timezone"];
+
 fn value_visible(d: &Def) -> bool {
-    matches!(d.kind, Kind::Int { .. } | Kind::Bool | Kind::Time)
+    matches!(d.kind, Kind::Int { .. } | Kind::Bool | Kind::Time) || STRUCTURED_TEXT.contains(&d.key)
 }
 
 /// May adminsvr set this key? Numbers, switches and times that are not read-only or link/auth.

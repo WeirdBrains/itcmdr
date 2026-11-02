@@ -1,4 +1,4 @@
-# adminsvr (v0.19.2)
+# adminsvr (v0.21.0)
 
 The offsite admin server: one place where owners, admins and SREs see the status and alerts of
 many sites and send a few safe commands. Design and decisions: [design/ADMINSVR.md](design/ADMINSVR.md).
@@ -125,7 +125,7 @@ root key), expiry, the never-remote list and the local allowlist, and is written
 A site sends its configuration document (setting values only for numbers, switches and times; paths and text
 stay on the site; schedules by opaque id, names only with the display-name opt-in) and its plugin list. adminsvr
 sends signed commands back; the site checks the user signature, its local allowlist, the never-remote list and,
-for plugin kinds, the second person's signed approval, then audits.
+for plugin kinds, the second person's signed approval when the organization requires one (v0.21.0), then audits.
 
     itcmdr-admin config show <site> [--all]
     itcmdr-admin config set <site> backup.keep_daily 9 --dry-run     # preview: before/after, nothing changes
@@ -136,7 +136,61 @@ for plugin kinds, the second person's signed approval, then audits.
     itcmdr-admin freeze on|off                                        # owners: stop everything
 
 On the site: `itcmdr-cli adminsvr allow setting.set schedule.pause plugin.install ...` (nothing new is allowed by
-default). `adminsvr.requireTwoPerson` (default true) can only be changed on the site.
+default). `adminsvr.requireTwoPerson` (default false since v0.21.0) can only be changed on the site: when on,
+the site always demands a second approver, whatever the organization's setting says.
+
+## One approver or two: the organization setting (v0.21.0)
+
+Every action that took a second owner or admin in v0.20 (plugin install/enable/disable from adminsvr) and the new
+release approvals follow one organization setting, **off by default**: one owner or admin approves.
+
+    itcmdr-admin org policy                                # show it (and who changed it last)
+    itcmdr-admin org policy --second-approver on|off       # owners only; audited ("org.policy")
+
+The setting is not only adminsvr's word: each command carries it inside the requester's signature
+(`two_person`), adminsvr refuses a command whose flag does not match the setting, and the site checks the
+approvals the flag asks for. A compromised adminsvr could send `two_person = false`; a site that wants two
+approvers whatever happens sets its own `adminsvr.requireTwoPerson = true`. With the setting off, a device may
+approve its own request where the flow still shows an approval step. The admin app's Plugins page has the switch
+(owners) and its approval buttons work with one approver.
+
+Upgrade note: an organization that has two or more active owners/admins when adminsvr v0.21.0 first starts keeps
+the second approver (the migration turns the setting on for it); turn it off with the command above.
+
+## Releases: approve once, adminsvr rolls out (v0.21.0)
+
+Server and agent releases (`itcmdr-server-release` / `itcmdr-agent-release` packages, signed by an owner key as
+before) go into the catalog like plugins. An owner or admin approves **one exact release** once: their device key
+signs `itcmdr-admin-release/v1, name, version, sha256`; with the second approver on, a different owner or admin
+signs too. adminsvr endorses each approval with its root key and attaches them to every rollout command.
+
+    itcmdr-admin plugin upload itcmdr-agent-release-0.21.0.tar.gz
+    itcmdr-admin release list                              # approvals so far, and how many are needed
+    itcmdr-admin release approve <sha256>
+    itcmdr-admin release rollout <site> <sha256>           # installs in the site's update window
+    itcmdr-admin release rollout <site> <sha256> --now     # push: ignores the window
+
+The site (after `itcmdr-cli adminsvr allow ... release.rollout`; it is not allowed by default) checks the
+approvals (distinct owner/admin users and keys, endorsed by the root key), fetches the package, checks its
+checksum and the owner signature on it, installs it and starts the server upgrade or the agent rollout through
+its rings. Rings run within a site; across sites, you choose which sites get it and when.
+
+## Automatic updates and the update window (v0.21.0)
+
+Sites update themselves by default (`updates.auto = true`), but only inside their update window
+(`updates.window`, default `daily 01:00-04:00`, in `updates.timezone`, default the server's zone). The window
+holds the server upgrade, agent offers and ring advances; a range like `Mon-Fri 22:00-02:00` runs past midnight
+and belongs to the day it starts; daylight-saving changes follow the zone's wall clock. A bad window fails closed
+(nothing installs) until fixed. Change it on the site (`itcmdr-cli config set updates.window "Sat,Sun 02:00-05:00"`,
+the site app's Updates screen) or from adminsvr (`itcmdr-admin config set <site> updates.window ...`).
+
+- Off per site: `updates.auto = false` (an approved release is installed but waits for a push).
+- Off per machine: `agent.upgrades = false` holds that machine back, even from a push.
+- Push now: `release rollout ... --now` (or `itcmdr-cli upgrade start <v> --now`) ignores the window; the same
+  approval rules apply.
+- Order: the server upgrades first (database safety copy, staged copy, swap by `itcmdr-server-watchdog`, health
+  check, rollback with the database restored on failure, Critical `server-upgrade` alert); agent rollouts that
+  need a newer server (`min_server` in release.toml) wait for it.
 
 ## Passkeys / security keys (v0.19.1, optional)
 

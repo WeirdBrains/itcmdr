@@ -961,3 +961,70 @@ pub fn set_freeze(frozen: bool) -> Result<Freeze> {
         since_ms: f.since_ms,
     })
 }
+
+// ---- v0.21.0: org second-approver setting and release approvals ----
+
+pub struct OrgPolicy {
+    pub require_second_approver: bool,
+    pub updated_by: String,
+    pub updated_ms: i64,
+}
+
+fn org_of(p: pb::OrgPolicy) -> OrgPolicy {
+    OrgPolicy {
+        require_second_approver: p.require_second_approver,
+        updated_by: p.updated_by,
+        updated_ms: p.updated_ms,
+    }
+}
+
+pub fn org_policy() -> Result<OrgPolicy> {
+    Ok(org_of(block(client()?.get_org_policy())?))
+}
+
+/// Owners only; audited by adminsvr.
+pub fn set_org_policy(require_second_approver: bool) -> Result<OrgPolicy> {
+    Ok(org_of(block(
+        client()?.set_org_policy(require_second_approver),
+    )?))
+}
+
+pub struct Release {
+    pub sha256: String,
+    pub name: String,
+    pub version: String,
+    pub approved_by: Vec<String>,
+    pub needed: i32,
+    pub approved: bool,
+}
+
+fn release_of(r: pb::ReleaseState) -> Release {
+    Release {
+        sha256: r.sha256,
+        name: r.name,
+        version: r.version,
+        approved_by: r.approved_by,
+        needed: r.needed,
+        approved: r.approved,
+    }
+}
+
+pub fn releases() -> Result<Vec<Release>> {
+    Ok(block(client()?.list_releases())?
+        .releases
+        .into_iter()
+        .map(release_of)
+        .collect())
+}
+
+/// Sign a one-time approval of exactly this release.
+pub fn approve_release(sha256: String) -> Result<Release> {
+    Ok(release_of(block(client()?.approve_release(&sha256))?))
+}
+
+/// Roll an approved release out to a site; `push` ignores the site's update window.
+pub fn rollout_release(site: String, sha256: String, push: bool) -> Result<CommandRow> {
+    Ok(command_of(block(
+        client()?.rollout_release(&site, &sha256, push),
+    )?))
+}

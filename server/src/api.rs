@@ -95,6 +95,7 @@ impl ItcmdrService {
             reason: r.reason,
             actor: r.actor,
             updated_ms: r.updated_ms,
+            push: r.push,
         };
         let cur = crate::upgrades::current(&self.pool)
             .await
@@ -146,6 +147,23 @@ impl ItcmdrService {
                 })
                 .collect(),
             soak_mins: crate::settings::get_i64(&self.pool, None, "agent.upgradeSoakMins").await,
+            auto: crate::settings::get_bool(&self.pool, None, "updates.auto").await,
+            window: crate::settings::get_str(&self.pool, None, "updates.window").await,
+            timezone: crate::settings::get_str(&self.pool, None, "updates.timezone").await,
+            window_hold: crate::upgrades::gate(&self.pool, false, chrono::Utc::now())
+                .await
+                .unwrap_or_default(),
+            server_upgrade: crate::server_upgrade::current(&self.pool)
+                .await
+                .map_err(internal_err)?
+                .map(|u| {
+                    if u.reason.is_empty() {
+                        format!("{} {}", u.version, u.state)
+                    } else {
+                        format!("{} {} ({})", u.version, u.state, u.reason)
+                    }
+                })
+                .unwrap_or_default(),
         })
     }
 

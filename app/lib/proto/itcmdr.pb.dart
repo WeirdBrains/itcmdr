@@ -8034,6 +8034,7 @@ class AgentRollout extends $pb.GeneratedMessage {
     $core.String? reason,
     $core.String? actor,
     $fixnum.Int64? updatedMs,
+    $core.bool? push,
   }) {
     final result = AgentRollout._();
     if (id != null) result.id = id;
@@ -8046,6 +8047,7 @@ class AgentRollout extends $pb.GeneratedMessage {
     if (reason != null) result.reason = reason;
     if (actor != null) result.actor = actor;
     if (updatedMs != null) result.updatedMs = updatedMs;
+    if (push != null) result.push = push;
     return result;
   }
 
@@ -8072,6 +8074,7 @@ class AgentRollout extends $pb.GeneratedMessage {
     ..aOS(8, _omitFieldNames ? '' : 'reason')
     ..aOS(9, _omitFieldNames ? '' : 'actor')
     ..aInt64(10, _omitFieldNames ? '' : 'updatedMs')
+    ..aOB(11, _omitFieldNames ? '' : 'push')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -8185,6 +8188,15 @@ class AgentRollout extends $pb.GeneratedMessage {
   $core.bool hasUpdatedMs() => $_has(9);
   @$pb.TagNumber(10)
   void clearUpdatedMs() => $_clearField(10);
+
+  @$pb.TagNumber(11)
+  $core.bool get push => $_getBF(10);
+  @$pb.TagNumber(11)
+  set push($core.bool value) => $_setBool(10, value);
+  @$pb.TagNumber(11)
+  $core.bool hasPush() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearPush() => $_clearField(11);
 }
 
 class AgentRelease extends $pb.GeneratedMessage {
@@ -8508,6 +8520,11 @@ class AgentUpgrades extends $pb.GeneratedMessage {
     $core.Iterable<AgentRelease>? releases,
     $core.Iterable<MachineUpgrade>? machines,
     $fixnum.Int64? soakMins,
+    $core.bool? auto,
+    $core.String? window,
+    $core.String? timezone,
+    $core.String? windowHold,
+    $core.String? serverUpgrade,
   }) {
     final result = AgentUpgrades._();
     if (current != null) result.current = current;
@@ -8516,6 +8533,11 @@ class AgentUpgrades extends $pb.GeneratedMessage {
     if (releases != null) result.releases.addAll(releases);
     if (machines != null) result.machines.addAll(machines);
     if (soakMins != null) result.soakMins = soakMins;
+    if (auto != null) result.auto = auto;
+    if (window != null) result.window = window;
+    if (timezone != null) result.timezone = timezone;
+    if (windowHold != null) result.windowHold = windowHold;
+    if (serverUpgrade != null) result.serverUpgrade = serverUpgrade;
     return result;
   }
 
@@ -8542,6 +8564,11 @@ class AgentUpgrades extends $pb.GeneratedMessage {
     ..pPM<MachineUpgrade>(5, _omitFieldNames ? '' : 'machines',
         subBuilder: MachineUpgrade.$_createMessage)
     ..aInt64(6, _omitFieldNames ? '' : 'soakMins')
+    ..aOB(7, _omitFieldNames ? '' : 'auto')
+    ..aOS(8, _omitFieldNames ? '' : 'window')
+    ..aOS(9, _omitFieldNames ? '' : 'timezone')
+    ..aOS(10, _omitFieldNames ? '' : 'windowHold')
+    ..aOS(11, _omitFieldNames ? '' : 'serverUpgrade')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -8597,14 +8624,62 @@ class AgentUpgrades extends $pb.GeneratedMessage {
   $core.bool hasSoakMins() => $_has(5);
   @$pb.TagNumber(6)
   void clearSoakMins() => $_clearField(6);
+
+  /// v0.21.0 automatic updates
+  @$pb.TagNumber(7)
+  $core.bool get auto => $_getBF(6);
+  @$pb.TagNumber(7)
+  set auto($core.bool value) => $_setBool(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasAuto() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearAuto() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.String get window => $_getSZ(7);
+  @$pb.TagNumber(8)
+  set window($core.String value) => $_setString(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasWindow() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearWindow() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.String get timezone => $_getSZ(8);
+  @$pb.TagNumber(9)
+  set timezone($core.String value) => $_setString(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasTimezone() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearTimezone() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $core.String get windowHold => $_getSZ(9);
+  @$pb.TagNumber(10)
+  set windowHold($core.String value) => $_setString(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasWindowHold() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearWindowHold() => $_clearField(10);
+
+  @$pb.TagNumber(11)
+  $core.String get serverUpgrade => $_getSZ(10);
+  @$pb.TagNumber(11)
+  set serverUpgrade($core.String value) => $_setString(10, value);
+  @$pb.TagNumber(11)
+  $core.bool hasServerUpgrade() => $_has(10);
+  @$pb.TagNumber(11)
+  void clearServerUpgrade() => $_clearField(11);
 }
 
 class StartAgentUpgradeRequest extends $pb.GeneratedMessage {
   factory StartAgentUpgradeRequest({
     $core.String? version,
+    $core.bool? now,
   }) {
     final result = StartAgentUpgradeRequest._();
     if (version != null) result.version = version;
+    if (now != null) result.now = now;
     return result;
   }
 
@@ -8622,6 +8697,7 @@ class StartAgentUpgradeRequest extends $pb.GeneratedMessage {
       package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
       createEmptyInstance: StartAgentUpgradeRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'version')
+    ..aOB(2, _omitFieldNames ? '' : 'now')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -8657,6 +8733,15 @@ class StartAgentUpgradeRequest extends $pb.GeneratedMessage {
   $core.bool hasVersion() => $_has(0);
   @$pb.TagNumber(1)
   void clearVersion() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.bool get now => $_getBF(1);
+  @$pb.TagNumber(2)
+  set now($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasNow() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearNow() => $_clearField(2);
 }
 
 class PauseAgentUpgradeRequest extends $pb.GeneratedMessage {
