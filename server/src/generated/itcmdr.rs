@@ -1165,6 +1165,8 @@ pub struct AgentUpgrades {
 pub struct StartAgentUpgradeRequest {
     #[prost(string, tag = "1")]
     pub version: ::prost::alloc::string::String,
+    #[prost(bool, tag = "2")]
+    pub now: bool,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct PauseAgentUpgradeRequest {

@@ -1689,6 +1689,7 @@ impl Itcmdr for ItcmdrService {
             &self.cfg.layout(),
             &req.get_ref().version,
             &p.actor(),
+            req.get_ref().now,
         )
         .await
         .map_err(|e| Status::failed_precondition(format!("{e:#}")))?;

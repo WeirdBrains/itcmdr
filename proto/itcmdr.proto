@@ -498,7 +498,7 @@ message AgentUpgrades {
   repeated MachineUpgrade machines = 5;
   int64 soak_mins = 6;
 }
-message StartAgentUpgradeRequest { string version = 1; }
+message StartAgentUpgradeRequest { string version = 1; bool now = 2; }  // now: push, ignore the update window
 message PauseAgentUpgradeRequest { string reason = 1; }
 message ResumeAgentUpgradeRequest {}
 message AbortAgentUpgradeRequest {}

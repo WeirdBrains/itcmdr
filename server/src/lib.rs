@@ -28,6 +28,7 @@ pub mod settings;
 pub mod setup;
 pub mod sitelink;
 pub mod storage;
+pub mod update_window;
 pub mod upgrades;
 pub mod generated {
     pub mod itcmdr {

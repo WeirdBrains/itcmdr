@@ -108,7 +108,10 @@ pub fn registry() -> Vec<Def> {
         Def { from_cfg: Some(|c| json!(c.retention_days)), ..d("server.retention_days", Server, int(30, 3650), json!(400), "Days of run/check data kept in the database.") },
         d("agent.certLifetimeMins", Server, int(10, 5 * 365 * 1440), json!(90 * 1440), "Lifetime of agent client certificates in minutes (default 90 days); agents renew at 2/3 of it (v0.17.1)."),
         d("adminsvr.enabled", Server, Kind::Bool, json!(true), "Kill switch for the adminsvr link: false closes it and nothing from adminsvr is accepted. Only matters once linked (itcmdr-cli adminsvr enroll) (v0.19.0)."),
-        d("adminsvr.requireTwoPerson", Server, Kind::Bool, json!(true), "Plugin enable/disable/install from adminsvr need a second owner or admin's signature (v0.20.0). Local only: never settable from adminsvr."),
+        d("adminsvr.requireTwoPerson", Server, Kind::Bool, json!(false), "Always require a second owner or admin's signature on plugin commands and release approvals from adminsvr, whatever the organization's setting says (default off since v0.21.0: the site follows the organization's signed setting). Local only: never settable from adminsvr."),
+        d("updates.auto", Server, Kind::Bool, json!(true), "Install approved server and agent releases automatically inside the update window; false turns automatic updates off for this site (a push from adminsvr or `upgrade start --now` still installs) (v0.21.0)."),
+        d("updates.window", Server, Kind::Text, json!("daily 01:00-04:00"), "When upgrades (the server, agent offers and ring advances) may start, in site time: \"daily 01:00-04:00\", \"Mon-Fri 22:00-02:00\" (a range ending before it starts runs past midnight and belongs to its start day) (v0.21.0)."),
+        d("updates.timezone", Server, Kind::Text, json!("local"), "Zone of updates.window: an IANA name like America/New_York, or local = this server's zone (v0.21.0)."),
         d("adminsvr.heartbeatSecs", Server, int(0, 3600), json!(0), "Seconds between status messages to adminsvr; 0 = adminsvr's value from enrollment (default 60) (v0.19.0)."),
         d("alerts.dedupe_window_mins", Server, int(0, 7 * 24 * 60), json!(60), "A resolved alert raised again within this many minutes reopens instead of starting a new one (v0.16.0)."),
         d("calllog.retention_days", Server, int(1, 3650), json!(30), "Days of the call log (every RPC) kept in the database; finished days are exported to server-logs/calls first (v0.15.0)."),
@@ -397,6 +400,20 @@ pub async fn get_i64(pool: &DbPool, cfg: Option<&ServerConfig>, key: &str) -> i6
     }
 }
 
+/// Text setting.
+pub async fn get_str(pool: &DbPool, cfg: Option<&ServerConfig>, key: &str) -> String {
+    get(pool, cfg, key)
+        .await
+        .ok()
+        .and_then(|v| v.as_str().map(str::to_string))
+        .unwrap_or_else(|| {
+            def(key)
+                .ok()
+                .and_then(|d| d.default.as_str().map(str::to_string))
+                .unwrap_or_default()
+        })
+}
+
 pub async fn get_bool(pool: &DbPool, cfg: Option<&ServerConfig>, key: &str) -> bool {
     get(pool, cfg, key)
         .await
@@ -439,6 +456,12 @@ pub async fn set(pool: &DbPool, key: &str, text: &str, machine: Option<&str>) ->
     }
     if key == "agent.plugins" {
         crate::agent_plugins::valid_selection(v.as_str().unwrap_or_default())?;
+    }
+    if key == "updates.window" {
+        crate::update_window::parse(v.as_str().unwrap_or_default())?;
+    }
+    if key == "updates.timezone" {
+        crate::update_window::local_parts(v.as_str().unwrap_or_default(), chrono::Utc::now())?;
     }
     if key == "agent.officeHours" {
         if let Some(t) = v.as_str().filter(|t| !t.trim().is_empty()) {
