@@ -26,10 +26,13 @@ pub const COMMANDS: &[&str] = &[
     "plugin.enable",
     "plugin.disable",
     "plugin.install",
+    // v0.21.0: install an approved server or agent release and start its rollout.
+    "release.rollout",
 ];
-/// Code-changing kinds: a requester and a different owner or admin approver (ADMINSVR.md section
-/// 5). adminsvr always holds them for approval; a site checks the approver when its
-/// `adminsvr.requireTwoPerson` is on (default).
+/// Code-changing kinds that need a different owner or admin approver when the organization's
+/// "require a second approver" setting is on (signed into the command as `two_person`) or the
+/// site's own `adminsvr.requireTwoPerson` is (ADMINSVR.md section 5; both off by default since
+/// v0.21.0). Releases (`release.rollout`) use two release approvals instead.
 pub const TWO_PERSON: &[&str] = &["plugin.enable", "plugin.disable", "plugin.install"];
 /// Never accepted remotely, whatever a site's allowlist says (ADMINSVR.md section 5, decision 18).
 pub const NEVER_REMOTE: &[&str] = &[
@@ -209,7 +212,87 @@ pub fn command_bytes(c: &pb::Command) -> Vec<u8> {
     } else {
         Vec::new()
     })
+    // v0.21.0: so is the organization's second-approver setting.
+    .chain(if c.two_person {
+        b"\ntwo-person".to_vec()
+    } else {
+        Vec::new()
+    })
     .collect()
+}
+
+/// What an approver of a release signs (v0.21.0).
+pub fn release_bytes(name: &str, version: &str, sha256: &str) -> Vec<u8> {
+    format!("itcmdr-admin-release/v1\n{name}\n{version}\n{sha256}").into_bytes()
+}
+
+pub fn sign_release(
+    key: &SigningKey,
+    user_id: &str,
+    role: &str,
+    name: &str,
+    version: &str,
+    sha256: &str,
+) -> pb::ReleaseApproval {
+    pb::ReleaseApproval {
+        user_id: user_id.into(),
+        role: role.into(),
+        key: hex::encode(key.verifying_key().as_bytes()),
+        endorsement: String::new(),
+        sig: hex::encode(key.sign(&release_bytes(name, version, sha256)).to_bytes()),
+        ts_ms: 0,
+    }
+}
+
+pub fn endorse_release(root: &SigningKey, a: &mut pb::ReleaseApproval) {
+    a.endorsement = hex::encode(
+        root.sign(&endorse_bytes(&a.user_id, &a.role, &a.key))
+            .to_bytes(),
+    );
+}
+
+/// Valid, distinct owner/admin approvals of this release; Err when fewer than `need`.
+pub fn check_release_approvals(
+    root: &VerifyingKey,
+    approvals: &[pb::ReleaseApproval],
+    name: &str,
+    version: &str,
+    sha256: &str,
+    need: usize,
+) -> Result<usize> {
+    let b = release_bytes(name, version, sha256);
+    let mut users: Vec<&str> = vec![];
+    let mut keys: Vec<&str> = vec![];
+    for a in approvals {
+        if !matches!(a.role.as_str(), "owner" | "admin") {
+            continue;
+        }
+        let Ok(k) = itcmdr_keys::parse_public_key(&a.key) else {
+            continue;
+        };
+        let endorsed = sig_of(&a.endorsement).ok().is_some_and(|s| {
+            root.verify(&endorse_bytes(&a.user_id, &a.role, &a.key), &s)
+                .is_ok()
+        });
+        let signed = sig_of(&a.sig)
+            .ok()
+            .is_some_and(|s| k.verify(&b, &s).is_ok());
+        if endorsed
+            && signed
+            && !users.contains(&a.user_id.as_str())
+            && !keys.contains(&a.key.as_str())
+        {
+            users.push(&a.user_id);
+            keys.push(&a.key);
+        }
+    }
+    if users.len() < need {
+        bail!(
+            "{} valid approval(s) of {name} {version}, {need} needed",
+            users.len()
+        );
+    }
+    Ok(users.len())
 }
 
 /// What the second person signs: the command bytes plus who approves.
@@ -400,6 +483,58 @@ mod tests {
         // flipping the dry-run flag breaks both signatures
         d.dry_run = false;
         assert_eq!(check_command(&root.verifying_key(), &d, 5), "bad-signature");
+    }
+
+    #[test]
+    fn release_approvals() {
+        let root = SigningKey::from_bytes(&[7; 32]);
+        let rp = root.verifying_key();
+        let k1 = SigningKey::from_bytes(&[1; 32]);
+        let k2 = SigningKey::from_bytes(&[2; 32]);
+        let sha = "ab".repeat(32);
+        let mk = |k: &SigningKey, id: &str, role: &str, v: &str| {
+            let mut a = sign_release(k, id, role, "itcmdr-agent-release", v, &sha);
+            endorse_release(&root, &mut a);
+            a
+        };
+        let a1 = mk(&k1, "u1", "owner", "1.0.0");
+        let ck = |a: &[pb::ReleaseApproval], n| {
+            check_release_approvals(&rp, a, "itcmdr-agent-release", "1.0.0", &sha, n)
+        };
+        assert_eq!(
+            ck(std::slice::from_ref(&a1), 1).unwrap(),
+            1,
+            "one approver is enough by default"
+        );
+        assert!(ck(std::slice::from_ref(&a1), 2).is_err(), "two needed");
+        assert!(
+            ck(&[a1.clone(), a1.clone()], 2).is_err(),
+            "the same person twice"
+        );
+        assert_eq!(
+            ck(&[a1.clone(), mk(&k2, "u2", "admin", "1.0.0")], 2).unwrap(),
+            2
+        );
+        assert!(
+            ck(&[mk(&k2, "u2", "sre", "1.0.0")], 1).is_err(),
+            "sre cannot approve"
+        );
+        assert!(
+            ck(&[mk(&k2, "u2", "admin", "1.0.1")], 1).is_err(),
+            "another version"
+        );
+        let mut bad = a1.clone();
+        bad.endorsement = "00".repeat(64);
+        assert!(ck(&[bad], 1).is_err(), "not endorsed by the root");
+        // two_person is signed: dropping it breaks the signatures.
+        let mut c = pb::Command {
+            kind: "plugin.enable".into(),
+            two_person: true,
+            ..Default::default()
+        };
+        let b1 = command_bytes(&c);
+        c.two_person = false;
+        assert_ne!(b1, command_bytes(&c));
     }
 
     #[test]

@@ -81,3 +81,9 @@ diesel::allow_tables_to_appear_in_same_query!(
     commands,
     audit_chain
 );
+diesel::table! {
+    release_approvals (sha256, user_id) {
+        sha256 -> Text, user_id -> Text, role -> Text, pubkey -> Text, endorsement -> Text, sig -> Text,
+        ts_ms -> BigInt,
+    }
+}
