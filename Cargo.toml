@@ -8,6 +8,7 @@ members = [
     "adminsvr",
     "admin-cli",
     "agent-rs",
+    "watchdog",
     "server",
     "plugin",
     "tools/sample-data-gen",

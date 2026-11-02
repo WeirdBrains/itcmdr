@@ -1,0 +1,29 @@
+[package]
+name = "itcmdr-watchdog"
+version = "0.20.1"
+edition.workspace = true
+license.workspace = true
+description = "itcmdr watchdogs (v0.21.0): swap current/previous, health-check an upgrade, roll back; restart a stale service. Upgraded only by the installer."
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "itcmdr-agent-watchdog"
+path = "src/bin/agent.rs"
+
+[dependencies]
+anyhow = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+chrono = "0.4"
+clap = { version = "4.5", features = ["derive"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-service = "0.7"
+
+[dev-dependencies]
+tempfile = "3"
+
+[lints]
+workspace = true

@@ -141,7 +141,10 @@ pub async fn desired(
     };
     let mut out = vec![];
     for p in packages::list(pool, layout).await? {
-        if !p.enabled || names.as_ref().is_some_and(|n| !n.contains(&p.name)) {
+        if !p.enabled
+            || crate::upgrades::is_release(&p.name)
+            || names.as_ref().is_some_and(|n| !n.contains(&p.name))
+        {
             continue;
         }
         let Ok(m) = std::fs::read(p.dir.join(packages::MANIFEST)) else {
@@ -340,6 +343,10 @@ pub async fn take_requests(pool: &DbPool, machine: &str) -> Result<Vec<pb::RunNo
 
 /// Record an Applied from the agent; a failed plugin install raises a Cautious alert.
 pub async fn applied(pool: &DbPool, a: &Agent, ap: &pb::Applied) -> Result<()> {
+    if ap.kind == "upgrade" {
+        tracing::info!(machine=%a.machine, version=%ap.version, ok=ap.ok, error=%ap.error, "agent upgrade applied");
+        return crate::upgrades::applied(pool, &a.machine, ap).await;
+    }
     if ap.kind == "config" {
         sqlx::query("INSERT INTO agent_config(machine, version, ok, error, ts_ms) VALUES (?,?,?,?,?) ON CONFLICT(machine) DO UPDATE SET version = excluded.version, ok = excluded.ok, error = excluded.error, ts_ms = excluded.ts_ms")
             .bind(&a.machine)
@@ -636,6 +643,7 @@ pub async fn list_plugins(pool: &DbPool, machine: Option<&str>) -> Result<Vec<se
 
 /// What to send now: updates for missing/changed plugins, removals, and the schedule set when its
 /// version differs. `have` is updated as if the agent applied everything.
+#[allow(clippy::too_many_arguments)]
 pub async fn sync_messages(
     pool: &DbPool,
     layout: &Layout,
@@ -643,8 +651,19 @@ pub async fn sync_messages(
     have: &mut BTreeMap<String, String>,
     schedule_version: &mut String,
     config_version: &mut String,
+    running: &str,
+    upgrade_sent: &mut String,
 ) -> Result<Vec<pb::server_message::Body>> {
     let mut out = vec![];
+    // v0.21.0: one offer per session and version (the agent answers with Applied "upgrade").
+    match crate::upgrades::offer_for(pool, layout, machine, running).await {
+        Ok(Some(o)) if *upgrade_sent != o.version => {
+            *upgrade_sent = o.version.clone();
+            out.push(pb::server_message::Body::Upgrade(o));
+        }
+        Ok(_) => {}
+        Err(e) => tracing::warn!(%machine, error=%format!("{e:#}"), "agent upgrade offer"),
+    }
     let cu = config_update(pool, layout, machine).await?;
     if *config_version != cu.version {
         *config_version = cu.version.clone();

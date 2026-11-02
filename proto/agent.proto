@@ -76,7 +76,7 @@ message StageResult { string stage = 1; bool ok = 2; string message = 3; }
 message CheckResult { string check_id = 1; string status = 2; string message = 3; }
 message Artifact { string name = 1; string sha256 = 2; bytes data = 3; }
 message Applied {
-  string kind = 1;           // plugin | plugin-remove | schedules | config (v0.20.1)
+  string kind = 1;           // plugin | plugin-remove | schedules | config (v0.20.1) | upgrade (v0.21.0: staged ok, or failed/rolled-back)
   string name = 2;
   string version = 3;
   bool ok = 4;
@@ -122,6 +122,7 @@ message ServerMessage {
     ScheduleSet schedules = 9;
     RunNow run_now = 10;
     ConfigUpdate config = 11;      // v0.20.1
+    UpgradeOffer upgrade = 12;     // v0.21.0
   }
 }
 // v0.20.1: the agent's whole config document (replaces agent-settings.json for the Rust agent).
@@ -143,6 +144,20 @@ message PluginUpdate {
   string endorsement = 4;
 }
 message PluginFile { string name = 1; bytes data = 2; }
+// v0.21.0: an agent release (package itcmdr-agent-release) for this agent's ring. files = the
+// package (package.toml, package.sig, release.toml, itcmdr-agent.exe ...). signer_public_key is the
+// owner key that signed package.sig. endorsement = hex Ed25519 by the server root key over
+// itcmdr_agentlink::upgrade_bytes(version, sha256(package.toml), signer fingerprint): the server
+// vouches that the signer holds the owner role. The agent checks both signatures, every file's
+// checksum, and min_from in release.toml, then hands the staged folder to itcmdr-agent-watchdog.
+message UpgradeOffer {
+  string version = 1;
+  repeated PluginFile files = 2;
+  string signer = 3;              // fingerprint
+  string signer_public_key = 4;   // hex Ed25519
+  string endorsement = 5;
+  int32 health_secs = 6;          // the new agent must say Hello within this, or the watchdog rolls back
+}
 message PluginRemove { string name = 1; }
 message ScheduleSet {
   string version = 1;

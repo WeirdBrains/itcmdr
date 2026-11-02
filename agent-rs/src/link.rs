@@ -238,6 +238,25 @@ pub async fn session(dir: &Path, st: &State, mut connected: impl FnMut(&pb::Welc
             Ok(Some(m)) => match m.body {
                 Some(pb::server_message::Body::Welcome(w)) => {
                     connected(&w);
+                    crate::upgrade::mark_connected();
+                    crate::upgrade::write_health(dir);
+                    // v0.21.0: report the watchdog's result of the last upgrade (rollback = failure).
+                    if let Some(o) = crate::upgrade::pending_result(dir) {
+                        seq += 1;
+                        let r = if o.ok {
+                            Ok(())
+                        } else {
+                            Err(anyhow::anyhow!("{}", o.error))
+                        };
+                        if tx
+                            .send(applied(seq, "upgrade", "itcmdr-agent", &o.version, r))
+                            .await
+                            .is_err()
+                        {
+                            return End::Lost("send failed".into());
+                        }
+                        crate::upgrade::mark_reported(dir);
+                    }
                     if !w.root_public_key.is_empty() {
                         if let Ok(Some(mut s2)) = state::load(dir) {
                             if s2.root_public_key.is_empty() {
@@ -301,6 +320,31 @@ pub async fn session(dir: &Path, st: &State, mut connected: impl FnMut(&pb::Welc
                     seq += 1;
                     if tx
                         .send(applied(seq, "schedules", "", &set.version, r))
+                        .await
+                        .is_err()
+                    {
+                        return End::Lost("send failed".into());
+                    }
+                }
+                Some(pb::server_message::Body::Upgrade(u)) => {
+                    let root = state::load(dir)
+                        .ok()
+                        .flatten()
+                        .map(|s| s.root_public_key)
+                        .unwrap_or_default();
+                    let prog = crate::upgrade::program_root();
+                    let r = crate::upgrade::apply(dir, prog.as_deref(), &root, &u);
+                    match &r {
+                        Ok(()) => {
+                            tracing::info!(version=%u.version, "agent release staged; the watchdog swaps it in")
+                        }
+                        Err(e) => {
+                            tracing::error!(version=%u.version, error=%format!("{e:#}"), "agent upgrade refused")
+                        }
+                    }
+                    seq += 1;
+                    if tx
+                        .send(applied(seq, "upgrade", "itcmdr-agent", &u.version, r))
                         .await
                         .is_err()
                     {
@@ -437,8 +481,30 @@ pub async fn run_and_queue(
 /// Local scheduler: every 30 s, run the due schedules (also while the server is unreachable).
 pub async fn scheduler(dir: std::path::PathBuf, machine: String) {
     let mut t = tokio::time::interval(Duration::from_secs(30));
+    let mut wd_ok = true;
     loop {
         t.tick().await;
+        crate::upgrade::write_health(&dir);
+        // v0.21.0: watchdog of the watchdog (start it when stopped; alert once, resolve after).
+        if let Some(up) = crate::upgrade::check_watchdog() {
+            if up != wd_ok {
+                wd_ok = up;
+                let _ = crate::queue::spool(
+                    &dir,
+                    &crate::queue::Item {
+                        seq: 0,
+                        key: "watchdog-missing".into(),
+                        level: "cautious".into(),
+                        title: "itcmdr-agent-watchdog was not running (started it)".into(),
+                        detail: "Agent upgrades and automatic rollback need the watchdog service."
+                            .into(),
+                        ts_ms: now(),
+                        resolve: up,
+                        report: None,
+                    },
+                );
+            }
+        }
         if let Some(did) =
             crate::config::cutover_if_valid(&dir).and_then(|c| crate::config::heal_task(&dir, &c))
         {

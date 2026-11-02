@@ -6,3 +6,4 @@ pub mod plugins;
 pub mod queue;
 pub mod runner;
 pub mod state;
+pub mod upgrade;
