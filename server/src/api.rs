@@ -82,6 +82,73 @@ pub fn authorize(
 }
 
 impl ItcmdrService {
+    /// v0.21.0: everything the Updates screen shows.
+    async fn upgrades_view(&self) -> Result<AgentUpgrades, Status> {
+        let ro = |r: crate::upgrades::Rollout| AgentRollout {
+            id: r.id,
+            version: r.version,
+            ring: r.ring,
+            state: r.state,
+            started_ms: r.started_ms,
+            ring_started_ms: r.ring_started_ms,
+            ring_ok_ms: r.ring_ok_ms,
+            reason: r.reason,
+            actor: r.actor,
+            updated_ms: r.updated_ms,
+        };
+        let cur = crate::upgrades::current(&self.pool)
+            .await
+            .map_err(internal_err)?;
+        let holds = match &cur {
+            Some(r) => {
+                crate::upgrades::ring_problems(&self.pool, r, chrono::Utc::now().timestamp_millis())
+                    .await
+                    .map_err(internal_err)?
+            }
+            None => vec![],
+        };
+        Ok(AgentUpgrades {
+            current: cur.map(ro),
+            ring_holds: holds,
+            history: crate::upgrades::history(&self.pool, 10)
+                .await
+                .map_err(internal_err)?
+                .into_iter()
+                .map(ro)
+                .collect(),
+            releases: crate::upgrades::releases(&self.pool, &self.cfg.layout())
+                .await
+                .map_err(internal_err)?
+                .into_iter()
+                .map(|r| AgentRelease {
+                    version: r.version,
+                    min_from: r.min_from,
+                    enabled: r.enabled,
+                    signer: r.signer,
+                    owner_signed: r.owner_signed,
+                    problem: r.problem,
+                })
+                .collect(),
+            machines: crate::upgrades::machines(&self.pool)
+                .await
+                .map_err(internal_err)?
+                .into_iter()
+                .map(|m| MachineUpgrade {
+                    machine: m.machine,
+                    ring: m.ring,
+                    version: m.version,
+                    state: m.state,
+                    upgrades: m.upgrades,
+                    last_version: m.last_version,
+                    last_ok: m.last_ok,
+                    last_error: m.last_error,
+                    last_ms: m.last_ms,
+                })
+                .collect(),
+            soak_mins: crate::settings::get_i64(&self.pool, None, "agent.upgradeSoakMins").await,
+        })
+    }
+
     pub fn new(cfg: ServerConfig, pool: DbPool) -> Self {
         Self {
             cfg,
@@ -1591,6 +1658,96 @@ impl Itcmdr for ItcmdrService {
                 Err(Status::failed_precondition(format!("{e:#}")))
             }
         }
+    }
+
+    async fn get_agent_upgrades(
+        &self,
+        req: Request<GetAgentUpgradesRequest>,
+    ) -> Result<Response<AgentUpgrades>, Status> {
+        self.read_guard(
+            &req,
+            "/itcmdr.Itcmdr/GetAgentUpgrades",
+            crate::auth::Role::User,
+        )
+        .await?;
+        self.upgrades_view().await.map(Response::new)
+    }
+
+    async fn start_agent_upgrade(
+        &self,
+        req: Request<StartAgentUpgradeRequest>,
+    ) -> Result<Response<AgentUpgrades>, Status> {
+        let p = self
+            .signed_only(
+                &req,
+                "/itcmdr.Itcmdr/StartAgentUpgrade",
+                crate::auth::Role::Owner,
+            )
+            .await?;
+        crate::upgrades::start(
+            &self.pool,
+            &self.cfg.layout(),
+            &req.get_ref().version,
+            &p.actor(),
+        )
+        .await
+        .map_err(|e| Status::failed_precondition(format!("{e:#}")))?;
+        self.upgrades_view().await.map(Response::new)
+    }
+
+    async fn pause_agent_upgrade(
+        &self,
+        req: Request<PauseAgentUpgradeRequest>,
+    ) -> Result<Response<AgentUpgrades>, Status> {
+        let p = self
+            .signed_only(
+                &req,
+                "/itcmdr.Itcmdr/PauseAgentUpgrade",
+                crate::auth::Role::Admin,
+            )
+            .await?;
+        let reason = match req.get_ref().reason.trim() {
+            "" => "paused from the app".to_string(),
+            r => r.chars().take(300).collect(),
+        };
+        crate::upgrades::pause(&self.pool, &p.actor(), &reason)
+            .await
+            .map_err(|e| Status::failed_precondition(format!("{e:#}")))?;
+        self.upgrades_view().await.map(Response::new)
+    }
+
+    async fn resume_agent_upgrade(
+        &self,
+        req: Request<ResumeAgentUpgradeRequest>,
+    ) -> Result<Response<AgentUpgrades>, Status> {
+        let p = self
+            .signed_only(
+                &req,
+                "/itcmdr.Itcmdr/ResumeAgentUpgrade",
+                crate::auth::Role::Owner,
+            )
+            .await?;
+        crate::upgrades::resume(&self.pool, &p.actor())
+            .await
+            .map_err(|e| Status::failed_precondition(format!("{e:#}")))?;
+        self.upgrades_view().await.map(Response::new)
+    }
+
+    async fn abort_agent_upgrade(
+        &self,
+        req: Request<AbortAgentUpgradeRequest>,
+    ) -> Result<Response<AgentUpgrades>, Status> {
+        let p = self
+            .signed_only(
+                &req,
+                "/itcmdr.Itcmdr/AbortAgentUpgrade",
+                crate::auth::Role::Admin,
+            )
+            .await?;
+        crate::upgrades::abort(&self.pool, &p.actor())
+            .await
+            .map_err(|e| Status::failed_precondition(format!("{e:#}")))?;
+        self.upgrades_view().await.map(Response::new)
     }
 
     async fn enable_plugin(

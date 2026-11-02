@@ -1073,6 +1073,108 @@ pub struct GetRestoreStatusResponse {
     #[prost(message, optional, tag = "1")]
     pub status: ::core::option::Option<RestoreStatus>,
 }
+/// v0.21.0: agent rollouts through the rings (docs/design/SERVER-AGENT.md section 8).
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AgentRollout {
+    #[prost(string, tag = "1")]
+    pub id: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub version: ::prost::alloc::string::String,
+    /// 0 test VM/PC, 1 one PC, 2 everything
+    #[prost(int64, tag = "3")]
+    pub ring: i64,
+    /// active | paused | done | aborted
+    #[prost(string, tag = "4")]
+    pub state: ::prost::alloc::string::String,
+    #[prost(int64, tag = "5")]
+    pub started_ms: i64,
+    #[prost(int64, tag = "6")]
+    pub ring_started_ms: i64,
+    /// 0 = the ring is not healthy on the new version yet; else soak start
+    #[prost(int64, tag = "7")]
+    pub ring_ok_ms: i64,
+    /// why it paused / was aborted
+    #[prost(string, tag = "8")]
+    pub reason: ::prost::alloc::string::String,
+    #[prost(string, tag = "9")]
+    pub actor: ::prost::alloc::string::String,
+    #[prost(int64, tag = "10")]
+    pub updated_ms: i64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AgentRelease {
+    #[prost(string, tag = "1")]
+    pub version: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub min_from: ::prost::alloc::string::String,
+    #[prost(bool, tag = "3")]
+    pub enabled: bool,
+    #[prost(string, tag = "4")]
+    pub signer: ::prost::alloc::string::String,
+    /// only owner-signed releases can be rolled out
+    #[prost(bool, tag = "5")]
+    pub owner_signed: bool,
+    /// why it cannot be rolled out ("" = it can)
+    #[prost(string, tag = "6")]
+    pub problem: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MachineUpgrade {
+    #[prost(string, tag = "1")]
+    pub machine: ::prost::alloc::string::String,
+    #[prost(int64, tag = "2")]
+    pub ring: i64,
+    /// running now (Hello)
+    #[prost(string, tag = "3")]
+    pub version: ::prost::alloc::string::String,
+    /// agent state
+    #[prost(string, tag = "4")]
+    pub state: ::prost::alloc::string::String,
+    /// agent.upgrades for this machine
+    #[prost(bool, tag = "5")]
+    pub upgrades: bool,
+    /// last upgrade result from this agent
+    #[prost(string, tag = "6")]
+    pub last_version: ::prost::alloc::string::String,
+    #[prost(bool, tag = "7")]
+    pub last_ok: bool,
+    #[prost(string, tag = "8")]
+    pub last_error: ::prost::alloc::string::String,
+    #[prost(int64, tag = "9")]
+    pub last_ms: i64,
+}
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct GetAgentUpgradesRequest {}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct AgentUpgrades {
+    /// unset: none in progress
+    #[prost(message, optional, tag = "1")]
+    pub current: ::core::option::Option<AgentRollout>,
+    #[prost(string, repeated, tag = "2")]
+    pub ring_holds: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+    #[prost(message, repeated, tag = "3")]
+    pub history: ::prost::alloc::vec::Vec<AgentRollout>,
+    #[prost(message, repeated, tag = "4")]
+    pub releases: ::prost::alloc::vec::Vec<AgentRelease>,
+    #[prost(message, repeated, tag = "5")]
+    pub machines: ::prost::alloc::vec::Vec<MachineUpgrade>,
+    #[prost(int64, tag = "6")]
+    pub soak_mins: i64,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct StartAgentUpgradeRequest {
+    #[prost(string, tag = "1")]
+    pub version: ::prost::alloc::string::String,
+}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct PauseAgentUpgradeRequest {
+    #[prost(string, tag = "1")]
+    pub reason: ::prost::alloc::string::String,
+}
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct ResumeAgentUpgradeRequest {}
+#[derive(Clone, Copy, PartialEq, ::prost::Message)]
+pub struct AbortAgentUpgradeRequest {}
 /// v0.17.0: Rust agents.
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AgentInfo {
@@ -2467,6 +2569,112 @@ pub mod itcmdr_client {
                 .insert(GrpcMethod::new("itcmdr.Itcmdr", "ListQuarantine"));
             self.inner.unary(req, path, codec).await
         }
+        /// v0.21.0: agent self-upgrade (Updates screen). Rings per machine: UpdateSetting agent.ring.
+        pub async fn get_agent_upgrades(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetAgentUpgradesRequest>,
+        ) -> std::result::Result<tonic::Response<super::AgentUpgrades>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/itcmdr.Itcmdr/GetAgentUpgrades",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("itcmdr.Itcmdr", "GetAgentUpgrades"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn start_agent_upgrade(
+            &mut self,
+            request: impl tonic::IntoRequest<super::StartAgentUpgradeRequest>,
+        ) -> std::result::Result<tonic::Response<super::AgentUpgrades>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/itcmdr.Itcmdr/StartAgentUpgrade",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("itcmdr.Itcmdr", "StartAgentUpgrade"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn pause_agent_upgrade(
+            &mut self,
+            request: impl tonic::IntoRequest<super::PauseAgentUpgradeRequest>,
+        ) -> std::result::Result<tonic::Response<super::AgentUpgrades>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/itcmdr.Itcmdr/PauseAgentUpgrade",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("itcmdr.Itcmdr", "PauseAgentUpgrade"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn resume_agent_upgrade(
+            &mut self,
+            request: impl tonic::IntoRequest<super::ResumeAgentUpgradeRequest>,
+        ) -> std::result::Result<tonic::Response<super::AgentUpgrades>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/itcmdr.Itcmdr/ResumeAgentUpgrade",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("itcmdr.Itcmdr", "ResumeAgentUpgrade"));
+            self.inner.unary(req, path, codec).await
+        }
+        pub async fn abort_agent_upgrade(
+            &mut self,
+            request: impl tonic::IntoRequest<super::AbortAgentUpgradeRequest>,
+        ) -> std::result::Result<tonic::Response<super::AgentUpgrades>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::unknown(
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/itcmdr.Itcmdr/AbortAgentUpgrade",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("itcmdr.Itcmdr", "AbortAgentUpgrade"));
+            self.inner.unary(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -2837,6 +3045,27 @@ pub mod itcmdr_server {
             tonic::Response<super::ListQuarantineResponse>,
             tonic::Status,
         >;
+        /// v0.21.0: agent self-upgrade (Updates screen). Rings per machine: UpdateSetting agent.ring.
+        async fn get_agent_upgrades(
+            &self,
+            request: tonic::Request<super::GetAgentUpgradesRequest>,
+        ) -> std::result::Result<tonic::Response<super::AgentUpgrades>, tonic::Status>;
+        async fn start_agent_upgrade(
+            &self,
+            request: tonic::Request<super::StartAgentUpgradeRequest>,
+        ) -> std::result::Result<tonic::Response<super::AgentUpgrades>, tonic::Status>;
+        async fn pause_agent_upgrade(
+            &self,
+            request: tonic::Request<super::PauseAgentUpgradeRequest>,
+        ) -> std::result::Result<tonic::Response<super::AgentUpgrades>, tonic::Status>;
+        async fn resume_agent_upgrade(
+            &self,
+            request: tonic::Request<super::ResumeAgentUpgradeRequest>,
+        ) -> std::result::Result<tonic::Response<super::AgentUpgrades>, tonic::Status>;
+        async fn abort_agent_upgrade(
+            &self,
+            request: tonic::Request<super::AbortAgentUpgradeRequest>,
+        ) -> std::result::Result<tonic::Response<super::AgentUpgrades>, tonic::Status>;
     }
     #[derive(Debug)]
     pub struct ItcmdrServer<T> {
@@ -5199,6 +5428,231 @@ pub mod itcmdr_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let method = ListQuarantineSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/itcmdr.Itcmdr/GetAgentUpgrades" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetAgentUpgradesSvc<T: Itcmdr>(pub Arc<T>);
+                    impl<
+                        T: Itcmdr,
+                    > tonic::server::UnaryService<super::GetAgentUpgradesRequest>
+                    for GetAgentUpgradesSvc<T> {
+                        type Response = super::AgentUpgrades;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetAgentUpgradesRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Itcmdr>::get_agent_upgrades(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = GetAgentUpgradesSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/itcmdr.Itcmdr/StartAgentUpgrade" => {
+                    #[allow(non_camel_case_types)]
+                    struct StartAgentUpgradeSvc<T: Itcmdr>(pub Arc<T>);
+                    impl<
+                        T: Itcmdr,
+                    > tonic::server::UnaryService<super::StartAgentUpgradeRequest>
+                    for StartAgentUpgradeSvc<T> {
+                        type Response = super::AgentUpgrades;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::StartAgentUpgradeRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Itcmdr>::start_agent_upgrade(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = StartAgentUpgradeSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/itcmdr.Itcmdr/PauseAgentUpgrade" => {
+                    #[allow(non_camel_case_types)]
+                    struct PauseAgentUpgradeSvc<T: Itcmdr>(pub Arc<T>);
+                    impl<
+                        T: Itcmdr,
+                    > tonic::server::UnaryService<super::PauseAgentUpgradeRequest>
+                    for PauseAgentUpgradeSvc<T> {
+                        type Response = super::AgentUpgrades;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::PauseAgentUpgradeRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Itcmdr>::pause_agent_upgrade(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = PauseAgentUpgradeSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/itcmdr.Itcmdr/ResumeAgentUpgrade" => {
+                    #[allow(non_camel_case_types)]
+                    struct ResumeAgentUpgradeSvc<T: Itcmdr>(pub Arc<T>);
+                    impl<
+                        T: Itcmdr,
+                    > tonic::server::UnaryService<super::ResumeAgentUpgradeRequest>
+                    for ResumeAgentUpgradeSvc<T> {
+                        type Response = super::AgentUpgrades;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::ResumeAgentUpgradeRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Itcmdr>::resume_agent_upgrade(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = ResumeAgentUpgradeSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/itcmdr.Itcmdr/AbortAgentUpgrade" => {
+                    #[allow(non_camel_case_types)]
+                    struct AbortAgentUpgradeSvc<T: Itcmdr>(pub Arc<T>);
+                    impl<
+                        T: Itcmdr,
+                    > tonic::server::UnaryService<super::AbortAgentUpgradeRequest>
+                    for AbortAgentUpgradeSvc<T> {
+                        type Response = super::AgentUpgrades;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::AbortAgentUpgradeRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as Itcmdr>::abort_agent_upgrade(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let method = AbortAgentUpgradeSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

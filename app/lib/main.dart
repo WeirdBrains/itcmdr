@@ -16,6 +16,7 @@ import 'exceptions_form.dart';
 import 'keys_page.dart';
 import 'logs_page.dart';
 import 'plugins_page.dart';
+import 'updates_page.dart';
 import 'proto/itcmdr.pbgrpc.dart';
 import 'schedules_page.dart';
 import 'server_settings.dart';
@@ -196,6 +197,11 @@ class _HomeShellState extends State<HomeShell> {
         'Plugins',
         PluginsPage(key: key, client: c, settings: s),
       ),
+      (
+        Icons.system_update_alt,
+        'Updates',
+        UpdatesPage(key: key, client: c, settings: s),
+      ),
       (Icons.backup, 'Backup', BackupPage(key: key, client: c, settings: s)),
       (
         Icons.history,
@@ -246,19 +252,32 @@ class _HomeShellState extends State<HomeShell> {
       ),
       body: Row(
         children: [
-          NavigationRail(
-            selectedIndex: _index,
-            labelType: NavigationRailLabelType.all,
-            destinations: [
-              for (final p in pages)
-                NavigationRailDestination(
-                  icon: p.$2 == 'Alerts' && _alertBadge > 0
-                      ? Badge(label: Text('$_alertBadge'), child: Icon(p.$1))
-                      : Icon(p.$1),
-                  label: Text(p.$2),
+          // The rail scrolls when the window is shorter than its entries.
+          LayoutBuilder(
+            builder: (context, box) => SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: box.maxHeight),
+                child: IntrinsicHeight(
+                  child: NavigationRail(
+                    selectedIndex: _index,
+                    labelType: NavigationRailLabelType.all,
+                    destinations: [
+                      for (final p in pages)
+                        NavigationRailDestination(
+                          icon: p.$2 == 'Alerts' && _alertBadge > 0
+                              ? Badge(
+                                  label: Text('$_alertBadge'),
+                                  child: Icon(p.$1),
+                                )
+                              : Icon(p.$1),
+                          label: Text(p.$2),
+                        ),
+                    ],
+                    onDestinationSelected: (i) => setState(() => _index = i),
+                  ),
                 ),
-            ],
-            onDestinationSelected: (i) => setState(() => _index = i),
+              ),
+            ),
           ),
           const VerticalDivider(width: 1),
           Expanded(child: pages[_index].$3),

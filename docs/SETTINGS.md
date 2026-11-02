@@ -44,6 +44,10 @@ Every tunable value in itcmdr is a typed setting with today's behaviour as its d
 | `agent.reconnectMaxSecs` | agent | int 5..3600 | `300` | next link | admin/owner (RPC, app, CLI) | Longest wait between agent reconnect attempts (backoff cap, seconds) (v0.17.0). |
 | `agent.officeHours` | agent | text (`Mon-Fri 07:00-18:00`, or empty) | (empty) | next pass | admin/owner (RPC, app, CLI) | Heartbeat office-hours profile in server local time: outside the hours a missing agent raises no alert; misses count from the start of the hours. Empty: always (v0.17.1). |
 | `agent.plugins` | agent | text (`all`, `none`, or `name1,name2`) | all | next link sync (30 s) | admin/owner (RPC, app, CLI) | Installed, enabled plugins pushed to the Rust agent; others are removed from it (v0.18.0). |
+| `agent.ring` | agent | int 0..2 | `2` | next offer | admin/owner (RPC, app, CLI) | Upgrade ring of this machine: 0 = test VM/PC (first), 1 = one PC, 2 = everything else (v0.21.0). |
+| `agent.upgrades` | agent | bool | `true` | next offer | admin/owner (RPC, app, CLI) | Automatic agent upgrades through the rings; false holds this machine (or every machine) back (v0.21.0). |
+| `agent.upgradeSoakMins` | agent | int 1..10080 | `60` | next tick | admin/owner (RPC, app, CLI) | Minutes a ring must stay healthy on the new agent version before the next ring starts (v0.21.0). |
+| `agent.upgradeHealthSecs` | agent | int 30..3600 | `300` | next offer | admin/owner (RPC, app, CLI) | The upgraded agent must connect with the new version within this, or the watchdog rolls back (v0.21.0). |
 | `agent.queueMaxMib` | agent | int 1..4096 | `256` | next link | admin/owner (RPC, app, CLI) | Rust agent offline alert queue cap (MiB); oldest informational items are dropped first and the drop is reported (v0.17.1). |
 | `agent.certLifetimeMins` | server | int 10..2628000 | `129600` | next enroll/renewal | admin/owner (RPC, app, CLI) | Agent client certificate lifetime in minutes (90 days); agents renew over the link at 2/3 of it (v0.17.1). |
 | `agent.tcpTimeoutMs` | agent | int 100..60000 | `3000` | next run | admin/owner (RPC, app, CLI) | TCP probe timeout (ms). |

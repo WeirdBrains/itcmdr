@@ -8021,6 +8021,793 @@ class GetRestoreStatusResponse extends $pb.GeneratedMessage {
   RestoreStatus ensureStatus() => $_ensure(0);
 }
 
+/// v0.21.0: agent rollouts through the rings (docs/design/SERVER-AGENT.md section 8).
+class AgentRollout extends $pb.GeneratedMessage {
+  factory AgentRollout({
+    $core.String? id,
+    $core.String? version,
+    $fixnum.Int64? ring,
+    $core.String? state,
+    $fixnum.Int64? startedMs,
+    $fixnum.Int64? ringStartedMs,
+    $fixnum.Int64? ringOkMs,
+    $core.String? reason,
+    $core.String? actor,
+    $fixnum.Int64? updatedMs,
+  }) {
+    final result = AgentRollout._();
+    if (id != null) result.id = id;
+    if (version != null) result.version = version;
+    if (ring != null) result.ring = ring;
+    if (state != null) result.state = state;
+    if (startedMs != null) result.startedMs = startedMs;
+    if (ringStartedMs != null) result.ringStartedMs = ringStartedMs;
+    if (ringOkMs != null) result.ringOkMs = ringOkMs;
+    if (reason != null) result.reason = reason;
+    if (actor != null) result.actor = actor;
+    if (updatedMs != null) result.updatedMs = updatedMs;
+    return result;
+  }
+
+  AgentRollout._();
+
+  factory AgentRollout.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      AgentRollout()..mergeFromBuffer(data, registry);
+  factory AgentRollout.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      AgentRollout()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'AgentRollout',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: AgentRollout.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aOS(2, _omitFieldNames ? '' : 'version')
+    ..aInt64(3, _omitFieldNames ? '' : 'ring')
+    ..aOS(4, _omitFieldNames ? '' : 'state')
+    ..aInt64(5, _omitFieldNames ? '' : 'startedMs')
+    ..aInt64(6, _omitFieldNames ? '' : 'ringStartedMs')
+    ..aInt64(7, _omitFieldNames ? '' : 'ringOkMs')
+    ..aOS(8, _omitFieldNames ? '' : 'reason')
+    ..aOS(9, _omitFieldNames ? '' : 'actor')
+    ..aInt64(10, _omitFieldNames ? '' : 'updatedMs')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AgentRollout clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AgentRollout copyWith(void Function(AgentRollout) updates) =>
+      super.copyWith((message) => updates(message as AgentRollout))
+          as AgentRollout;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use AgentRollout() / AgentRollout.new instead')
+  static AgentRollout create() => AgentRollout._();
+  static $pb.GeneratedMessage $_createMessage() => AgentRollout._();
+  @$core.override
+  AgentRollout createEmptyInstance() => AgentRollout._();
+  @$core.pragma('dart2js:noInline')
+  static AgentRollout getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<AgentRollout>(
+          AgentRollout.$_createMessage);
+  static AgentRollout? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get version => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set version($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasVersion() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearVersion() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get ring => $_getI64(2);
+  @$pb.TagNumber(3)
+  set ring($fixnum.Int64 value) => $_setInt64(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasRing() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearRing() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get state => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set state($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasState() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearState() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $fixnum.Int64 get startedMs => $_getI64(4);
+  @$pb.TagNumber(5)
+  set startedMs($fixnum.Int64 value) => $_setInt64(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasStartedMs() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearStartedMs() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $fixnum.Int64 get ringStartedMs => $_getI64(5);
+  @$pb.TagNumber(6)
+  set ringStartedMs($fixnum.Int64 value) => $_setInt64(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasRingStartedMs() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearRingStartedMs() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $fixnum.Int64 get ringOkMs => $_getI64(6);
+  @$pb.TagNumber(7)
+  set ringOkMs($fixnum.Int64 value) => $_setInt64(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasRingOkMs() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearRingOkMs() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.String get reason => $_getSZ(7);
+  @$pb.TagNumber(8)
+  set reason($core.String value) => $_setString(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasReason() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearReason() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.String get actor => $_getSZ(8);
+  @$pb.TagNumber(9)
+  set actor($core.String value) => $_setString(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasActor() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearActor() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $fixnum.Int64 get updatedMs => $_getI64(9);
+  @$pb.TagNumber(10)
+  set updatedMs($fixnum.Int64 value) => $_setInt64(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasUpdatedMs() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearUpdatedMs() => $_clearField(10);
+}
+
+class AgentRelease extends $pb.GeneratedMessage {
+  factory AgentRelease({
+    $core.String? version,
+    $core.String? minFrom,
+    $core.bool? enabled,
+    $core.String? signer,
+    $core.bool? ownerSigned,
+    $core.String? problem,
+  }) {
+    final result = AgentRelease._();
+    if (version != null) result.version = version;
+    if (minFrom != null) result.minFrom = minFrom;
+    if (enabled != null) result.enabled = enabled;
+    if (signer != null) result.signer = signer;
+    if (ownerSigned != null) result.ownerSigned = ownerSigned;
+    if (problem != null) result.problem = problem;
+    return result;
+  }
+
+  AgentRelease._();
+
+  factory AgentRelease.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      AgentRelease()..mergeFromBuffer(data, registry);
+  factory AgentRelease.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      AgentRelease()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'AgentRelease',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: AgentRelease.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'version')
+    ..aOS(2, _omitFieldNames ? '' : 'minFrom')
+    ..aOB(3, _omitFieldNames ? '' : 'enabled')
+    ..aOS(4, _omitFieldNames ? '' : 'signer')
+    ..aOB(5, _omitFieldNames ? '' : 'ownerSigned')
+    ..aOS(6, _omitFieldNames ? '' : 'problem')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AgentRelease clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AgentRelease copyWith(void Function(AgentRelease) updates) =>
+      super.copyWith((message) => updates(message as AgentRelease))
+          as AgentRelease;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use AgentRelease() / AgentRelease.new instead')
+  static AgentRelease create() => AgentRelease._();
+  static $pb.GeneratedMessage $_createMessage() => AgentRelease._();
+  @$core.override
+  AgentRelease createEmptyInstance() => AgentRelease._();
+  @$core.pragma('dart2js:noInline')
+  static AgentRelease getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<AgentRelease>(
+          AgentRelease.$_createMessage);
+  static AgentRelease? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get version => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set version($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasVersion() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearVersion() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get minFrom => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set minFrom($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasMinFrom() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearMinFrom() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.bool get enabled => $_getBF(2);
+  @$pb.TagNumber(3)
+  set enabled($core.bool value) => $_setBool(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasEnabled() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearEnabled() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get signer => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set signer($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasSigner() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearSigner() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.bool get ownerSigned => $_getBF(4);
+  @$pb.TagNumber(5)
+  set ownerSigned($core.bool value) => $_setBool(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasOwnerSigned() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearOwnerSigned() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get problem => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set problem($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasProblem() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearProblem() => $_clearField(6);
+}
+
+class MachineUpgrade extends $pb.GeneratedMessage {
+  factory MachineUpgrade({
+    $core.String? machine,
+    $fixnum.Int64? ring,
+    $core.String? version,
+    $core.String? state,
+    $core.bool? upgrades,
+    $core.String? lastVersion,
+    $core.bool? lastOk,
+    $core.String? lastError,
+    $fixnum.Int64? lastMs,
+  }) {
+    final result = MachineUpgrade._();
+    if (machine != null) result.machine = machine;
+    if (ring != null) result.ring = ring;
+    if (version != null) result.version = version;
+    if (state != null) result.state = state;
+    if (upgrades != null) result.upgrades = upgrades;
+    if (lastVersion != null) result.lastVersion = lastVersion;
+    if (lastOk != null) result.lastOk = lastOk;
+    if (lastError != null) result.lastError = lastError;
+    if (lastMs != null) result.lastMs = lastMs;
+    return result;
+  }
+
+  MachineUpgrade._();
+
+  factory MachineUpgrade.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      MachineUpgrade()..mergeFromBuffer(data, registry);
+  factory MachineUpgrade.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      MachineUpgrade()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'MachineUpgrade',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: MachineUpgrade.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'machine')
+    ..aInt64(2, _omitFieldNames ? '' : 'ring')
+    ..aOS(3, _omitFieldNames ? '' : 'version')
+    ..aOS(4, _omitFieldNames ? '' : 'state')
+    ..aOB(5, _omitFieldNames ? '' : 'upgrades')
+    ..aOS(6, _omitFieldNames ? '' : 'lastVersion')
+    ..aOB(7, _omitFieldNames ? '' : 'lastOk')
+    ..aOS(8, _omitFieldNames ? '' : 'lastError')
+    ..aInt64(9, _omitFieldNames ? '' : 'lastMs')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MachineUpgrade clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MachineUpgrade copyWith(void Function(MachineUpgrade) updates) =>
+      super.copyWith((message) => updates(message as MachineUpgrade))
+          as MachineUpgrade;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use MachineUpgrade() / MachineUpgrade.new instead')
+  static MachineUpgrade create() => MachineUpgrade._();
+  static $pb.GeneratedMessage $_createMessage() => MachineUpgrade._();
+  @$core.override
+  MachineUpgrade createEmptyInstance() => MachineUpgrade._();
+  @$core.pragma('dart2js:noInline')
+  static MachineUpgrade getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<MachineUpgrade>(
+          MachineUpgrade.$_createMessage);
+  static MachineUpgrade? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get machine => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set machine($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasMachine() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearMachine() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get ring => $_getI64(1);
+  @$pb.TagNumber(2)
+  set ring($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasRing() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearRing() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get version => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set version($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasVersion() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearVersion() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get state => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set state($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasState() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearState() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.bool get upgrades => $_getBF(4);
+  @$pb.TagNumber(5)
+  set upgrades($core.bool value) => $_setBool(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasUpgrades() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearUpgrades() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get lastVersion => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set lastVersion($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasLastVersion() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearLastVersion() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.bool get lastOk => $_getBF(6);
+  @$pb.TagNumber(7)
+  set lastOk($core.bool value) => $_setBool(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasLastOk() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearLastOk() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.String get lastError => $_getSZ(7);
+  @$pb.TagNumber(8)
+  set lastError($core.String value) => $_setString(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasLastError() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearLastError() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $fixnum.Int64 get lastMs => $_getI64(8);
+  @$pb.TagNumber(9)
+  set lastMs($fixnum.Int64 value) => $_setInt64(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasLastMs() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearLastMs() => $_clearField(9);
+}
+
+class GetAgentUpgradesRequest extends $pb.GeneratedMessage {
+  factory GetAgentUpgradesRequest() => GetAgentUpgradesRequest._();
+
+  GetAgentUpgradesRequest._();
+
+  factory GetAgentUpgradesRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetAgentUpgradesRequest()..mergeFromBuffer(data, registry);
+  factory GetAgentUpgradesRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      GetAgentUpgradesRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'GetAgentUpgradesRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: GetAgentUpgradesRequest.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetAgentUpgradesRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  GetAgentUpgradesRequest copyWith(
+          void Function(GetAgentUpgradesRequest) updates) =>
+      super.copyWith((message) => updates(message as GetAgentUpgradesRequest))
+          as GetAgentUpgradesRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use GetAgentUpgradesRequest() / GetAgentUpgradesRequest.new instead')
+  static GetAgentUpgradesRequest create() => GetAgentUpgradesRequest._();
+  static $pb.GeneratedMessage $_createMessage() => GetAgentUpgradesRequest._();
+  @$core.override
+  GetAgentUpgradesRequest createEmptyInstance() => GetAgentUpgradesRequest._();
+  @$core.pragma('dart2js:noInline')
+  static GetAgentUpgradesRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<GetAgentUpgradesRequest>(
+          GetAgentUpgradesRequest.$_createMessage);
+  static GetAgentUpgradesRequest? _defaultInstance;
+}
+
+class AgentUpgrades extends $pb.GeneratedMessage {
+  factory AgentUpgrades({
+    AgentRollout? current,
+    $core.Iterable<$core.String>? ringHolds,
+    $core.Iterable<AgentRollout>? history,
+    $core.Iterable<AgentRelease>? releases,
+    $core.Iterable<MachineUpgrade>? machines,
+    $fixnum.Int64? soakMins,
+  }) {
+    final result = AgentUpgrades._();
+    if (current != null) result.current = current;
+    if (ringHolds != null) result.ringHolds.addAll(ringHolds);
+    if (history != null) result.history.addAll(history);
+    if (releases != null) result.releases.addAll(releases);
+    if (machines != null) result.machines.addAll(machines);
+    if (soakMins != null) result.soakMins = soakMins;
+    return result;
+  }
+
+  AgentUpgrades._();
+
+  factory AgentUpgrades.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      AgentUpgrades()..mergeFromBuffer(data, registry);
+  factory AgentUpgrades.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      AgentUpgrades()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'AgentUpgrades',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: AgentUpgrades.$_createMessage)
+    ..aOM<AgentRollout>(1, _omitFieldNames ? '' : 'current',
+        subBuilder: AgentRollout.$_createMessage)
+    ..pPS(2, _omitFieldNames ? '' : 'ringHolds')
+    ..pPM<AgentRollout>(3, _omitFieldNames ? '' : 'history',
+        subBuilder: AgentRollout.$_createMessage)
+    ..pPM<AgentRelease>(4, _omitFieldNames ? '' : 'releases',
+        subBuilder: AgentRelease.$_createMessage)
+    ..pPM<MachineUpgrade>(5, _omitFieldNames ? '' : 'machines',
+        subBuilder: MachineUpgrade.$_createMessage)
+    ..aInt64(6, _omitFieldNames ? '' : 'soakMins')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AgentUpgrades clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AgentUpgrades copyWith(void Function(AgentUpgrades) updates) =>
+      super.copyWith((message) => updates(message as AgentUpgrades))
+          as AgentUpgrades;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use AgentUpgrades() / AgentUpgrades.new instead')
+  static AgentUpgrades create() => AgentUpgrades._();
+  static $pb.GeneratedMessage $_createMessage() => AgentUpgrades._();
+  @$core.override
+  AgentUpgrades createEmptyInstance() => AgentUpgrades._();
+  @$core.pragma('dart2js:noInline')
+  static AgentUpgrades getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<AgentUpgrades>(
+          AgentUpgrades.$_createMessage);
+  static AgentUpgrades? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  AgentRollout get current => $_getN(0);
+  @$pb.TagNumber(1)
+  set current(AgentRollout value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasCurrent() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearCurrent() => $_clearField(1);
+  @$pb.TagNumber(1)
+  AgentRollout ensureCurrent() => $_ensure(0);
+
+  @$pb.TagNumber(2)
+  $pb.PbList<$core.String> get ringHolds => $_getList(1);
+
+  @$pb.TagNumber(3)
+  $pb.PbList<AgentRollout> get history => $_getList(2);
+
+  @$pb.TagNumber(4)
+  $pb.PbList<AgentRelease> get releases => $_getList(3);
+
+  @$pb.TagNumber(5)
+  $pb.PbList<MachineUpgrade> get machines => $_getList(4);
+
+  @$pb.TagNumber(6)
+  $fixnum.Int64 get soakMins => $_getI64(5);
+  @$pb.TagNumber(6)
+  set soakMins($fixnum.Int64 value) => $_setInt64(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasSoakMins() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearSoakMins() => $_clearField(6);
+}
+
+class StartAgentUpgradeRequest extends $pb.GeneratedMessage {
+  factory StartAgentUpgradeRequest({
+    $core.String? version,
+  }) {
+    final result = StartAgentUpgradeRequest._();
+    if (version != null) result.version = version;
+    return result;
+  }
+
+  StartAgentUpgradeRequest._();
+
+  factory StartAgentUpgradeRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      StartAgentUpgradeRequest()..mergeFromBuffer(data, registry);
+  factory StartAgentUpgradeRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      StartAgentUpgradeRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'StartAgentUpgradeRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: StartAgentUpgradeRequest.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'version')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  StartAgentUpgradeRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  StartAgentUpgradeRequest copyWith(
+          void Function(StartAgentUpgradeRequest) updates) =>
+      super.copyWith((message) => updates(message as StartAgentUpgradeRequest))
+          as StartAgentUpgradeRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use StartAgentUpgradeRequest() / StartAgentUpgradeRequest.new instead')
+  static StartAgentUpgradeRequest create() => StartAgentUpgradeRequest._();
+  static $pb.GeneratedMessage $_createMessage() => StartAgentUpgradeRequest._();
+  @$core.override
+  StartAgentUpgradeRequest createEmptyInstance() =>
+      StartAgentUpgradeRequest._();
+  @$core.pragma('dart2js:noInline')
+  static StartAgentUpgradeRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<StartAgentUpgradeRequest>(
+          StartAgentUpgradeRequest.$_createMessage);
+  static StartAgentUpgradeRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get version => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set version($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasVersion() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearVersion() => $_clearField(1);
+}
+
+class PauseAgentUpgradeRequest extends $pb.GeneratedMessage {
+  factory PauseAgentUpgradeRequest({
+    $core.String? reason,
+  }) {
+    final result = PauseAgentUpgradeRequest._();
+    if (reason != null) result.reason = reason;
+    return result;
+  }
+
+  PauseAgentUpgradeRequest._();
+
+  factory PauseAgentUpgradeRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      PauseAgentUpgradeRequest()..mergeFromBuffer(data, registry);
+  factory PauseAgentUpgradeRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      PauseAgentUpgradeRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PauseAgentUpgradeRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: PauseAgentUpgradeRequest.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'reason')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PauseAgentUpgradeRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PauseAgentUpgradeRequest copyWith(
+          void Function(PauseAgentUpgradeRequest) updates) =>
+      super.copyWith((message) => updates(message as PauseAgentUpgradeRequest))
+          as PauseAgentUpgradeRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use PauseAgentUpgradeRequest() / PauseAgentUpgradeRequest.new instead')
+  static PauseAgentUpgradeRequest create() => PauseAgentUpgradeRequest._();
+  static $pb.GeneratedMessage $_createMessage() => PauseAgentUpgradeRequest._();
+  @$core.override
+  PauseAgentUpgradeRequest createEmptyInstance() =>
+      PauseAgentUpgradeRequest._();
+  @$core.pragma('dart2js:noInline')
+  static PauseAgentUpgradeRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PauseAgentUpgradeRequest>(
+          PauseAgentUpgradeRequest.$_createMessage);
+  static PauseAgentUpgradeRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get reason => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set reason($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasReason() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearReason() => $_clearField(1);
+}
+
+class ResumeAgentUpgradeRequest extends $pb.GeneratedMessage {
+  factory ResumeAgentUpgradeRequest() => ResumeAgentUpgradeRequest._();
+
+  ResumeAgentUpgradeRequest._();
+
+  factory ResumeAgentUpgradeRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ResumeAgentUpgradeRequest()..mergeFromBuffer(data, registry);
+  factory ResumeAgentUpgradeRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      ResumeAgentUpgradeRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ResumeAgentUpgradeRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: ResumeAgentUpgradeRequest.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ResumeAgentUpgradeRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ResumeAgentUpgradeRequest copyWith(
+          void Function(ResumeAgentUpgradeRequest) updates) =>
+      super.copyWith((message) => updates(message as ResumeAgentUpgradeRequest))
+          as ResumeAgentUpgradeRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use ResumeAgentUpgradeRequest() / ResumeAgentUpgradeRequest.new instead')
+  static ResumeAgentUpgradeRequest create() => ResumeAgentUpgradeRequest._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      ResumeAgentUpgradeRequest._();
+  @$core.override
+  ResumeAgentUpgradeRequest createEmptyInstance() =>
+      ResumeAgentUpgradeRequest._();
+  @$core.pragma('dart2js:noInline')
+  static ResumeAgentUpgradeRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ResumeAgentUpgradeRequest>(
+          ResumeAgentUpgradeRequest.$_createMessage);
+  static ResumeAgentUpgradeRequest? _defaultInstance;
+}
+
+class AbortAgentUpgradeRequest extends $pb.GeneratedMessage {
+  factory AbortAgentUpgradeRequest() => AbortAgentUpgradeRequest._();
+
+  AbortAgentUpgradeRequest._();
+
+  factory AbortAgentUpgradeRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      AbortAgentUpgradeRequest()..mergeFromBuffer(data, registry);
+  factory AbortAgentUpgradeRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      AbortAgentUpgradeRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'AbortAgentUpgradeRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'itcmdr'),
+      createEmptyInstance: AbortAgentUpgradeRequest.$_createMessage)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AbortAgentUpgradeRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AbortAgentUpgradeRequest copyWith(
+          void Function(AbortAgentUpgradeRequest) updates) =>
+      super.copyWith((message) => updates(message as AbortAgentUpgradeRequest))
+          as AbortAgentUpgradeRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use AbortAgentUpgradeRequest() / AbortAgentUpgradeRequest.new instead')
+  static AbortAgentUpgradeRequest create() => AbortAgentUpgradeRequest._();
+  static $pb.GeneratedMessage $_createMessage() => AbortAgentUpgradeRequest._();
+  @$core.override
+  AbortAgentUpgradeRequest createEmptyInstance() =>
+      AbortAgentUpgradeRequest._();
+  @$core.pragma('dart2js:noInline')
+  static AbortAgentUpgradeRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<AbortAgentUpgradeRequest>(
+          AbortAgentUpgradeRequest.$_createMessage);
+  static AbortAgentUpgradeRequest? _defaultInstance;
+}
+
 /// v0.17.0: Rust agents.
 class AgentInfo extends $pb.GeneratedMessage {
   factory AgentInfo({

@@ -331,6 +331,30 @@ async fn owner_release_is_offered_staged_and_a_rollback_pauses_the_rollout() {
             .unwrap()
             .is_none()
     );
+    // What the Updates screen shows: newest release first, the admin-signed one flagged.
+    let rel = srv::upgrades::releases(&e.pool, &e.c.layout())
+        .await
+        .unwrap();
+    assert_eq!(rel.len(), 2);
+    assert_eq!(
+        (
+            rel[0].version.as_str(),
+            rel[0].owner_signed,
+            rel[0].problem.as_str()
+        ),
+        ("99.0.0", true, "")
+    );
+    assert!(
+        !rel[1].owner_signed && rel[1].problem.contains("owner signature"),
+        "{:?}",
+        rel[1]
+    );
+    let m = srv::upgrades::machines(&e.pool).await.unwrap();
+    let w = m.iter().find(|m| m.machine == "WS-21").unwrap();
+    assert_eq!(
+        (w.ring, w.upgrades, w.last_version.as_str(), w.last_ok),
+        (0, false, "99.0.0", true) // resumed: offered and staged again
+    );
     s.abort();
     let _ = stop.send(());
     std::env::remove_var("ITCMDR_AGENT_PROGRAM");

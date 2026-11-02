@@ -449,7 +449,59 @@ service Itcmdr {
   rpc DisablePlugin(PluginRef) returns (PluginActionResponse);              // admin, signed only
   rpc RemovePlugin(PluginRef) returns (PluginActionResponse);               // admin, signed only
   rpc ListQuarantine(ListQuarantineRequest) returns (ListQuarantineResponse); // admin
+  // v0.21.0: agent self-upgrade (Updates screen). Rings per machine: UpdateSetting agent.ring.
+  rpc GetAgentUpgrades(GetAgentUpgradesRequest) returns (AgentUpgrades);          // user
+  rpc StartAgentUpgrade(StartAgentUpgradeRequest) returns (AgentUpgrades);       // owner, signed only
+  rpc PauseAgentUpgrade(PauseAgentUpgradeRequest) returns (AgentUpgrades);       // admin, signed only
+  rpc ResumeAgentUpgrade(ResumeAgentUpgradeRequest) returns (AgentUpgrades);     // owner, signed only
+  rpc AbortAgentUpgrade(AbortAgentUpgradeRequest) returns (AgentUpgrades);       // admin, signed only
 }
+
+// v0.21.0: agent rollouts through the rings (docs/design/SERVER-AGENT.md section 8).
+message AgentRollout {
+  string id = 1;
+  string version = 2;
+  int64 ring = 3;              // 0 test VM/PC, 1 one PC, 2 everything
+  string state = 4;            // active | paused | done | aborted
+  int64 started_ms = 5;
+  int64 ring_started_ms = 6;
+  int64 ring_ok_ms = 7;        // 0 = the ring is not healthy on the new version yet; else soak start
+  string reason = 8;           // why it paused / was aborted
+  string actor = 9;
+  int64 updated_ms = 10;
+}
+message AgentRelease {
+  string version = 1;
+  string min_from = 2;
+  bool enabled = 3;
+  string signer = 4;
+  bool owner_signed = 5;       // only owner-signed releases can be rolled out
+  string problem = 6;          // why it cannot be rolled out ("" = it can)
+}
+message MachineUpgrade {
+  string machine = 1;
+  int64 ring = 2;
+  string version = 3;          // running now (Hello)
+  string state = 4;            // agent state
+  bool upgrades = 5;           // agent.upgrades for this machine
+  string last_version = 6;     // last upgrade result from this agent
+  bool last_ok = 7;
+  string last_error = 8;
+  int64 last_ms = 9;
+}
+message GetAgentUpgradesRequest {}
+message AgentUpgrades {
+  AgentRollout current = 1;    // unset: none in progress
+  repeated string ring_holds = 2;
+  repeated AgentRollout history = 3;
+  repeated AgentRelease releases = 4;
+  repeated MachineUpgrade machines = 5;
+  int64 soak_mins = 6;
+}
+message StartAgentUpgradeRequest { string version = 1; }
+message PauseAgentUpgradeRequest { string reason = 1; }
+message ResumeAgentUpgradeRequest {}
+message AbortAgentUpgradeRequest {}
 
 
 // v0.17.0: Rust agents.
