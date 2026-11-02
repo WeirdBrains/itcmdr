@@ -210,6 +210,10 @@ Future<OrgPolicy> setOrgPolicy({required bool requireSecondApprover}) => RustLib
     .api
     .crateApiAdminSetOrgPolicy(requireSecondApprover: requireSecondApprover);
 
+/// Owners only; audited (v1.0.0): days before a site's deep backup check is flagged.
+Future<OrgPolicy> setDeepCheckDays({required int days}) =>
+    RustLib.instance.api.crateApiAdminSetDeepCheckDays(days: days);
+
 Future<List<Release>> releases() =>
     RustLib.instance.api.crateApiAdminReleases();
 
@@ -660,15 +664,22 @@ class OrgPolicy {
   final String updatedBy;
   final PlatformInt64 updatedMs;
 
+  /// v1.0.0: warn when a site's last deep backup check is older than this (days)
+  final int deepCheckMaxDays;
+
   const OrgPolicy({
     required this.requireSecondApprover,
     required this.updatedBy,
     required this.updatedMs,
+    required this.deepCheckMaxDays,
   });
 
   @override
   int get hashCode =>
-      requireSecondApprover.hashCode ^ updatedBy.hashCode ^ updatedMs.hashCode;
+      requireSecondApprover.hashCode ^
+      updatedBy.hashCode ^
+      updatedMs.hashCode ^
+      deepCheckMaxDays.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -677,7 +688,8 @@ class OrgPolicy {
           runtimeType == other.runtimeType &&
           requireSecondApprover == other.requireSecondApprover &&
           updatedBy == other.updatedBy &&
-          updatedMs == other.updatedMs;
+          updatedMs == other.updatedMs &&
+          deepCheckMaxDays == other.deepCheckMaxDays;
 }
 
 class Passkey {
@@ -1138,6 +1150,12 @@ class SiteStatus {
   final PlatformInt64 pluginErrors24H;
   final PlatformInt64 alertsOpened24H;
 
+  /// v1.0.0: "last deep check: N days ago (ok)" or "last deep check: never"
+  final String deepCheckText;
+
+  /// v1.0.0: empty, or why the deep backup check needs attention (never, failed, too old)
+  final String deepCheckWarning;
+
   const SiteStatus({
     required this.version,
     required this.uptimeSecs,
@@ -1162,6 +1180,8 @@ class SiteStatus {
     required this.runSecsMax24H,
     required this.pluginErrors24H,
     required this.alertsOpened24H,
+    required this.deepCheckText,
+    required this.deepCheckWarning,
   });
 
   @override
@@ -1188,7 +1208,9 @@ class SiteStatus {
       runSecsAvg24H.hashCode ^
       runSecsMax24H.hashCode ^
       pluginErrors24H.hashCode ^
-      alertsOpened24H.hashCode;
+      alertsOpened24H.hashCode ^
+      deepCheckText.hashCode ^
+      deepCheckWarning.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -1217,7 +1239,9 @@ class SiteStatus {
           runSecsAvg24H == other.runSecsAvg24H &&
           runSecsMax24H == other.runSecsMax24H &&
           pluginErrors24H == other.pluginErrors24H &&
-          alertsOpened24H == other.alertsOpened24H;
+          alertsOpened24H == other.alertsOpened24H &&
+          deepCheckText == other.deepCheckText &&
+          deepCheckWarning == other.deepCheckWarning;
 }
 
 class User {

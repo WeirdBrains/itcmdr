@@ -102,7 +102,7 @@ if ($site) {
   $checks += if ($e) { ConvertTo-ItcmdrCheck 'localLogs' 'fail' $e } else { ConvertTo-ItcmdrCheck 'localLogs' 'ok' "$local (writable)" }
   $share = & $get 'shares' 'maintenanceRuns'
   if (-not $share) {
-    $checks += ConvertTo-ItcmdrCheck 'share' 'warn' 'shares.maintenanceRuns not set: logs stay local and requests from the app are not picked up'
+    $checks += ConvertTo-ItcmdrCheck 'share' 'warn' 'shares.maintenanceRuns not set: PowerShell logs stay local (fine with the Rust agent, which reports and takes Run now over its link)'
   } else {
     $e = Test-ItcmdrWritableDir $share $false
     $checks += if ($e) { ConvertTo-ItcmdrCheck 'share' 'fail' $e } else { ConvertTo-ItcmdrCheck 'share' 'ok' "$share (writable)" }

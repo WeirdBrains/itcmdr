@@ -69,7 +69,7 @@ class RustLib extends BaseEntrypoint<RustLibApi, RustLibApiImpl, RustLibWire> {
   String get codegenVersion => '2.13.0';
 
   @override
-  int get rustContentHash => 1214599240;
+  int get rustContentHash => -980121569;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -188,6 +188,8 @@ abstract class RustLibApi extends BaseApi {
     required List<String> args,
     required bool dryRun,
   });
+
+  Future<OrgPolicy> crateApiAdminSetDeepCheckDays({required int days});
 
   Future<User> crateApiAdminSetDisabled({
     required String user,
@@ -1235,6 +1237,34 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   );
 
   @override
+  Future<OrgPolicy> crateApiAdminSetDeepCheckDays({required int days}) {
+    return handler.executeNormal(
+      NormalTask(
+        callFfi: (port_) {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_i_32(days, serializer);
+          pdeCallFfi(
+            generalizedFrbRustBinding,
+            serializer,
+            funcId: 34,
+            port: port_,
+          );
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_org_policy,
+          decodeErrorData: sse_decode_AnyhowException,
+        ),
+        constMeta: kCrateApiAdminSetDeepCheckDaysConstMeta,
+        argValues: [days],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiAdminSetDeepCheckDaysConstMeta =>
+      const TaskConstMeta(debugName: "set_deep_check_days", argNames: ["days"]);
+
+  @override
   Future<User> crateApiAdminSetDisabled({
     required String user,
     required bool disabled,
@@ -1248,7 +1278,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 34,
+            funcId: 35,
             port: port_,
           );
         },
@@ -1278,7 +1308,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 35,
+            funcId: 36,
             port: port_,
           );
         },
@@ -1308,7 +1338,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 36,
+            funcId: 37,
             port: port_,
           );
         },
@@ -1338,7 +1368,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 37,
+            funcId: 38,
             port: port_,
           );
         },
@@ -1370,7 +1400,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 38,
+            funcId: 39,
             port: port_,
           );
         },
@@ -1402,7 +1432,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 39,
+            funcId: 40,
             port: port_,
           );
         },
@@ -1430,7 +1460,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 40,
+            funcId: 41,
             port: port_,
           );
         },
@@ -1458,7 +1488,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 41,
+            funcId: 42,
             port: port_,
           );
         },
@@ -1485,7 +1515,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 42,
+            funcId: 43,
             port: port_,
           );
         },
@@ -1513,7 +1543,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 43,
+            funcId: 44,
             port: port_,
           );
         },
@@ -1540,7 +1570,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 44,
+            funcId: 45,
             port: port_,
           );
         },
@@ -1567,7 +1597,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 45,
+            funcId: 46,
             port: port_,
           );
         },
@@ -1595,7 +1625,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 46,
+            funcId: 47,
             port: port_,
           );
         },
@@ -1622,7 +1652,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 47,
+            funcId: 48,
             port: port_,
           );
         },
@@ -1649,7 +1679,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
           pdeCallFfi(
             generalizedFrbRustBinding,
             serializer,
-            funcId: 48,
+            funcId: 49,
             port: port_,
           );
         },
@@ -2017,12 +2047,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   OrgPolicy dco_decode_org_policy(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 3)
-      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
+    if (arr.length != 4)
+      throw Exception('unexpected arr length: expect 4 but see ${arr.length}');
     return OrgPolicy(
       requireSecondApprover: dco_decode_bool(arr[0]),
       updatedBy: dco_decode_String(arr[1]),
       updatedMs: dco_decode_i_64(arr[2]),
+      deepCheckMaxDays: dco_decode_i_32(arr[3]),
     );
   }
 
@@ -2206,8 +2237,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   SiteStatus dco_decode_site_status(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 23)
-      throw Exception('unexpected arr length: expect 23 but see ${arr.length}');
+    if (arr.length != 25)
+      throw Exception('unexpected arr length: expect 25 but see ${arr.length}');
     return SiteStatus(
       version: dco_decode_String(arr[0]),
       uptimeSecs: dco_decode_i_64(arr[1]),
@@ -2232,6 +2263,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       runSecsMax24H: dco_decode_i_64(arr[20]),
       pluginErrors24H: dco_decode_i_64(arr[21]),
       alertsOpened24H: dco_decode_i_64(arr[22]),
+      deepCheckText: dco_decode_String(arr[23]),
+      deepCheckWarning: dco_decode_String(arr[24]),
     );
   }
 
@@ -2764,10 +2797,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_requireSecondApprover = sse_decode_bool(deserializer);
     var var_updatedBy = sse_decode_String(deserializer);
     var var_updatedMs = sse_decode_i_64(deserializer);
+    var var_deepCheckMaxDays = sse_decode_i_32(deserializer);
     return OrgPolicy(
       requireSecondApprover: var_requireSecondApprover,
       updatedBy: var_updatedBy,
       updatedMs: var_updatedMs,
+      deepCheckMaxDays: var_deepCheckMaxDays,
     );
   }
 
@@ -3002,6 +3037,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_runSecsMax24H = sse_decode_i_64(deserializer);
     var var_pluginErrors24H = sse_decode_i_64(deserializer);
     var var_alertsOpened24H = sse_decode_i_64(deserializer);
+    var var_deepCheckText = sse_decode_String(deserializer);
+    var var_deepCheckWarning = sse_decode_String(deserializer);
     return SiteStatus(
       version: var_version,
       uptimeSecs: var_uptimeSecs,
@@ -3026,6 +3063,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
       runSecsMax24H: var_runSecsMax24H,
       pluginErrors24H: var_pluginErrors24H,
       alertsOpened24H: var_alertsOpened24H,
+      deepCheckText: var_deepCheckText,
+      deepCheckWarning: var_deepCheckWarning,
     );
   }
 
@@ -3454,6 +3493,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_bool(self.requireSecondApprover, serializer);
     sse_encode_String(self.updatedBy, serializer);
     sse_encode_i_64(self.updatedMs, serializer);
+    sse_encode_i_32(self.deepCheckMaxDays, serializer);
   }
 
   @protected
@@ -3603,6 +3643,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_i_64(self.runSecsMax24H, serializer);
     sse_encode_i_64(self.pluginErrors24H, serializer);
     sse_encode_i_64(self.alertsOpened24H, serializer);
+    sse_encode_String(self.deepCheckText, serializer);
+    sse_encode_String(self.deepCheckWarning, serializer);
   }
 
   @protected

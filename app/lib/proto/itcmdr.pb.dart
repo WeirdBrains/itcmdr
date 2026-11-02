@@ -3174,9 +3174,14 @@ class ListBackupsRequest extends $pb.GeneratedMessage {
 class ListBackupsResponse extends $pb.GeneratedMessage {
   factory ListBackupsResponse({
     $core.Iterable<BackupInfo>? backups,
+    $fixnum.Int64? lastDeepCheckMs,
+    $core.String? lastDeepCheckResult,
   }) {
     final result = ListBackupsResponse._();
     if (backups != null) result.backups.addAll(backups);
+    if (lastDeepCheckMs != null) result.lastDeepCheckMs = lastDeepCheckMs;
+    if (lastDeepCheckResult != null)
+      result.lastDeepCheckResult = lastDeepCheckResult;
     return result;
   }
 
@@ -3195,6 +3200,8 @@ class ListBackupsResponse extends $pb.GeneratedMessage {
       createEmptyInstance: ListBackupsResponse.$_createMessage)
     ..pPM<BackupInfo>(1, _omitFieldNames ? '' : 'backups',
         subBuilder: BackupInfo.$_createMessage)
+    ..aInt64(2, _omitFieldNames ? '' : 'lastDeepCheckMs')
+    ..aOS(3, _omitFieldNames ? '' : 'lastDeepCheckResult')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3222,6 +3229,25 @@ class ListBackupsResponse extends $pb.GeneratedMessage {
 
   @$pb.TagNumber(1)
   $pb.PbList<BackupInfo> get backups => $_getList(0);
+
+  /// v1.0.0: the last `backup drill --deep` (0 = never; result ok | failed | none)
+  @$pb.TagNumber(2)
+  $fixnum.Int64 get lastDeepCheckMs => $_getI64(1);
+  @$pb.TagNumber(2)
+  set lastDeepCheckMs($fixnum.Int64 value) => $_setInt64(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasLastDeepCheckMs() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearLastDeepCheckMs() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get lastDeepCheckResult => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set lastDeepCheckResult($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasLastDeepCheckResult() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearLastDeepCheckResult() => $_clearField(3);
 }
 
 class VerifyBackupRequest extends $pb.GeneratedMessage {

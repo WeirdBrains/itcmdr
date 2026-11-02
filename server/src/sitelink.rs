@@ -593,6 +593,7 @@ pub async fn status(pool: &DbPool, cfg: &ServerConfig, r: &Redactor) -> pb::Site
     let (age, size, last) = backup_status(pool, cfg).await;
     let counts = crate::alerts::open_counts(pool).await.unwrap_or_default();
     let mode = crate::api::AuthMode::from_config(&cfg.auth_mode);
+    let deep = crate::backup::last_deep_check(pool).await;
     pb::SiteStatus {
         version: env!("CARGO_PKG_VERSION").into(),
         uptime_secs: (now_ms() - *STARTED.get_or_init(now_ms)) / 1000,
@@ -611,6 +612,8 @@ pub async fn status(pool: &DbPool, cfg: &ServerConfig, r: &Redactor) -> pb::Site
         open_alerts: counts.to_vec(),
         machines: agents.iter().map(|a| r.machine(a)).collect(),
         cutover_state: String::new(),
+        deep_check_ms: deep.0,
+        deep_check_result: deep.1,
         ..summaries(pool, cfg).await
     }
 }

@@ -762,13 +762,28 @@ const ListBackupsResponse$json = {
       '6': '.itcmdr.BackupInfo',
       '10': 'backups'
     },
+    {
+      '1': 'last_deep_check_ms',
+      '3': 2,
+      '4': 1,
+      '5': 3,
+      '10': 'lastDeepCheckMs'
+    },
+    {
+      '1': 'last_deep_check_result',
+      '3': 3,
+      '4': 1,
+      '5': 9,
+      '10': 'lastDeepCheckResult'
+    },
   ],
 };
 
 /// Descriptor for `ListBackupsResponse`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List listBackupsResponseDescriptor = $convert.base64Decode(
     'ChNMaXN0QmFja3Vwc1Jlc3BvbnNlEiwKB2JhY2t1cHMYASADKAsyEi5pdGNtZHIuQmFja3VwSW'
-    '5mb1IHYmFja3Vwcw==');
+    '5mb1IHYmFja3VwcxIrChJsYXN0X2RlZXBfY2hlY2tfbXMYAiABKANSD2xhc3REZWVwQ2hlY2tN'
+    'cxIzChZsYXN0X2RlZXBfY2hlY2tfcmVzdWx0GAMgASgJUhNsYXN0RGVlcENoZWNrUmVzdWx0');
 
 @$core.Deprecated('Use verifyBackupRequestDescriptor instead')
 const VerifyBackupRequest$json = {

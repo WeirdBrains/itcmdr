@@ -319,6 +319,20 @@ impl Client {
             }
         )
     }
+    /// Owner only, audited (v1.0.0): warn when a site's last deep backup check is older than this.
+    pub async fn set_deep_check_days(&self, days: i32) -> Result<pb::OrgPolicy> {
+        let cur = self.get_org_policy().await?;
+        call!(
+            self,
+            set_org_policy,
+            "SetOrgPolicy",
+            pb::OrgPolicy {
+                require_second_approver: cur.require_second_approver,
+                deep_check_max_days: days,
+                ..Default::default()
+            }
+        )
+    }
     pub async fn list_releases(&self) -> Result<pb::ReleaseList> {
         call!(self, list_releases, "ListReleases", pb::Empty {})
     }

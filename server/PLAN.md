@@ -681,3 +681,9 @@ Branding (v0.14.3): `branding/` holds the SVG masters, `build.py` and the render
 - Done: restore drill `backup::drill` (temp copy, master-key-pinned verify, schema check, optional decrypt with the words, temp removed, audit `backup.drill`, `server_meta` `backup.drill.last`); `itcmdr-cli backup drill [--deep]`; adminsvr `backup.drill` command (site runs it, reports ok/failed only; added to the default allowlist and migrated for links on the v0.20/v0.21 default); `itcmdr-admin backup drill <site>`; admin app Restore drill button. Runbook docs/BACKUP.md. Test: server/tests/backup.rs.
 - Done: Windows VM (v22a/v22b): 0.21.0 install, agent pushed to 0.22.0-pre1 with the watchdog result reported 6 s after the new agent linked (the v0.21.0 race fix confirmed), rollout done; real server self-upgrade 0.21.0 -> 0.22.0-pre1 through the watchdog; broken server release rolled back (see HANDOVER). VM restored from C:\e2e\v22-orig.
 - Deferred: a fresh-install VM test with no share at all (not run in v0.22.0); Push-Install-ItcmdrAgent.ps1 kept for first installs.
+
+### v1.0.0 (2026-11-02)
+- Done: fresh-install VM test with no share (v10f: 11 checks OK; the 12th was a false positive in the test's own UNC regex on JSON-escaped local paths, rechecked: 0 share paths). VM restored from C:\e2e\v10-orig.
+- Done: agent setup check wording, README, INSTALL no-share section, versions 1.0.0.
+- Not a bug: the blank alert severity in the v0.22.0 VM log was the test script reading `.severity`; alerts carry `level` (script fixed).
+- Post-1.0: adminsvr's own backup/restore runbook and drill; code signing (Authenticode, Apple notarization, Android release key).

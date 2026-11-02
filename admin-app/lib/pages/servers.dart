@@ -364,6 +364,17 @@ class _ServerPageState extends State<ServerPage> {
                         ? 'none'
                         : '${st.backupLastResult}, ${(st.backupAgeSecs / 3600).toStringAsFixed(1)} h old, ${(st.backupSizeBytes / 1048576).toStringAsFixed(1)} MB',
                   ),
+                  kv('Deep check', st.deepCheckText),
+                  if (st.deepCheckWarning.isNotEmpty)
+                    ListTile(
+                      key: const Key('deep-check-warning'),
+                      dense: true,
+                      leading: const Icon(
+                        Icons.warning_amber,
+                        color: Colors.orange,
+                      ),
+                      title: Text('Warning: ${st.deepCheckWarning}'),
+                    ),
                   kv(
                     'Agents',
                     '${st.agentsOnline} online · ${st.agentsLate} late · ${st.agentsNonResponsive} not responding · ${st.agentsOther} other',

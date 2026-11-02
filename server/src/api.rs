@@ -816,8 +816,11 @@ impl Itcmdr for ItcmdrService {
             &serde_json::json!({"count": list.len()}),
         )
         .await;
+        let (deep_ms, deep_res) = crate::backup::last_deep_check(&self.pool).await;
         Ok(Response::new(ListBackupsResponse {
             backups: list.into_iter().map(Self::backup_info).collect(),
+            last_deep_check_ms: deep_ms,
+            last_deep_check_result: deep_res,
         }))
     }
 

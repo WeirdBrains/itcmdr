@@ -65,6 +65,15 @@ itcmdr-admin backup drill <site>   # waits for the site's ok/failed
 
 The admin app has a Restore drill button per server (Servers page).
 
+### Deep-check reminder (v1.0.0)
+
+The server keeps the date and result (ok or failed) of the last `backup drill --deep`. The site app
+shows "Last deep check: N days ago" on the Backup page, with a warning when it never ran, failed or
+is older than 90 days. A site linked to adminsvr sends only that date and result (no backup
+contents, names or paths) in its status; adminsvr's CLI (`itcmdr-admin site list`) and the admin
+app (Servers) show it and warn on the same rules, with the limit set per organization
+(`itcmdr-admin org policy --deep-check-days N`, owners only).
+
 ### Runbook: monthly restore test
 
 1. Monthly, from adminsvr or on the server: `backup drill`. A failure is a Critical problem:

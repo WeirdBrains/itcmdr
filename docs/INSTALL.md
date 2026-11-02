@@ -48,6 +48,13 @@ They all install under `C:\Program Files\itcmdr\<part>` and share the data folde
    the backup folder (a share or a second disk). It also asks for the **first admin** (a person's name). These go into
    `server.json` (`itcmdr-cli setup apply`). The agent package asks for its own values, which go into `site.json` (`Initialize-ItcmdrSite.ps1`). An upgrade keeps every value
    that is already set and only fills empty ones.
+
+   **No file share is needed (v1.0.0).** Leave the maintenanceRuns and backup fields empty and the server keeps
+   logs in `C:\ProgramData\itcmdr\maintenanceRuns` and backups in `C:\ProgramData\itcmdr\backups` (set a second
+   disk later with `itcmdr-cli setup apply --backup-dir`). Install the agent with only `/EnrollToken=<token>`
+   (`itcmdr-cli agent enroll-token --machine <PC> --address <server>:50052`): it reports, takes config and Run now over
+   its mutual-TLS link. Tested on the Windows VM in v1.0.0 (fresh install, no share: enrolled, online, backup and
+   restore drill OK, no share path anywhere in the config).
 3. Have paper ready, leave **Run first-run setup now** ticked, and click Finish. A console window opens
    (`itcmdr-cli setup first-run`):
    - It shows the 24 recovery words once. They are never written to a file or a log. Write them on paper and keep the

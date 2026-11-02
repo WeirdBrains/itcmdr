@@ -140,6 +140,9 @@ enum OrgCmd {
     Policy {
         #[arg(long)]
         second_approver: Option<String>,
+        /// Warn when a site's last deep backup check is older than this many days (default 90).
+        #[arg(long)]
+        deep_check_days: Option<i32>,
     },
 }
 
@@ -620,7 +623,14 @@ async fn main() -> Result<()> {
                         }
                     }
                 }
-                Cmd::Org(OrgCmd::Policy { second_approver }) => {
+                Cmd::Org(OrgCmd::Policy {
+                    second_approver,
+                    deep_check_days,
+                }) => {
+                    if let Some(d) = deep_check_days {
+                        anyhow::ensure!((1..=3650).contains(&d), "--deep-check-days 1..3650");
+                        c.set_deep_check_days(d).await?;
+                    }
                     let p = match second_approver.as_deref() {
                         None => c.get_org_policy().await?,
                         Some("on" | "true") => c.set_org_policy(true).await?,
@@ -628,12 +638,13 @@ async fn main() -> Result<()> {
                         Some(x) => anyhow::bail!("--second-approver on|off, not {x}"),
                     };
                     println!(
-                        "second approver: {}{}",
+                        "second approver: {}  deep check warning after {} days{}",
                         if p.require_second_approver {
                             "required"
                         } else {
                             "off"
                         },
+                        p.deep_check_max_days,
                         if p.updated_ms > 0 {
                             format!("  (changed {} by {})", ts(p.updated_ms), p.updated_by)
                         } else {
@@ -804,9 +815,14 @@ async fn main() -> Result<()> {
                         println!("site {} created. Site token (24 h, single use), on the site server run:\n  itcmdr-cli adminsvr enroll {}", r.site.unwrap().id, r.token);
                     }
                     SiteCmd::List => {
+                        let max = c.get_org_policy().await?.deep_check_max_days;
+                        let now = itcmdr_keys::now_ms();
                         for s in c.list_sites().await?.sites {
                             let st = s.last_status.unwrap_or_default();
-                            println!("{}  {}  {}  v{}  seen {}  backup_age={}s ({})  agents online/late/nr={}/{}/{}  names_shared={}", s.id, s.name, s.status, s.version, ts(s.last_seen_ms), st.backup_age_secs, st.backup_last_result, st.agents_online, st.agents_late, st.agents_non_responsive, s.share_display_names);
+                            println!("{}  {}  {}  v{}  seen {}  backup_age={}s ({})  {}  agents online/late/nr={}/{}/{}  names_shared={}", s.id, s.name, s.status, s.version, ts(s.last_seen_ms), st.backup_age_secs, st.backup_last_result, itcmdr_adminlink::deep_check_text(&st, now), st.agents_online, st.agents_late, st.agents_non_responsive, s.share_display_names);
+                            if let (_, Some(w)) = itcmdr_adminlink::deep_check(&st, max, now) {
+                                println!("  WARNING: {w}");
+                            }
                         }
                     }
                     SiteCmd::Revoke { site } => {

@@ -619,6 +619,13 @@ async fn commands_down_documents_up(db: String) {
     );
     let p0 = o.set_org_policy(false).await.unwrap();
     assert!(!p0.require_second_approver && p0.updated_ms > 0 && !p0.updated_by.is_empty());
+    // v1.0.0: the deep-check limit (default 90 days; 0 keeps it; owners only)
+    assert_eq!(p0.deep_check_max_days, 90);
+    assert!(adm.set_deep_check_days(30).await.is_err(), "owners only");
+    let p1 = o.set_deep_check_days(120).await.unwrap();
+    assert_eq!((p1.deep_check_max_days, p1.require_second_approver), (120, false));
+    assert_eq!(o.set_org_policy(false).await.unwrap().deep_check_max_days, 120, "0 keeps it");
+    assert!(o.set_deep_check_days(-1).await.is_err());
     let au = o.list_audit("", 50).await.unwrap().entries;
     assert!(
         au.iter().filter(|e| e.action == "org.policy").count() >= 2,
