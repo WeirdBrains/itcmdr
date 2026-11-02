@@ -630,7 +630,8 @@ impl Api {
             ));
         }
         let second = self.second_required().await?;
-        let gated = itcmdr_adminlink::TWO_PERSON.contains(&kind) || kind == "release.rollout";
+        let gated = !c.dry_run
+            && (itcmdr_adminlink::TWO_PERSON.contains(&kind) || kind == "release.rollout");
         if c.two_person != (second && gated) {
             return Err(Status::invalid_argument(format!(
                 "two_person must be {} (the organization's second-approver setting, GetOrgPolicy)",

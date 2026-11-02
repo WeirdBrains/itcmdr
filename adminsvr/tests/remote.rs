@@ -211,7 +211,16 @@ async fn commands_down_documents_up(db: String) {
     ] {
         assert!(!get(&d, k).remote, "{k} must not be settable remotely");
     }
-    assert!(d.require_two_person);
+    // v0.21.0: the site's own "always require two" override is off by default; the
+    // org setting decides. Turn it on here so the two-person paths below stay covered.
+    assert!(!d.require_two_person);
+    assert!(!o.get_org_policy().await.unwrap().require_second_approver);
+    assert!(
+        o.set_org_policy(true)
+            .await
+            .unwrap()
+            .require_second_approver
+    );
     assert!(
         d.allowed.iter().any(|k| k == "plugin.install"),
         "{:?}",
@@ -546,6 +555,92 @@ async fn commands_down_documents_up(db: String) {
         .await
         .unwrap();
     adm.approve_command(&x.id).await.unwrap();
+    assert_eq!(done(&o, &x.id).await.state, "applied");
+
+    // ---- v0.21.0 releases: approve once (two approvers while the org setting is on)
+    let rel = package(&root, "itcmdr-agent-release", "9.9.0", &pkg_key);
+    let re = adm.upload_plugin(rel).await.unwrap();
+    let list = o.list_releases().await.unwrap().releases;
+    let r0 = list
+        .iter()
+        .find(|r| r.sha256 == re.sha256)
+        .expect("release listed");
+    assert!(
+        !list.iter().any(|r| r.name == "disk-watch"),
+        "plugins aren't releases"
+    );
+    assert_eq!((r0.needed, r0.approved), (2, false), "{r0:?}");
+    let err = adm
+        .rollout_release(&site, &re.sha256, false)
+        .await
+        .err()
+        .unwrap();
+    assert!(format!("{err}").contains("approv"), "unapproved: {err}");
+    assert!(
+        sre.approve_release(&re.sha256).await.is_err(),
+        "SREs don't approve"
+    );
+    let r1 = adm.approve_release(&re.sha256).await.unwrap();
+    assert_eq!((r1.approved_by.len(), r1.approved), (1, false));
+    let r1 = adm.approve_release(&re.sha256).await.unwrap();
+    assert_eq!(r1.approved_by.len(), 1, "the same person twice counts once");
+    let r2 = o.approve_release(&re.sha256).await.unwrap();
+    assert!(r2.approved && r2.approved_by.len() == 2, "{r2:?}");
+    let x = adm.rollout_release(&site, &re.sha256, true).await.unwrap();
+    // the release approvals are the second person: the rollout itself goes straight out, and
+    // the site checks both approvals itself (this test package has no binaries, so it stops there)
+    assert_ne!(x.state, "awaiting-approval", "{x:?}");
+    let d = done(&o, &x.id).await;
+    assert_eq!(
+        d.result_code, "not-allowed",
+        "release rollouts are opt-in per site: {d:?}"
+    );
+    let mut kinds: Vec<String> = srv::sitelink::DEFAULT_ALLOWED
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    kinds.push("release.rollout".into());
+    srv::sitelink::set_allowed(&pool, &cfg, &kinds, "test")
+        .await
+        .unwrap();
+    let x = adm.rollout_release(&site, &re.sha256, true).await.unwrap();
+    let d = done(&o, &x.id).await;
+    eprintln!("ROLLOUT-RESULT {} {}", d.state, d.result_code);
+    assert!(
+        !["needs-approval", "not-allowed", "refused"].contains(&d.result_code.as_str()),
+        "{d:?}"
+    );
+    assert!(sre.rollout_release(&site, &re.sha256, false).await.is_err());
+
+    // ---- the org setting: owners only, audited; off = one approver everywhere
+    assert!(
+        adm.set_org_policy(false).await.is_err(),
+        "admins can't change it"
+    );
+    let p0 = o.set_org_policy(false).await.unwrap();
+    assert!(!p0.require_second_approver && p0.updated_ms > 0 && !p0.updated_by.is_empty());
+    let au = o.list_audit("", 50).await.unwrap().entries;
+    assert!(
+        au.iter().filter(|e| e.action == "org.policy").count() >= 2,
+        "audited"
+    );
+    let rel2 = package(&root, "itcmdr-agent-release", "9.9.1", &pkg_key);
+    let re2 = adm.upload_plugin(rel2).await.unwrap();
+    let r = adm.approve_release(&re2.sha256).await.unwrap();
+    assert!(r.approved && r.needed == 1, "{r:?}");
+    let x = sre
+        .command_ex(
+            &site,
+            "plugin.enable",
+            &[("name", "disk-watch"), ("version", "1.2.0")],
+            false,
+        )
+        .await
+        .unwrap();
+    assert_ne!(
+        x.state, "awaiting-approval",
+        "one approver: sent at once ({x:?})"
+    );
     assert_eq!(done(&o, &x.id).await.state, "applied");
 
     // ---- metrics summaries

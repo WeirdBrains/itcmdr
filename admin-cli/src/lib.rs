@@ -658,7 +658,7 @@ impl Client {
             user_role: me.role,
             issued_ms: now,
             expires_ms: now
-                + if !dry_run && itcmdr_adminlink::TWO_PERSON.contains(&kind) {
+                + if two_person && kind != "release.rollout" {
                     23 * 3600 * 1000
                 } else {
                     10 * 60 * 1000
