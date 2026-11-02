@@ -12,6 +12,10 @@ path = "src/lib.rs"
 name = "itcmdr-agent-watchdog"
 path = "src/bin/agent.rs"
 
+[[bin]]
+name = "itcmdr-server-watchdog"
+path = "src/bin/server.rs"
+
 [dependencies]
 anyhow = "1.0"
 serde = { version = "1.0", features = ["derive"] }

@@ -32,6 +32,10 @@ pub fn mark_connected() {
 
 /// Write `<data>\health.json` (the watchdog reads it).
 pub fn write_health(dir: &Path) {
+    // Test hook (VM break tests): `<data>\health.pause` = behave as if hung.
+    if dir.join("health.pause").exists() {
+        return;
+    }
     let h = wd::Health {
         version: crate::link::VERSION.into(),
         pid: std::process::id(),

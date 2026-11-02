@@ -12,6 +12,8 @@
 //! Between upgrades the watchdog restarts the service when it is stopped or when its health file
 //! (`<data>\health.json`, written every 30 s) is stale. The watchdog itself lives outside
 //! `current\` and is only replaced by the installer, so a bad release cannot remove the rollback.
+pub mod runner;
+
 use anyhow::{bail, ensure, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
