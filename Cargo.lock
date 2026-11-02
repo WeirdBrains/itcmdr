@@ -1860,6 +1860,7 @@ dependencies = [
  "itcmdr-keys",
  "itcmdr-plugin",
  "itcmdr-sample-data-gen",
+ "itcmdr-watchdog",
  "libsqlite3-sys",
  "once_cell",
  "parking_lot 0.12.5",

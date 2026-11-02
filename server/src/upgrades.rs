@@ -153,7 +153,7 @@ pub async fn release(
     pool: &DbPool,
     layout: &Layout,
     version: &str,
-) -> Result<(InstalledPlugin, ReleaseToml, String)> {
+) -> Result<(InstalledPlugin, ReleaseToml, String, String)> {
     let p = packages::list(pool, layout)
         .await?
         .into_iter()
@@ -169,7 +169,12 @@ pub async fn release(
         rel.version,
         p.version
     );
-    let Some((pk, role)) = signer_role(pool, &p.signer).await? else {
+    let ps: packages::PackageSig = serde_json::from_slice(
+        &std::fs::read(p.dir.join(packages::SIGNATURE)).context("package.sig")?,
+    )
+    .context("package.sig")?;
+    let fp = ps.signer;
+    let Some((pk, role)) = signer_role(pool, &fp).await? else {
         bail!(
             "{AGENT_RELEASE} {version}: signer {} is unknown or revoked",
             p.signer
@@ -179,7 +184,7 @@ pub async fn release(
         role == "owner",
         "{AGENT_RELEASE} {version} is signed by a {role} key; agent releases need an owner signature"
     );
-    Ok((p, rel, pk))
+    Ok((p, rel, pk, fp))
 }
 
 /// Start a rollout at ring 0. Refused while another is active or paused.
@@ -328,7 +333,7 @@ pub async fn offer_for(
     if failed == Some(0) {
         return Ok(None);
     }
-    let (p, rel, pk) = release(pool, layout, &c.version).await?;
+    let (p, rel, pk, fp) = release(pool, layout, &c.version).await?;
     if !rel.min_from.is_empty()
         && itcmdr_agentlink::version_cmp(running, &rel.min_from) == Ordering::Less
     {
@@ -353,13 +358,11 @@ pub async fn offer_for(
     }
     let root = crate::auth::load_root_key(layout)?;
     use ed25519_dalek::Signer;
-    let sig = root.sign(&itcmdr_agentlink::upgrade_bytes(
-        &c.version, &sha, &p.signer,
-    ));
+    let sig = root.sign(&itcmdr_agentlink::upgrade_bytes(&c.version, &sha, &fp));
     Ok(Some(pb::UpgradeOffer {
         version: c.version,
         files,
-        signer: p.signer,
+        signer: fp,
         signer_public_key: pk,
         endorsement: hex::encode(sig.to_bytes()),
         health_secs: crate::agents::machine_i64(pool, "agent.upgradeHealthSecs", machine).await
