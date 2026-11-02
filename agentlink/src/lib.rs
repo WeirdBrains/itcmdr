@@ -38,23 +38,59 @@ pub fn upgrade_bytes(version: &str, manifest_sha256: &str, signer: &str) -> Vec<
 
 /// v0.21.0: compare dotted versions numerically (pre-release suffixes after '-' sort lower).
 pub fn version_cmp(a: &str, b: &str) -> std::cmp::Ordering {
-    fn parts(v: &str) -> (Vec<u64>, bool) {
+    fn parts(v: &str) -> (Vec<u64>, Option<String>) {
         let v = v.trim().trim_start_matches('v');
         let (core, pre) = match v.split_once('-') {
-            Some((c, _)) => (c, true),
-            None => (v, false),
+            Some((c, p)) => (c, Some(p.to_string())),
+            None => (v, None),
         };
         (
             core.split('.').map(|p| p.parse().unwrap_or(0)).collect(),
             pre,
         )
     }
+    // Pre-release labels compare piece by piece, runs of digits as numbers: pre2 < pre10 < rc1.
+    fn pre_cmp(a: &str, b: &str) -> std::cmp::Ordering {
+        fn chunks(s: &str) -> Vec<(bool, String)> {
+            let mut out: Vec<(bool, String)> = vec![];
+            for ch in s.chars() {
+                let d = ch.is_ascii_digit();
+                match out.last_mut() {
+                    Some((ld, t)) if *ld == d => t.push(ch),
+                    _ => out.push((d, ch.to_string())),
+                }
+            }
+            out
+        }
+        let (x, y) = (chunks(a), chunks(b));
+        for (p, q) in x.iter().zip(y.iter()) {
+            let o = match (p.0, q.0) {
+                (true, true) => {
+                    p.1.parse::<u64>()
+                        .unwrap_or(0)
+                        .cmp(&q.1.parse::<u64>().unwrap_or(0))
+                }
+                (true, false) => std::cmp::Ordering::Less,
+                (false, true) => std::cmp::Ordering::Greater,
+                (false, false) => p.1.cmp(&q.1),
+            };
+            if o != std::cmp::Ordering::Equal {
+                return o;
+            }
+        }
+        x.len().cmp(&y.len())
+    }
     let (mut x, xp) = parts(a);
     let (mut y, yp) = parts(b);
     let n = x.len().max(y.len());
     x.resize(n, 0);
     y.resize(n, 0);
-    x.cmp(&y).then(yp.cmp(&xp))
+    x.cmp(&y).then_with(|| match (&xp, &yp) {
+        (None, None) => std::cmp::Ordering::Equal,
+        (None, Some(_)) => std::cmp::Ordering::Greater,
+        (Some(_), None) => std::cmp::Ordering::Less,
+        (Some(p), Some(q)) => pre_cmp(p, q),
+    })
 }
 
 /// v0.20.1: bytes the server root key signs for a ConfigUpdate (the agent checks them).
@@ -115,6 +151,11 @@ mod tests {
         assert_eq!(version_cmp("0.21.0", "0.21"), Equal);
         assert_eq!(version_cmp("0.21.0-pre1", "0.21.0"), Less);
         assert_eq!(version_cmp("v0.9.9", "0.10.0"), Less);
+        // Pre-releases of one version are ordered too (pre1 == pre2 made upgrades between them no-ops).
+        assert_eq!(version_cmp("0.21.0-pre1", "0.21.0-pre2"), Less);
+        assert_eq!(version_cmp("0.21.0-pre2", "0.21.0-pre10"), Less);
+        assert_eq!(version_cmp("0.21.0-pre3", "0.21.0-rc1"), Less);
+        assert_eq!(version_cmp("0.21.0-rc1", "0.21.0-rc1"), Equal);
     }
 
     #[test]
