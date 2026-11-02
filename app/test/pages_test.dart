@@ -110,8 +110,8 @@ void main() {
     'every documented setting default is accepted, and search finds them',
     () {
       final all = settingsFromReference();
-      expect(all, hasLength(52));
-      expect(all.map((s) => s.key).toSet(), hasLength(52));
+      expect(all, hasLength(59));
+      expect(all.map((s) => s.key).toSet(), hasLength(59));
       for (final s in all) {
         if (s.readOnly) {
           expect(validateSettingValue(s, s.value), isNotNull, reason: s.key);
@@ -122,8 +122,10 @@ void main() {
       expect(all.where((s) => s.type == 'bool').map((s) => s.key), [
         'adminsvr.enabled',
         'adminsvr.requireTwoPerson',
+        'agent.upgrades',
         'backup.nightly',
         'plugins.enable_on_install',
+        'updates.auto',
       ]);
       expect(visibleSettings(all, 'server', 'auth_mode').map((s) => s.key), [
         'server.auth_mode',
@@ -270,7 +272,7 @@ void main() {
     );
     await tester.pump();
     expect(find.byKey(const Key('settings-search')), findsOneWidget);
-    expect(find.byType(Switch), findsNWidgets(4));
+    expect(find.byType(Switch), findsNWidgets(5));
     expect(
       find.byKey(const Key('setting-bool-backup.nightly')),
       findsOneWidget,

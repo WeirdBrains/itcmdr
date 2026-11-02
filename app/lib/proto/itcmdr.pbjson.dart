@@ -1897,6 +1897,7 @@ const AgentRollout$json = {
     {'1': 'reason', '3': 8, '4': 1, '5': 9, '10': 'reason'},
     {'1': 'actor', '3': 9, '4': 1, '5': 9, '10': 'actor'},
     {'1': 'updated_ms', '3': 10, '4': 1, '5': 3, '10': 'updatedMs'},
+    {'1': 'push', '3': 11, '4': 1, '5': 8, '10': 'push'},
   ],
 };
 
@@ -1906,7 +1907,8 @@ final $typed_data.Uint8List agentRolloutDescriptor = $convert.base64Decode(
     '4SEgoEcmluZxgDIAEoA1IEcmluZxIUCgVzdGF0ZRgEIAEoCVIFc3RhdGUSHQoKc3RhcnRlZF9t'
     'cxgFIAEoA1IJc3RhcnRlZE1zEiYKD3Jpbmdfc3RhcnRlZF9tcxgGIAEoA1INcmluZ1N0YXJ0ZW'
     'RNcxIcCgpyaW5nX29rX21zGAcgASgDUghyaW5nT2tNcxIWCgZyZWFzb24YCCABKAlSBnJlYXNv'
-    'bhIUCgVhY3RvchgJIAEoCVIFYWN0b3ISHQoKdXBkYXRlZF9tcxgKIAEoA1IJdXBkYXRlZE1z');
+    'bhIUCgVhY3RvchgJIAEoCVIFYWN0b3ISHQoKdXBkYXRlZF9tcxgKIAEoA1IJdXBkYXRlZE1zEh'
+    'IKBHB1c2gYCyABKAhSBHB1c2g=');
 
 @$core.Deprecated('Use agentReleaseDescriptor instead')
 const AgentRelease$json = {
@@ -1999,6 +2001,11 @@ const AgentUpgrades$json = {
       '10': 'machines'
     },
     {'1': 'soak_mins', '3': 6, '4': 1, '5': 3, '10': 'soakMins'},
+    {'1': 'auto', '3': 7, '4': 1, '5': 8, '10': 'auto'},
+    {'1': 'window', '3': 8, '4': 1, '5': 9, '10': 'window'},
+    {'1': 'timezone', '3': 9, '4': 1, '5': 9, '10': 'timezone'},
+    {'1': 'window_hold', '3': 10, '4': 1, '5': 9, '10': 'windowHold'},
+    {'1': 'server_upgrade', '3': 11, '4': 1, '5': 9, '10': 'serverUpgrade'},
   ],
 };
 
@@ -2008,20 +2015,25 @@ final $typed_data.Uint8List agentUpgradesDescriptor = $convert.base64Decode(
     'djdXJyZW50Eh0KCnJpbmdfaG9sZHMYAiADKAlSCXJpbmdIb2xkcxIuCgdoaXN0b3J5GAMgAygL'
     'MhQuaXRjbWRyLkFnZW50Um9sbG91dFIHaGlzdG9yeRIwCghyZWxlYXNlcxgEIAMoCzIULml0Y2'
     '1kci5BZ2VudFJlbGVhc2VSCHJlbGVhc2VzEjIKCG1hY2hpbmVzGAUgAygLMhYuaXRjbWRyLk1h'
-    'Y2hpbmVVcGdyYWRlUghtYWNoaW5lcxIbCglzb2FrX21pbnMYBiABKANSCHNvYWtNaW5z');
+    'Y2hpbmVVcGdyYWRlUghtYWNoaW5lcxIbCglzb2FrX21pbnMYBiABKANSCHNvYWtNaW5zEhIKBG'
+    'F1dG8YByABKAhSBGF1dG8SFgoGd2luZG93GAggASgJUgZ3aW5kb3cSGgoIdGltZXpvbmUYCSAB'
+    'KAlSCHRpbWV6b25lEh8KC3dpbmRvd19ob2xkGAogASgJUgp3aW5kb3dIb2xkEiUKDnNlcnZlcl'
+    '91cGdyYWRlGAsgASgJUg1zZXJ2ZXJVcGdyYWRl');
 
 @$core.Deprecated('Use startAgentUpgradeRequestDescriptor instead')
 const StartAgentUpgradeRequest$json = {
   '1': 'StartAgentUpgradeRequest',
   '2': [
     {'1': 'version', '3': 1, '4': 1, '5': 9, '10': 'version'},
+    {'1': 'now', '3': 2, '4': 1, '5': 8, '10': 'now'},
   ],
 };
 
 /// Descriptor for `StartAgentUpgradeRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List startAgentUpgradeRequestDescriptor =
     $convert.base64Decode(
-        'ChhTdGFydEFnZW50VXBncmFkZVJlcXVlc3QSGAoHdmVyc2lvbhgBIAEoCVIHdmVyc2lvbg==');
+        'ChhTdGFydEFnZW50VXBncmFkZVJlcXVlc3QSGAoHdmVyc2lvbhgBIAEoCVIHdmVyc2lvbhIQCg'
+        'Nub3cYAiABKAhSA25vdw==');
 
 @$core.Deprecated('Use pauseAgentUpgradeRequestDescriptor instead')
 const PauseAgentUpgradeRequest$json = {

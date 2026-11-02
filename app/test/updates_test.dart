@@ -73,7 +73,8 @@ void main() {
                 now: DateTime.now(),
                 canStart: start,
                 canStop: stop,
-                onStart: (v) => calls.add('start:$v'),
+                onStart: (v, now) =>
+                    calls.add(now ? 'start-now:$v' : 'start:$v'),
                 onPause: () => calls.add('pause'),
                 onResume: () => calls.add('resume'),
                 onAbort: () => calls.add('abort'),

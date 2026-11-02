@@ -7,7 +7,7 @@ import '../frb_generated.dart';
 
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `alerts3`, `authenticator`, `block`, `change_of`, `client`, `command_of`, `connect`, `device_of`, `me_of`, `platform`, `rt`, `site_of`, `status_of`, `user_of`, `which`
+// These functions are ignored because they are not marked as `pub`: `alerts3`, `authenticator`, `block`, `change_of`, `client`, `command_of`, `connect`, `device_of`, `me_of`, `org_of`, `platform`, `release_of`, `rt`, `site_of`, `status_of`, `user_of`, `which`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `Session`
 
 /// Sign in with the identity stored in `dir` (None: this device is not enrolled yet).
@@ -201,6 +201,32 @@ Future<Freeze> freeze() => RustLib.instance.api.crateApiAdminFreeze();
 /// Owners only: stop every command and approval (global freeze), or lift it.
 Future<Freeze> setFreeze({required bool frozen}) =>
     RustLib.instance.api.crateApiAdminSetFreeze(frozen: frozen);
+
+Future<OrgPolicy> orgPolicy() => RustLib.instance.api.crateApiAdminOrgPolicy();
+
+/// Owners only; audited by adminsvr.
+Future<OrgPolicy> setOrgPolicy({required bool requireSecondApprover}) => RustLib
+    .instance
+    .api
+    .crateApiAdminSetOrgPolicy(requireSecondApprover: requireSecondApprover);
+
+Future<List<Release>> releases() =>
+    RustLib.instance.api.crateApiAdminReleases();
+
+/// Sign a one-time approval of exactly this release.
+Future<Release> approveRelease({required String sha256}) =>
+    RustLib.instance.api.crateApiAdminApproveRelease(sha256: sha256);
+
+/// Roll an approved release out to a site; `push` ignores the site's update window.
+Future<CommandRow> rolloutRelease({
+  required String site,
+  required String sha256,
+  required bool push,
+}) => RustLib.instance.api.crateApiAdminRolloutRelease(
+  site: site,
+  sha256: sha256,
+  push: push,
+);
 
 class Alert {
   final String site;
@@ -629,6 +655,31 @@ class Me {
           keyBackup == other.keyBackup;
 }
 
+class OrgPolicy {
+  final bool requireSecondApprover;
+  final String updatedBy;
+  final PlatformInt64 updatedMs;
+
+  const OrgPolicy({
+    required this.requireSecondApprover,
+    required this.updatedBy,
+    required this.updatedMs,
+  });
+
+  @override
+  int get hashCode =>
+      requireSecondApprover.hashCode ^ updatedBy.hashCode ^ updatedMs.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is OrgPolicy &&
+          runtimeType == other.runtimeType &&
+          requireSecondApprover == other.requireSecondApprover &&
+          updatedBy == other.updatedBy &&
+          updatedMs == other.updatedMs;
+}
+
 class Passkey {
   final String credentialId;
   final String label;
@@ -747,6 +798,45 @@ class Quarantined {
           sha256 == other.sha256 &&
           reason == other.reason &&
           tsMs == other.tsMs;
+}
+
+class Release {
+  final String sha256;
+  final String name;
+  final String version;
+  final List<String> approvedBy;
+  final int needed;
+  final bool approved;
+
+  const Release({
+    required this.sha256,
+    required this.name,
+    required this.version,
+    required this.approvedBy,
+    required this.needed,
+    required this.approved,
+  });
+
+  @override
+  int get hashCode =>
+      sha256.hashCode ^
+      name.hashCode ^
+      version.hashCode ^
+      approvedBy.hashCode ^
+      needed.hashCode ^
+      approved.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Release &&
+          runtimeType == other.runtimeType &&
+          sha256 == other.sha256 &&
+          name == other.name &&
+          version == other.version &&
+          approvedBy == other.approvedBy &&
+          needed == other.needed &&
+          approved == other.approved;
 }
 
 class Sample {

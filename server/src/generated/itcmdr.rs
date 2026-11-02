@@ -1100,6 +1100,9 @@ pub struct AgentRollout {
     pub actor: ::prost::alloc::string::String,
     #[prost(int64, tag = "10")]
     pub updated_ms: i64,
+    /// v0.21.0: pushed, ignores the update window
+    #[prost(bool, tag = "11")]
+    pub push: bool,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AgentRelease {
@@ -1160,6 +1163,23 @@ pub struct AgentUpgrades {
     pub machines: ::prost::alloc::vec::Vec<MachineUpgrade>,
     #[prost(int64, tag = "6")]
     pub soak_mins: i64,
+    /// v0.21.0 automatic updates
+    ///
+    /// updates.auto
+    #[prost(bool, tag = "7")]
+    pub auto: bool,
+    /// updates.window
+    #[prost(string, tag = "8")]
+    pub window: ::prost::alloc::string::String,
+    /// updates.timezone
+    #[prost(string, tag = "9")]
+    pub timezone: ::prost::alloc::string::String,
+    /// empty: upgrades may start now; else why not (outside the window, auto off)
+    #[prost(string, tag = "10")]
+    pub window_hold: ::prost::alloc::string::String,
+    /// "<version> <state>\[ (reason)\]" of the last server upgrade; empty: none
+    #[prost(string, tag = "11")]
+    pub server_upgrade: ::prost::alloc::string::String,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct StartAgentUpgradeRequest {

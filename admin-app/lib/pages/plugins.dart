@@ -19,6 +19,8 @@ class _PluginsPageState extends State<PluginsPage> {
   List<CatalogEntry>? cat;
   List<CommandRow> pending = [];
   Freeze? fz;
+  OrgPolicy? org;
+  List<Release> rels = [];
 
   @override
   void initState() {
@@ -32,8 +34,12 @@ class _PluginsPageState extends State<PluginsPage> {
       final c = await b.catalog();
       final p = await b.pendingApprovals();
       final f = await b.freeze();
+      final o = await b.orgPolicy();
+      final r = await b.releases();
       if (mounted) {
         setState(() {
+          org = o;
+          rels = r;
           cat = c;
           pending = p;
           fz = f;
@@ -127,6 +133,102 @@ class _PluginsPageState extends State<PluginsPage> {
     _load();
   }
 
+  Future<void> _secondApprover(bool on) async {
+    final s = SessionScope.of(context);
+    if (!await confirm(
+      context,
+      on ? 'Require a second approver?' : 'Allow one approver?',
+      on
+          ? 'Plugin commands and release approvals will need two different owners or admins.'
+          : 'One owner or admin will be enough for plugin commands and release approvals.',
+    )) {
+      return;
+    }
+    if (!mounted) return;
+    await s.guard(
+      context,
+      Act.setOrgPolicy,
+      () => s.backend.setOrgPolicy(on),
+      done: 'Saved (audited)',
+    );
+    _load();
+  }
+
+  Future<void> _approveRelease(Release r) async {
+    final s = SessionScope.of(context);
+    if (!await confirm(
+      context,
+      'Approve ${r.name} ${r.version}?',
+      'Your key signs this exact release (checksum ${r.sha256.substring(0, 12)}…) once; '
+          'adminsvr may then roll it out to sites, which check your signature.',
+    )) {
+      return;
+    }
+    if (!mounted) return;
+    await s.guard(
+      context,
+      Act.approveRelease,
+      () => s.backend.approveRelease(r.sha256),
+      done: 'Approved',
+    );
+    _load();
+  }
+
+  Future<void> _rollout(Release r) async {
+    final s = SessionScope.of(context);
+    var site = widget.siteNames.keys.isEmpty ? '' : widget.siteNames.keys.first;
+    var push = false;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => StatefulBuilder(
+        builder: (c, set) => AlertDialog(
+          title: Text('Roll out ${r.name} ${r.version}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButton<String>(
+                key: const Key('rollout-site'),
+                value: site.isEmpty ? null : site,
+                items: [
+                  for (final e in widget.siteNames.entries)
+                    DropdownMenuItem(value: e.key, child: Text(e.value)),
+                ],
+                onChanged: (v) => set(() => site = v ?? ''),
+              ),
+              CheckboxListTile(
+                key: const Key('rollout-now'),
+                title: const Text('Now (ignore the site\'s update window)'),
+                value: push,
+                onChanged: (v) => set(() => push = v ?? false),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(c, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              key: const Key('rollout-ok'),
+              onPressed: () => Navigator.pop(c, true),
+              child: const Text('Roll out'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (ok != true || site.isEmpty || !mounted) return;
+    await s.guard(
+      context,
+      Act.sendCommand,
+      () => s.backend.rolloutRelease(site, r.sha256, push),
+      done: push
+          ? 'Sent: installs now'
+          : 'Sent: installs in the site\'s update window',
+    );
+    _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = SessionScope.of(context);
@@ -156,6 +258,54 @@ class _PluginsPageState extends State<PluginsPage> {
               value: fz!.frozen,
               onChanged: s.isOwner ? _freeze : null,
             ),
+          if (org != null)
+            SwitchListTile(
+              key: const Key('second-approver-switch'),
+              secondary: const Icon(Icons.people),
+              title: const Text('Require a second approver'),
+              subtitle: Text(
+                org!.requireSecondApprover
+                    ? 'On: two different owners or admins approve'
+                    : s.isOwner
+                    ? 'Off: one owner or admin approves'
+                    : 'Off: one owner or admin approves (owners change this)',
+              ),
+              value: org!.requireSecondApprover,
+              onChanged: s.isOwner ? _secondApprover : null,
+            ),
+          const SizedBox(height: 8),
+          Text('Releases', style: t.titleMedium),
+          for (final r in rels)
+            ListTile(
+              key: Key('release-${r.sha256}'),
+              dense: true,
+              leading: Icon(
+                r.approved ? Icons.verified : Icons.pending,
+                color: r.approved ? Colors.green : null,
+              ),
+              title: Text('${r.name} ${r.version}'),
+              subtitle: Text(
+                '${r.approvedBy.length} of ${r.needed} approvals'
+                '${r.approvedBy.isEmpty ? '' : ' (${r.approvedBy.join(', ')})'}',
+              ),
+              trailing: !s.isAdmin
+                  ? null
+                  : r.approved
+                  ? TextButton(
+                      key: Key('rollout-${r.sha256}'),
+                      onPressed: () => _rollout(r),
+                      child: const Text('Roll out'),
+                    )
+                  : TextButton(
+                      key: Key('approve-release-${r.sha256}'),
+                      onPressed: r.approvedBy.contains(s.me?.id)
+                          ? null
+                          : () => _approveRelease(r),
+                      child: const Text('Approve'),
+                    ),
+            ),
+          if (rels.isEmpty)
+            const Text('No server or agent releases in the catalog.'),
           const SizedBox(height: 8),
           Text('Waiting for approval', style: t.titleMedium),
           for (final p in pending)
@@ -215,8 +365,9 @@ class _PluginsPageState extends State<PluginsPage> {
           if (c.isEmpty) const Text('No packages yet.'),
           const SizedBox(height: 8),
           Text(
-            'Install a package on a server from its Plugins tab. Install, enable and disable need a '
-            'second owner or admin; the site validates the package and quarantines a bad one.',
+            'Install a package on a server from its Plugins tab. With a second approver required, '
+            'install, enable and disable need another owner or admin; the site validates the '
+            'package and quarantines a bad one.',
             style: t.bodySmall,
           ),
         ],

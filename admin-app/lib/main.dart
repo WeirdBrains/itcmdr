@@ -1,4 +1,4 @@
-// itcmdr Admin (v0.20.1): the adminsvr app for owners, admins and SREs (mobile and desktop).
+// itcmdr Admin (v0.21.0): the adminsvr app for owners, admins and SREs (mobile and desktop).
 // Sign-in is the device key from itcmdr-keys onboarding; every request is signed, adminsvr's TLS
 // key is pinned, and high-risk actions ask for a passkey touch (desktop security keys).
 import 'package:flutter/material.dart';

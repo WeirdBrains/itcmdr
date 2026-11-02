@@ -39,7 +39,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.13.0";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 883464513;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 1214599240;
 
 // Section: executor
 
@@ -219,6 +219,41 @@ fn wire__crate__api__admin__approve_device_impl(
                     (move || {
                         let output_ok =
                             crate::api::admin::approve_device(api_user, api_fingerprint)?;
+                        std::result::Result::Ok(output_ok)
+                    })(),
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__admin__approve_release_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "approve_release",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_sha256 = <String>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
+                    (move || {
+                        let output_ok = crate::api::admin::approve_release(api_sha256)?;
                         std::result::Result::Ok(output_ok)
                     })(),
                 )
@@ -719,6 +754,40 @@ fn wire__crate__api__admin__open_impl(
         },
     )
 }
+fn wire__crate__api__admin__org_policy_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "org_policy",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
+                    (move || {
+                        let output_ok = crate::api::admin::org_policy()?;
+                        std::result::Result::Ok(output_ok)
+                    })(),
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__admin__passkeys_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -898,6 +967,40 @@ fn wire__crate__api__admin__reject_command_impl(
         },
     )
 }
+fn wire__crate__api__admin__releases_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "releases",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
+                    (move || {
+                        let output_ok = crate::api::admin::releases()?;
+                        std::result::Result::Ok(output_ok)
+                    })(),
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__admin__remove_passkey_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -1043,6 +1146,44 @@ fn wire__crate__api__admin__revoke_site_impl(
         },
     )
 }
+fn wire__crate__api__admin__rollout_release_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "rollout_release",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_site = <String>::sse_decode(&mut deserializer);
+            let api_sha256 = <String>::sse_decode(&mut deserializer);
+            let api_push = <bool>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
+                    (move || {
+                        let output_ok =
+                            crate::api::admin::rollout_release(api_site, api_sha256, api_push)?;
+                        std::result::Result::Ok(output_ok)
+                    })(),
+                )
+            }
+        },
+    )
+}
 fn wire__crate__api__admin__send_command_impl(
     port_: flutter_rust_bridge::for_generated::MessagePort,
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
@@ -1150,6 +1291,42 @@ fn wire__crate__api__admin__set_freeze_impl(
                 transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
                     (move || {
                         let output_ok = crate::api::admin::set_freeze(api_frozen)?;
+                        std::result::Result::Ok(output_ok)
+                    })(),
+                )
+            }
+        },
+    )
+}
+fn wire__crate__api__admin__set_org_policy_impl(
+    port_: flutter_rust_bridge::for_generated::MessagePort,
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_normal::<flutter_rust_bridge::for_generated::SseCodec, _, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "set_org_policy",
+            port: Some(port_),
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Normal,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_require_second_approver = <bool>::sse_decode(&mut deserializer);
+            deserializer.end();
+            move |context| {
+                transform_result_sse::<_, flutter_rust_bridge::for_generated::anyhow::Error>(
+                    (move || {
+                        let output_ok =
+                            crate::api::admin::set_org_policy(api_require_second_approver)?;
                         std::result::Result::Ok(output_ok)
                     })(),
                 )
@@ -1938,6 +2115,18 @@ impl SseDecode for Vec<crate::api::admin::Quarantined> {
     }
 }
 
+impl SseDecode for Vec<crate::api::admin::Release> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut len_ = <i32>::sse_decode(deserializer);
+        let mut ans_ = Vec::with_capacity(len_ as usize);
+        for idx_ in 0..len_ {
+            ans_.push(<crate::api::admin::Release>::sse_decode(deserializer));
+        }
+        return ans_;
+    }
+}
+
 impl SseDecode for Vec<crate::api::admin::Sample> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2066,6 +2255,20 @@ impl SseDecode for Option<crate::api::admin::SiteStatus> {
     }
 }
 
+impl SseDecode for crate::api::admin::OrgPolicy {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_requireSecondApprover = <bool>::sse_decode(deserializer);
+        let mut var_updatedBy = <String>::sse_decode(deserializer);
+        let mut var_updatedMs = <i64>::sse_decode(deserializer);
+        return crate::api::admin::OrgPolicy {
+            require_second_approver: var_requireSecondApprover,
+            updated_by: var_updatedBy,
+            updated_ms: var_updatedMs,
+        };
+    }
+}
+
 impl SseDecode for crate::api::admin::Passkey {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -2126,6 +2329,26 @@ impl SseDecode for crate::api::admin::Quarantined {
             sha256: var_sha256,
             reason: var_reason,
             ts_ms: var_tsMs,
+        };
+    }
+}
+
+impl SseDecode for crate::api::admin::Release {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        let mut var_sha256 = <String>::sse_decode(deserializer);
+        let mut var_name = <String>::sse_decode(deserializer);
+        let mut var_version = <String>::sse_decode(deserializer);
+        let mut var_approvedBy = <Vec<String>>::sse_decode(deserializer);
+        let mut var_needed = <i32>::sse_decode(deserializer);
+        let mut var_approved = <bool>::sse_decode(deserializer);
+        return crate::api::admin::Release {
+            sha256: var_sha256,
+            name: var_name,
+            version: var_version,
+            approved_by: var_approvedBy,
+            needed: var_needed,
+            approved: var_approved,
         };
     }
 }
@@ -2374,44 +2597,49 @@ fn pde_ffi_dispatcher_primary_impl(
         3 => wire__crate__api__admin__alerts_impl(port, ptr, rust_vec_len, data_len),
         4 => wire__crate__api__admin__approve_command_impl(port, ptr, rust_vec_len, data_len),
         5 => wire__crate__api__admin__approve_device_impl(port, ptr, rust_vec_len, data_len),
-        6 => wire__crate__api__admin__audit_impl(port, ptr, rust_vec_len, data_len),
-        7 => wire__crate__api__admin__catalog_impl(port, ptr, rust_vec_len, data_len),
-        8 => wire__crate__api__admin__commands_impl(port, ptr, rust_vec_len, data_len),
-        9 => wire__crate__api__admin__create_site_impl(port, ptr, rust_vec_len, data_len),
-        10 => wire__crate__api__admin__create_user_impl(port, ptr, rust_vec_len, data_len),
-        11 => wire__crate__api__admin__enroll_impl(port, ptr, rust_vec_len, data_len),
-        12 => wire__crate__api__admin__forget_impl(port, ptr, rust_vec_len, data_len),
-        13 => wire__crate__api__admin__freeze_impl(port, ptr, rust_vec_len, data_len),
-        14 => wire__crate__api__admin__get_command_impl(port, ptr, rust_vec_len, data_len),
-        15 => wire__crate__api__admin__init_app_impl(port, ptr, rust_vec_len, data_len),
-        16 => wire__crate__api__admin__me_impl(port, ptr, rust_vec_len, data_len),
-        17 => wire__crate__api__admin__metrics_impl(port, ptr, rust_vec_len, data_len),
-        18 => wire__crate__api__admin__new_enroll_code_impl(port, ptr, rust_vec_len, data_len),
-        19 => wire__crate__api__admin__open_impl(port, ptr, rust_vec_len, data_len),
-        20 => wire__crate__api__admin__passkeys_impl(port, ptr, rust_vec_len, data_len),
-        21 => wire__crate__api__admin__pending_approvals_impl(port, ptr, rust_vec_len, data_len),
-        22 => wire__crate__api__admin__policy_impl(port, ptr, rust_vec_len, data_len),
-        23 => wire__crate__api__admin__register_push_impl(port, ptr, rust_vec_len, data_len),
-        24 => wire__crate__api__admin__reject_command_impl(port, ptr, rust_vec_len, data_len),
-        25 => wire__crate__api__admin__remove_passkey_impl(port, ptr, rust_vec_len, data_len),
-        26 => wire__crate__api__admin__resolve_alert_impl(port, ptr, rust_vec_len, data_len),
-        27 => wire__crate__api__admin__revoke_device_impl(port, ptr, rust_vec_len, data_len),
-        28 => wire__crate__api__admin__revoke_site_impl(port, ptr, rust_vec_len, data_len),
-        29 => wire__crate__api__admin__send_command_impl(port, ptr, rust_vec_len, data_len),
-        30 => wire__crate__api__admin__set_disabled_impl(port, ptr, rust_vec_len, data_len),
-        31 => wire__crate__api__admin__set_freeze_impl(port, ptr, rust_vec_len, data_len),
-        32 => wire__crate__api__admin__set_policy_impl(port, ptr, rust_vec_len, data_len),
-        33 => wire__crate__api__admin__set_role_impl(port, ptr, rust_vec_len, data_len),
-        34 => wire__crate__api__admin__set_scopes_impl(port, ptr, rust_vec_len, data_len),
-        35 => wire__crate__api__admin__site_config_impl(port, ptr, rust_vec_len, data_len),
-        36 => wire__crate__api__admin__site_plugins_impl(port, ptr, rust_vec_len, data_len),
-        37 => wire__crate__api__admin__sites_impl(port, ptr, rust_vec_len, data_len),
-        38 => wire__crate__api__admin__start_backup_impl(port, ptr, rust_vec_len, data_len),
-        39 => wire__crate__api__admin__test_push_impl(port, ptr, rust_vec_len, data_len),
-        40 => wire__crate__api__admin__unregister_push_impl(port, ptr, rust_vec_len, data_len),
-        41 => wire__crate__api__admin__upload_plugin_impl(port, ptr, rust_vec_len, data_len),
-        42 => wire__crate__api__admin__users_impl(port, ptr, rust_vec_len, data_len),
-        43 => wire__crate__api__admin__verify_audit_impl(port, ptr, rust_vec_len, data_len),
+        6 => wire__crate__api__admin__approve_release_impl(port, ptr, rust_vec_len, data_len),
+        7 => wire__crate__api__admin__audit_impl(port, ptr, rust_vec_len, data_len),
+        8 => wire__crate__api__admin__catalog_impl(port, ptr, rust_vec_len, data_len),
+        9 => wire__crate__api__admin__commands_impl(port, ptr, rust_vec_len, data_len),
+        10 => wire__crate__api__admin__create_site_impl(port, ptr, rust_vec_len, data_len),
+        11 => wire__crate__api__admin__create_user_impl(port, ptr, rust_vec_len, data_len),
+        12 => wire__crate__api__admin__enroll_impl(port, ptr, rust_vec_len, data_len),
+        13 => wire__crate__api__admin__forget_impl(port, ptr, rust_vec_len, data_len),
+        14 => wire__crate__api__admin__freeze_impl(port, ptr, rust_vec_len, data_len),
+        15 => wire__crate__api__admin__get_command_impl(port, ptr, rust_vec_len, data_len),
+        16 => wire__crate__api__admin__init_app_impl(port, ptr, rust_vec_len, data_len),
+        17 => wire__crate__api__admin__me_impl(port, ptr, rust_vec_len, data_len),
+        18 => wire__crate__api__admin__metrics_impl(port, ptr, rust_vec_len, data_len),
+        19 => wire__crate__api__admin__new_enroll_code_impl(port, ptr, rust_vec_len, data_len),
+        20 => wire__crate__api__admin__open_impl(port, ptr, rust_vec_len, data_len),
+        21 => wire__crate__api__admin__org_policy_impl(port, ptr, rust_vec_len, data_len),
+        22 => wire__crate__api__admin__passkeys_impl(port, ptr, rust_vec_len, data_len),
+        23 => wire__crate__api__admin__pending_approvals_impl(port, ptr, rust_vec_len, data_len),
+        24 => wire__crate__api__admin__policy_impl(port, ptr, rust_vec_len, data_len),
+        25 => wire__crate__api__admin__register_push_impl(port, ptr, rust_vec_len, data_len),
+        26 => wire__crate__api__admin__reject_command_impl(port, ptr, rust_vec_len, data_len),
+        27 => wire__crate__api__admin__releases_impl(port, ptr, rust_vec_len, data_len),
+        28 => wire__crate__api__admin__remove_passkey_impl(port, ptr, rust_vec_len, data_len),
+        29 => wire__crate__api__admin__resolve_alert_impl(port, ptr, rust_vec_len, data_len),
+        30 => wire__crate__api__admin__revoke_device_impl(port, ptr, rust_vec_len, data_len),
+        31 => wire__crate__api__admin__revoke_site_impl(port, ptr, rust_vec_len, data_len),
+        32 => wire__crate__api__admin__rollout_release_impl(port, ptr, rust_vec_len, data_len),
+        33 => wire__crate__api__admin__send_command_impl(port, ptr, rust_vec_len, data_len),
+        34 => wire__crate__api__admin__set_disabled_impl(port, ptr, rust_vec_len, data_len),
+        35 => wire__crate__api__admin__set_freeze_impl(port, ptr, rust_vec_len, data_len),
+        36 => wire__crate__api__admin__set_org_policy_impl(port, ptr, rust_vec_len, data_len),
+        37 => wire__crate__api__admin__set_policy_impl(port, ptr, rust_vec_len, data_len),
+        38 => wire__crate__api__admin__set_role_impl(port, ptr, rust_vec_len, data_len),
+        39 => wire__crate__api__admin__set_scopes_impl(port, ptr, rust_vec_len, data_len),
+        40 => wire__crate__api__admin__site_config_impl(port, ptr, rust_vec_len, data_len),
+        41 => wire__crate__api__admin__site_plugins_impl(port, ptr, rust_vec_len, data_len),
+        42 => wire__crate__api__admin__sites_impl(port, ptr, rust_vec_len, data_len),
+        43 => wire__crate__api__admin__start_backup_impl(port, ptr, rust_vec_len, data_len),
+        44 => wire__crate__api__admin__test_push_impl(port, ptr, rust_vec_len, data_len),
+        45 => wire__crate__api__admin__unregister_push_impl(port, ptr, rust_vec_len, data_len),
+        46 => wire__crate__api__admin__upload_plugin_impl(port, ptr, rust_vec_len, data_len),
+        47 => wire__crate__api__admin__users_impl(port, ptr, rust_vec_len, data_len),
+        48 => wire__crate__api__admin__verify_audit_impl(port, ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }
@@ -2669,6 +2897,25 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::admin::Me> for crate::api::ad
     }
 }
 // Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::admin::OrgPolicy {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.require_second_approver.into_into_dart().into_dart(),
+            self.updated_by.into_into_dart().into_dart(),
+            self.updated_ms.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::api::admin::OrgPolicy {}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::admin::OrgPolicy>
+    for crate::api::admin::OrgPolicy
+{
+    fn into_into_dart(self) -> crate::api::admin::OrgPolicy {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
 impl flutter_rust_bridge::IntoDart for crate::api::admin::Passkey {
     fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
         [
@@ -2744,6 +2991,26 @@ impl flutter_rust_bridge::IntoIntoDart<crate::api::admin::Quarantined>
     for crate::api::admin::Quarantined
 {
     fn into_into_dart(self) -> crate::api::admin::Quarantined {
+        self
+    }
+}
+// Codec=Dco (DartCObject based), see doc to use other codecs
+impl flutter_rust_bridge::IntoDart for crate::api::admin::Release {
+    fn into_dart(self) -> flutter_rust_bridge::for_generated::DartAbi {
+        [
+            self.sha256.into_into_dart().into_dart(),
+            self.name.into_into_dart().into_dart(),
+            self.version.into_into_dart().into_dart(),
+            self.approved_by.into_into_dart().into_dart(),
+            self.needed.into_into_dart().into_dart(),
+            self.approved.into_into_dart().into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl flutter_rust_bridge::for_generated::IntoDartExceptPrimitive for crate::api::admin::Release {}
+impl flutter_rust_bridge::IntoIntoDart<crate::api::admin::Release> for crate::api::admin::Release {
+    fn into_into_dart(self) -> crate::api::admin::Release {
         self
     }
 }
@@ -3210,6 +3477,16 @@ impl SseEncode for Vec<crate::api::admin::Quarantined> {
     }
 }
 
+impl SseEncode for Vec<crate::api::admin::Release> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <i32>::sse_encode(self.len() as _, serializer);
+        for item in self {
+            <crate::api::admin::Release>::sse_encode(item, serializer);
+        }
+    }
+}
+
 impl SseEncode for Vec<crate::api::admin::Sample> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -3307,6 +3584,15 @@ impl SseEncode for Option<crate::api::admin::SiteStatus> {
     }
 }
 
+impl SseEncode for crate::api::admin::OrgPolicy {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.require_second_approver, serializer);
+        <String>::sse_encode(self.updated_by, serializer);
+        <i64>::sse_encode(self.updated_ms, serializer);
+    }
+}
+
 impl SseEncode for crate::api::admin::Passkey {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -3344,6 +3630,18 @@ impl SseEncode for crate::api::admin::Quarantined {
         <String>::sse_encode(self.sha256, serializer);
         <String>::sse_encode(self.reason, serializer);
         <i64>::sse_encode(self.ts_ms, serializer);
+    }
+}
+
+impl SseEncode for crate::api::admin::Release {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <String>::sse_encode(self.sha256, serializer);
+        <String>::sse_encode(self.name, serializer);
+        <String>::sse_encode(self.version, serializer);
+        <Vec<String>>::sse_encode(self.approved_by, serializer);
+        <i32>::sse_encode(self.needed, serializer);
+        <bool>::sse_encode(self.approved, serializer);
     }
 }
 

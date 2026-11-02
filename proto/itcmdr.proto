@@ -469,6 +469,7 @@ message AgentRollout {
   string reason = 8;           // why it paused / was aborted
   string actor = 9;
   int64 updated_ms = 10;
+  bool push = 11;              // v0.21.0: pushed, ignores the update window
 }
 message AgentRelease {
   string version = 1;
@@ -497,6 +498,12 @@ message AgentUpgrades {
   repeated AgentRelease releases = 4;
   repeated MachineUpgrade machines = 5;
   int64 soak_mins = 6;
+  // v0.21.0 automatic updates
+  bool auto = 7;               // updates.auto
+  string window = 8;           // updates.window
+  string timezone = 9;         // updates.timezone
+  string window_hold = 10;     // empty: upgrades may start now; else why not (outside the window, auto off)
+  string server_upgrade = 11;  // "<version> <state>[ (reason)]" of the last server upgrade; empty: none
 }
 message StartAgentUpgradeRequest { string version = 1; bool now = 2; }  // now: push, ignore the update window
 message PauseAgentUpgradeRequest { string reason = 1; }

@@ -111,6 +111,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<Quarantined> dco_decode_list_quarantined(dynamic raw);
 
   @protected
+  List<Release> dco_decode_list_release(dynamic raw);
+
+  @protected
   List<Sample> dco_decode_list_sample(dynamic raw);
 
   @protected
@@ -138,6 +141,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SiteStatus? dco_decode_opt_box_autoadd_site_status(dynamic raw);
 
   @protected
+  OrgPolicy dco_decode_org_policy(dynamic raw);
+
+  @protected
   Passkey dco_decode_passkey(dynamic raw);
 
   @protected
@@ -148,6 +154,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Quarantined dco_decode_quarantined(dynamic raw);
+
+  @protected
+  Release dco_decode_release(dynamic raw);
 
   @protected
   Sample dco_decode_sample(dynamic raw);
@@ -271,6 +280,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<Quarantined> sse_decode_list_quarantined(SseDeserializer deserializer);
 
   @protected
+  List<Release> sse_decode_list_release(SseDeserializer deserializer);
+
+  @protected
   List<Sample> sse_decode_list_sample(SseDeserializer deserializer);
 
   @protected
@@ -300,6 +312,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  OrgPolicy sse_decode_org_policy(SseDeserializer deserializer);
+
+  @protected
   Passkey sse_decode_passkey(SseDeserializer deserializer);
 
   @protected
@@ -310,6 +325,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   Quarantined sse_decode_quarantined(SseDeserializer deserializer);
+
+  @protected
+  Release sse_decode_release(SseDeserializer deserializer);
 
   @protected
   Sample sse_decode_sample(SseDeserializer deserializer);
@@ -453,6 +471,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_list_release(List<Release> self, SseSerializer serializer);
+
+  @protected
   void sse_encode_list_sample(List<Sample> self, SseSerializer serializer);
 
   @protected
@@ -483,6 +504,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   );
 
   @protected
+  void sse_encode_org_policy(OrgPolicy self, SseSerializer serializer);
+
+  @protected
   void sse_encode_passkey(Passkey self, SseSerializer serializer);
 
   @protected
@@ -493,6 +517,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_quarantined(Quarantined self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_release(Release self, SseSerializer serializer);
 
   @protected
   void sse_encode_sample(Sample self, SseSerializer serializer);

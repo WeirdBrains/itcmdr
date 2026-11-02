@@ -197,6 +197,60 @@ void main() {
     expect(find.text('net-watch v2.0.0'), findsOneWidget);
   });
 
+  testWidgets(
+    'v0.21 releases: one approver by default, owner toggles the second',
+    (t) async {
+      final b = await start(
+        t,
+        setup: (b) => b.rels = [
+          Release(
+            sha256: 'a' * 64,
+            name: 'itcmdr-agent-release',
+            version: '0.21.0',
+            approvedBy: const [],
+            needed: 1,
+            approved: false,
+          ),
+        ],
+      );
+      await t.tap(find.text('Plugins'));
+      await t.pumpAndSettle();
+      expect(find.text('Off: one owner or admin approves'), findsOneWidget);
+      await t.tap(find.byKey(Key('approve-release-${'a' * 64}')));
+      await t.pumpAndSettle();
+      await t.tap(find.byKey(const Key('confirm')));
+      await t.pumpAndSettle();
+      expect(b.calls, contains('approve-release ${'a' * 64}'));
+      expect(find.text('1 of 1 approvals (me)'), findsOneWidget);
+      expect(find.byKey(Key('rollout-${'a' * 64}')), findsOneWidget);
+      await t.tap(find.byKey(const Key('second-approver-switch')));
+      await t.pumpAndSettle();
+      await t.tap(find.byKey(const Key('confirm')));
+      await t.pumpAndSettle();
+      expect(b.calls, contains('org-policy true'));
+      expect(
+        find.text('On: two different owners or admins approve'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('v0.21 admins cannot change the second-approver setting', (
+    t,
+  ) async {
+    await start(t, me: me0(role: 'admin'));
+    await t.tap(find.text('Plugins'));
+    await t.pumpAndSettle();
+    expect(
+      t
+          .widget<SwitchListTile>(
+            find.byKey(const Key('second-approver-switch')),
+          )
+          .onChanged,
+      isNull,
+    );
+  });
+
   testWidgets('freeze: owner turns it on, banner shows, commands refused', (
     t,
   ) async {
