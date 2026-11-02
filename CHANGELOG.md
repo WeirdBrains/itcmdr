@@ -1,11 +1,15 @@
 # Changelog
 
 ## Unreleased
-v0.21.0 in progress: agent self-upgrade (done on Linux; VM tests pending), site-server self-upgrade via adminsvr (in progress), SRE app Updates.
+v0.21.0 in progress: agent self-upgrade (done on Linux; VM tests pending), server watchdog, site app Updates screen. Site-server self-upgrade via adminsvr and the SRE app Updates are waiting on a design decision.
 - Agent releases: a service-plugin package named `itcmdr-agent-release` with a `release.toml` (`version`, `min_from`), signed by an **owner** key (an admin-signed release installs but cannot be rolled out). Releases are never pushed to agents as plugins.
 - Rollouts through rings (`agent.ring` per machine: 0 = test VM/PC, 1 = one PC, 2 = everything, default 2): `itcmdr-cli upgrade start|status|pause|resume|abort`. Each ring gets an `UpgradeOffer`; once every agent in it runs the new version and was seen in the last 10 minutes, it soaks for `agent.upgradeSoakMins` (60) and the next ring starts. A failed apply or watchdog rollback, or a new Critical alert on a ring machine, pauses the rollout with a Critical alert. `agent.upgrades = false` holds a machine (or every machine) back.
 - The agent checks the offer (server root endorsement that the signer is an owner, the owner's own package signature, every checksum, `min_from`, no downgrade), stages it in `agent\staged\<version>\` and hands it to the new `itcmdr-agent-watchdog` service, which swaps `current\`/`previous\`, waits up to `agent.upgradeHealthSecs` (300) for the new agent to link to the server and rolls back otherwise; the result is reported after the next connect. Between upgrades the watchdog restarts a stopped agent or one whose `health.json` is stale; the agent restarts a stopped watchdog and alerts (`watchdog-missing`). The watchdog is only replaced by the installer.
 - Agent installer: the Rust agent now runs from `agent\current\`; adds the `itcmdr-agent-watchdog` service.
+- Server watchdog: the server installer adds the `itcmdr-server-watchdog` service (delayed start). The server writes `health.json` every 30 s once gRPC answers and the database opens; the watchdog starts a stopped server and restarts one whose health is stale. It also carries the swap/rollback for server upgrades (used once server upgrades land).
+- Site app **Updates** screen: the rollout in progress (ring, soak progress, what holds the ring), Pause/Abort (admin) and Roll out/Resume (owner, signed key only), installed agent releases (admin-signed ones flagged), each machine's ring (changeable), version and last upgrade result, and the rollout history. New RPCs `GetAgentUpgrades`, `StartAgentUpgrade`, `PauseAgentUpgrade`, `ResumeAgentUpgrade`, `AbortAgentUpgrade`.
+- App: the navigation rail scrolls when the window is shorter than its entries.
+- Settings: `agent.ring`, `agent.upgrades`, `agent.upgradeSoakMins`, `agent.upgradeHealthSecs` (docs/SETTINGS.md).
 
 ## v0.20.1 (2026-11-02)
 The Rust agent takes over: agent config over the link and a gated `cutover switch --to agent`.

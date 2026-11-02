@@ -670,3 +670,8 @@ Branding (v0.14.3): `branding/` holds the SVG masters, `build.py` and the render
 - Config document `{"v":1,"cutover","settings"}` (agent-scope settings with machine overrides), version = sha256[..16], endorsement over `itcmdr_agentlink::config_bytes`.
 - `cutover::switch_agent` = `gate()` + `agent_problems()` (live non-revoked agent, acked current config, clean agent parity, for each machine active in 48 h); state `agent`; rollback to `task`.
 - agent-rs `config.rs`: verify on store and on load, report-only unless `agent`, nightly-task self-heal with a marker file so rollback re-enables only what it disabled.
+
+### v0.21.0 (in progress): self-upgrade
+- Done: agent releases (`itcmdr-agent-release`, owner-signed, never run or pushed as plugins), rings + soak + auto-pause (`server/src/upgrades.rs`, tables `agent_rollouts`/`agent_upgrades`), `UpgradeOffer` over the link, agent staging + `itcmdr-agent-watchdog` swap/health/rollback (`watchdog/`), watchdog-of-the-watchdog, `itcmdr-server-watchdog` with server `health.json` keep-alive, installers, CLI `itcmdr-cli upgrade`, site gRPC rollout RPCs + app Updates screen.
+- In progress: Windows VM break tests (good upgrade, broken release rolls back, unhealthy release rolls back, killed/stopped watchdog, stale agent, stopped server).
+- Waiting on a decision: who may start a site-server upgrade from adminsvr (trust model), so the site `server.upgrade` command, server staging with the pre-upgrade DB safety copy, and the SRE app Updates are not built yet.
