@@ -58,6 +58,9 @@ enum Cmd {
     /// Nightly task -> default schedule cutover (v0.11.0): status, switch (gated), rollback.
     #[command(subcommand)]
     Cutover(CutoverCmd),
+    /// Agent self-upgrade through the rings (v0.21.0): status, start, pause, resume, abort.
+    #[command(subcommand)]
+    Upgrade(UpgradeCmd),
     /// Auth mode (v0.12.0 migration from the shared token to signed requests).
     #[command(subcommand)]
     Auth(AuthCmd),
@@ -549,6 +552,23 @@ enum AuthCmd {
         #[arg(long)]
         force: bool,
     },
+}
+
+#[derive(Subcommand)]
+enum UpgradeCmd {
+    /// The current rollout (version, ring, state, what holds the ring) and the last few.
+    Status,
+    /// Roll an installed, owner-signed itcmdr-agent-release out, starting at ring 0.
+    Start { version: String },
+    /// Pause the rollout (no new offers).
+    Pause {
+        #[arg(long, default_value = "paused by an administrator")]
+        reason: String,
+    },
+    /// Resume a paused rollout (the ring soaks again; failed machines are offered it again).
+    Resume,
+    /// Abort the rollout (machines already upgraded stay upgraded).
+    Abort,
 }
 
 #[derive(Subcommand)]
@@ -2119,6 +2139,74 @@ fn run(rt: &tokio::runtime::Runtime) -> Result<()> {
                         Ok(())
                     }
                 }
+            })
+        }
+        Cmd::Upgrade(uc) => {
+            let cfg = load()?;
+            let json = cli.json;
+            rt.block_on(async {
+                let pool = srv::db::init_db(&cfg).await?;
+                let r = match uc {
+                    UpgradeCmd::Status => srv::upgrades::current(&pool).await?,
+                    UpgradeCmd::Start { version } => Some(
+                        srv::upgrades::start(&pool, &cfg.layout(), version, "itcmdr-cli").await?,
+                    ),
+                    UpgradeCmd::Pause { reason } => {
+                        Some(srv::upgrades::pause(&pool, "itcmdr-cli", reason).await?)
+                    }
+                    UpgradeCmd::Resume => Some(srv::upgrades::resume(&pool, "itcmdr-cli").await?),
+                    UpgradeCmd::Abort => Some(srv::upgrades::abort(&pool, "itcmdr-cli").await?),
+                };
+                let t = chrono::Utc::now().timestamp_millis();
+                let holds = match &r {
+                    Some(r) if r.state == "active" || r.state == "paused" => {
+                        srv::upgrades::ring_problems(&pool, r, t).await?
+                    }
+                    _ => vec![],
+                };
+                let hist = srv::upgrades::history(&pool, 5).await?;
+                if json {
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(
+                            &serde_json::json!({"rollout": r, "ring_holds": holds, "history": hist})
+                        )?
+                    );
+                    return Ok(());
+                }
+                match &r {
+                    None => println!("no agent rollout in progress"),
+                    Some(r) => {
+                        println!(
+                            "agent rollout {}: {} at ring {}{}",
+                            r.version,
+                            r.state,
+                            r.ring,
+                            if r.reason.is_empty() {
+                                String::new()
+                            } else {
+                                format!(" ({})", r.reason)
+                            }
+                        );
+                        if r.ring_ok_ms > 0 && r.state == "active" {
+                            println!(
+                                "  ring {} healthy for {} min (soak)",
+                                r.ring,
+                                (t - r.ring_ok_ms) / 60_000
+                            );
+                        }
+                        for h in &holds {
+                            println!("  waiting: {h}");
+                        }
+                    }
+                }
+                for h in hist
+                    .iter()
+                    .filter(|h| r.as_ref().map(|r| r.id != h.id).unwrap_or(true))
+                {
+                    println!("  earlier: {} {} (ring {})", h.version, h.state, h.ring);
+                }
+                Ok(())
             })
         }
         Cmd::Cutover(cc) => {

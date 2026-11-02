@@ -13,6 +13,7 @@ path = "src/main.rs"
 itcmdr-agentlink = { path = "../agentlink" }
 itcmdr-plugin = { path = "../plugin" }
 itcmdr-common = { path = "../common" }
+itcmdr-watchdog = { path = "../watchdog" }
 prost = "0.13"
 base64 = "0.22"
 toml = "0.8"
@@ -37,6 +38,9 @@ tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
 [target.'cfg(windows)'.dependencies]
 windows-service = "0.7"
 windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Security_Cryptography"] }
+
+[dev-dependencies]
+tempfile = "3"
 
 [lints]
 workspace = true

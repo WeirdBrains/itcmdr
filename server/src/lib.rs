@@ -28,6 +28,7 @@ pub mod settings;
 pub mod setup;
 pub mod sitelink;
 pub mod storage;
+pub mod upgrades;
 pub mod generated {
     pub mod itcmdr {
         include!("generated/itcmdr.rs");
@@ -132,6 +133,9 @@ pub async fn run(
             }
             if let Err(e) = cutover::export_state(&bg_pool, &bg_cfg).await {
                 tracing::warn!(error=%e, "schedule state export failed");
+            }
+            if let Err(e) = upgrades::tick(&bg_pool, chrono::Utc::now().timestamp_millis()).await {
+                tracing::warn!(error=%e, "agent rollout pass failed");
             }
             if let Err(e) = alerts::expire_silences(&bg_pool).await {
                 tracing::warn!(error=%e, "alert silence expiry failed");

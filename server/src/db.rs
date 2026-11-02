@@ -427,6 +427,7 @@ async fn create_schema(pool: &DbPool) -> anyhow::Result<()> {
         .chain(crate::alerts::SCHEMA.split(';'))
         .chain(crate::agents::SCHEMA.split(';'))
         .chain(crate::agent_plugins::SCHEMA.split(';'))
+        .chain(crate::upgrades::SCHEMA.split(';'))
     {
         let s = stmt.trim();
         if !s.is_empty() {

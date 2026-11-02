@@ -53,7 +53,7 @@ fn safe_name(n: &str) -> bool {
         && !n.starts_with('.')
 }
 
-fn safe_rel(p: &str) -> bool {
+pub(crate) fn safe_rel(p: &str) -> bool {
     !p.is_empty()
         && !p.starts_with('/')
         && !p.starts_with('\\')

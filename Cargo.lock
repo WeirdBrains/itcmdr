@@ -1715,10 +1715,12 @@ dependencies = [
  "itcmdr-agentlink",
  "itcmdr-common",
  "itcmdr-plugin",
+ "itcmdr-watchdog",
  "prost",
  "rand 0.8.8",
  "serde",
  "serde_json",
+ "tempfile",
  "tokio",
  "tokio-stream",
  "toml 0.8.23",
@@ -1889,6 +1891,19 @@ dependencies = [
  "x25519-dalek",
  "zeroize",
  "zip",
+]
+
+[[package]]
+name = "itcmdr-watchdog"
+version = "0.20.1"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "clap",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "windows-service",
 ]
 
 [[package]]

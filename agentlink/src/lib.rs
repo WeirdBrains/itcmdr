@@ -30,6 +30,33 @@ pub fn plugin_bytes(name: &str, version: &str, manifest_sha256: &str) -> Vec<u8>
     format!("itcmdr-agent-plugin/v1\n{name}\n{version}\n{manifest_sha256}").into_bytes()
 }
 
+/// v0.21.0: bytes the server root key signs for an UpgradeOffer: it vouches that the package
+/// (manifest hash) is an agent release signed by an owner key (fingerprint).
+pub fn upgrade_bytes(version: &str, manifest_sha256: &str, signer: &str) -> Vec<u8> {
+    format!("itcmdr-agent-upgrade/v1\n{version}\n{manifest_sha256}\n{signer}").into_bytes()
+}
+
+/// v0.21.0: compare dotted versions numerically (pre-release suffixes after '-' sort lower).
+pub fn version_cmp(a: &str, b: &str) -> std::cmp::Ordering {
+    fn parts(v: &str) -> (Vec<u64>, bool) {
+        let v = v.trim().trim_start_matches('v');
+        let (core, pre) = match v.split_once('-') {
+            Some((c, _)) => (c, true),
+            None => (v, false),
+        };
+        (
+            core.split('.').map(|p| p.parse().unwrap_or(0)).collect(),
+            pre,
+        )
+    }
+    let (mut x, xp) = parts(a);
+    let (mut y, yp) = parts(b);
+    let n = x.len().max(y.len());
+    x.resize(n, 0);
+    y.resize(n, 0);
+    x.cmp(&y).then(yp.cmp(&xp))
+}
+
 /// v0.20.1: bytes the server root key signs for a ConfigUpdate (the agent checks them).
 pub fn config_bytes(version: &str, json: &str) -> Vec<u8> {
     format!(
@@ -80,6 +107,15 @@ pub fn valid_machine(m: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn version_order() {
+        use std::cmp::Ordering::*;
+        assert_eq!(version_cmp("0.21.0", "0.20.1"), Greater);
+        assert_eq!(version_cmp("0.21.0", "0.21"), Equal);
+        assert_eq!(version_cmp("0.21.0-pre1", "0.21.0"), Less);
+        assert_eq!(version_cmp("v0.9.9", "0.10.0"), Less);
+    }
 
     #[test]
     fn hello_bytes_bind_every_field() {
