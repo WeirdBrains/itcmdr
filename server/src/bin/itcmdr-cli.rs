@@ -574,6 +574,22 @@ enum UpgradeCmd {
     Resume,
     /// Abort the rollout (machines already upgraded stay upgraded).
     Abort,
+    /// Upgrade this server to an installed, owner-signed itcmdr-server-release (in the update
+    /// window unless --now; the server watchdog swaps it in and rolls back when unhealthy).
+    ServerStart {
+        version: String,
+        #[arg(long)]
+        now: bool,
+    },
+    /// Cancel a server upgrade that is still waiting for the window.
+    ServerAbort,
+    /// Watchdog rollback step: put the pre-upgrade database safety copy back (server stopped).
+    RestoreDb {
+        #[arg(long)]
+        from: PathBuf,
+        #[arg(long)]
+        to: PathBuf,
+    },
 }
 
 #[derive(Subcommand)]
@@ -2146,6 +2162,39 @@ fn run(rt: &tokio::runtime::Runtime) -> Result<()> {
                 }
             })
         }
+        Cmd::Upgrade(UpgradeCmd::RestoreDb { from, to }) => {
+            srv::server_upgrade::restore_db(from, to)
+        }
+        Cmd::Upgrade(uc @ (UpgradeCmd::ServerStart { .. } | UpgradeCmd::ServerAbort)) => {
+            let cfg = load()?;
+            rt.block_on(async {
+                let pool = srv::db::init_db(&cfg).await?;
+                let u = match uc {
+                    UpgradeCmd::ServerStart { version, now } => {
+                        srv::server_upgrade::start(
+                            &pool,
+                            &cfg.layout(),
+                            version,
+                            "itcmdr-cli",
+                            *now,
+                        )
+                        .await?
+                    }
+                    _ => srv::server_upgrade::abort(&pool, "itcmdr-cli").await?,
+                };
+                println!(
+                    "server upgrade to {}: {}{}",
+                    u.version,
+                    u.state,
+                    if u.push {
+                        " (pushed: ignores the update window)"
+                    } else {
+                        ""
+                    }
+                );
+                Ok(())
+            })
+        }
         Cmd::Upgrade(uc) => {
             let cfg = load()?;
             let json = cli.json;
@@ -2162,7 +2211,10 @@ fn run(rt: &tokio::runtime::Runtime) -> Result<()> {
                     }
                     UpgradeCmd::Resume => Some(srv::upgrades::resume(&pool, "itcmdr-cli").await?),
                     UpgradeCmd::Abort => Some(srv::upgrades::abort(&pool, "itcmdr-cli").await?),
+                    _ => unreachable!(),
                 };
+                let server = srv::server_upgrade::current(&pool).await?;
+                let gate = srv::upgrades::gate(&pool, false, chrono::Utc::now()).await;
                 let t = chrono::Utc::now().timestamp_millis();
                 let holds = match &r {
                     Some(r) if r.state == "active" || r.state == "paused" => {
@@ -2175,10 +2227,22 @@ fn run(rt: &tokio::runtime::Runtime) -> Result<()> {
                     println!(
                         "{}",
                         serde_json::to_string_pretty(
-                            &serde_json::json!({"rollout": r, "ring_holds": holds, "history": hist})
+                            &serde_json::json!({"rollout": r, "ring_holds": holds, "history": hist, "server_upgrade": server, "window": gate})
                         )?
                     );
                     return Ok(());
+                }
+                match &server {
+                    Some(u) => println!(
+                        "server upgrade to {}: {}{}",
+                        u.version,
+                        u.state,
+                        if u.reason.is_empty() { String::new() } else { format!(" ({})", u.reason) }
+                    ),
+                    None => println!("server runs {}", srv::server_upgrade::VERSION),
+                }
+                if let Some(g) = &gate {
+                    println!("  {g}");
                 }
                 match &r {
                     None => println!("no agent rollout in progress"),

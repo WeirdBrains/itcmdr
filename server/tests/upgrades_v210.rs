@@ -510,3 +510,227 @@ async fn rings_soak_advance_and_pause_on_critical() {
     // Nothing is offered once done.
     assert!(!offered("WS-33").await);
 }
+
+fn window_around(now: chrono::DateTime<chrono::Utc>, from_h: i64, to_h: i64) -> String {
+    let h = |d: i64| {
+        (now + chrono::Duration::hours(d))
+            .format("%H:00")
+            .to_string()
+    };
+    format!("daily {}-{}", h(from_h), h(to_h))
+}
+
+#[tokio::test]
+async fn update_window_push_and_off_switches() {
+    let e = env().await;
+    install_release(&e, "99.0.0", &e.owner).await.unwrap();
+    let now = chrono::Utc::now();
+    fake_agent(&e, "WS-20", "0.21.0", now.timestamp_millis()).await;
+    srv::settings::set(&e.pool, "agent.ring", "0", Some("WS-20"))
+        .await
+        .unwrap();
+    srv::settings::set(&e.pool, "updates.timezone", "UTC", None)
+        .await
+        .unwrap();
+    let closed = window_around(now, 2, 3);
+    let open = window_around(now, -1, 2);
+    srv::settings::set(&e.pool, "updates.window", &closed, None)
+        .await
+        .unwrap();
+    let l = e.c.layout();
+    let offer = || srv::upgrades::offer_for(&e.pool, &l, "WS-20", "0.21.0");
+
+    // Outside the window: nothing is offered and the ring does not advance.
+    srv::upgrades::start(&e.pool, &l, "99.0.0", "t", false)
+        .await
+        .unwrap();
+    assert!(offer().await.unwrap().is_none(), "closed window");
+    assert!(srv::upgrades::gate(&e.pool, false, now)
+        .await
+        .unwrap()
+        .contains("update window"));
+    set_version(&e, "WS-20", "99.0.0", now.timestamp_millis()).await;
+    let t = now.timestamp_millis();
+    srv::upgrades::tick(&e.pool, t).await.unwrap();
+    let r = srv::upgrades::tick(&e.pool, t + 2 * 3_600_000)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(r.ring, 0, "soaked, but the next ring waits for the window");
+    set_version(&e, "WS-20", "0.21.0", now.timestamp_millis()).await;
+    // The window opens.
+    srv::settings::set(&e.pool, "updates.window", &open, None)
+        .await
+        .unwrap();
+    assert!(offer().await.unwrap().is_some(), "open window");
+    // Automatic updates off for the site: nothing, even inside the window.
+    srv::settings::set(&e.pool, "updates.auto", "false", None)
+        .await
+        .unwrap();
+    assert!(offer().await.unwrap().is_none(), "updates.auto = false");
+    srv::upgrades::abort(&e.pool, "t").await.unwrap();
+
+    // A push installs at once: window closed and automatic updates off.
+    srv::settings::set(&e.pool, "updates.window", &closed, None)
+        .await
+        .unwrap();
+    let r = srv::upgrades::start(&e.pool, &l, "99.0.0", "t", true)
+        .await
+        .unwrap();
+    assert!(r.push);
+    assert!(offer().await.unwrap().is_some(), "pushed");
+    // The per-machine off switch still holds a machine back from a push.
+    srv::settings::set(&e.pool, "agent.upgrades", "false", Some("WS-20"))
+        .await
+        .unwrap();
+    assert!(offer().await.unwrap().is_none(), "machine off");
+    // A bad window fails closed and cannot be saved.
+    assert!(
+        srv::settings::set(&e.pool, "updates.window", "sometimes", None)
+            .await
+            .is_err()
+    );
+    assert!(
+        srv::settings::set(&e.pool, "updates.timezone", "Mars/Olympus", None)
+            .await
+            .is_err()
+    );
+}
+
+async fn install_server_release(e: &Env, version: &str, min_from: &str) {
+    let d = e.root.join(format!("srel-{version}"));
+    std::fs::create_dir_all(&d).unwrap();
+    std::fs::write(d.join(EXE), format!("server {version}")).unwrap();
+    std::fs::write(
+        d.join("release.toml"),
+        format!("version = \"{version}\"\nmin_from = \"{min_from}\"\n"),
+    )
+    .unwrap();
+    std::fs::write(
+        d.join("package.toml"),
+        format!("name = \"itcmdr-server-release\"\nversion = \"{version}\"\nfeatures = [\"verify\", \"execute\", \"log\"]\n\n[[files]]\nname = \"{EXE}\"\ntype = \"bin\"\nmain = true\nchecksum = \"\"\n\n[[files]]\nname = \"release.toml\"\ntype = \"config\"\nchecksum = \"\"\n"),
+    )
+    .unwrap();
+    let out = e.root.join(format!("srel-{version}.tar.gz"));
+    srv::packages::pack(&d, &e.owner, &out).unwrap();
+    srv::packages::install(
+        &e.pool,
+        &e.c.layout(),
+        srv::packages::Source::Path(&out),
+        Some(true),
+        "test",
+    )
+    .await
+    .unwrap();
+}
+
+#[tokio::test]
+async fn server_upgrade_waits_stages_and_reports_a_rollback() {
+    let e = env().await;
+    install_server_release(&e, "99.0.0", "0.20.0").await;
+    let l = e.c.layout();
+    // Not a newer version / too old to upgrade from.
+    install_server_release(&e, "0.1.0", "").await;
+    assert!(srv::server_upgrade::start(&e.pool, &l, "0.1.0", "t", false)
+        .await
+        .is_err());
+    let prog = e.root.join("app").join("server");
+    std::fs::create_dir_all(&prog).unwrap();
+    std::fs::write(prog.join(EXE), b"old server").unwrap();
+    std::fs::write(prog.join("helper.dll"), b"kept").unwrap();
+    std::env::set_var("ITCMDR_SERVER_PROGRAM", &prog);
+    let now = chrono::Utc::now();
+    srv::settings::set(&e.pool, "updates.timezone", "UTC", None)
+        .await
+        .unwrap();
+    srv::settings::set(&e.pool, "updates.window", &window_around(now, 2, 3), None)
+        .await
+        .unwrap();
+
+    let u = srv::server_upgrade::start(&e.pool, &l, "99.0.0", "t", false)
+        .await
+        .unwrap();
+    assert_eq!(u.state, "waiting");
+    let u = srv::server_upgrade::tick(&e.pool, &e.c)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(u.state, "waiting");
+    assert!(u.reason.contains("update window"), "{}", u.reason);
+    assert!(!wd::request_path(&l.root).exists());
+    srv::server_upgrade::abort(&e.pool, "t").await.unwrap();
+
+    // Pushed: staged at once with a database safety copy and the rollback step.
+    srv::server_upgrade::start(&e.pool, &l, "99.0.0", "t", true)
+        .await
+        .unwrap();
+    let u = srv::server_upgrade::tick(&e.pool, &e.c)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(u.state, "staged");
+    let req: wd::Request = wd::read_json(&wd::request_path(&l.root)).unwrap();
+    assert_eq!(
+        (req.version.as_str(), req.from.as_str()),
+        ("99.0.0", srv::server_upgrade::VERSION)
+    );
+    let st = e.root.join("app").join("server-staged").join("99.0.0");
+    assert_eq!(std::fs::read(st.join(EXE)).unwrap(), b"server 99.0.0");
+    assert_eq!(std::fs::read(st.join("helper.dll")).unwrap(), b"kept");
+    let safety = std::path::PathBuf::from(&req.rollback_cmd[4]);
+    assert!(
+        safety.exists() && req.rollback_cmd[1..3] == ["upgrade".to_string(), "restore-db".into()]
+    );
+    assert!(
+        srv::server_upgrade::abort(&e.pool, "t").await.is_err(),
+        "already with the watchdog"
+    );
+
+    // The watchdog rolled back: failed, Critical alert.
+    std::fs::remove_file(wd::request_path(&l.root)).unwrap();
+    wd::write_json(
+        &wd::result_path(&l.root),
+        &wd::Outcome {
+            version: "99.0.0".into(),
+            from: req.from.clone(),
+            ok: false,
+            rolled_back: true,
+            error: "not healthy".into(),
+            ts_ms: 0,
+        },
+    )
+    .unwrap();
+    assert!(srv::server_upgrade::tick(&e.pool, &e.c)
+        .await
+        .unwrap()
+        .is_none());
+    let h = srv::server_upgrade::history(&e.pool, 1).await.unwrap();
+    assert_eq!(
+        (h[0].state.as_str(), h[0].reason.as_str()),
+        ("failed", "not healthy")
+    );
+    let n: i64 = sqlx::query_scalar("SELECT count(*) FROM alerts WHERE key = 'server-upgrade' AND level = 'critical' AND state = 'open'")
+        .fetch_one(&e.pool).await.unwrap();
+    assert_eq!(n, 1);
+
+    // The rollback step puts the copy back.
+    let db = e.root.join("copy.db");
+    std::fs::write(&db, b"changed").unwrap();
+    srv::server_upgrade::restore_db(&safety, &db).unwrap();
+    assert_eq!(std::fs::read(&db).unwrap(), std::fs::read(&safety).unwrap());
+    std::env::remove_var("ITCMDR_SERVER_PROGRAM");
+}
+
+#[test]
+fn agents_wait_for_the_server() {
+    let mut r =
+        srv::upgrades::parse_release(b"version = \"99.0.0\"\nmin_server = \"99.0.0\"\n").unwrap();
+    assert!(
+        !srv::upgrades::server_ok(&r),
+        "server runs an older version"
+    );
+    r.min_server = srv::server_upgrade::VERSION.into();
+    assert!(srv::upgrades::server_ok(&r));
+    r.min_server.clear();
+    assert!(srv::upgrades::server_ok(&r));
+}

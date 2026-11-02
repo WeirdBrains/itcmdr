@@ -24,6 +24,7 @@ pub mod restore_seal;
 pub mod runtime;
 pub mod schedule;
 pub mod search;
+pub mod server_upgrade;
 pub mod settings;
 pub mod setup;
 pub mod sitelink;
@@ -158,6 +159,9 @@ pub async fn run(
             }
             if let Err(e) = cutover::export_state(&bg_pool, &bg_cfg).await {
                 tracing::warn!(error=%e, "schedule state export failed");
+            }
+            if let Err(e) = server_upgrade::tick(&bg_pool, &bg_cfg).await {
+                tracing::warn!(error=%e, "server upgrade pass failed");
             }
             if let Err(e) = upgrades::tick(&bg_pool, chrono::Utc::now().timestamp_millis()).await {
                 tracing::warn!(error=%e, "agent rollout pass failed");
