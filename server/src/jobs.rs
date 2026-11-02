@@ -136,7 +136,9 @@ pub async fn queue_run(
     Ok(id)
 }
 
-/// v0.22.0: agents from 0.22.0 on expand RunNow "*" to every installed plugin.
+/// v0.22.0: agents from 0.22.0 on (pre-releases included) expand RunNow "*" to every installed
+/// plugin.
 pub fn supports_run_all(agent_version: &str) -> bool {
-    itcmdr_agentlink::version_cmp(agent_version, "0.22.0") != std::cmp::Ordering::Less
+    let base = agent_version.split('-').next().unwrap_or(agent_version);
+    itcmdr_agentlink::version_cmp(base, "0.22.0") != std::cmp::Ordering::Less
 }

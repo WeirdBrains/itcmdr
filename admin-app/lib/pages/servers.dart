@@ -284,8 +284,7 @@ class _ServerPageState extends State<ServerPage> {
                           const [],
                           false,
                         ),
-                        done:
-                            'Restore drill requested (it runs on the site; see Commands for the result)',
+                        done: 'Restore drill requested (it runs on the site; see Commands for the result)',
                       );
                       _load();
                     },
