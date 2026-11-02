@@ -266,10 +266,15 @@ function Test-ItcmdrNightlyTaskDisabled {
 
 function Send-ItcmdrAgentAlert {
   <#
-    Queue an alert through the Rust agent's durable queue (`itcmdr-agent alert`, next to this
-    script). False when the agent is not installed here or the call failed.
+    Queue an alert through the Rust agent's durable queue (`itcmdr-agent alert`: current\ next to
+    this script since v0.21.0, or next to it before). False when the agent is not installed here or
+    the call failed.
   #>
-  param([string]$Key, [string]$Title, [ValidateSet('critical', 'cautious', 'informational')][string]$Level = 'cautious', [string]$Detail = '', [switch]$Resolve, [string]$AgentExe = (Join-Path $PSScriptRoot 'itcmdr-agent.exe'))
+  param([string]$Key, [string]$Title, [ValidateSet('critical', 'cautious', 'informational')][string]$Level = 'cautious', [string]$Detail = '', [switch]$Resolve, [string]$AgentExe = '')
+  if (-not $AgentExe) {
+    $AgentExe = @((Join-Path $PSScriptRoot 'current\itcmdr-agent.exe'), (Join-Path $PSScriptRoot 'itcmdr-agent.exe')) |
+      Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+  }
   if (-not $AgentExe -or -not (Test-Path -LiteralPath $AgentExe)) { return $false }
   # Windows PowerShell 5.1 drops empty native arguments, so only pass --detail when set.
   $a = @('alert', $Key, $Title, '--level', $Level)

@@ -6,6 +6,9 @@
 ; enroll token is kept in %ProgramData%\itcmdr\agent-enroll.token (Administrators and SYSTEM only);
 ; the service enrolls with it on start (pinned TLS, client certificate) and deletes it. The
 ; PowerShell agent keeps running its tasks unchanged. Push-Install-ItcmdrAgent.ps1 (copy-over-SMB push) still works and is included.
+; v0.21.0: the Rust agent runs from {app}\agent\current\ (agent upgrades swap current\ and previous\),
+; and the itcmdr-agent-watchdog service ({app}\agent\watchdog\, replaced only by this installer)
+; carries out upgrades, rolls a bad one back and restarts a stopped or hung agent.
 ; Uninstall keeps %ProgramData%\itcmdr; /REMOVEDATA=yes removes the agent's files there.
 #include "common.iss"
 #ifndef LocalLogs
@@ -22,8 +25,9 @@ UninstallDisplayIcon={app}\uninstall\agent\itcmdr.ico
 #include "common-setup.iss"
 
 [Files]
-Source: "..\target\release\itcmdr-agent.exe"; DestDir: "{app}\agent"; Flags: ignoreversion
-Source: "..\target\release\itcmdr-plugin-ps.exe"; DestDir: "{app}\agent"; Flags: ignoreversion
+Source: "..\target\release\itcmdr-agent.exe"; DestDir: "{app}\agent\current"; Flags: ignoreversion
+Source: "..\target\release\itcmdr-plugin-ps.exe"; DestDir: "{app}\agent\current"; Flags: ignoreversion
+Source: "..\target\release\itcmdr-agent-watchdog.exe"; DestDir: "{app}\agent\watchdog"; Flags: ignoreversion
 Source: "..\branding\office\windows\app_icon.ico"; DestDir: "{app}\uninstall\agent"; DestName: "itcmdr.ico"; Flags: ignoreversion
 Source: "..\agent\Invoke-ItcmdrAgent.ps1"; DestDir: "{app}\agent"; Flags: ignoreversion
 Source: "..\agent\Install-ItcmdrAgent.ps1"; DestDir: "{app}\agent"; Flags: ignoreversion
@@ -39,22 +43,41 @@ Source: "..\agent\Itcmdr.Plugin.psm1"; DestDir: "{app}\agent"; Flags: ignorevers
 #endif
 Source: "..\third_party\itcmdr-plugins\plugins\*"; Excludes: "*.toml"; DestDir: "{app}\agent\plugins"; Flags: ignoreversion recursesubdirs
 
+[InstallDelete]
+; v0.21.0: the binaries moved into current\ (the old copies would be stale).
+Type: files; Name: "{app}\agent\itcmdr-agent.exe"
+Type: files; Name: "{app}\agent\itcmdr-plugin-ps.exe"
+
+[UninstallDelete]
+; Written by agent upgrades (not by this installer).
+Type: filesandordirs; Name: "{app}\agent\current"
+Type: filesandordirs; Name: "{app}\agent\previous"
+Type: filesandordirs; Name: "{app}\agent\staged"
+Type: filesandordirs; Name: "{app}\agent\failed"
+
 [Dirs]
 Name: "{param:LocalLogs|{#LocalLogs}}"; Permissions: users-full; Flags: uninsneveruninstall
 
 [Run]
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\agent\Initialize-ItcmdrSite.ps1"" {code:AgentSiteArgs} -Report ""{commonappdata}\itcmdr\agent-setup-check.txt"""; Flags: runhidden; StatusMsg: "Writing agent site settings..."
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\agent\Install-ItcmdrAgent.ps1"""; Flags: runhidden; StatusMsg: "Installing agent scheduled tasks..."
-Filename: "{sys}\sc.exe"; Parameters: "create itcmdr-agent binPath= ""\""{app}\agent\itcmdr-agent.exe\"" --service"" start= auto DisplayName= ""itcmdr-agent"""; Flags: runhidden; StatusMsg: "Creating Windows service itcmdr-agent..."; Check: not ServiceExists('itcmdr-agent')
-Filename: "{sys}\sc.exe"; Parameters: "config itcmdr-agent binPath= ""\""{app}\agent\itcmdr-agent.exe\"" --service"""; Flags: runhidden; Check: ServiceExists('itcmdr-agent')
+Filename: "{sys}\sc.exe"; Parameters: "create itcmdr-agent binPath= ""\""{app}\agent\current\itcmdr-agent.exe\"" --service"" start= auto DisplayName= ""itcmdr-agent"""; Flags: runhidden; StatusMsg: "Creating Windows service itcmdr-agent..."; Check: not ServiceExists('itcmdr-agent')
+Filename: "{sys}\sc.exe"; Parameters: "config itcmdr-agent binPath= ""\""{app}\agent\current\itcmdr-agent.exe\"" --service"""; Flags: runhidden; Check: ServiceExists('itcmdr-agent')
 Filename: "{sys}\sc.exe"; Parameters: "description itcmdr-agent ""itcmdr agent: heartbeat link to the site server"""; Flags: runhidden
 Filename: "{sys}\sc.exe"; Parameters: "failure itcmdr-agent reset= 86400 actions= restart/60000/restart/60000/restart/300000"; Flags: runhidden
 Filename: "{sys}\sc.exe"; Parameters: "start itcmdr-agent"; Flags: runhidden; StatusMsg: "Starting itcmdr-agent..."
+Filename: "{sys}\sc.exe"; Parameters: "create itcmdr-agent-watchdog binPath= ""\""{app}\agent\watchdog\itcmdr-agent-watchdog.exe\"" --service"" start= auto DisplayName= ""itcmdr-agent-watchdog"""; Flags: runhidden; StatusMsg: "Creating Windows service itcmdr-agent-watchdog..."; Check: not ServiceExists('itcmdr-agent-watchdog')
+Filename: "{sys}\sc.exe"; Parameters: "config itcmdr-agent-watchdog binPath= ""\""{app}\agent\watchdog\itcmdr-agent-watchdog.exe\"" --service"""; Flags: runhidden; Check: ServiceExists('itcmdr-agent-watchdog')
+Filename: "{sys}\sc.exe"; Parameters: "description itcmdr-agent-watchdog ""itcmdr agent watchdog: agent upgrades, rollback and restarts"""; Flags: runhidden
+Filename: "{sys}\sc.exe"; Parameters: "failure itcmdr-agent-watchdog reset= 86400 actions= restart/60000/restart/60000/restart/300000"; Flags: runhidden
+Filename: "{sys}\sc.exe"; Parameters: "start itcmdr-agent-watchdog"; Flags: runhidden; StatusMsg: "Starting itcmdr-agent-watchdog..."
 
 [UninstallRun]
+Filename: "{sys}\sc.exe"; Parameters: "stop itcmdr-agent-watchdog"; Flags: runhidden; RunOnceId: "StopAgentWatchdog"
 Filename: "{sys}\sc.exe"; Parameters: "stop itcmdr-agent"; Flags: runhidden; RunOnceId: "StopAgentService"
 Filename: "powershell.exe"; Parameters: "-NoProfile -Command ""Start-Sleep -Seconds 3"""; Flags: runhidden; RunOnceId: "WaitAgentService"
 Filename: "{sys}\sc.exe"; Parameters: "delete itcmdr-agent"; Flags: runhidden; RunOnceId: "DeleteAgentService"
+Filename: "{sys}\sc.exe"; Parameters: "delete itcmdr-agent-watchdog"; Flags: runhidden; RunOnceId: "DeleteAgentWatchdog"
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""Unregister-ScheduledTask -TaskName 'itcmdr Agent Nightly' -Confirm:$false -ErrorAction SilentlyContinue; Unregister-ScheduledTask -TaskName 'itcmdr Agent Poller' -Confirm:$false -ErrorAction SilentlyContinue"""; Flags: runhidden; RunOnceId: "AgentTasks"
 
 [Code]
@@ -68,6 +91,9 @@ function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
   RC: Integer;
 begin
+  // The watchdog first, so it does not restart the agent mid-install.
+  if ServiceExists('itcmdr-agent-watchdog') then
+    Exec(ExpandConstant('{sys}\sc.exe'), 'stop itcmdr-agent-watchdog', '', SW_HIDE, ewWaitUntilTerminated, RC);
   if ServiceExists('itcmdr-agent') then
   begin
     Exec(ExpandConstant('{sys}\sc.exe'), 'stop itcmdr-agent', '', SW_HIDE, ewWaitUntilTerminated, RC);
