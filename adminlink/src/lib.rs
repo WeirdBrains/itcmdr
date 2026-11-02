@@ -641,7 +641,10 @@ mod deep_check_tests {
         st.deep_check_ms = now - 10 * day;
         st.deep_check_result = "ok".into();
         assert_eq!(deep_check(&st, 0, now), (Some(10), None));
-        assert_eq!(deep_check_text(&st, now), "last deep check: 10 days ago (ok)");
+        assert_eq!(
+            deep_check_text(&st, now),
+            "last deep check: 10 days ago (ok)"
+        );
         st.deep_check_ms = now - 91 * day;
         assert!(deep_check(&st, 0, now).1.unwrap().contains("older than 90"));
         assert_eq!(deep_check(&st, 120, now).1, None);

@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('last deep check: never, ok, due and failed', () {
     final now = DateTime(2026, 11, 2);
-    final ms = (int days) =>
+    int ms(int days) =>
         now.subtract(Duration(days: days)).millisecondsSinceEpoch;
     expect(deepCheckText(0, 'none', now).warn, isTrue);
     expect(deepCheckText(0, 'none', now).text, contains('never'));
