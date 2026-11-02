@@ -30,6 +30,10 @@ pub struct Request {
     pub from: String,
     pub health_secs: u64,
     pub ts_ms: i64,
+    /// Run after a rollback, before the old version starts (server: put the pre-upgrade
+    /// database back when the new version changed the schema). Program and arguments.
+    #[serde(default)]
+    pub rollback_cmd: Vec<String>,
 }
 
 /// `<data>\upgrade\result.json`, written by the watchdog.
@@ -111,13 +115,50 @@ pub trait Service {
     fn running(&self) -> bool;
 }
 
+/// Where a service's versions live.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Dirs {
+    pub current: PathBuf,
+    pub previous: PathBuf,
+    /// Parent of `<version>\` folders.
+    pub staged: PathBuf,
+    pub failed: PathBuf,
+}
+
+impl Dirs {
+    /// Agent layout: `<root>\current`, `<root>\previous`, `<root>\staged\<v>`, `<root>\failed\<v>`.
+    pub fn under(root: &Path) -> Dirs {
+        Dirs {
+            current: root.join(CURRENT),
+            previous: root.join(PREVIOUS),
+            staged: root.join(STAGED),
+            failed: root.join(FAILED),
+        }
+    }
+    /// Server layout (keeps the pre-v0.21 paths): `<app>\server` is current, next to
+    /// `<app>\server-previous`, `<app>\server-staged\<v>`, `<app>\server-failed\<v>`.
+    pub fn beside(current: &Path) -> Dirs {
+        let n = current
+            .file_name()
+            .map(|n| n.to_string_lossy().to_string())
+            .unwrap_or_else(|| "server".into());
+        let p = current.parent().unwrap_or(Path::new("."));
+        Dirs {
+            current: current.to_path_buf(),
+            previous: p.join(format!("{n}-previous")),
+            staged: p.join(format!("{n}-staged")),
+            failed: p.join(format!("{n}-failed")),
+        }
+    }
+}
+
 /// Swap `staged\<v>` in as `current` (the old `current` becomes `previous`).
-pub fn swap_in(root: &Path, version: &str) -> Result<()> {
+pub fn swap_in(d: &Dirs, version: &str) -> Result<()> {
     ensure!(safe_version(version), "bad version {version:?}");
-    let staged = root.join(STAGED).join(version);
+    let staged = d.staged.join(version);
     ensure!(staged.is_dir(), "{} is missing", staged.display());
-    let cur = root.join(CURRENT);
-    let prev = root.join(PREVIOUS);
+    let cur = d.current.clone();
+    let prev = d.previous.clone();
     if prev.exists() {
         std::fs::remove_dir_all(&prev).with_context(|| format!("removing {}", prev.display()))?;
     }
@@ -133,15 +174,15 @@ pub fn swap_in(root: &Path, version: &str) -> Result<()> {
 }
 
 /// Undo a swap: `current` -> `failed\<v>`, `previous` -> `current`.
-pub fn roll_back(root: &Path, version: &str) -> Result<()> {
-    let cur = root.join(CURRENT);
-    let prev = root.join(PREVIOUS);
+pub fn roll_back(d: &Dirs, version: &str) -> Result<()> {
+    let cur = d.current.clone();
+    let prev = d.previous.clone();
     ensure!(prev.is_dir(), "no previous version to roll back to");
-    let failed = root.join(FAILED).join(version);
+    let failed = d.failed.join(version);
     if failed.exists() {
         std::fs::remove_dir_all(&failed)?;
     }
-    std::fs::create_dir_all(root.join(FAILED))?;
+    std::fs::create_dir_all(&d.failed)?;
     if cur.exists() {
         std::fs::rename(&cur, &failed).context("current -> failed")?;
     }
@@ -182,7 +223,7 @@ fn wait_stopped(svc: &dyn Service, t: &Timing) -> Result<()> {
 /// returns the outcome it wrote to result.json. The request file is removed first, so a crash
 /// mid-way never repeats an upgrade in a loop.
 pub fn handle(
-    root: &Path,
+    dirs: &Dirs,
     data: &Path,
     svc: &dyn Service,
     healthy: Check,
@@ -212,7 +253,7 @@ pub fn handle(
     let r = (|| -> Result<()> {
         svc.stop()?;
         wait_stopped(svc, t)?;
-        swap_in(root, &req.version)
+        swap_in(dirs, &req.version)
     })();
     if let Err(e) = r {
         out.error = format!("swap failed: {e:#}");
@@ -254,9 +295,31 @@ pub fn handle(
         log(&out.error);
         let _ = svc.stop();
         let _ = wait_stopped(svc, t);
-        match roll_back(root, &req.version) {
+        match roll_back(dirs, &req.version) {
             Ok(()) => out.rolled_back = true,
             Err(e) => out.error.push_str(&format!(" (ROLLBACK FAILED: {e:#})")),
+        }
+        if out.rolled_back && !req.rollback_cmd.is_empty() {
+            match std::process::Command::new(&req.rollback_cmd[0])
+                .args(&req.rollback_cmd[1..])
+                .output()
+            {
+                Ok(o) => {
+                    let txt = String::from_utf8_lossy(&o.stdout).trim().to_string();
+                    log(&format!("rollback step: {} {txt}", o.status));
+                    if !o.status.success() {
+                        out.error.push_str(&format!(
+                            " (rollback step failed: {})",
+                            String::from_utf8_lossy(&o.stderr).trim()
+                        ));
+                    } else if !txt.is_empty() {
+                        out.error.push_str(&format!(" ({txt})"));
+                    }
+                }
+                Err(e) => out
+                    .error
+                    .push_str(&format!(" (rollback step did not run: {e})")),
+            }
         }
         let _ = svc.start();
     }
@@ -409,6 +472,7 @@ mod tests {
                 from: "1.0".into(),
                 health_secs: 1,
                 ts_ms: 0,
+                rollback_cmd: vec![],
             },
         )
         .unwrap();
@@ -434,7 +498,7 @@ mod tests {
     fn healthy_upgrade_keeps_the_new_version() {
         let (_t, root, data, f) = setup();
         let o = handle(
-            &root,
+            &Dirs::under(&root),
             &data,
             &f,
             &|r: &Request, _| cur(&f.root) == r.version,
@@ -456,7 +520,7 @@ mod tests {
     #[test]
     fn unhealthy_upgrade_rolls_back() {
         let (_t, root, data, f) = setup();
-        let o = handle(&root, &data, &f, &|_, _| false, &fast())
+        let o = handle(&Dirs::under(&root), &data, &f, &|_, _| false, &fast())
             .unwrap()
             .unwrap();
         assert!(!o.ok && o.rolled_back, "{o:?}");
@@ -474,7 +538,7 @@ mod tests {
     fn missing_stage_keeps_the_old_version_running() {
         let (_t, root, data, f) = setup();
         std::fs::remove_dir_all(root.join(STAGED).join("2.0")).unwrap();
-        let o = handle(&root, &data, &f, &|_, _| true, &fast())
+        let o = handle(&Dirs::under(&root), &data, &f, &|_, _| true, &fast())
             .unwrap()
             .unwrap();
         assert!(
@@ -489,7 +553,7 @@ mod tests {
     fn a_new_version_that_cannot_start_rolls_back() {
         let (_t, root, data, f) = setup();
         f.fail_start.set(true);
-        let o = handle(&root, &data, &f, &|_, _| true, &fast())
+        let o = handle(&Dirs::under(&root), &data, &f, &|_, _| true, &fast())
             .unwrap()
             .unwrap();
         assert!(
@@ -499,13 +563,61 @@ mod tests {
         assert_eq!(cur(&root), "1.0");
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn rollback_step_runs_after_a_rollback_only() {
+        let (t, root, data, f) = setup();
+        let mark = t.path().join("ran");
+        let cmd = vec![
+            "sh".to_string(),
+            "-c".into(),
+            format!("echo restored-db; touch {}", mark.display()),
+        ];
+        let mut rq: Request = read_json(&request_path(&data)).unwrap();
+        rq.rollback_cmd = cmd.clone();
+        write_json(&request_path(&data), &rq).unwrap();
+        let o = handle(&Dirs::under(&root), &data, &f, &|_, _| false, &fast())
+            .unwrap()
+            .unwrap();
+        assert!(mark.exists() && o.error.contains("restored-db"), "{o:?}");
+        // A healthy upgrade never runs it.
+        std::fs::remove_file(&mark).unwrap();
+        std::fs::create_dir_all(root.join(STAGED).join("3.0")).unwrap();
+        std::fs::write(root.join(STAGED).join("3.0").join("version.txt"), "3.0").unwrap();
+        rq.version = "3.0".into();
+        write_json(&request_path(&data), &rq).unwrap();
+        let o = handle(&Dirs::under(&root), &data, &f, &|_, _| true, &fast())
+            .unwrap()
+            .unwrap();
+        assert!(o.ok && !mark.exists());
+    }
+
+    #[test]
+    fn server_layout_keeps_the_old_paths() {
+        let t = tempfile::tempdir().unwrap();
+        let cur = t.path().join("server");
+        std::fs::create_dir_all(&cur).unwrap();
+        std::fs::write(cur.join("v"), "1").unwrap();
+        let d = Dirs::beside(&cur);
+        assert_eq!(d.previous, t.path().join("server-previous"));
+        std::fs::create_dir_all(d.staged.join("2.0")).unwrap();
+        std::fs::write(d.staged.join("2.0").join("v"), "2").unwrap();
+        swap_in(&d, "2.0").unwrap();
+        assert_eq!(std::fs::read_to_string(cur.join("v")).unwrap(), "2");
+        roll_back(&d, "2.0").unwrap();
+        assert_eq!(std::fs::read_to_string(cur.join("v")).unwrap(), "1");
+        assert!(d.failed.join("2.0").join("v").exists());
+    }
+
     #[test]
     fn bad_request_is_dropped_not_repeated() {
         let (_t, root, data, f) = setup();
         std::fs::write(request_path(&data), b"{nope").unwrap();
-        assert!(handle(&root, &data, &f, &|_, _| true, &fast())
-            .unwrap()
-            .is_none());
+        assert!(
+            handle(&Dirs::under(&root), &data, &f, &|_, _| true, &fast())
+                .unwrap()
+                .is_none()
+        );
         assert!(!request_path(&data).exists());
         assert_eq!(cur(&root), "1.0");
     }

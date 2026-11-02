@@ -229,6 +229,7 @@ pub fn apply(
             from: crate::link::VERSION.into(),
             health_secs: o.health_secs.clamp(30, 3600) as u64,
             ts_ms: chrono::Utc::now().timestamp_millis(),
+            rollback_cmd: vec![],
         },
     )?;
     Ok(())
