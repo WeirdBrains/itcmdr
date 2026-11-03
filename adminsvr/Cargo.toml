@@ -42,6 +42,10 @@ toml = "0.8"
 itcmdr-keys = { path = "../keys" }
 itcmdr-adminlink = { path = "../adminlink" }
 itcmdr-agentlink = { path = "../agentlink" }
+instant-acme = { version = "0.8", default-features = false, features = ["ring", "hyper-rustls", "rcgen"] }
+x509-parser = "0.16"
+rcgen = { version = "0.13", default-features = false, features = ["ring", "pem"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-service = "0.7"

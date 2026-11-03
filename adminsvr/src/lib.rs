@@ -8,6 +8,7 @@
 //! one; there is no restore.
 // tonic::Status is the error type of every handler.
 #![allow(clippy::result_large_err)]
+pub mod acme;
 pub mod api;
 pub mod audit;
 pub mod auth;
@@ -36,12 +37,47 @@ pub async fn run(
     let m = material::load(&cfg)?;
     let hub = link::Hub::with_push(push::Push::new(&cfg.push)?);
     let (tx, rx) = tokio::sync::watch::channel(false);
-    let api = api::serve(pool.clone(), cfg.clone(), m.clone(), hub.clone(), {
-        let mut r = rx.clone();
-        async move {
-            let _ = r.changed().await;
+    // v1.1.0: the admin API's certificate resolver (internal cert, plus ACME when configured)
+    let internal = itcmdr_agentlink::tls::certified_key(&m.server.cert, &m.server.key)?;
+    let domains = cfg
+        .acme
+        .as_ref()
+        .map(|a| a.domains.clone())
+        .unwrap_or_default();
+    let resolver = acme::Resolver::new(internal, &domains);
+    if let Some(a) = cfg.acme.clone() {
+        a.validate().map_err(|e| anyhow::anyhow!(e))?;
+        let tokens: acme::Tokens = Default::default();
+        if a.challenge == config::Challenge::Http01 {
+            let (addr, t) = (a.http_addr.clone(), tokens.clone());
+            tokio::spawn(async move {
+                if let Err(e) = acme::serve_http01(addr, t).await {
+                    tracing::error!(error=%e, "ACME HTTP-01 listener");
+                }
+            });
         }
-    });
+        tokio::spawn(acme::run(
+            pool.clone(),
+            hub.clone(),
+            a,
+            resolver.clone(),
+            tokens,
+            rx.clone(),
+        ));
+    }
+    let api = api::serve(
+        pool.clone(),
+        cfg.clone(),
+        m.clone(),
+        hub.clone(),
+        resolver,
+        {
+            let mut r = rx.clone();
+            async move {
+                let _ = r.changed().await;
+            }
+        },
+    );
     let sl = link::serve(pool.clone(), cfg.clone(), m.clone(), hub.clone(), {
         let mut r = rx.clone();
         async move {

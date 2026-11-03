@@ -82,6 +82,52 @@ struct Cli {
         default_value = "cautious"
     )]
     push_min_severity: String,
+    /// v1.1.0 ACME (Let's Encrypt) for the admin API: certificate names, comma separated (empty = off)
+    #[arg(
+        long,
+        env = "ITCMDR_ADMINSVR_ACME_DOMAINS",
+        default_value = "",
+        value_delimiter = ','
+    )]
+    acme_domains: Vec<String>,
+    /// Contact e-mail(s) for the ACME account, comma separated
+    #[arg(
+        long,
+        env = "ITCMDR_ADMINSVR_ACME_CONTACT",
+        default_value = "",
+        value_delimiter = ','
+    )]
+    acme_contact: Vec<String>,
+    /// production | staging | an ACME directory URL
+    #[arg(
+        long,
+        env = "ITCMDR_ADMINSVR_ACME_DIRECTORY",
+        default_value = "production"
+    )]
+    acme_directory: String,
+    /// PEM root for the ACME directory's own HTTPS (only for test CAs such as Pebble)
+    #[arg(long, env = "ITCMDR_ADMINSVR_ACME_DIRECTORY_ROOT", default_value = "")]
+    acme_directory_root: String,
+    /// tls-alpn-01 (on the admin API port; forward 443 to it) | http-01 (on --acme-http-addr)
+    #[arg(
+        long,
+        env = "ITCMDR_ADMINSVR_ACME_CHALLENGE",
+        default_value = "tls-alpn-01"
+    )]
+    acme_challenge: String,
+    #[arg(
+        long,
+        env = "ITCMDR_ADMINSVR_ACME_HTTP_ADDR",
+        default_value = "0.0.0.0:80"
+    )]
+    acme_http_addr: String,
+    /// Account key and certificate (default <data dir>/acme, 0700)
+    #[arg(long, env = "ITCMDR_ADMINSVR_ACME_CACHE_DIR", default_value = "")]
+    acme_cache_dir: String,
+    #[arg(long, env = "ITCMDR_ADMINSVR_ACME_RENEW_DAYS", default_value_t = 30)]
+    acme_renew_days: i64,
+    #[arg(long, env = "ITCMDR_ADMINSVR_ACME_RETRY_SECS", default_value_t = 3600)]
+    acme_retry_secs: u64,
     #[command(subcommand)]
     cmd: Cmd,
 }
@@ -104,6 +150,8 @@ enum Cmd {
     },
     /// Check the audit hash chain
     AuditVerify,
+    /// v1.1.0: the admin API certificate (mode, expiry, last renewal, last error)
+    TlsStatus,
     /// Run as a Windows service (started by the service manager; installed by the Setup)
     #[command(hide = true)]
     Service,
@@ -262,7 +310,33 @@ fn config(c: Cli) -> Config {
             p.to_string()
         }
     };
+    let domains: Vec<String> = c
+        .acme_domains
+        .iter()
+        .map(|d| d.trim().to_ascii_lowercase())
+        .filter(|d| !d.is_empty())
+        .collect();
+    let acme = (!domains.is_empty()).then(|| itcmdr_adminsvr::config::AcmeConfig {
+        domains,
+        contact: c
+            .acme_contact
+            .iter()
+            .map(|x| x.trim().to_string())
+            .filter(|x| !x.is_empty())
+            .collect(),
+        directory: c.acme_directory.clone(),
+        directory_root: path_opt(&c.acme_directory_root),
+        challenge: c.acme_challenge.parse().unwrap_or_else(|e: String| {
+            eprintln!("{e}");
+            std::process::exit(2)
+        }),
+        http_addr: c.acme_http_addr.clone(),
+        cache_dir: path_opt(&c.acme_cache_dir).unwrap_or_else(|| c.data_dir.join("acme")),
+        renew_days: c.acme_renew_days,
+        retry_secs: c.acme_retry_secs.max(10),
+    });
     Config {
+        acme,
         db_url: if c.db_url.trim().is_empty() {
             format!("sqlite://{}", c.data_dir.join("adminsvr.db").display())
         } else {
@@ -308,6 +382,46 @@ async fn dispatch(cfg: Config, cmd: Cmd) -> anyhow::Result<()> {
         Cmd::RecoverOwner { email } => {
             let code = itcmdr_adminsvr::api::recover_owner(&cfg, &email).await?;
             println!("Owner recovery code (24 h, single use; audited):\n{code}");
+            Ok(())
+        }
+        Cmd::TlsStatus => {
+            let pool = itcmdr_adminsvr::store::connect(&cfg.db_url).await?;
+            let m = itcmdr_adminsvr::material::load(&cfg)?;
+            println!(
+                "internal certificate (pinned by enrolled devices and sites): {}",
+                m.fingerprint
+            );
+            match &cfg.acme {
+                None => println!("ACME: off (only the internal certificate is served)"),
+                Some(a) => {
+                    let st = itcmdr_adminsvr::acme::load_status(&pool).await;
+                    let d = |ms: i64| {
+                        if ms <= 0 {
+                            "never".to_string()
+                        } else {
+                            let days = (ms - itcmdr_adminsvr::now_ms()) / 86_400_000;
+                            format!("{} ms since epoch ({days:+} days)", ms)
+                        }
+                    };
+                    println!(
+                        "ACME: on, {:?}, directory {}",
+                        a.challenge,
+                        itcmdr_adminsvr::acme::directory_url(&a.directory)
+                    );
+                    println!("  domains:      {}", a.domains.join(", "));
+                    println!("  expires:      {}", d(st.expires_ms));
+                    println!("  last renewal: {}", d(st.renewed_ms));
+                    println!("  issuer:       {}", st.issuer);
+                    println!("  fingerprint:  {}", st.fingerprint);
+                    if st.last_error_ms > st.renewed_ms {
+                        println!(
+                            "  LAST ATTEMPT FAILED ({}): {}",
+                            d(st.last_error_ms),
+                            st.last_error
+                        );
+                    }
+                }
+            }
             Ok(())
         }
         Cmd::AuditVerify => {

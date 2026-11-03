@@ -7,6 +7,7 @@ pub mod pb {
     tonic::include_proto!("itcmdr.agent");
 }
 pub mod tls;
+pub mod trust;
 pub use rustls;
 pub use tokio_rustls;
 pub mod token;
