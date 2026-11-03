@@ -224,7 +224,7 @@ pub async fn run(
         }
     });
 
-    let addr = cfg.bind_addr.parse().context("invalid bind_addr")?;
+    let addr: std::net::SocketAddr = cfg.bind_addr.parse().context("invalid bind_addr")?;
     // App plugin uploads (v0.13.0): allow one package of plugins.max_package_mib plus framing.
     let max_msg = (settings::get_i64(&pool, None, "plugins.max_package_mib")
         .await
@@ -243,11 +243,32 @@ pub async fn run(
             .max_decoding_message_size(max_msg),
         ),
     );
-    tracing::info!(%addr, "starting itcmdr-server");
+    // v1.1.0: HTTPS with the server certificate (the one agents pin); plain HTTP only from this
+    // machine or with the explicit `api_plain_http` opt-in.
+    let mat = agents::ensure_material(&cfg.layout())?;
+    let tls = itcmdr_agentlink::tls::api_server_config(&mat.server)?;
+    let plain_any = cfg.api_plain_http;
+    if plain_any {
+        tracing::warn!(
+            "api_plain_http is on: the API also accepts unencrypted HTTP from the network"
+        );
+    }
+    let listener = tokio::net::TcpListener::bind(addr)
+        .await
+        .with_context(|| format!("bind {addr}"))?;
+    tracing::info!(%addr, fingerprint=%mat.fingerprint, "starting itcmdr-server (HTTPS)");
+    let incoming = itcmdr_agentlink::tls::incoming_mixed(
+        listener,
+        tls,
+        std::sync::Arc::new(move |p: std::net::SocketAddr| plain_any || p.ip().is_loopback()),
+        std::sync::Arc::new(
+            |p: std::net::SocketAddr, e: String| tracing::debug!(peer=%p.ip(), error=%e, "api connection refused"),
+        ),
+    );
     tonic::transport::Server::builder()
         .accept_http1(true) // gRPC-Web
         .add_service(svc)
-        .serve_with_shutdown(addr, wait(stop_rx))
+        .serve_with_incoming_shutdown(incoming, wait(stop_rx))
         .await?;
     tracing::info!("itcmdr-server stopped");
     Ok(())

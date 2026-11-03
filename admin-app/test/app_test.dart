@@ -368,4 +368,81 @@ void main() {
     expect(b.calls, contains('forget'));
     expect(find.text('Enroll this device'), findsOneWidget);
   });
+
+  testWidgets('certificate not trusted: details, then trust exactly it', (
+    t,
+  ) async {
+    final b = await start(
+      t,
+      me: me0(),
+      setup: (b) => b.cert = CertReport(
+        server: 'adminsvr.example.com:8444',
+        fingerprint: 'cd' * 32,
+        subject: 'CN=adminsvr.example.com',
+        issuer: 'CN=Private CA',
+        notAfterMs: 2000000000000,
+        names: const ['adminsvr.example.com'],
+        problem: 'self-signed',
+        detail: '',
+        needsOverride: false,
+        trustedBefore: '',
+      ),
+    );
+    expect(find.byKey(const Key('cert-title')), findsOneWidget);
+    expect(find.text('cd' * 32), findsOneWidget);
+    await t.tap(find.byKey(const Key('cert-trust')));
+    await t.pumpAndSettle();
+    expect(
+      b.calls,
+      contains('trustCert ${'cd' * 32} replace=false anyway=false'),
+    );
+    expect(find.text('Servers'), findsOneWidget);
+  });
+
+  testWidgets('changed certificate: blocked until reviewed, then replaced', (
+    t,
+  ) async {
+    final b = await start(
+      t,
+      me: me0(),
+      setup: (b) => b.cert = CertReport(
+        server: 'adminsvr.example.com:8444',
+        fingerprint: 'ef' * 32,
+        subject: 'CN=x',
+        issuer: 'CN=x',
+        notAfterMs: 0,
+        names: const [],
+        problem: 'pin-changed',
+        detail: '',
+        needsOverride: false,
+        trustedBefore: 'ab' * 32,
+      ),
+    );
+    expect(find.textContaining('WARNING'), findsOneWidget);
+    expect(find.textContaining('ab' * 32), findsOneWidget);
+    final btn = find.byKey(const Key('cert-replace'));
+    expect(t.widget<FilledButton>(btn).onPressed, isNull);
+    await t.tap(find.byKey(const Key('cert-confirm')));
+    await t.pump();
+    await t.tap(btn);
+    await t.pumpAndSettle();
+    expect(
+      b.calls,
+      contains('trustCert ${'ef' * 32} replace=true anyway=false'),
+    );
+  });
+
+  testWidgets('settings show the trusted certificate and remove it', (t) async {
+    final b = await start(
+      t,
+      me: me0(),
+      setup: (b) => b.trustedFromEnrollment = false,
+    );
+    await t.tap(find.text('Settings'));
+    await t.pumpAndSettle();
+    expect(find.byKey(const Key('trusted-cert')), findsOneWidget);
+    await t.tap(find.byKey(const Key('trusted-cert-remove')));
+    await t.pumpAndSettle();
+    expect(b.calls, contains('forgetCert'));
+  });
 }

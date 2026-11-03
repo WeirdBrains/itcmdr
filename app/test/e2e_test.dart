@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:app/backup_page.dart';
+import 'package:app/cert_trust.dart';
 import 'package:grpc/grpc.dart';
 import 'package:app/proto/itcmdr.pbgrpc.dart';
 import 'package:app/server_settings.dart';
@@ -88,7 +89,32 @@ void main() {
       port: port,
       keySeed: hexOf(key.seed),
     );
-    final ch = settings.channel();
+    // v1.1.0: the API is HTTPS with the server's own certificate. Unknown at first: the
+    // connection is refused and the certificate is offered for review; trusted exactly, it works.
+    final pem = root
+        .listSync(recursive: true)
+        .whereType<File>()
+        .firstWhere((f) => f.path.endsWith('agent-server.pem'))
+        .readAsStringSync();
+    final der = base64.decode(
+      pem
+          .split('\n')
+          .where((l) => l.isNotEmpty && !l.startsWith('-----'))
+          .join(),
+    );
+    final store = TrustStore();
+    certProblem.value = null;
+    final probe = settings.channel(store);
+    try {
+      await settings.client(probe, key).whoAmI(WhoAmIRequest());
+      fail('an untrusted certificate must be refused');
+    } on GrpcError catch (_) {}
+    await probe.shutdown();
+    final offered = certProblem.value;
+    expect(offered, isNotNull);
+    expect(offered!.cert.fingerprint, CertInfo.fromDer(der).fingerprint);
+    store.trust(offered.server, offered.cert);
+    final ch = settings.channel(store);
     addTearDown(ch.shutdown);
     final client = settings.client(ch, key);
 

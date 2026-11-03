@@ -395,6 +395,93 @@ fn connect(dir: &Path, id: Identity) -> Result<Me> {
     Ok(me)
 }
 
+/// v1.1.0: a certificate adminsvr presents that this device does not accept.
+pub struct CertReport {
+    pub server: String,
+    pub fingerprint: String,
+    pub subject: String,
+    pub issuer: String,
+    pub not_after_ms: i64,
+    pub names: Vec<String>,
+    /// self-signed | untrusted | expired | not-yet-valid | name-mismatch | pin-changed | invalid
+    pub problem: String,
+    pub detail: String,
+    /// Expired / not yet valid / wrong name: needs an explicit "trust anyway"
+    pub needs_override: bool,
+    /// The previously trusted fingerprint (pin-changed)
+    pub trusted_before: String,
+}
+
+/// v1.1.0: how this device trusts adminsvr.
+pub struct TrustedCert {
+    pub server: String,
+    /// Empty = the system trust store decides
+    pub fingerprint: String,
+    /// The pin came from the enrollment code (adminsvr's internal certificate)
+    pub from_enrollment: bool,
+}
+
+/// After `open` failed: the refused certificate, or None when the failure is something else.
+pub fn cert_check(dir: String) -> Result<Option<CertReport>> {
+    let id = Identity::load(Path::new(&dir))?;
+    let r = match block(itcmdr_admin::inspect(&id.addr, &id.pin, id.pin_tofu)) {
+        Ok(r) => r,
+        Err(_) => return Ok(None),
+    };
+    if r.problem == "ok" {
+        return Ok(None);
+    }
+    Ok(Some(CertReport {
+        server: id.addr.clone(),
+        needs_override: r.needs_override(),
+        trusted_before: if r.problem == "pin-changed" {
+            id.pin.clone()
+        } else {
+            String::new()
+        },
+        fingerprint: r.fingerprint,
+        subject: r.subject,
+        issuer: r.issuer,
+        not_after_ms: r.not_after_ms,
+        names: r.names,
+        problem: r.problem,
+        detail: r.detail,
+    }))
+}
+
+/// "Trust this certificate": only `fingerprint`, and only if adminsvr presents it now.
+pub fn trust_cert(dir: String, fingerprint: String, replace: bool, anyway: bool) -> Result<()> {
+    let d = PathBuf::from(&dir);
+    let mut id = Identity::load(&d)?;
+    let r = block(itcmdr_admin::inspect(&id.addr, "", false))?;
+    if !id.pin.is_empty() && id.pin != r.fingerprint && !replace {
+        bail!("a different certificate is trusted for this server; review and replace it");
+    }
+    let fp = itcmdr_admin::check_choice(&r, &fingerprint)?;
+    if r.needs_override() && !anyway {
+        bail!("this certificate is {}: confirm to trust it anyway", r.problem);
+    }
+    id.trust_cert(&fp);
+    id.save(&d)
+}
+
+pub fn trusted_cert(dir: String) -> Result<TrustedCert> {
+    let id = Identity::load(Path::new(&dir))?;
+    Ok(TrustedCert {
+        server: id.addr.clone(),
+        from_enrollment: !id.pin.is_empty() && !id.pin_tofu,
+        fingerprint: id.pin,
+    })
+}
+
+/// Forget the trusted certificate: the system trust store decides again (and asks on failure).
+pub fn forget_cert(dir: String) -> Result<()> {
+    let d = PathBuf::from(&dir);
+    let mut id = Identity::load(&d)?;
+    id.forget_cert();
+    id.save(&d)
+}
+
 /// Sign in with the identity stored in `dir` (None: this device is not enrolled yet).
 pub fn open(dir: String) -> Result<Option<Me>> {
     let d = PathBuf::from(&dir);

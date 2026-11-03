@@ -11,6 +11,8 @@ import 'backup_page.dart';
 import 'agents_page.dart';
 import 'alerts_page.dart';
 import 'calls_page.dart';
+import 'cert_dialog.dart';
+import 'cert_trust.dart';
 import 'charts.dart';
 import 'exceptions_form.dart';
 import 'keys_page.dart';
@@ -71,10 +73,28 @@ class _HomeShellState extends State<HomeShell> {
   int _alertBadge = 0;
   Timer? _alertTimer;
 
+  bool _certDialog = false;
+
   @override
   void initState() {
     super.initState();
-    ServerSettings.load().then(_apply);
+    certProblem.addListener(_onCertProblem);
+    TrustStore.load().then((_) => ServerSettings.load()).then(_apply);
+  }
+
+  /// v1.1.0: a refused certificate: show it and let the user trust exactly that one.
+  Future<void> _onCertProblem() async {
+    final p = certProblem.value;
+    if (p == null || _certDialog || !mounted) return;
+    _certDialog = true;
+    try {
+      final ok = await showCertWarning(context, p, TrustStore.instance);
+      certProblem.value = null;
+      final s = _settings;
+      if (ok && s != null && mounted) await _apply(s);
+    } finally {
+      _certDialog = false;
+    }
   }
 
   Future<void> _apply(ServerSettings s) async {
@@ -129,6 +149,7 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   void dispose() {
+    certProblem.removeListener(_onCertProblem);
     _alertTimer?.cancel();
     _updates?.cancel();
     _channel?.shutdown();
@@ -1011,9 +1032,19 @@ class _SettingsPageState extends State<SettingsPage> {
           decoration: const InputDecoration(labelText: 'Port'),
         ),
         SwitchListTile(
-          title: const Text('Use TLS'),
+          key: const Key('tls'),
+          title: const Text('Use HTTPS (recommended)'),
+          subtitle: _tls
+              ? null
+              : const Text(
+                  'Plain HTTP: not encrypted',
+                  style: TextStyle(color: Colors.red),
+                ),
           value: _tls,
-          onChanged: (v) => setState(() => _tls = v),
+          onChanged: (v) async {
+            if (!v && !await confirmPlainHttp(context)) return;
+            setState(() => _tls = v);
+          },
         ),
         TextField(
           key: const Key('token'),
@@ -1046,6 +1077,8 @@ class _SettingsPageState extends State<SettingsPage> {
             if (_msg != null) Text(_msg!),
           ],
         ),
+        const Divider(height: 32),
+        TrustedCertsSection(store: TrustStore.instance),
         if (widget.client != null) ...[
           const Divider(height: 32),
           ServerSettingsSection(

@@ -257,3 +257,71 @@ words. Nothing else about backups is sent. `itcmdr-admin site list` and the admi
 show "last deep check: N days ago" and a warning when it never ran, failed, or is older than the
 organization's limit (`OrgPolicy.deep_check_max_days`, default 90, `itcmdr-admin org policy
 --deep-check-days N`, owners only, audited as `org.policy`).
+
+## HTTPS certificates and Let's Encrypt (v1.1.0)
+
+adminsvr always has its **internal certificate** (`<data dir>/tls/server.pem`, issued by its own CA).
+Enrollment codes and site tokens carry its SHA-256, so enrolled devices and sites pin it; the
+SiteLink (sites) only ever uses it, with mTLS. That does not change with ACME.
+
+Optionally the **admin API** also gets a publicly trusted certificate from Let's Encrypt (or any
+ACME CA), for browsers, the web app and clients that use the system trust store. It is off by
+default and everything is per install (flags, environment or the env file; nothing is built in):
+
+| Setting (flag / env `ITCMDR_ADMINSVR_…`) | Default | Meaning |
+|---|---|---|
+| `--acme-domains` / `ACME_DOMAINS` | empty = off | certificate names, comma separated (e.g. `admin.example.com`) |
+| `--acme-contact` / `ACME_CONTACT` | none | contact e-mail(s) for the CA account |
+| `--acme-directory` / `ACME_DIRECTORY` | `production` | `production`, `staging` (Let's Encrypt staging) or a directory URL |
+| `--acme-challenge` / `ACME_CHALLENGE` | `tls-alpn-01` | `tls-alpn-01` (on the admin API port; the CA connects to port **443** of each name, so forward 443 to `--api-addr`) or `http-01` (the CA connects to port **80**; served on `--acme-http-addr`) |
+| `--acme-http-addr` / `ACME_HTTP_ADDR` | `0.0.0.0:80` | HTTP-01 listener (only with `http-01`; serves challenge tokens and nothing else) |
+| `--acme-cache-dir` / `ACME_CACHE_DIR` | `<data dir>/acme` | account key and certificate (directory 0700, files 0600) |
+| `--acme-renew-days` / `ACME_RENEW_DAYS` | `30` | renew this many days before expiry (1-60) |
+| `--acme-retry-secs` / `ACME_RETRY_SECS` | `3600` | wait after a failed attempt |
+| `--acme-directory-root` / `ACME_DIRECTORY_ROOT` | none | PEM root for the directory's own HTTPS (test CAs such as Pebble only) |
+
+Example env file:
+
+    ITCMDR_ADMINSVR_ACME_DOMAINS=admin.example.com
+    ITCMDR_ADMINSVR_ACME_CONTACT=it@example.com
+    ITCMDR_ADMINSVR_ACME_DIRECTORY=staging    # try staging first, then production
+
+How it works:
+- Each handshake picks the certificate by name (SNI): the ACME names get the ACME certificate;
+  IP addresses, other names and enrolled devices (which send a fixed internal name) get the internal
+  one. So enabling ACME does not disturb any enrolled device or site.
+- The first certificate is requested at start. Renewal runs `renew-days` before expiry and the new
+  certificate is served at once (no restart). A failed attempt **keeps serving the current
+  certificate**, records the error and opens the adminsvr alert `tls-acme` (Critical when the
+  certificate expires within 7 days or there is none, Cautious otherwise); the next success
+  resolves it. It retries after `retry-secs`.
+- Status: `itcmdr-adminsvr tls-status` on the server (mode, names, expiry, last renewal, issuer,
+  fingerprint, last error) and `itcmdr-admin info <addr>` anywhere (mode, names, expiry, a warning
+  when the last renewal failed; errors are not shown over the network).
+- Tests run against Pebble (Let's Encrypt's test CA) in podman: `adminsvr/tests/tls.rs`
+  (`podman pull ghcr.io/letsencrypt/pebble ghcr.io/letsencrypt/pebble-challtestsrv`; the test is
+  skipped without them or with `ITCMDR_SKIP_PEBBLE=1`).
+
+## Certificate trust in the apps and CLIs (v1.1.0)
+
+The admin app, the site app, `itcmdr-admin` and `itcmdr-cli` use HTTPS by default and validate
+the server against the system trust store (chain, name, expiry). When that fails they do not just
+fail and never ignore errors silently: they show the certificate's **SHA-256 fingerprint,
+subject and expiry** and offer **Trust this certificate**, which trusts exactly that certificate for
+that one server (trust on first use). Compare the fingerprint with the server first
+(`itcmdr-adminsvr tls-status`, or the server's `agent-server.pem`).
+- A **different** certificate than the trusted one is refused with a loud warning until the user
+  reviews it and replaces the trusted one (app: tick "I checked the new fingerprint", then
+  **Replace trusted certificate**; CLI: `itcmdr-admin trust review`, then
+  `itcmdr-admin trust set <sha256> --replace`).
+- An **expired / not yet valid / wrong-name** certificate needs an explicit override on top
+  ("Trust anyway" with a confirmation tick; CLI `--trust-anyway`).
+- Trusted certificates can be listed and removed: site app Settings → Trusted certificates;
+  admin app Settings → Certificate; `itcmdr-admin trust show | review | remove`.
+- `itcmdr-admin --trust-fingerprint <sha256>` trusts the certificate non-interactively (it must be
+  the one the server presents); on a terminal it asks instead (type `trust`, or `trust anyway`).
+- Plain HTTP is only an explicit opt-in with a warning: the site app's HTTPS switch asks first;
+  `itcmdr-cli --plain-http`. The site server accepts plain HTTP only from the same machine
+  (loopback) unless `api_plain_http: true` is set in server.json (for a TLS-terminating proxy).
+- Enrolled adminsvr devices keep the pin from their enrollment code (the internal certificate),
+  and sites and agents keep their exact pins and mTLS; none of that depends on the system trust store.

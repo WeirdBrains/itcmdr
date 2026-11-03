@@ -1,6 +1,8 @@
 import 'package:grpc/grpc_or_grpcweb.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'cert_channel.dart';
+import 'cert_trust.dart';
 import 'key_store.dart';
 import 'proto/itcmdr.pbgrpc.dart';
 import 'signing.dart';
@@ -20,7 +22,7 @@ class ServerSettings {
   const ServerSettings({
     this.host = 'localhost',
     this.port = 50051,
-    this.tls = false,
+    this.tls = true,
     this.token = '',
     this.actor = '',
     this.keySeed = '',
@@ -61,6 +63,19 @@ class ServerSettings {
     return true;
   }
 
+  static const _kTlsV11 = 'server.tls.v11';
+
+  /// v1.1.0: HTTPS by default. A stored "off" from before 1.1 (when off was the default) is
+  /// switched on once; plain HTTP after that is only the user's explicit choice.
+  static Future<bool> _tlsDefault(SharedPreferences p) async {
+    if (!p.containsKey(_kTlsV11)) {
+      await p.setBool(_kTlsV11, true);
+      await p.setBool(_kTls, true);
+      return true;
+    }
+    return p.getBool(_kTls) ?? true;
+  }
+
   static Future<ServerSettings> load() async {
     final p = await SharedPreferences.getInstance();
     final ks = await keyStore();
@@ -68,7 +83,7 @@ class ServerSettings {
     return ServerSettings(
       host: p.getString(_kHost) ?? 'localhost',
       port: p.getInt(_kPort) ?? 50051,
-      tls: p.getBool(_kTls) ?? false,
+      tls: await _tlsDefault(p),
       token: p.getString(_kToken) ?? '',
       actor: p.getString(_kActor) ?? '',
       keySeed: (await ks.read()) ?? '',
@@ -137,12 +152,10 @@ class ServerSettings {
     return h.isEmpty ? 'localhost' : h;
   }
 
-  GrpcOrGrpcWebClientChannel channel() =>
-      GrpcOrGrpcWebClientChannel.toSingleEndpoint(
-        host: cleanHost,
-        port: port,
-        transportSecure: tls,
-      );
+  /// HTTPS (system trust store, then the user's trusted certificates), or plain HTTP when the
+  /// user explicitly turned HTTPS off.
+  GrpcOrGrpcWebClientChannel channel([TrustStore? store]) =>
+      secureChannel(cleanHost, port, tls, store ?? TrustStore.instance);
 
   /// Metadata for mutating calls: bearer token and optional actor name for the audit log.
   CallOptions authOptions() {

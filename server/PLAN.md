@@ -687,3 +687,9 @@ Branding (v0.14.3): `branding/` holds the SVG masters, `build.py` and the render
 - Done: agent setup check wording, README, INSTALL no-share section, versions 1.0.0.
 - Not a bug: the blank alert severity in the v0.22.0 VM log was the test script reading `.severity`; alerts carry `level` (script fixed).
 - Post-1.0: adminsvr's own backup/restore runbook and drill; code signing (Authenticode, Apple notarization, Android release key).
+
+### v1.1.0 (in progress)
+- adminsvr ACME via instant-acme (rustls); SNI resolver: configured domains get the ACME certificate, `pinned.itcmdr.invalid`/IPs/other names the internal one, `acme-tls/1` the challenge. Status in meta `acme.status`; InfoResponse fields 4-10. Tested against Pebble in podman (issue, renew in place, CA gone keeps the certificate and alerts).
+- agentlink `trust`: system store + extra roots, exact pins, `CertReport` problems ok/self-signed/untrusted/expired/not-yet-valid/name-mismatch/pin-changed.
+- Site server API HTTPS with the agent-server certificate (`incoming_mixed`), plain only from loopback or `api_plain_http`.
+- Upgrade note: v1.0 apps talk plain HTTP to the site server; upgrade apps with the server.

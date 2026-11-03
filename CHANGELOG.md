@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased (v1.1.0)
+- **Let's Encrypt / ACME for adminsvr's admin API** (off by default; per-install settings: names, contact, staging/production/URL, `tls-alpn-01` on the API port or `http-01` on port 80, cache dir 0700/0600, renew 30 days before expiry). Hot swap without restart; a failed renewal keeps the current certificate and opens the `tls-acme` alert. The certificate is chosen per handshake by name, so enrolled devices (internal pin) and the SiteLink (pinned + mTLS) are unchanged. `itcmdr-adminsvr tls-status`; `Info` carries the mode, names, expiry, last renewal and a renewal-failing flag (`itcmdr-admin info`). Pure Rust (instant-acme on rustls). Tested against Pebble in podman.
+- **HTTPS with certificate checks in every app and CLI**: system trust store first (chain, name, expiry); otherwise the certificate's SHA-256, subject and expiry are shown and the user may trust exactly that certificate per server (trust on first use). A changed trusted certificate is blocked with a loud warning until reviewed and replaced; expired or wrong-name certificates need an explicit "trust anyway". Site app: certificate dialog, Settings → Trusted certificates (remove), HTTPS on by default (a pre-1.1 "off" is switched on once; plain HTTP asks first). `itcmdr-admin trust show|review|set|remove`, `--trust-fingerprint`, `--trust-anyway`, interactive prompt on a terminal. Admin app: certificate dialog and Settings → Certificate.
+- **The site server API is HTTPS** (with the server certificate agents already pin). Plain HTTP only from the same machine, or from the network with `api_plain_http: true` (server.json). `itcmdr-cli` uses HTTPS pinned to the local server certificate; `--plain-http` is the explicit opt-in.
+- Upgrading: update the site app and the admin CLI/app to 1.1 together with the server (1.0 apps used plain HTTP to the site server).
+
 ## v1.0.0 (2026-11-02)
 itcmdr 1.0: self-healing IT for small offices, with no file share needed.
 - **Fresh install with no share**, tested on the Windows VM: server and agent installed without a share or backup folder, the agent enrolled with only `/EnrollToken=` and came online, a backup and the restore drill passed on the local backup folder, and no share path appears in any config, report or log. docs/INSTALL.md says how.

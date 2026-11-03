@@ -265,3 +265,9 @@ Agreed 2026-10-30: agents run only the plugin copies shipped with the agent, nev
 - [x] Upgrades keep existing settings (VM: server.json byte-identical, site.json unchanged)
 - [x] Windows VM: clean install (data backed up and restored), upgrade from v0.13.0
 - [x] Windows VM test items for the plugin system are in the handover (v0.10.0 to v0.13.0 results)
+
+### v1.1.0 HTTPS everywhere, Let's Encrypt for adminsvr (in progress, not tagged)
+- [x] adminsvr ACME (Let's Encrypt), off by default: per-install domains/contact/challenge (TLS-ALPN-01 on the API port or HTTP-01), staging/production, cache dir 0700/0600, renewal ~30 days before expiry with hot reload, fail-safe (keeps the current certificate, opens alert `tls-acme`), `itcmdr-adminsvr tls-status`; enrolled devices and the SiteLink keep the pinned internal certificate
+- [x] Apps and CLIs: HTTPS with system-trust validation; otherwise review and trust exactly that certificate per server (TOFU), changed certificates blocked until reviewed, expired/wrong-name need "trust anyway", trusted certificates listed and removable; no global ignore switch
+- [x] Site server API on HTTPS (plain HTTP only from loopback or with `api_plain_http`), `itcmdr-cli --plain-http` opt-in
+- [ ] Windows VM check, release (after v1.0.0 is published)

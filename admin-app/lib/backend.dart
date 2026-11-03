@@ -5,6 +5,8 @@ import 'src/rust/api/admin.dart' as api;
 export 'src/rust/api/admin.dart'
     show
         Me,
+        CertReport,
+        TrustedCert,
         Enrolled,
         User,
         Device,
@@ -32,6 +34,16 @@ export 'src/rust/api/admin.dart'
 
 abstract class Backend {
   Future<api.Me?> open(String dir);
+  // v1.1.0 certificate trust
+  Future<api.CertReport?> certCheck(String dir);
+  Future<void> trustCert(
+    String dir,
+    String fingerprint,
+    bool replace,
+    bool anyway,
+  );
+  Future<api.TrustedCert> trustedCert(String dir);
+  Future<void> forgetCert(String dir);
   Future<api.Enrolled> enroll(String dir, String code, bool keyBackup);
   Future<void> forget(String dir);
   Future<api.Me> me();
@@ -89,6 +101,24 @@ abstract class Backend {
 class RustBackend implements Backend {
   @override
   Future<api.Me?> open(String dir) => api.open(dir: dir);
+  @override
+  Future<api.CertReport?> certCheck(String dir) => api.certCheck(dir: dir);
+  @override
+  Future<void> trustCert(
+    String dir,
+    String fingerprint,
+    bool replace,
+    bool anyway,
+  ) => api.trustCert(
+    dir: dir,
+    fingerprint: fingerprint,
+    replace: replace,
+    anyway: anyway,
+  );
+  @override
+  Future<api.TrustedCert> trustedCert(String dir) => api.trustedCert(dir: dir);
+  @override
+  Future<void> forgetCert(String dir) => api.forgetCert(dir: dir);
   @override
   Future<api.Enrolled> enroll(String dir, String code, bool keyBackup) =>
       api.enroll(dir: dir, code: code, keyBackup: keyBackup);

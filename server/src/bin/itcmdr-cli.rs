@@ -21,9 +21,14 @@ struct Cli {
     /// Print JSON instead of text.
     #[arg(long, global = true)]
     json: bool,
+    /// v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt-in)
+    #[arg(long, global = true)]
+    plain_http: bool,
     #[command(subcommand)]
     cmd: Cmd,
 }
+
+static PLAIN_HTTP: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 #[derive(Subcommand)]
 enum Cmd {
@@ -706,9 +711,19 @@ async fn local_client(
         .bind_addr
         .replace("0.0.0.0", "127.0.0.1")
         .replace("[::]", "[::1]");
-    let c = srv::generated::itcmdr::itcmdr_client::ItcmdrClient::connect(format!("http://{addr}"))
-        .await
-        .with_context(|| format!("connecting to the server at {addr}"))?;
+    // v1.1.0: HTTPS, trusting exactly this machine's server certificate (read from its key
+    // folder, so no prompt is needed); plain HTTP only with --plain-http.
+    let ch = if PLAIN_HTTP.load(std::sync::atomic::Ordering::Relaxed) {
+        itcmdr_agentlink::trust::connect_plain(&addr).await?
+    } else {
+        let pem = std::fs::read_to_string(cfg.layout().keys().join("agent-server.pem"))
+            .context("reading the server certificate (start the server once first)")?;
+        let fp = itcmdr_agentlink::tls::pem_fingerprint(&pem)?;
+        itcmdr_agentlink::trust::connect(&addr, &itcmdr_agentlink::trust::Trust::pinned(&fp), None)
+            .await
+            .with_context(|| format!("connecting to the server at https://{addr}"))?
+    };
+    let c = srv::generated::itcmdr::itcmdr_client::ItcmdrClient::new(ch);
     Ok((c, key))
 }
 
@@ -1205,6 +1220,7 @@ fn main() -> Result<()> {
 
 fn run(rt: &tokio::runtime::Runtime) -> Result<()> {
     let cli = Cli::parse();
+    PLAIN_HTTP.store(cli.plain_http, std::sync::atomic::Ordering::Relaxed);
     let load = || -> Result<ServerConfig> {
         let mut c = ServerConfig::load()?;
         c.data_dir_flag = cli.data_dir.clone();
