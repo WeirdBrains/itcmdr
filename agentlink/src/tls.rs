@@ -388,6 +388,46 @@ pub fn server_config(
     Ok(c)
 }
 
+/// v1.1.0: like [`server_config`] but the server certificate comes from `resolver` (adminsvr's
+/// ACME/pinned resolver) and the ALPN list is `alpn` (adds `acme-tls/1` for TLS-ALPN-01).
+pub fn server_config_resolver(
+    resolver: Arc<dyn rustls::server::ResolvesServerCert>,
+    ca_cert_pem: &str,
+    revoked: SerialCheck,
+    alpn: &[&[u8]],
+) -> Result<rustls::ServerConfig> {
+    let prov = provider();
+    let mut roots = rustls::RootCertStore::empty();
+    roots.add(pem_to_der(ca_cert_pem)?)?;
+    let inner =
+        rustls::server::WebPkiClientVerifier::builder_with_provider(Arc::new(roots), prov.clone())
+            .allow_unauthenticated()
+            .build()
+            .map_err(|e| anyhow!("client verifier: {e}"))?;
+    let mut c = rustls::ServerConfig::builder_with_provider(prov)
+        .with_protocol_versions(&[&rustls::version::TLS13, &rustls::version::TLS12])?
+        .with_client_cert_verifier(Arc::new(SerialVerifier {
+            inner,
+            revoked: Revoked(revoked),
+        }))
+        .with_cert_resolver(resolver);
+    c.alpn_protocols = alpn.iter().map(|a| a.to_vec()).collect();
+    Ok(c)
+}
+
+/// A rustls certified key from PEM (chain + key).
+pub fn certified_key(chain_pem: &str, key_pem: &str) -> Result<Arc<rustls::sign::CertifiedKey>> {
+    let chain = crate::trust::pem_certs(chain_pem);
+    if chain.is_empty() {
+        anyhow::bail!("no certificate in the PEM");
+    }
+    let key = provider()
+        .key_provider
+        .load_private_key(key_der(key_pem)?)
+        .map_err(|e| anyhow!("private key: {e}"))?;
+    Ok(Arc::new(rustls::sign::CertifiedKey::new(chain, key)))
+}
+
 /// TLS connections accepted on `listener` (each handshake runs in its own task, with a timeout;
 /// failed handshakes are logged by the caller-supplied hook and dropped).
 pub fn incoming(
@@ -413,6 +453,8 @@ pub fn incoming(
                 let r =
                     tokio::time::timeout(std::time::Duration::from_secs(20), acc.accept(tcp)).await;
                 match r {
+                    // TLS-ALPN-01 validation handshakes end here (RFC 8737).
+                    Ok(Ok(s)) if s.get_ref().1.alpn_protocol() == Some(b"acme-tls/1") => {}
                     Ok(Ok(s)) => {
                         let _ = tx2.send(Ok(s)).await;
                     }
@@ -428,7 +470,7 @@ pub fn incoming(
     tokio_stream::wrappers::ReceiverStream::new(rx)
 }
 
-mod http_uri {
+pub(crate) mod http_uri {
     pub use tonic::codegen::http::Uri;
 }
 

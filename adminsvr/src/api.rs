@@ -508,6 +508,30 @@ impl Api {
         Ok(v.as_deref() == Some("true"))
     }
 
+    /// v1.1.0: the admin API certificate (public facts only; errors stay in `tls-status`).
+    async fn tls_info(&self) -> pb::InfoResponse {
+        match &self.cfg.acme {
+            None => pb::InfoResponse {
+                tls_mode: "internal".into(),
+                internal_fingerprint: self.m.fingerprint.clone(),
+                ..Default::default()
+            },
+            Some(a) => {
+                let st = crate::acme::load_status(&self.pool).await;
+                pb::InfoResponse {
+                    tls_mode: "acme".into(),
+                    internal_fingerprint: self.m.fingerprint.clone(),
+                    tls_domains: a.domains.clone(),
+                    tls_expires_ms: st.expires_ms,
+                    tls_renewed_ms: st.renewed_ms,
+                    tls_renewal_failing: st.last_error_ms > st.renewed_ms,
+                    tls_issuer: st.issuer,
+                    ..Default::default()
+                }
+            }
+        }
+    }
+
     async fn org_policy(&self) -> Result<pb::OrgPolicy, Status> {
         let rows: Vec<(String, String)> = self
             .pool
@@ -904,6 +928,7 @@ impl pb::admin_api_server::AdminApi for Api {
             version: env!("CARGO_PKG_VERSION").into(),
             initialized: n > 0,
             root_public_key: self.m.root_hex(),
+            ..self.tls_info().await
         }))
     }
 
@@ -2528,11 +2553,21 @@ pub async fn serve(
     cfg: Config,
     m: Material,
     hub: Hub,
+    resolver: Arc<crate::acme::Resolver>,
     shutdown: impl std::future::Future<Output = ()> + Send + 'static,
 ) -> Result<()> {
     let addr: std::net::SocketAddr = cfg.api_addr.parse().context("api_addr")?;
-    let tls_cfg =
-        itcmdr_agentlink::tls::server_config(&m.server, &m.ca.cert, Arc::new(|_: &str| false))?;
+    let alpn: &[&[u8]] = if cfg.acme.is_some() {
+        &[b"h2", b"acme-tls/1"]
+    } else {
+        &[b"h2"]
+    };
+    let tls_cfg = itcmdr_agentlink::tls::server_config_resolver(
+        resolver,
+        &m.ca.cert,
+        Arc::new(|_: &str| false),
+        alpn,
+    )?;
     let listener = tokio::net::TcpListener::bind(addr)
         .await
         .context("bind api_addr")?;

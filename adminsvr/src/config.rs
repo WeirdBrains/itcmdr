@@ -27,6 +27,80 @@ pub struct Config {
     pub web_origins: Vec<String>,
     /// Push notifications (v0.19.2); off unless configured
     pub push: PushConfig,
+    /// v1.1.0 ACME (Let's Encrypt) certificate for the admin API; None = off (default)
+    pub acme: Option<AcmeConfig>,
+}
+
+/// ACME challenge type.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Challenge {
+    /// On the admin API listener (the CA connects to port 443 of each domain)
+    TlsAlpn01,
+    /// On `http_addr` (the CA connects to port 80 of each domain)
+    Http01,
+}
+
+impl std::str::FromStr for Challenge {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, String> {
+        match s.trim().to_ascii_lowercase().as_str() {
+            "" | "tls-alpn-01" => Ok(Challenge::TlsAlpn01),
+            "http-01" => Ok(Challenge::Http01),
+            o => Err(format!(
+                "unknown ACME challenge {o:?} (tls-alpn-01 | http-01)"
+            )),
+        }
+    }
+}
+
+/// v1.1.0: everything is per install (flags / env / env file); nothing is built in.
+#[derive(Debug, Clone)]
+pub struct AcmeConfig {
+    /// DNS names for the certificate (the first is the main one)
+    pub domains: Vec<String>,
+    /// Contact e-mail(s) for the CA account
+    pub contact: Vec<String>,
+    /// production | staging | a directory URL
+    pub directory: String,
+    /// PEM root for the directory's own HTTPS (test CAs such as Pebble); None = system/webpki roots
+    pub directory_root: Option<PathBuf>,
+    pub challenge: Challenge,
+    /// HTTP-01 listener (default 0.0.0.0:80)
+    pub http_addr: String,
+    /// Account key and certificate (0700; default <data dir>/acme)
+    pub cache_dir: PathBuf,
+    /// Renew this many days before expiry (default 30)
+    pub renew_days: i64,
+    /// Wait after a failed attempt (default 3600)
+    pub retry_secs: u64,
+}
+
+impl AcmeConfig {
+    pub fn validate(&self) -> Result<(), String> {
+        if self.domains.is_empty() {
+            return Err("ACME needs at least one domain".into());
+        }
+        for d in &self.domains {
+            let ok = !d.is_empty()
+                && d.len() <= 253
+                && d.parse::<std::net::IpAddr>().is_err()
+                && d.split('.').count() >= 2
+                && d.split('.').all(|l| {
+                    !l.is_empty()
+                        && l.len() <= 63
+                        && l.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+                        && !l.starts_with('-')
+                        && !l.ends_with('-')
+                });
+            if !ok {
+                return Err(format!("not a DNS name for ACME: {d:?}"));
+            }
+        }
+        if !(1..=60).contains(&self.renew_days) {
+            return Err("ACME renew days: 1..60".into());
+        }
+        Ok(())
+    }
 }
 
 /// FCM (Android, via a Firebase service account) and APNs (iOS/macOS, token auth with a .p8 key).
@@ -96,6 +170,7 @@ impl Config {
             rp_id: String::new(),
             web_origins: vec![],
             push: PushConfig::default(),
+            acme: None,
         }
     }
 }

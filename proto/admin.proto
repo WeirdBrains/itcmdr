@@ -397,7 +397,19 @@ message AuthPolicy {
 }
 
 message Empty {}
-message InfoResponse { string version = 1; bool initialized = 2; string root_public_key = 3; }
+message InfoResponse {
+  string version = 1;
+  bool initialized = 2;
+  string root_public_key = 3;
+  // v1.1.0 the admin API certificate
+  string tls_mode = 4;               // internal | acme
+  repeated string tls_domains = 5;   // ACME names
+  int64 tls_expires_ms = 6;          // ACME certificate expiry (0 = none yet)
+  int64 tls_renewed_ms = 7;          // last successful issue/renewal
+  bool tls_renewal_failing = 8;      // the last attempt failed (details: itcmdr-adminsvr tls-status)
+  string tls_issuer = 9;
+  string internal_fingerprint = 10;  // the pinned internal certificate (what enrollment codes carry)
+}
 
 message UserInfo {
   string id = 1;

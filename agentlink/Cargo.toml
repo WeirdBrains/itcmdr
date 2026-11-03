@@ -24,6 +24,7 @@ x509-parser = "0.16"
 hyper-util = { version = "0.1", features = ["tokio"] }
 tower = { version = "0.4", features = ["util"] }
 time = "0.3"
+rustls-native-certs = "0.8"
 
 [build-dependencies]
 tonic-build = { version = "0.12", features = ["prost"] }

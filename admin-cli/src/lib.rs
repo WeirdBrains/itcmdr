@@ -30,6 +30,10 @@ pub struct Identity {
     /// The device key encrypted under a passkey's hmac-secret (v0.19.1).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub locked: Option<Locked>,
+    /// v1.1.0: `pin` was chosen by the user ("Trust this certificate"), not taken from an
+    /// enrollment code. Empty `pin` = validate against the system trust store.
+    #[serde(default)]
+    pub pin_tofu: bool,
 }
 
 impl Identity {
@@ -41,7 +45,22 @@ impl Identity {
             device_seed: seed_hex,
             passkeys: vec![],
             locked: None,
+            pin_tofu: false,
         }
+    }
+    /// How this device trusts adminsvr's certificate.
+    pub fn trust(&self) -> Trust {
+        trust_of(&self.pin, self.pin_tofu)
+    }
+    /// "Trust this certificate": pin exactly `fingerprint` for this server.
+    pub fn trust_cert(&mut self, fingerprint: &str) {
+        self.pin = fingerprint.trim().to_lowercase();
+        self.pin_tofu = true;
+    }
+    /// Forget the trusted certificate: back to the system trust store.
+    pub fn forget_cert(&mut self) {
+        self.pin.clear();
+        self.pin_tofu = false;
     }
     /// The device key; a locked identity needs `auth` (one touch).
     pub fn key_with(&self, auth: Option<&dyn Authenticator>) -> Result<SigningKey> {
@@ -109,10 +128,43 @@ pub fn signed<T: Message>(key: &SigningKey, method: &str, msg: T) -> tonic::Requ
     r
 }
 
+pub use itcmdr_agentlink::trust::{check_choice, CertProblem, CertReport, Trust};
+
+/// v1.1.0: an empty pin validates against the system trust store (plus `ITCMDR_EXTRA_ROOTS`);
+/// otherwise only that exact certificate is accepted.
+pub fn trust_of(pin: &str, tofu: bool) -> Trust {
+    let pin = pin.trim();
+    if pin.is_empty() {
+        Trust::system().with_env_roots()
+    } else {
+        Trust {
+            pin: Some(pin.to_lowercase()),
+            internal: !tofu,
+            extra_roots: vec![],
+        }
+    }
+}
+
+/// The refused certificate behind a connection error, if that is what failed.
+pub fn cert_problem(e: &anyhow::Error) -> Option<CertReport> {
+    e.chain()
+        .find_map(|c| c.downcast_ref::<CertProblem>())
+        .map(|p| p.0.clone())
+}
+
+/// The certificate `addr` presents and what is wrong with it (nothing is trusted).
+pub async fn inspect(addr: &str, pin: &str, tofu: bool) -> Result<CertReport> {
+    itcmdr_agentlink::trust::inspect(addr, &trust_of(pin, tofu)).await
+}
+
+/// A pin from an enrollment code or `--pin` (adminsvr's internal certificate), or "" for the
+/// system trust store.
 pub async fn channel(addr: &str, pin: &str) -> Result<Channel> {
-    itcmdr_agentlink::tls::connect(addr, pin, None)
-        .await
-        .with_context(|| format!("connect {addr}"))
+    channel_trust(addr, &trust_of(pin, false)).await
+}
+
+pub async fn channel_trust(addr: &str, trust: &Trust) -> Result<Channel> {
+    itcmdr_agentlink::trust::connect(addr, trust, None).await
 }
 
 /// A signed call; when adminsvr asks for a step-up and this client has an authenticator, touch
@@ -154,7 +206,7 @@ impl Client {
     /// With an authenticator: unlocks a locked identity and answers step-ups.
     pub async fn connect_with(id: &Identity, auth: Option<Arc<dyn Authenticator>>) -> Result<Self> {
         Ok(Client {
-            api: AdminApiClient::new(channel(&id.addr, &id.pin).await?),
+            api: AdminApiClient::new(channel_trust(&id.addr, &id.trust()).await?),
             key: id.key_with(auth.as_deref())?,
             prefer: id
                 .passkeys

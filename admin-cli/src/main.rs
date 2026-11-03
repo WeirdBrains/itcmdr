@@ -15,8 +15,33 @@ struct Cli {
     /// Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
     #[arg(long, global = true)]
     home: Option<PathBuf>,
+    /// v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self-signed or
+    /// private CA): only this exact SHA-256 is accepted, and it is remembered for this server
+    #[arg(long, global = true)]
+    trust_fingerprint: Option<String>,
+    /// Also accept that certificate when it is expired or does not match the name (explicit override)
+    #[arg(long, global = true)]
+    trust_anyway: bool,
     #[command(subcommand)]
     cmd: Cmd,
+}
+
+/// v1.1.0 certificate trust for this device's adminsvr.
+#[derive(Subcommand)]
+enum TrustCmd {
+    /// How this device trusts adminsvr now
+    Show,
+    /// Connect and show the certificate adminsvr presents, compared with the trusted one
+    Review,
+    /// Trust exactly this certificate (it must be the one adminsvr presents now)
+    Set {
+        sha256: String,
+        /// Replace a different, previously trusted certificate
+        #[arg(long)]
+        replace: bool,
+    },
+    /// Forget the trusted certificate (validate against the system trust store again)
+    Remove,
 }
 
 #[derive(Subcommand)]
@@ -24,9 +49,13 @@ enum Cmd {
     /// adminsvr version and root key (unsigned)
     Info {
         addr: String,
-        #[arg(long)]
+        /// The internal certificate's SHA-256 (empty = the system trust store)
+        #[arg(long, default_value = "")]
         pin: String,
     },
+    /// v1.1.0: the certificate adminsvr presents and how this device trusts it
+    #[command(subcommand)]
+    Trust(TrustCmd),
     /// Enroll this device with a one-time code: shows your 24 words ONCE, then asks three back
     Enroll {
         code: String,
@@ -40,7 +69,7 @@ enum Cmd {
     /// New device from your 24 words (read from stdin): restore the backed-up key or certify a new one
     Recover {
         addr: String,
-        #[arg(long)]
+        #[arg(long, default_value = "")]
         pin: String,
         #[arg(long)]
         email: String,
@@ -427,6 +456,87 @@ fn user(u: &pb::UserInfo) {
     }
 }
 
+fn print_tls(i: &pb::InfoResponse) {
+    if i.tls_mode == "acme" {
+        let days = (i.tls_expires_ms - itcmdr_keys::now_ms()) / 86_400_000;
+        println!(
+            "TLS: ACME for {}  expires in {days} days  issuer {}{}",
+            i.tls_domains.join(", "),
+            i.tls_issuer,
+            if i.tls_renewal_failing {
+                "  WARNING: the last renewal failed (itcmdr-adminsvr tls-status on the server)"
+            } else {
+                ""
+            }
+        );
+    } else if !i.tls_mode.is_empty() {
+        println!("TLS: internal certificate {}", i.internal_fingerprint);
+    }
+}
+
+fn trust_text(id: &Identity) -> String {
+    if id.pin.is_empty() {
+        format!("{}: validated against the system trust store", id.addr)
+    } else if id.pin_tofu {
+        format!(
+            "{}: trusted certificate (chosen on this device) {}",
+            id.addr, id.pin
+        )
+    } else {
+        format!(
+            "{}: pinned certificate from the enrollment code {}",
+            id.addr, id.pin
+        )
+    }
+}
+
+/// A refused certificate: never connect silently. `--trust-fingerprint` (or a typed answer on a
+/// terminal) trusts exactly the certificate shown; a changed trusted certificate is refused.
+fn decide_trust(
+    id: &mut Identity,
+    r: &itcmdr_admin::CertReport,
+    flag: Option<&str>,
+    anyway: bool,
+) -> Result<()> {
+    use std::io::IsTerminal;
+    if r.problem == "pin-changed" {
+        bail!(
+            "{}\nreview it with `itcmdr-admin trust review`; if you are sure, `itcmdr-admin trust set <sha256> --replace`",
+            itcmdr_admin::CertProblem(r.clone())
+        );
+    }
+    let fp = match flag {
+        Some(f) => itcmdr_admin::check_choice(r, f)?,
+        None if std::io::stdin().is_terminal() => {
+            eprintln!("{} is not trusted by this system.\n{}", id.addr, r.describe());
+            let want = if r.needs_override() { "trust anyway" } else { "trust" };
+            eprint!("Type '{want}' to trust exactly this certificate for {} (anything else cancels): ", id.addr);
+            let mut s = String::new();
+            std::io::stdin().lock().read_line(&mut s)?;
+            if s.trim() != want {
+                bail!("not trusted; nothing was changed");
+            }
+            r.fingerprint.clone()
+        }
+        None => bail!(
+            "{} is not trusted by this system.\n{}\nto trust exactly this certificate, run again with --trust-fingerprint {}",
+            id.addr,
+            r.describe(),
+            r.fingerprint
+        ),
+    };
+    if flag.is_some() && r.needs_override() && !anyway {
+        bail!(
+            "{}\nthis certificate is {}: add --trust-anyway to accept it explicitly",
+            r.describe(),
+            r.problem
+        );
+    }
+    id.trust_cert(&fp);
+    eprintln!("trusted {fp} for {}", id.addr);
+    Ok(())
+}
+
 fn read_words() -> Result<String> {
     eprint!("24 words: ");
     let mut s = String::new();
@@ -449,6 +559,7 @@ async fn main() -> Result<()> {
                 "adminsvr {}  initialized={}  root={}",
                 i.version, i.initialized, i.root_public_key
             );
+            print_tls(&i);
         }
         Cmd::Enroll {
             code,
@@ -542,9 +653,59 @@ async fn main() -> Result<()> {
                 }
             );
         }
+        Cmd::Trust(t) => {
+            let mut id = Identity::load(&home)?;
+            match t {
+                TrustCmd::Show => println!("{}", trust_text(&id)),
+                TrustCmd::Review => {
+                    println!("{}", trust_text(&id));
+                    let r = itcmdr_admin::inspect(&id.addr, &id.pin, id.pin_tofu).await?;
+                    println!("{} presents:\n{}", id.addr, r.describe());
+                    if r.problem == "ok" {
+                        println!("result: trusted");
+                    }
+                }
+                TrustCmd::Set { sha256, replace } => {
+                    let r = itcmdr_admin::inspect(&id.addr, "", false).await?;
+                    if !id.pin.is_empty() && id.pin != r.fingerprint && !replace {
+                        bail!("a different certificate ({}) is trusted for {}; add --replace after reviewing (itcmdr-admin trust review)", id.pin, id.addr);
+                    }
+                    let fp = itcmdr_admin::check_choice(&r, &sha256)?;
+                    if r.needs_override() && !cli.trust_anyway {
+                        bail!("{}\nthis certificate is {}: add --trust-anyway to accept it explicitly", r.describe(), r.problem);
+                    }
+                    id.trust_cert(&fp);
+                    id.save(&home)?;
+                    println!("trusted {fp} for {}", id.addr);
+                }
+                TrustCmd::Remove => {
+                    id.forget_cert();
+                    id.save(&home)?;
+                    println!(
+                        "no trusted certificate for {}: the system trust store decides again",
+                        id.addr
+                    );
+                }
+            }
+        }
         cmd => {
             let mut id = Identity::load(&home)?;
-            let c = Client::connect_with(&id, Some(fido())).await?;
+            let c = match Client::connect_with(&id, Some(fido())).await {
+                Ok(c) => c,
+                Err(e) => match itcmdr_admin::cert_problem(&e) {
+                    Some(r) => {
+                        decide_trust(
+                            &mut id,
+                            &r,
+                            cli.trust_fingerprint.as_deref(),
+                            cli.trust_anyway,
+                        )?;
+                        id.save(&home)?;
+                        Client::connect_with(&id, Some(fido())).await?
+                    }
+                    None => return Err(e),
+                },
+            };
             match cmd {
                 Cmd::Passkey(pc) => {
                     match pc {
