@@ -474,6 +474,141 @@ pub(crate) mod http_uri {
     pub use tonic::codegen::http::Uri;
 }
 
+/// v1.1.0 site server API: HTTPS, or plain HTTP only where the caller allows it (loopback, or an
+/// explicit opt-in). The first byte decides (0x16 = a TLS handshake).
+pub enum MaybeTls {
+    Tls(Box<tokio_rustls::server::TlsStream<tokio::net::TcpStream>>),
+    Plain(tokio::net::TcpStream),
+}
+
+impl tokio::io::AsyncRead for MaybeTls {
+    fn poll_read(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        match self.get_mut() {
+            MaybeTls::Tls(s) => std::pin::Pin::new(s.as_mut()).poll_read(cx, buf),
+            MaybeTls::Plain(s) => std::pin::Pin::new(s).poll_read(cx, buf),
+        }
+    }
+}
+
+impl tokio::io::AsyncWrite for MaybeTls {
+    fn poll_write(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &[u8],
+    ) -> std::task::Poll<std::io::Result<usize>> {
+        match self.get_mut() {
+            MaybeTls::Tls(s) => std::pin::Pin::new(s.as_mut()).poll_write(cx, buf),
+            MaybeTls::Plain(s) => std::pin::Pin::new(s).poll_write(cx, buf),
+        }
+    }
+    fn poll_flush(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        match self.get_mut() {
+            MaybeTls::Tls(s) => std::pin::Pin::new(s.as_mut()).poll_flush(cx),
+            MaybeTls::Plain(s) => std::pin::Pin::new(s).poll_flush(cx),
+        }
+    }
+    fn poll_shutdown(
+        self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        match self.get_mut() {
+            MaybeTls::Tls(s) => std::pin::Pin::new(s.as_mut()).poll_shutdown(cx),
+            MaybeTls::Plain(s) => std::pin::Pin::new(s).poll_shutdown(cx),
+        }
+    }
+}
+
+impl tonic::transport::server::Connected for MaybeTls {
+    type ConnectInfo = tonic::transport::server::TcpConnectInfo;
+    fn connect_info(&self) -> Self::ConnectInfo {
+        match self {
+            MaybeTls::Tls(s) => s.get_ref().0.connect_info(),
+            MaybeTls::Plain(s) => s.connect_info(),
+        }
+    }
+}
+
+/// Server config for the site API: one certificate, no client certificates, TLS 1.2/1.3, ALPN
+/// h2 and http/1.1 (gRPC-Web).
+pub fn api_server_config(server: &Pem) -> Result<rustls::ServerConfig> {
+    let mut c = rustls::ServerConfig::builder_with_provider(provider())
+        .with_protocol_versions(&[&rustls::version::TLS13, &rustls::version::TLS12])?
+        .with_no_client_auth()
+        .with_single_cert(vec![pem_to_der(&server.cert)?], key_der(&server.key)?)?;
+    c.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
+    Ok(c)
+}
+
+pub type PlainCheck = Arc<dyn Fn(std::net::SocketAddr) -> bool + Send + Sync>;
+
+/// Connections on `listener`: TLS ones are handshaken with `cfg`; plain ones are passed through
+/// only when `allow_plain(peer)` says so, and dropped otherwise.
+pub fn incoming_mixed(
+    listener: tokio::net::TcpListener,
+    cfg: rustls::ServerConfig,
+    allow_plain: PlainCheck,
+    on_fail: Arc<dyn Fn(std::net::SocketAddr, String) + Send + Sync>,
+) -> impl tokio_stream::Stream<Item = std::io::Result<MaybeTls>> {
+    let acc = tokio_rustls::TlsAcceptor::from(Arc::new(cfg));
+    let (tx, rx) = tokio::sync::mpsc::channel(64);
+    tokio::spawn(async move {
+        loop {
+            let (tcp, addr) = match listener.accept().await {
+                Ok(x) => x,
+                Err(_) => {
+                    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+                    continue;
+                }
+            };
+            let _ = tcp.set_nodelay(true);
+            let (acc, tx2, on_fail, allow) = (
+                acc.clone(),
+                tx.clone(),
+                on_fail.clone(),
+                allow_plain.clone(),
+            );
+            tokio::spawn(async move {
+                let mut b = [0u8; 1];
+                let first =
+                    tokio::time::timeout(std::time::Duration::from_secs(20), tcp.peek(&mut b))
+                        .await;
+                match first {
+                    Ok(Ok(1)) if b[0] == 0x16 => {
+                        match tokio::time::timeout(
+                            std::time::Duration::from_secs(20),
+                            acc.accept(tcp),
+                        )
+                        .await
+                        {
+                            Ok(Ok(s)) => {
+                                let _ = tx2.send(Ok(MaybeTls::Tls(Box::new(s)))).await;
+                            }
+                            Ok(Err(e)) => on_fail(addr, e.to_string()),
+                            Err(_) => on_fail(addr, "handshake timeout".into()),
+                        }
+                    }
+                    Ok(Ok(1)) if allow(addr) => {
+                        let _ = tx2.send(Ok(MaybeTls::Plain(tcp))).await;
+                    }
+                    Ok(Ok(1)) => on_fail(addr, "plain HTTP refused (HTTPS only)".into()),
+                    _ => {}
+                }
+            });
+            if tx.is_closed() {
+                break;
+            }
+        }
+    });
+    tokio_stream::wrappers::ReceiverStream::new(rx)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

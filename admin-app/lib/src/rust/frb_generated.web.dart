@@ -39,6 +39,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   bool dco_decode_bool(dynamic raw);
 
   @protected
+  CertReport dco_decode_box_autoadd_cert_report(dynamic raw);
+
+  @protected
   Me dco_decode_box_autoadd_me(dynamic raw);
 
   @protected
@@ -49,6 +52,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   CatalogEntry dco_decode_catalog_entry(dynamic raw);
+
+  @protected
+  CertReport dco_decode_cert_report(dynamic raw);
 
   @protected
   Change dco_decode_change(dynamic raw);
@@ -135,6 +141,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Me dco_decode_me(dynamic raw);
 
   @protected
+  CertReport? dco_decode_opt_box_autoadd_cert_report(dynamic raw);
+
+  @protected
   Me? dco_decode_opt_box_autoadd_me(dynamic raw);
 
   @protected
@@ -180,6 +189,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SiteStatus dco_decode_site_status(dynamic raw);
 
   @protected
+  TrustedCert dco_decode_trusted_cert(dynamic raw);
+
+  @protected
   int dco_decode_u_8(dynamic raw);
 
   @protected
@@ -204,6 +216,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   bool sse_decode_bool(SseDeserializer deserializer);
 
   @protected
+  CertReport sse_decode_box_autoadd_cert_report(SseDeserializer deserializer);
+
+  @protected
   Me sse_decode_box_autoadd_me(SseDeserializer deserializer);
 
   @protected
@@ -214,6 +229,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   CatalogEntry sse_decode_catalog_entry(SseDeserializer deserializer);
+
+  @protected
+  CertReport sse_decode_cert_report(SseDeserializer deserializer);
 
   @protected
   Change sse_decode_change(SseDeserializer deserializer);
@@ -304,6 +322,11 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   Me sse_decode_me(SseDeserializer deserializer);
 
   @protected
+  CertReport? sse_decode_opt_box_autoadd_cert_report(
+    SseDeserializer deserializer,
+  );
+
+  @protected
   Me? sse_decode_opt_box_autoadd_me(SseDeserializer deserializer);
 
   @protected
@@ -351,6 +374,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   SiteStatus sse_decode_site_status(SseDeserializer deserializer);
 
   @protected
+  TrustedCert sse_decode_trusted_cert(SseDeserializer deserializer);
+
+  @protected
   int sse_decode_u_8(SseDeserializer deserializer);
 
   @protected
@@ -378,6 +404,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_bool(bool self, SseSerializer serializer);
 
   @protected
+  void sse_encode_box_autoadd_cert_report(
+    CertReport self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_box_autoadd_me(Me self, SseSerializer serializer);
 
   @protected
@@ -391,6 +423,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_catalog_entry(CatalogEntry self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_cert_report(CertReport self, SseSerializer serializer);
 
   @protected
   void sse_encode_change(Change self, SseSerializer serializer);
@@ -495,6 +530,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_me(Me self, SseSerializer serializer);
 
   @protected
+  void sse_encode_opt_box_autoadd_cert_report(
+    CertReport? self,
+    SseSerializer serializer,
+  );
+
+  @protected
   void sse_encode_opt_box_autoadd_me(Me? self, SseSerializer serializer);
 
   @protected
@@ -541,6 +582,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_site_status(SiteStatus self, SseSerializer serializer);
+
+  @protected
+  void sse_encode_trusted_cert(TrustedCert self, SseSerializer serializer);
 
   @protected
   void sse_encode_u_8(int self, SseSerializer serializer);

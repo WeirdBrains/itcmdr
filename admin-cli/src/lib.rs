@@ -140,7 +140,7 @@ pub fn trust_of(pin: &str, tofu: bool) -> Trust {
         Trust {
             pin: Some(pin.to_lowercase()),
             internal: !tofu,
-            extra_roots: vec![],
+            ..Default::default()
         }
     }
 }

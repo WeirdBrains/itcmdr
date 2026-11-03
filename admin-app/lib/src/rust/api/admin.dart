@@ -10,6 +10,30 @@ import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 // These functions are ignored because they are not marked as `pub`: `alerts3`, `authenticator`, `block`, `change_of`, `client`, `command_of`, `connect`, `device_of`, `me_of`, `org_of`, `platform`, `release_of`, `rt`, `site_of`, `status_of`, `user_of`, `which`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `Session`
 
+/// After `open` failed: the refused certificate, or None when the failure is something else.
+Future<CertReport?> certCheck({required String dir}) =>
+    RustLib.instance.api.crateApiAdminCertCheck(dir: dir);
+
+/// "Trust this certificate": only `fingerprint`, and only if adminsvr presents it now.
+Future<void> trustCert({
+  required String dir,
+  required String fingerprint,
+  required bool replace,
+  required bool anyway,
+}) => RustLib.instance.api.crateApiAdminTrustCert(
+  dir: dir,
+  fingerprint: fingerprint,
+  replace: replace,
+  anyway: anyway,
+);
+
+Future<TrustedCert> trustedCert({required String dir}) =>
+    RustLib.instance.api.crateApiAdminTrustedCert(dir: dir);
+
+/// Forget the trusted certificate: the system trust store decides again (and asks on failure).
+Future<void> forgetCert({required String dir}) =>
+    RustLib.instance.api.crateApiAdminForgetCert(dir: dir);
+
 /// Sign in with the identity stored in `dir` (None: this device is not enrolled yet).
 Future<Me?> open({required String dir}) =>
     RustLib.instance.api.crateApiAdminOpen(dir: dir);
@@ -375,6 +399,68 @@ class CatalogEntry {
           uploadedBy == other.uploadedBy &&
           uploadedMs == other.uploadedMs &&
           description == other.description;
+}
+
+/// v1.1.0: a certificate adminsvr presents that this device does not accept.
+class CertReport {
+  final String server;
+  final String fingerprint;
+  final String subject;
+  final String issuer;
+  final PlatformInt64 notAfterMs;
+  final List<String> names;
+
+  /// self-signed | untrusted | expired | not-yet-valid | name-mismatch | pin-changed | invalid
+  final String problem;
+  final String detail;
+
+  /// Expired / not yet valid / wrong name: needs an explicit "trust anyway"
+  final bool needsOverride;
+
+  /// The previously trusted fingerprint (pin-changed)
+  final String trustedBefore;
+
+  const CertReport({
+    required this.server,
+    required this.fingerprint,
+    required this.subject,
+    required this.issuer,
+    required this.notAfterMs,
+    required this.names,
+    required this.problem,
+    required this.detail,
+    required this.needsOverride,
+    required this.trustedBefore,
+  });
+
+  @override
+  int get hashCode =>
+      server.hashCode ^
+      fingerprint.hashCode ^
+      subject.hashCode ^
+      issuer.hashCode ^
+      notAfterMs.hashCode ^
+      names.hashCode ^
+      problem.hashCode ^
+      detail.hashCode ^
+      needsOverride.hashCode ^
+      trustedBefore.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CertReport &&
+          runtimeType == other.runtimeType &&
+          server == other.server &&
+          fingerprint == other.fingerprint &&
+          subject == other.subject &&
+          issuer == other.issuer &&
+          notAfterMs == other.notAfterMs &&
+          names == other.names &&
+          problem == other.problem &&
+          detail == other.detail &&
+          needsOverride == other.needsOverride &&
+          trustedBefore == other.trustedBefore;
 }
 
 /// One before/after line of a dry run or an applied command.
@@ -1242,6 +1328,36 @@ class SiteStatus {
           alertsOpened24H == other.alertsOpened24H &&
           deepCheckText == other.deepCheckText &&
           deepCheckWarning == other.deepCheckWarning;
+}
+
+/// v1.1.0: how this device trusts adminsvr.
+class TrustedCert {
+  final String server;
+
+  /// Empty = the system trust store decides
+  final String fingerprint;
+
+  /// The pin came from the enrollment code (adminsvr's internal certificate)
+  final bool fromEnrollment;
+
+  const TrustedCert({
+    required this.server,
+    required this.fingerprint,
+    required this.fromEnrollment,
+  });
+
+  @override
+  int get hashCode =>
+      server.hashCode ^ fingerprint.hashCode ^ fromEnrollment.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TrustedCert &&
+          runtimeType == other.runtimeType &&
+          server == other.server &&
+          fingerprint == other.fingerprint &&
+          fromEnrollment == other.fromEnrollment;
 }
 
 class User {

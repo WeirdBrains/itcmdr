@@ -208,3 +208,7 @@ pub async fn owner(s: &Srv) -> (Client, itcmdr_admin::Enrolled) {
     assert_eq!(e.user.devices[0].status, "active");
     (Client::connect(&e.identity).await.unwrap(), e)
 }
+
+pub async fn pool(url: &str) -> itcmdr_adminsvr::store::Pool {
+    itcmdr_adminsvr::store::connect(url).await.unwrap()
+}

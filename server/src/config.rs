@@ -17,6 +17,11 @@ pub struct ServerConfig {
     /// means `0.0.0.0:50052`.
     #[serde(default = "default_agent_bind")]
     pub agent_bind_addr: String,
+    /// v1.1.0: the API (`bind_addr`) is HTTPS with the server's certificate. Plain HTTP is accepted
+    /// from this machine (loopback) only, unless this explicit opt-in allows it from the network
+    /// (not encrypted; for a TLS-terminating proxy in front).
+    #[serde(default)]
+    pub api_plain_http: bool,
     /// Folder holding JSON Lines agent logs (the share's maintenanceRuns folder).
     pub logs_dir: PathBuf,
     /// Data dir (service_plugins/, quarantine/, keys/, itcmdr.database). See `storage` for precedence.
@@ -218,6 +223,7 @@ impl Default for ServerConfig {
         Self {
             bind_addr: DEFAULT_BIND.to_string(),
             agent_bind_addr: String::new(),
+            api_plain_http: false,
             logs_dir: data_dir.join("maintenanceRuns"),
             data_dir: None,
             data_dir_flag: None,

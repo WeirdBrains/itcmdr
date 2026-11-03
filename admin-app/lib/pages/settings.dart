@@ -18,6 +18,7 @@ class _SettingsPageState extends State<SettingsPage> {
   List<Passkey> keys = [];
   String? auditState;
   List<AuditRow> audit = [];
+  TrustedCert? cert;
 
   @override
   void initState() {
@@ -30,10 +31,12 @@ class _SettingsPageState extends State<SettingsPage> {
     try {
       final k = await s.backend.passkeys('');
       final a = s.isAdmin ? await s.backend.audit(30) : <AuditRow>[];
+      final c = await s.backend.trustedCert(s.dir);
       if (mounted) {
         setState(() {
           keys = k;
           audit = a;
+          cert = c;
         });
       }
     } catch (_) {}
@@ -136,6 +139,37 @@ class _SettingsPageState extends State<SettingsPage> {
         kv('Role', roleLabel(me.role)),
         kv('adminsvr', me.server),
         kv('Key backup', me.keyBackup ? 'stored (encrypted)' : 'none'),
+        const Divider(),
+        Text('Certificate', style: t.titleMedium),
+        if (cert != null)
+          ListTile(
+            key: const Key('trusted-cert'),
+            dense: true,
+            leading: const Icon(Icons.verified_user),
+            title: Text(
+              cert!.fingerprint.isEmpty
+                  ? 'Checked against this system\'s trust store'
+                  : cert!.fromEnrollment
+                  ? 'Pinned from the enrollment code'
+                  : 'Trusted on this device',
+            ),
+            subtitle: Text(
+              cert!.fingerprint.isEmpty
+                  ? cert!.server
+                  : '${cert!.server}\nSHA-256 ${cert!.fingerprint}',
+            ),
+            trailing: cert!.fingerprint.isEmpty || cert!.fromEnrollment
+                ? null
+                : IconButton(
+                    key: const Key('trusted-cert-remove'),
+                    tooltip: 'Remove (ask again next time)',
+                    icon: const Icon(Icons.delete),
+                    onPressed: () async {
+                      await s.backend.forgetCert(s.dir);
+                      await _load();
+                    },
+                  ),
+          ),
         const Divider(),
         Text('Passkeys / security keys', style: t.titleMedium),
         Text(

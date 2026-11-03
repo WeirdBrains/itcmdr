@@ -133,7 +133,42 @@ class FakeBackend implements Backend {
   }
 
   @override
-  Future<Me?> open(String dir) async => current;
+  Future<Me?> open(String dir) async {
+    if (cert != null) throw Exception('certificate not trusted');
+    return current;
+  }
+
+  /// v1.1.0: a refused certificate for the trust-flow tests.
+  CertReport? cert;
+  String trusted = 'ab' * 32;
+  bool trustedFromEnrollment = true;
+  @override
+  Future<CertReport?> certCheck(String dir) async => cert;
+  @override
+  Future<void> trustCert(
+    String dir,
+    String fingerprint,
+    bool replace,
+    bool anyway,
+  ) async {
+    calls.add('trustCert $fingerprint replace=$replace anyway=$anyway');
+    trusted = fingerprint;
+    trustedFromEnrollment = false;
+    cert = null;
+  }
+
+  @override
+  Future<TrustedCert> trustedCert(String dir) async => TrustedCert(
+    server: 'adminsvr.example.com:8444',
+    fingerprint: trusted,
+    fromEnrollment: trustedFromEnrollment,
+  );
+  @override
+  Future<void> forgetCert(String dir) async {
+    calls.add('forgetCert');
+    trusted = '';
+  }
+
   @override
   Future<Enrolled> enroll(String dir, String code, bool keyBackup) async {
     calls.add('enroll $code $keyBackup');

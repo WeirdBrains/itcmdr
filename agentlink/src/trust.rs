@@ -106,6 +106,8 @@ pub struct Trust {
     pub internal: bool,
     /// Extra trusted root certificates (PEM), on top of the system store (tests, private CAs).
     pub extra_roots: Vec<String>,
+    /// Validate (and send SNI) as this name instead of the host in the address.
+    pub name: Option<String>,
 }
 
 impl Trust {
@@ -353,6 +355,8 @@ fn split_host(addr: &str) -> String {
 fn server_name(addr: &str, trust: &Trust) -> ServerName<'static> {
     let h = if trust.internal && trust.pin.is_some() {
         PINNED_SNI.to_string()
+    } else if let Some(n) = &trust.name {
+        n.clone()
     } else {
         split_host(addr)
     };

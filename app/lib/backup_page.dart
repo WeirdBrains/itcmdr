@@ -72,8 +72,7 @@ class BackupPage extends StatefulWidget {
 }) {
   if (ms <= 0) {
     return (
-      text:
-          'Last deep check: never. Run `itcmdr-cli backup drill --deep` at the server with the 24 words.',
+      text: 'Last deep check: never. Run `itcmdr-cli backup drill --deep` at the server with the 24 words.',
       warn: true,
     );
   }
