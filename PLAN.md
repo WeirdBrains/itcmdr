@@ -271,4 +271,5 @@ Agreed 2026-10-30: agents run only the plugin copies shipped with the agent, nev
 - [x] Apps and CLIs: HTTPS with system-trust validation; otherwise review and trust exactly that certificate per server (TOFU), changed certificates blocked until reviewed, expired/wrong-name need "trust anyway", trusted certificates listed and removable; no global ignore switch
 - [x] Site server API on HTTPS (plain HTTP only from loopback or with `api_plain_http`), `itcmdr-cli --plain-http` opt-in
 - [x] Tests hold under heavy load: wall-clock deadlines, API/ACME readiness retries, the server joins its DB workers on stop (no exit-time SIGSEGV)
+- [x] Full suite green on 2026-11-04 (fmt, clippy, Rust 200 on SQLite+Postgres, Pester 105/10 skipped, Flutter 50+1 skipped/29); main pushed, not tagged
 - [ ] Windows VM check, release (after v1.0.0 is published)
