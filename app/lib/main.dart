@@ -1033,18 +1033,12 @@ class _SettingsPageState extends State<SettingsPage> {
         ),
         SwitchListTile(
           key: const Key('tls'),
-          title: const Text('Use HTTPS (recommended)'),
-          subtitle: _tls
-              ? null
-              : const Text(
-                  'Plain HTTP: not encrypted',
-                  style: TextStyle(color: Colors.red),
-                ),
+          title: const Text('Use HTTPS'),
+          subtitle: const Text(
+            'Off: plain HTTP (the server accepts it from other machines only with api_plain_http)',
+          ),
           value: _tls,
-          onChanged: (v) async {
-            if (!v && !await confirmPlainHttp(context)) return;
-            setState(() => _tls = v);
-          },
+          onChanged: (v) => setState(() => _tls = v),
         ),
         TextField(
           key: const Key('token'),

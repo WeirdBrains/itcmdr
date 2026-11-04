@@ -158,13 +158,4 @@ void main() {
     expect(s.all, isEmpty);
     expect(find.byKey(const Key('certs-none')), findsOneWidget);
   });
-
-  testWidgets('plain HTTP asks first', (t) async {
-    bool? r;
-    await host(t, (ctx) async => r = await confirmPlainHttp(ctx));
-    expect(find.byKey(const Key('plain-http-warning')), findsOneWidget);
-    await t.tap(find.text('Keep HTTPS'));
-    await t.pumpAndSettle();
-    expect(r, isFalse);
-  });
 }

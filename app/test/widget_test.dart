@@ -45,6 +45,22 @@ void main() {
     expect(s.token, 't0k');
   });
 
+  test('HTTPS by default; plain HTTP only as an explicit setting', () async {
+    expect(const ServerSettings().tls, isTrue);
+    expect((await ServerSettings.load()).tls, isTrue, reason: 'fresh install');
+    await const ServerSettings(tls: false).save();
+    expect((await ServerSettings.load()).tls, isFalse, reason: 'the opt-in is kept');
+    await const ServerSettings(tls: true).save();
+    expect((await ServerSettings.load()).tls, isTrue);
+  });
+
+  test('a pre-1.1 stored "off" (the old default) becomes HTTPS once', () async {
+    SharedPreferences.setMockInitialValues({'server.tls': false});
+    expect((await ServerSettings.load()).tls, isTrue);
+    await const ServerSettings(tls: false).save();
+    expect((await ServerSettings.load()).tls, isFalse, reason: 'later opt-in kept');
+  });
+
   test('token and actor are sent as metadata', () {
     final o = const ServerSettings(token: 'abc', actor: 'tech').authOptions();
     expect(o.metadata['authorization'], 'Bearer abc');
