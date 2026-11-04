@@ -1,5 +1,8 @@
 # Backup and restore
 
+This page is the site server's backup. adminsvr's own backup (v1.2.0) is in
+[adminsvr backup and restore](BACKUP-ADMINSVR.md); adminsvr never holds or opens site backups.
+
 What's in an archive (`itcmdr-YYYYMMDD-HHMMSSmmm-<kind>.itcb`):
 
 | File | Notes |

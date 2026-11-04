@@ -3,6 +3,18 @@
 The office app (Flutter; Windows, macOS, Linux) talks to the site server's HTTPS API. Every request
 is signed with your app key; the key seed stays in your user profile (Windows DPAPI on Windows).
 
+## App id (v1.2.0)
+
+The app's id is `com.weirdbrains.itcmdr` (Linux application id, macOS bundle id; Windows company
+`com.weirdbrains`). Before 1.2.0 it was the Flutter placeholder `com.example.app`. Upgrading keeps
+working in place on every platform (there is no Android or iOS build of the office app):
+
+- Windows and Linux: the settings (server, HTTPS, trusted certificates) are copied once from the
+  old folder (`%APPDATA%\com.example\itcmdr`, `~/.local/share/com.example.app`) on first start.
+- macOS: the settings live in the app's sandbox container, which is per bundle id, so enter the
+  server and trust its certificate once more after upgrading. The app key is in the keychain and
+  is kept.
+
 ## First start
 
 1. **Settings**: the server host and port (default 50051), your name for the audit log, and

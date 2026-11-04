@@ -162,6 +162,15 @@ renew this many days before expiry (default 30) (itcmdr\-adminsvr)
 .B ITCMDR_ADMINSVR_ACME_RETRY_SECS
 wait after a failed attempt (default 3600) (itcmdr\-adminsvr)
 .TP
+.B ITCMDR_ADMINSVR_BACKUP_DIR
+v1.2.0 folder for adminsvr's own backups (default <data dir>/backups; [adminsvr backup](BACKUP\-ADMINSVR.md)) (itcmdr\-adminsvr)
+.TP
+.B ITCMDR_ADMINSVR_BACKUP_HOUR
+nightly backup hour, 0\-23 local, or off (default 3) (itcmdr\-adminsvr)
+.TP
+.B ITCMDR_ADMINSVR_BACKUP_KEEP
+nightly backups kept (default 14; manual ones are never pruned) (itcmdr\-adminsvr)
+.TP
 .B ITCMDR_PLUGIN_SECRET
 per\-launch secret for the plugin protocol (plugins)
 .TP

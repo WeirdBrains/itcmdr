@@ -13,6 +13,8 @@ Commands:
   recover\-owner  Console: fresh owner enrollment code when every owner device and the words are lost
   audit\-verify   Check the audit hash chain
   tls\-status     v1.1.0: the admin API certificate (mode, expiry, last renewal, last error)
+  backup         v1.2.0: adminsvr's own backups (its database, keys, TLS, ACME and settings; never site backups)
+  restore        v1.2.0: restore adminsvr from one of its own backups (recovery words on stdin; stop the service first)
   help           Print this message or the help of the given subcommand(s)
 \&
 Options:
@@ -74,6 +76,12 @@ Options:
           [env: ITCMDR_ADMINSVR_ACME_RENEW_DAYS=] [default: 30]
       \-\-acme\-retry\-secs <ACME_RETRY_SECS>
           [env: ITCMDR_ADMINSVR_ACME_RETRY_SECS=] [default: 3600]
+      \-\-backup\-dir <BACKUP_DIR>
+          v1.2.0 adminsvr's own backups: archive folder (default <data dir>/backups) [env: ITCMDR_ADMINSVR_BACKUP_DIR=] [default: ""]
+      \-\-backup\-hour <BACKUP_HOUR>
+          Nightly backup hour (0\-23, local time) while serving, or `off` [env: ITCMDR_ADMINSVR_BACKUP_HOUR=] [default: 3]
+      \-\-backup\-keep <BACKUP_KEEP>
+          Nightly archives kept (manual archives are never pruned) [env: ITCMDR_ADMINSVR_BACKUP_KEEP=] [default: 14]
   \-h, \-\-help
           Print help
   \-V, \-\-version
@@ -126,6 +134,109 @@ Usage: itcmdr\-adminsvr tls\-status
 \&
 Options:
   \-h, \-\-help  Print help
+.fi
+.SH COMMAND: itcmdr\-adminsvr backup
+.nf
+v1.2.0: adminsvr's own backups (its database, keys, TLS, ACME and settings; never site backups)
+\&
+Usage: itcmdr\-adminsvr backup <COMMAND>
+\&
+Commands:
+  init    Set up backups: print 24 new recovery words ONCE (write them down; they are never stored)
+  create  Make a backup now
+  list    List the backups
+  verify  Check a backup: signature and hash; \-\-deep (words on stdin) also decrypts and checks every file
+  drill   Restore drill: check the newest backup without touching the live install; \-\-deep (words on stdin) also decrypts it and restores it into a throwaway database
+  prune   Delete old nightly backups (keeps \-\-backup\-keep)
+  status  Recovery key, last backup and last drill
+  help    Print this message or the help of the given subcommand(s)
+\&
+Options:
+  \-h, \-\-help  Print help
+.fi
+.SH COMMAND: itcmdr\-adminsvr backup init
+.nf
+Set up backups: print 24 new recovery words ONCE (write them down; they are never stored)
+\&
+Usage: itcmdr\-adminsvr backup init [OPTIONS]
+\&
+Options:
+      \-\-replace  Issue new words (archives made before still need the old words)
+  \-h, \-\-help     Print help
+.fi
+.SH COMMAND: itcmdr\-adminsvr backup create
+.nf
+Make a backup now
+\&
+Usage: itcmdr\-adminsvr backup create [OPTIONS]
+\&
+Options:
+      \-\-out <OUT>  Write it here instead of the backup folder
+  \-h, \-\-help       Print help
+.fi
+.SH COMMAND: itcmdr\-adminsvr backup list
+.nf
+List the backups
+\&
+Usage: itcmdr\-adminsvr backup list [OPTIONS]
+\&
+Options:
+      \-\-dir <DIR>  
+  \-h, \-\-help       Print help
+.fi
+.SH COMMAND: itcmdr\-adminsvr backup verify
+.nf
+Check a backup: signature and hash; \-\-deep (words on stdin) also decrypts and checks every file
+\&
+Usage: itcmdr\-adminsvr backup verify [OPTIONS] <ARCHIVE>
+\&
+Arguments:
+  <ARCHIVE>  
+\&
+Options:
+      \-\-deep  
+  \-h, \-\-help  Print help
+.fi
+.SH COMMAND: itcmdr\-adminsvr backup drill
+.nf
+Restore drill: check the newest backup without touching the live install; \-\-deep (words on stdin) also decrypts it and restores it into a throwaway database
+\&
+Usage: itcmdr\-adminsvr backup drill [OPTIONS]
+\&
+Options:
+      \-\-deep       
+      \-\-dir <DIR>  
+  \-h, \-\-help       Print help
+.fi
+.SH COMMAND: itcmdr\-adminsvr backup prune
+.nf
+Delete old nightly backups (keeps \-\-backup\-keep)
+\&
+Usage: itcmdr\-adminsvr backup prune [OPTIONS]
+\&
+Options:
+      \-\-dir <DIR>  
+  \-h, \-\-help       Print help
+.fi
+.SH COMMAND: itcmdr\-adminsvr backup status
+.nf
+Recovery key, last backup and last drill
+\&
+Usage: itcmdr\-adminsvr backup status
+\&
+Options:
+  \-h, \-\-help  Print help
+.fi
+.SH COMMAND: itcmdr\-adminsvr restore
+.nf
+v1.2.0: restore adminsvr from one of its own backups (recovery words on stdin; stop the service first)
+\&
+Usage: itcmdr\-adminsvr restore [OPTIONS] \-\-from <FROM>
+\&
+Options:
+      \-\-from <FROM>  The archive (.itcab)
+      \-\-dry\-run      Open and check everything, show what would be written, change nothing
+  \-h, \-\-help         Print help
 .fi
 .SH ENVIRONMENT
 .TP
@@ -215,5 +326,14 @@ renew this many days before expiry (default 30)
 .TP
 .B ITCMDR_ADMINSVR_ACME_RETRY_SECS
 wait after a failed attempt (default 3600)
+.TP
+.B ITCMDR_ADMINSVR_BACKUP_DIR
+v1.2.0 folder for adminsvr's own backups (default <data dir>/backups; [adminsvr backup](BACKUP\-ADMINSVR.md))
+.TP
+.B ITCMDR_ADMINSVR_BACKUP_HOUR
+nightly backup hour, 0\-23 local, or off (default 3)
+.TP
+.B ITCMDR_ADMINSVR_BACKUP_KEEP
+nightly backups kept (default 14; manual ones are never pruned)
 .SH SEE ALSO
 \fBitcmdr\fR(7), docs/README.md (also the in-app help: \fBitcmdr-cli help\fR, \fBitcmdr-admin help\fR)

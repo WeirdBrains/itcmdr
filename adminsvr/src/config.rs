@@ -29,6 +29,29 @@ pub struct Config {
     pub push: PushConfig,
     /// v1.1.0 ACME (Let's Encrypt) certificate for the admin API; None = off (default)
     pub acme: Option<AcmeConfig>,
+    /// v1.2.0 adminsvr's own backup (docs/BACKUP-ADMINSVR.md)
+    pub backup: BackupConfig,
+}
+
+/// v1.2.0: where and when adminsvr backs itself up.
+#[derive(Debug, Clone)]
+pub struct BackupConfig {
+    /// Archive folder (default <data dir>/backups; point it at another disk or a share)
+    pub dir: PathBuf,
+    /// Nightly at this local hour while `serve` runs; None = off (schedule `backup create` instead)
+    pub hour: Option<u32>,
+    /// Nightly archives kept (manual ones are never pruned)
+    pub keep: usize,
+}
+
+impl BackupConfig {
+    pub fn defaults(data_dir: &std::path::Path) -> Self {
+        BackupConfig {
+            dir: data_dir.join("backups"),
+            hour: Some(3),
+            keep: 14,
+        }
+    }
 }
 
 /// ACME challenge type.
@@ -158,7 +181,6 @@ impl Config {
     pub fn for_test(data_dir: PathBuf, db_url: &str, api_port: u16, site_port: u16) -> Self {
         Config {
             db_url: db_url.into(),
-            data_dir,
             api_addr: format!("127.0.0.1:{api_port}"),
             site_addr: format!("127.0.0.1:{site_port}"),
             public_api: format!("127.0.0.1:{api_port}"),
@@ -171,6 +193,11 @@ impl Config {
             web_origins: vec![],
             push: PushConfig::default(),
             acme: None,
+            backup: BackupConfig {
+                hour: None,
+                ..BackupConfig::defaults(&data_dir)
+            },
+            data_dir,
         }
     }
 }

@@ -229,6 +229,10 @@ waits for the touch; on desktops the app drives the key through libfido2's tools
 Changing a server's settings and updating it remotely come with v0.20/v0.21. There is no web
 build: the client uses gRPC over TLS sockets, which browsers do not allow (it needs gRPC-web).
 
+App ids: `com.weirdbrains.itcmdr_admin` (Android application id, Linux) and
+`com.weirdbrains.itcmdrAdmin` (iOS and macOS bundle id, also the APNs topic). They have not
+changed since the app was added, so Android and the desktops upgrade in place.
+
 ## Push notifications (v0.19.2)
 
 adminsvr pushes a newly opened alert (default: cautious and critical,
@@ -250,6 +254,12 @@ Push is off until configured. What it needs (accounts the operator creates):
 - The released app does not include a push SDK yet (`admin-app/lib/push.dart`: `NoPush`); it shows
   new alerts in a banner while open (checked every 30 s). The server side is tested against a
   local FCM/APNs stub (`adminsvr/tests/push.rs`).
+
+## adminsvr's own backup (v1.2.0)
+
+adminsvr backs up its own database, keys, TLS and ACME files and settings, encrypted for its own
+recovery words, nightly or on demand, with a restore drill and a restore onto a new machine. It
+never holds or opens site backups. See [adminsvr backup and restore](BACKUP-ADMINSVR.md).
 
 ## Deep backup check reminder (v1.0.0)
 
