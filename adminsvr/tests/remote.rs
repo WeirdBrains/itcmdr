@@ -42,7 +42,13 @@ where
     F: FnMut() -> Fut,
     Fut: std::future::Future<Output = bool>,
 {
-    for _ in 0..secs * 5 {
+    // Wall-clock deadline, generous on a loaded machine (ITCMDR_TEST_SLOW scales it, default 3).
+    let k: u64 = std::env::var("ITCMDR_TEST_SLOW")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(3);
+    let end = std::time::Instant::now() + Duration::from_secs(secs * k);
+    while std::time::Instant::now() < end {
         if f().await {
             return;
         }

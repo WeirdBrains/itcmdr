@@ -125,7 +125,16 @@ async fn served_fp(api: &str, root: &str) -> trust::CertReport {
         name: Some(DOMAIN.into()),
         ..Default::default()
     };
-    trust::inspect(api, &t).await.unwrap()
+    // The API may still be starting (restart under load): retry connection errors for a while.
+    let mut last = None;
+    for _ in 0..150 {
+        match trust::inspect(api, &t).await {
+            Ok(r) => return r,
+            Err(e) => last = Some(e),
+        }
+        tokio::time::sleep(Duration::from_millis(200)).await;
+    }
+    panic!("{api}: {last:?}");
 }
 
 #[tokio::test]
