@@ -1,7 +1,9 @@
 # Changelog
 
-## Unreleased
-- **Windows installer logs**: every install or upgrade writes `%ProgramData%\\itcmdr\\install-logs\\<part>-<version>-<time>.log` (adminsvr: `%ProgramData%\\itcmdr-adminsvr\\install-logs`) with each step: version found, service stops and waits, process exits, file lock probes with retries, files replaced, service starts, result and exit code, plus Inno Setup's own log.
+## v1.2.1 (2026-11-04)
+itcmdr 1.2.1: Windows installers keep a log of every run, and a failed upgrade is loud.
+- Versions 1.2.1 (app and admin app 1.2.1+41).
+- **Windows installer logs**: every install or upgrade writes `%ProgramData%\itcmdr\install-logs\<part>-<version>-<time>.log` (adminsvr: `%ProgramData%\itcmdr-adminsvr\install-logs`) with each step: version found, service stops and waits, process exits, file lock probes with retries, files replaced, service starts, result and exit code, plus Inno Setup's own log.
 - **Failed upgrades are loud**: the server and agent installers now wait for their services to stop and their files to unlock before replacing anything (before, the watchdog stop was not waited for, so a still-locked file could make a silent upgrade roll back and leave the services stopped). Exit 7 (nothing changed) or 8 (a service did not start), the services are started again, an Application event (`itcmdr-setup`), and `last-<part>.json`. The site server raises `installer-server` and each agent `installer-agent` (Critical); `setup check` shows `install.server` / `install.agent`. `/SIMULATEFAIL=lock|start` for testing.
 
 ## v1.2.0 (2026-11-04)
