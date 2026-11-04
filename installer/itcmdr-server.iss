@@ -84,6 +84,8 @@ end;
 function InitializeSetup(): Boolean;
 begin
   WasFreshServer := not FileExists(DataDir() + '\server.json');
+  InstallLogBegin('server', '{#ServerAppId}', ExpandConstant('{commonappdata}\itcmdr\install-logs'), 'itcmdr-server-watchdog,itcmdr-server',
+    'server\itcmdr-server.exe,server\itcmdr-cli.exe,server\itcmdr-plugin-ps.exe,server\itcmdr-restore.exe,server-watchdog\itcmdr-server-watchdog.exe');
   Result := True;
 end;
 
@@ -128,18 +130,16 @@ begin
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
-var
-  RC: Integer;
 begin
-  // The watchdog first, so it does not restart the server mid-install.
-  if ServiceExists('itcmdr-server-watchdog') then
-    Exec(ExpandConstant('{sys}\sc.exe'), 'stop itcmdr-server-watchdog', '', SW_HIDE, ewWaitUntilTerminated, RC);
-  Result := '';
+  // v1.2.1: the watchdog first and waited for (sc stop only asks; a watchdog still running would
+  // start the server again mid-install), then the server itself, then a lock probe of every file.
+  Result := InstallStopAndProbe();
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
-  if CurStep = ssPostInstall then MigrateCombined('server');
+  if CurStep = ssPostInstall then begin InstallFilesDone(); MigrateCombined('server'); end;
+  if CurStep = ssDone then InstallVerifyServices();
 end;
 
 function InitializeUninstall(): Boolean;

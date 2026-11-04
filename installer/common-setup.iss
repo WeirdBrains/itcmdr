@@ -22,3 +22,4 @@ SignedUninstaller=yes
 ; Office icon from branding/ (v0.14.3) for the setup wizard; packages set UninstallDisplayIcon.
 SetupIconFile=..\branding\office\windows\app_icon.ico
 WizardStyle=modern
+SetupLogging=yes

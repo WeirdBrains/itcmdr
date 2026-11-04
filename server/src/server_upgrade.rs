@@ -262,6 +262,10 @@ pub async fn tick(
     cfg: &crate::config::ServerConfig,
 ) -> Result<Option<ServerUpgrade>> {
     let data = cfg.layout().root;
+    // v1.2.1: a failed Windows installer run on this machine (server or agent package).
+    if let Err(e) = crate::install_log::report(pool, &data).await {
+        tracing::warn!(error = %e, "reporting the installer result");
+    }
     if let Some(out) = wd::read_json::<wd::Outcome>(&wd::result_path(&data)) {
         let _ = std::fs::rename(
             wd::result_path(&data),

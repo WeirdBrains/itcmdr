@@ -618,6 +618,8 @@ pub async fn run(
     token_file: &Path,
     mut stop: tokio::sync::watch::Receiver<bool>,
 ) -> Result<()> {
+    // v1.2.1: report a failed (or good) agent installer run once, on the durable queue.
+    crate::install_result::report(dir);
     let mut reconnect_cap = 300u64;
     let mut warned = false;
     let mut sched: Option<tokio::task::JoinHandle<()>> = None;

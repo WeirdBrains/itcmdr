@@ -24,3 +24,5 @@ An agent (or any local admin script) can queue an alert that is delivered also a
 
 adminsvr has its own alerts for the sites it watches (`itcmdr-admin alert list|ack|resolve`, push
 notifications) and for itself (for example `tls-acme`).
+
+- `installer-server` / `installer-agent` (v1.2.1, Critical): the last Windows installer run of that package failed; the title names the step and the version still installed, the detail has the exit code and the log path. A good run resolves it. See docs/UPGRADES.md, Installer logs.

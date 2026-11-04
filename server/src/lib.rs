@@ -12,6 +12,7 @@ pub mod db;
 pub mod events;
 pub mod exceptions;
 pub mod ingest;
+pub mod install_log;
 pub mod jobs;
 pub mod keys;
 pub mod metrics;

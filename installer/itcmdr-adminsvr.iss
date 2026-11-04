@@ -56,15 +56,21 @@ begin
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
-var
-  RC: Integer;
 begin
-  if ServiceExists('itcmdr-adminsvr') then
-  begin
-    Exec(ExpandConstant('{sys}\sc.exe'), 'stop itcmdr-adminsvr', '', SW_HIDE, ewWaitUntilTerminated, RC);
-    Sleep(3000);
-  end;
-  Result := '';
+  Result := InstallStopAndProbe();
+end;
+
+function InitializeSetup(): Boolean;
+begin
+  InstallLogBegin('adminsvr', '{#AdminsvrAppId}', ExpandConstant('{commonappdata}\itcmdr-adminsvr\install-logs'),
+    'itcmdr-adminsvr', 'adminsvr\itcmdr-adminsvr.exe');
+  Result := True;
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssPostInstall then InstallFilesDone();
+  if (CurStep = ssDone) and not NoStart() then InstallVerifyServices();
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
