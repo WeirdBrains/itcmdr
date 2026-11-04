@@ -148,4 +148,4 @@ cargo run -p itcmdr-server
 cd app && flutter run -d linux   # Settings: localhost : 50051
 ```
 
-Every Windows installer run writes a log under `%ProgramData%\\itcmdr\\install-logs` (adminsvr: `%ProgramData%\\itcmdr-adminsvr\\install-logs`); a failed upgrade exits 7 or 8 and starts the services again. See docs/UPGRADES.md, Installer logs.
+Every Windows installer run writes a log under `%ProgramData%\itcmdr\install-logs` (adminsvr: `%ProgramData%\itcmdr-adminsvr\install-logs`); a failed upgrade exits 7 or 8 and starts the services again. See docs/UPGRADES.md, Installer logs.
