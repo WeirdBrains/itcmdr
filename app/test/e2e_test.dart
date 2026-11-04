@@ -236,9 +236,15 @@ void main() {
 }
 
 ({String server, String cli}) _bins() {
-  // ITCMDR_E2E_BIN_DIR: e.g. target/release on the Windows VM.
+  // ITCMDR_E2E_BIN_DIR: e.g. target/release on the Windows VM; otherwise
+  // $CARGO_TARGET_DIR/debug when the workspace builds outside the repo.
+  final env = Platform.environment;
+  final targetDir = env['CARGO_TARGET_DIR'];
   final dir = Directory(
-    Platform.environment['ITCMDR_E2E_BIN_DIR'] ?? '../target/debug',
+    env['ITCMDR_E2E_BIN_DIR'] ??
+        (targetDir != null && targetDir.isNotEmpty
+            ? '$targetDir/debug'
+            : '../target/debug'),
   );
   final ext = Platform.isWindows ? '.exe' : '';
   final server = File('${dir.path}/itcmdr-server$ext');
