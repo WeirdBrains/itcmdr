@@ -1,4 +1,4 @@
-//! Call log (v0.15.0, docs/design/SERVER-AGENT.md section 7): one `call_log` row for **every** RPC,
+//! Call log (v0.15.0, docs/historical/1.0/design/SERVER-AGENT.md section 7): one `call_log` row for **every** RPC,
 //! written by a tower layer around the gRPC service (inside gRPC-Web, so app calls are plain gRPC
 //! here). A row has the time, service and method, kind (unary/server_stream/...), peer address,
 //! principal (the verified key, the token actor, or anonymous), gRPC status, duration, request and

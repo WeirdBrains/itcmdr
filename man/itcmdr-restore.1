@@ -1,0 +1,12 @@
+.TH ITCMDR\-RESTORE 1 "" "itcmdr" "itcmdr manual"
+.SH NAME
+itcmdr\-restore \- restore helper started by the server for an app or CLI restore
+.SH SYNOPSIS
+.nf
+itcmdr\-restore (started by itcmdr\-server; not run by hand)
+.fi
+.SH DESCRIPTION
+Stops the service, restores the staged archive into the data directory, restarts and health-checks the server, and rolls back on failure. Use \fBitcmdr-cli restore-stage\fR to start it.
+.SH ENVIRONMENT
+.SH SEE ALSO
+\fBitcmdr\fR(7), docs/README.md (also the in-app help: \fBitcmdr-cli help\fR, \fBitcmdr-admin help\fR)

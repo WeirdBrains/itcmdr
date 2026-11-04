@@ -1,0 +1,235 @@
+.TH ITCMDR 7 "" "itcmdr" "itcmdr manual"
+.SH NAME
+itcmdr \- self-healing IT for small offices
+.SH DESCRIPTION
+itcmdr is a site server, a Rust agent on every machine, a site app, an optional offsite admin server (adminsvr) with an admin app and CLI. The guides are in docs/ and in the in-app help.
+.SH PROGRAMS
+.TP
+\fBitcmdr\-cli\fR(1)
+site server administration on the server itself
+.TP
+\fBitcmdr\-adminsvr\fR(1)
+offsite admin server (admin API, SiteLink, Let's Encrypt)
+.TP
+\fBitcmdr\-admin\fR(1)
+command line client for adminsvr
+.TP
+\fBitcmdr\-agent\fR(1)
+Rust agent that runs on every office machine
+.TP
+\fBitcmdr\-agent\-watchdog\fR(1)
+keeps itcmdr\-agent running and rolls back bad upgrades
+.TP
+\fBitcmdr\-server\-watchdog\fR(1)
+keeps itcmdr\-server running and rolls back bad upgrades
+.TP
+\fBitcmdr\-server\fR(1)
+the site server (gRPC for the agents, HTTPS API for the apps)
+.TP
+\fBitcmdr\-restore\fR(1)
+restore helper started by the server for an app or CLI restore
+.TP
+\fBitcmdr\-plugin\-ps\fR(1)
+host for PowerShell check plugins
+.SH ENVIRONMENT
+.TP
+.B ITCMDR_SERVER_CONFIG
+path of server.json (itcmdr\-server, itcmdr\-cli)
+.TP
+.B ITCMDR_DATA_DIR
+data folder (\-\-data\-dir beats it; it beats server.json) (itcmdr\-server, itcmdr\-cli)
+.TP
+.B ITCMDR_SERVER_PROGRAM
+the server program folder for self\-upgrade (default: the exe's folder) (itcmdr\-server)
+.TP
+.B ITCMDR_RESTORE_BIN
+path of itcmdr\-restore (default: next to the server) (itcmdr\-server)
+.TP
+.B ITCMDR_PLUGIN_PS_HOST
+path of itcmdr\-plugin\-ps (default: next to the exe) (itcmdr\-server, itcmdr\-agent)
+.TP
+.B ITCMDR_POWERSHELL
+PowerShell to run (default powershell.exe on Windows, pwsh elsewhere) (itcmdr\-plugin\-ps, itcmdr\-server)
+.TP
+.B ITCMDR_PLUGIN_SCRIPT
+the plugin script, instead of \-\-script (itcmdr\-plugin\-ps)
+.TP
+.B ITCMDR_AGENT_DIR
+agent data folder (default %ProgramData%\\itcmdr\\agent, /var/lib/itcmdr\-agent) (itcmdr\-agent, itcmdr\-agent\-watchdog)
+.TP
+.B ITCMDR_AGENT_PROGRAM
+the agent program folder (holding current\\) for self\-upgrade (itcmdr\-agent)
+.TP
+.B ITCMDR_PLUGIN_START_SECS
+seconds a plugin has to answer the handshake (default 60) (itcmdr\-agent)
+.TP
+.B ITCMDR_PS_MODULE
+path of Itcmdr.Plugin.psm1 for PowerShell plugins (itcmdr\-agent, plugins)
+.TP
+.B ITCMDR_ADMIN_HOME
+this device's identity folder (default: the user config folder) (itcmdr\-admin)
+.TP
+.B ITCMDR_FIDO2_DEVICE
+libfido2 device path for passkeys (default: the first one) (itcmdr\-admin)
+.TP
+.B ITCMDR_EXTRA_ROOTS
+extra PEM root files added to the system trust store (PATH\-style list) (itcmdr\-admin, itcmdr\-cli)
+.TP
+.B ITCMDR_ADMINSVR_ENV_FILE
+KEY=VALUE settings file (itcmdr\-adminsvr)
+.TP
+.B ITCMDR_ADMINSVR_DB_URL
+postgres://... or sqlite://<path> (default SQLite in the data folder) (itcmdr\-adminsvr)
+.TP
+.B ITCMDR_ADMINSVR_DATA_DIR
+data folder (default /var/lib/itcmdr\-adminsvr) (itcmdr\-adminsvr)
+.TP
+.B ITCMDR_ADMINSVR_API_ADDR
+admin API listen address (default 0.0.0.0:8444) (itcmdr\-adminsvr)
+.TP
+.B ITCMDR_ADMINSVR_SITE_ADDR
+SiteLink listen address (default 0.0.0.0:8443) (itcmdr\-adminsvr)
+.TP
+.B ITCMDR_ADMINSVR_PUBLIC_API
+host:port clients use (put into enrollment codes) (itcmdr\-adminsvr)
+.TP
+.B ITCMDR_ADMINSVR_PUBLIC_SITE
+host:port sites use (put into site tokens) (itcmdr\-adminsvr)
+.TP
+.B ITCMDR_ADMINSVR_TLS_NAMES
+extra internal certificate names, comma separated (itcmdr\-adminsvr)
+.TP
+.B ITCMDR_ADMINSVR_HEARTBEAT_SECS
+site status interval (default 60) (itcmdr\-adminsvr)
+.TP
+.B ITCMDR_ADMINSVR_SITE_MISSED
+missed heartbeats before a site is down (default 5) (itcmdr\-adminsvr)
+.TP
+.B ITCMDR_ADMINSVR_RP_ID
+WebAuthn RP id (default: the host of the public API) (itcmdr\-adminsvr)
+.TP
+.B ITCMDR_ADMINSVR_WEB_ORIGINS
+extra WebAuthn origins, comma separated (itcmdr\-adminsvr)
+.TP
+.B ITCMDR_ADMINSVR_FCM_SERVICE_ACCOUNT
+Firebase service account JSON (push to Android) (itcmdr\-adminsvr)
+.TP
+.B ITCMDR_ADMINSVR_FCM_URL
+FCM endpoint override (itcmdr\-adminsvr)
+.TP
+.B ITCMDR_ADMINSVR_APNS_KEY
+APNs .p8 auth key file (itcmdr\-adminsvr)
+.TP
+.B ITCMDR_ADMINSVR_APNS_KEY_ID
+APNs key id (itcmdr\-adminsvr)
+.TP
+.B ITCMDR_ADMINSVR_APNS_TEAM_ID
+Apple team id (itcmdr\-adminsvr)
+.TP
+.B ITCMDR_ADMINSVR_APNS_TOPIC
+the admin app's bundle id (itcmdr\-adminsvr)
+.TP
+.B ITCMDR_ADMINSVR_APNS_URL
+APNs endpoint (sandbox for development builds) (itcmdr\-adminsvr)
+.TP
+.B ITCMDR_ADMINSVR_PUSH_MIN_SEVERITY
+lowest pushed severity (default cautious) (itcmdr\-adminsvr)
+.TP
+.B ITCMDR_ADMINSVR_ACME_DOMAINS
+Let's Encrypt names for the admin API, comma separated (empty = off) (itcmdr\-adminsvr)
+.TP
+.B ITCMDR_ADMINSVR_ACME_CONTACT
+ACME account contact e\-mail(s) (itcmdr\-adminsvr)
+.TP
+.B ITCMDR_ADMINSVR_ACME_DIRECTORY
+production, staging or a directory URL (default production) (itcmdr\-adminsvr)
+.TP
+.B ITCMDR_ADMINSVR_ACME_DIRECTORY_ROOT
+PEM root for a test CA's directory (itcmdr\-adminsvr)
+.TP
+.B ITCMDR_ADMINSVR_ACME_CHALLENGE
+tls\-alpn\-01 (default) or http\-01 (itcmdr\-adminsvr)
+.TP
+.B ITCMDR_ADMINSVR_ACME_HTTP_ADDR
+HTTP\-01 listener (default 0.0.0.0:80) (itcmdr\-adminsvr)
+.TP
+.B ITCMDR_ADMINSVR_ACME_CACHE_DIR
+account key and certificate (default <data dir>/acme) (itcmdr\-adminsvr)
+.TP
+.B ITCMDR_ADMINSVR_ACME_RENEW_DAYS
+renew this many days before expiry (default 30) (itcmdr\-adminsvr)
+.TP
+.B ITCMDR_ADMINSVR_ACME_RETRY_SECS
+wait after a failed attempt (default 3600) (itcmdr\-adminsvr)
+.TP
+.B ITCMDR_PLUGIN_SECRET
+per\-launch secret for the plugin protocol (plugins)
+.TP
+.B ITCMDR_LOG_PATH
+the run's itcmdr.log/v1 file (plugins)
+.TP
+.B ITCMDR_RUN_ID
+the run id (plugins)
+.TP
+.B ITCMDR_MACHINE
+the machine name (plugins)
+.TP
+.B ITCMDR_REPORT_ONLY
+1 = do not repair (plugins)
+.TP
+.B ITCMDR_ARTIFACT_DIR
+folder for files the plugin hands back (plugins)
+.TP
+.B ITCMDR_SITE_PATH
+site.json for the PowerShell checks (plugins)
+.TP
+.B ITCMDR_CHECKS_LIB
+path of Itcmdr.Checks.ps1 (plugins)
+.TP
+.B ITCMDR_TCP_TIMEOUT_MS
+TCP check timeout override (plugins)
+.TP
+.B ITCMDR_IMPORT_ONLY
+load the PowerShell agent's functions without running it (plugins)
+.TP
+.B ITCMDR_TEST_SLOW
+scale test deadlines (default 3) (tests)
+.TP
+.B ITCMDR_TEST_PG_URL
+use this Postgres instead of starting one (tests)
+.TP
+.B ITCMDR_PG_BIN
+Postgres binaries for tests (default ~/Projects/tools/pgsql/bin) (tests)
+.TP
+.B ITCMDR_REQUIRE_PG
+fail instead of skipping without Postgres (tests)
+.TP
+.B ITCMDR_SKIP_PEBBLE
+skip the Let's Encrypt (Pebble) test (tests)
+.TP
+.B ITCMDR_REGEN_VECTORS
+regenerate signing vectors (tests)
+.TP
+.B ITCMDR_RESTORE_FORCE_HEALTH_FAIL
+make the restore health check fail (rollback test) (tests)
+.TP
+.B ITCMDR_E2E_BIN_DIR
+server binaries for the app's end\-to\-end test (tests)
+.TP
+.B ITCMDR_KEYS_BRIDGE_LIB
+the app's Rust bridge library for Dart tests (tests)
+.TP
+.B ITCMDR_FAULT_ROOT
+fault\-injection suite root (tests)
+.TP
+.B ITCMDR_FAULT_SERVICE
+service name for the fault suite (tests)
+.TP
+.B ITCMDR_FAULT_TESTBED
+enables the fault suite (testbed machines only) (tests)
+.TP
+.B ITCMDR_PLUGINS_REPO
+plugins repository for fetch\-plugins.sh (scripts)
+.TP
+.B ITCMDR_LEAK_PATTERNS
+extra leak patterns for release\-local.sh check (scripts)

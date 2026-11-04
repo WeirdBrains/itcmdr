@@ -1,0 +1,219 @@
+.TH ITCMDR\-ADMINSVR 1 "" "itcmdr" "itcmdr manual"
+.SH NAME
+itcmdr\-adminsvr \- offsite admin server (admin API, SiteLink, Let's Encrypt)
+.SH ITCMDR\-ADMINSVR
+.nf
+itcmdr offsite admin server
+\&
+Usage: itcmdr\-adminsvr [OPTIONS] <COMMAND>
+\&
+Commands:
+  serve          Run the admin API and the SiteLink
+  init           Console, once: create the first owner and print their enrollment code
+  recover\-owner  Console: fresh owner enrollment code when every owner device and the words are lost
+  audit\-verify   Check the audit hash chain
+  tls\-status     v1.1.0: the admin API certificate (mode, expiry, last renewal, last error)
+  help           Print this message or the help of the given subcommand(s)
+\&
+Options:
+      \-\-env\-file <ENV_FILE>
+          KEY=VALUE settings file (read before the other flags; the environment wins) [env: ITCMDR_ADMINSVR_ENV_FILE=] [default: ""]
+      \-\-db\-url <DB_URL>
+          Database: postgres://user:pass@host/db, or sqlite://<path> (default: SQLite in the data dir) [env: ITCMDR_ADMINSVR_DB_URL=] [default: ""]
+      \-\-data\-dir <DATA_DIR>
+          [env: ITCMDR_ADMINSVR_DATA_DIR=] [default: /var/lib/itcmdr\-adminsvr]
+      \-\-api\-addr <API_ADDR>
+          [env: ITCMDR_ADMINSVR_API_ADDR=] [default: 0.0.0.0:8444]
+      \-\-site\-addr <SITE_ADDR>
+          [env: ITCMDR_ADMINSVR_SITE_ADDR=] [default: 0.0.0.0:8443]
+      \-\-public\-api <PUBLIC_API>
+          host:port clients use to reach the API (put into enrollment codes) [env: ITCMDR_ADMINSVR_PUBLIC_API=] [default: ""]
+      \-\-public\-site <PUBLIC_SITE>
+          host:port sites use to reach the SiteLink (put into site tokens) [env: ITCMDR_ADMINSVR_PUBLIC_SITE=] [default: ""]
+      \-\-tls\-names <TLS_NAMES>
+          extra TLS certificate names, comma separated [env: ITCMDR_ADMINSVR_TLS_NAMES=] [default: ""]
+      \-\-heartbeat\-secs <HEARTBEAT_SECS>
+          [env: ITCMDR_ADMINSVR_HEARTBEAT_SECS=] [default: 60]
+      \-\-site\-missed <SITE_MISSED>
+          [env: ITCMDR_ADMINSVR_SITE_MISSED=] [default: 5]
+      \-\-rp\-id <RP_ID>
+          WebAuthn RP id for passkeys (default: the host of \-\-public\-api) [env: ITCMDR_ADMINSVR_RP_ID=] [default: ""]
+      \-\-web\-origins <WEB_ORIGINS>
+          Extra WebAuthn origins (the web app), comma separated [env: ITCMDR_ADMINSVR_WEB_ORIGINS=] [default: ""]
+      \-\-fcm\-service\-account <FCM_SERVICE_ACCOUNT>
+          Push (FCM): Firebase service account JSON file [env: ITCMDR_ADMINSVR_FCM_SERVICE_ACCOUNT=] [default: ""]
+      \-\-fcm\-url <FCM_URL>
+          [env: ITCMDR_ADMINSVR_FCM_URL=] [default: ""]
+      \-\-apns\-key <APNS_KEY>
+          Push (APNs): the .p8 auth key file [env: ITCMDR_ADMINSVR_APNS_KEY=] [default: ""]
+      \-\-apns\-key\-id <APNS_KEY_ID>
+          [env: ITCMDR_ADMINSVR_APNS_KEY_ID=] [default: ""]
+      \-\-apns\-team\-id <APNS_TEAM_ID>
+          [env: ITCMDR_ADMINSVR_APNS_TEAM_ID=] [default: ""]
+      \-\-apns\-topic <APNS_TOPIC>
+          The admin app's bundle id [env: ITCMDR_ADMINSVR_APNS_TOPIC=] [default: ""]
+      \-\-apns\-url <APNS_URL>
+          [env: ITCMDR_ADMINSVR_APNS_URL=] [default: ""]
+      \-\-push\-min\-severity <PUSH_MIN_SEVERITY>
+          Lowest alert severity that is pushed: critical | cautious | informational [env: ITCMDR_ADMINSVR_PUSH_MIN_SEVERITY=] [default: cautious]
+      \-\-acme\-domains <ACME_DOMAINS>
+          v1.1.0 ACME (Let's Encrypt) for the admin API: certificate names, comma separated (empty = off) [env: ITCMDR_ADMINSVR_ACME_DOMAINS=] [default: ""]
+      \-\-acme\-contact <ACME_CONTACT>
+          Contact e\-mail(s) for the ACME account, comma separated [env: ITCMDR_ADMINSVR_ACME_CONTACT=] [default: ""]
+      \-\-acme\-directory <ACME_DIRECTORY>
+          production | staging | an ACME directory URL [env: ITCMDR_ADMINSVR_ACME_DIRECTORY=] [default: production]
+      \-\-acme\-directory\-root <ACME_DIRECTORY_ROOT>
+          PEM root for the ACME directory's own HTTPS (only for test CAs such as Pebble) [env: ITCMDR_ADMINSVR_ACME_DIRECTORY_ROOT=] [default: ""]
+      \-\-acme\-challenge <ACME_CHALLENGE>
+          tls\-alpn\-01 (on the admin API port; forward 443 to it) | http\-01 (on \-\-acme\-http\-addr) [env: ITCMDR_ADMINSVR_ACME_CHALLENGE=] [default: tls\-alpn\-01]
+      \-\-acme\-http\-addr <ACME_HTTP_ADDR>
+          [env: ITCMDR_ADMINSVR_ACME_HTTP_ADDR=] [default: 0.0.0.0:80]
+      \-\-acme\-cache\-dir <ACME_CACHE_DIR>
+          Account key and certificate (default <data dir>/acme, 0700) [env: ITCMDR_ADMINSVR_ACME_CACHE_DIR=] [default: ""]
+      \-\-acme\-renew\-days <ACME_RENEW_DAYS>
+          [env: ITCMDR_ADMINSVR_ACME_RENEW_DAYS=] [default: 30]
+      \-\-acme\-retry\-secs <ACME_RETRY_SECS>
+          [env: ITCMDR_ADMINSVR_ACME_RETRY_SECS=] [default: 3600]
+  \-h, \-\-help
+          Print help
+  \-V, \-\-version
+          Print version
+.fi
+.SH COMMAND: itcmdr\-adminsvr serve
+.nf
+Run the admin API and the SiteLink
+\&
+Usage: itcmdr\-adminsvr serve
+\&
+Options:
+  \-h, \-\-help  Print help
+.fi
+.SH COMMAND: itcmdr\-adminsvr init
+.nf
+Console, once: create the first owner and print their enrollment code
+\&
+Usage: itcmdr\-adminsvr init \-\-email <EMAIL> \-\-name <NAME>
+\&
+Options:
+      \-\-email <EMAIL>  
+      \-\-name <NAME>    
+  \-h, \-\-help           Print help
+.fi
+.SH COMMAND: itcmdr\-adminsvr recover\-owner
+.nf
+Console: fresh owner enrollment code when every owner device and the words are lost
+\&
+Usage: itcmdr\-adminsvr recover\-owner \-\-email <EMAIL>
+\&
+Options:
+      \-\-email <EMAIL>  
+  \-h, \-\-help           Print help
+.fi
+.SH COMMAND: itcmdr\-adminsvr audit\-verify
+.nf
+Check the audit hash chain
+\&
+Usage: itcmdr\-adminsvr audit\-verify
+\&
+Options:
+  \-h, \-\-help  Print help
+.fi
+.SH COMMAND: itcmdr\-adminsvr tls\-status
+.nf
+v1.1.0: the admin API certificate (mode, expiry, last renewal, last error)
+\&
+Usage: itcmdr\-adminsvr tls\-status
+\&
+Options:
+  \-h, \-\-help  Print help
+.fi
+.SH ENVIRONMENT
+.TP
+.B ITCMDR_ADMINSVR_ENV_FILE
+KEY=VALUE settings file
+.TP
+.B ITCMDR_ADMINSVR_DB_URL
+postgres://... or sqlite://<path> (default SQLite in the data folder)
+.TP
+.B ITCMDR_ADMINSVR_DATA_DIR
+data folder (default /var/lib/itcmdr\-adminsvr)
+.TP
+.B ITCMDR_ADMINSVR_API_ADDR
+admin API listen address (default 0.0.0.0:8444)
+.TP
+.B ITCMDR_ADMINSVR_SITE_ADDR
+SiteLink listen address (default 0.0.0.0:8443)
+.TP
+.B ITCMDR_ADMINSVR_PUBLIC_API
+host:port clients use (put into enrollment codes)
+.TP
+.B ITCMDR_ADMINSVR_PUBLIC_SITE
+host:port sites use (put into site tokens)
+.TP
+.B ITCMDR_ADMINSVR_TLS_NAMES
+extra internal certificate names, comma separated
+.TP
+.B ITCMDR_ADMINSVR_HEARTBEAT_SECS
+site status interval (default 60)
+.TP
+.B ITCMDR_ADMINSVR_SITE_MISSED
+missed heartbeats before a site is down (default 5)
+.TP
+.B ITCMDR_ADMINSVR_RP_ID
+WebAuthn RP id (default: the host of the public API)
+.TP
+.B ITCMDR_ADMINSVR_WEB_ORIGINS
+extra WebAuthn origins, comma separated
+.TP
+.B ITCMDR_ADMINSVR_FCM_SERVICE_ACCOUNT
+Firebase service account JSON (push to Android)
+.TP
+.B ITCMDR_ADMINSVR_FCM_URL
+FCM endpoint override
+.TP
+.B ITCMDR_ADMINSVR_APNS_KEY
+APNs .p8 auth key file
+.TP
+.B ITCMDR_ADMINSVR_APNS_KEY_ID
+APNs key id
+.TP
+.B ITCMDR_ADMINSVR_APNS_TEAM_ID
+Apple team id
+.TP
+.B ITCMDR_ADMINSVR_APNS_TOPIC
+the admin app's bundle id
+.TP
+.B ITCMDR_ADMINSVR_APNS_URL
+APNs endpoint (sandbox for development builds)
+.TP
+.B ITCMDR_ADMINSVR_PUSH_MIN_SEVERITY
+lowest pushed severity (default cautious)
+.TP
+.B ITCMDR_ADMINSVR_ACME_DOMAINS
+Let's Encrypt names for the admin API, comma separated (empty = off)
+.TP
+.B ITCMDR_ADMINSVR_ACME_CONTACT
+ACME account contact e\-mail(s)
+.TP
+.B ITCMDR_ADMINSVR_ACME_DIRECTORY
+production, staging or a directory URL (default production)
+.TP
+.B ITCMDR_ADMINSVR_ACME_DIRECTORY_ROOT
+PEM root for a test CA's directory
+.TP
+.B ITCMDR_ADMINSVR_ACME_CHALLENGE
+tls\-alpn\-01 (default) or http\-01
+.TP
+.B ITCMDR_ADMINSVR_ACME_HTTP_ADDR
+HTTP\-01 listener (default 0.0.0.0:80)
+.TP
+.B ITCMDR_ADMINSVR_ACME_CACHE_DIR
+account key and certificate (default <data dir>/acme)
+.TP
+.B ITCMDR_ADMINSVR_ACME_RENEW_DAYS
+renew this many days before expiry (default 30)
+.TP
+.B ITCMDR_ADMINSVR_ACME_RETRY_SECS
+wait after a failed attempt (default 3600)
+.SH SEE ALSO
+\fBitcmdr\fR(7), docs/README.md (also the in-app help: \fBitcmdr-cli help\fR, \fBitcmdr-admin help\fR)

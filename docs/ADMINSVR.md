@@ -1,7 +1,9 @@
-# adminsvr (v0.21.0)
+# adminsvr
 
 The offsite admin server: one place where owners, admins and SREs see the status and alerts of
-many sites and send a few safe commands. Design and decisions: [design/ADMINSVR.md](design/ADMINSVR.md).
+many sites and send a few safe commands. Design and decisions: [historical/1.0/design/ADMINSVR.md](historical/1.0/design/ADMINSVR.md).
+Step-by-step deployment with Let's Encrypt: [deploying adminsvr](DEPLOY-ADMINSVR.md). The CLI:
+[admin CLI](ADMIN-CLI.md); the app: [admin app](ADMIN-APP.md).
 
 ## What leaves a site
 
@@ -304,32 +306,5 @@ How it works:
 
 ## Certificate trust in the apps and CLIs (v1.1.0)
 
-The admin app, the site app, `itcmdr-admin` and `itcmdr-cli` use HTTPS by default and validate
-the server against the system trust store (chain, name, expiry). When that fails they do not just
-fail and never ignore errors silently: they show the certificate's **SHA-256 fingerprint,
-subject and expiry** and offer **Trust this certificate**, which trusts exactly that certificate for
-that one server (trust on first use). Compare the fingerprint with the server first
-(`itcmdr-adminsvr tls-status`, or the server's `agent-server.pem`).
-- A **different** certificate than the trusted one is refused with a loud warning until the user
-  reviews it and replaces the trusted one (app: tick "I checked the new fingerprint", then
-  **Replace trusted certificate**; CLI: `itcmdr-admin trust review`, then
-  `itcmdr-admin trust set <sha256> --replace`).
-- An **expired / not yet valid / wrong-name** certificate needs an explicit override on top
-  ("Trust anyway" with a confirmation tick; CLI `--trust-anyway`).
-- Trusted certificates can be listed and removed: site app Settings → Trusted certificates;
-  admin app Settings → Certificate; `itcmdr-admin trust show | review | remove`.
-- `itcmdr-admin --trust-fingerprint <sha256>` trusts the certificate non-interactively (it must be
-  the one the server presents); on a terminal it asks instead (type `trust`, or `trust anyway`).
-- A certificate the system trust store accepts for the right name is accepted even when an older
-  certificate is trusted (for example a self-signed one trusted before the server got a Let's
-  Encrypt certificate); the trusted one is kept as the fallback for when the system store refuses.
-  A changed certificate that the system store does not accept is always blocked.
-- **HTTPS and plain HTTP are both supported; HTTPS is the default.** Plain HTTP is an explicit
-  opt-in: the site app's "Use HTTPS" switch off, or `itcmdr-cli --plain-http`. The site server
-  always serves HTTPS, accepts plain HTTP from the same machine, and from other machines only with
-  `api_plain_http: true` in server.json (default false; `itcmdr-cli setup apply --api-plain-http
-  true`), for example behind a TLS-terminating proxy.
-- **v1.0 apps and a v1.1 server:** v1.0 site apps talk plain HTTP. Until they are updated, set
-  `api_plain_http: true` on the server (then back to false after the update).
-- Enrolled adminsvr devices keep the pin from their enrollment code (the internal certificate),
-  and sites and agents keep their exact pins and mTLS; none of that depends on the system trust store.
+How the apps and CLIs check and trust certificates (system trust store first, then trust on first
+use, changed certificates blocked) is in [certificates](CERTIFICATES.md).

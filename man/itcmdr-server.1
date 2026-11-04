@@ -1,0 +1,33 @@
+.TH ITCMDR\-SERVER 1 "" "itcmdr" "itcmdr manual"
+.SH NAME
+itcmdr\-server \- the site server (gRPC for the agents, HTTPS API for the apps)
+.SH SYNOPSIS
+.nf
+itcmdr\-server [\-\-console | \-\-service]
+itcmdr\-server init
+itcmdr\-server recover\-db\-key
+itcmdr\-server hash\-token TOKEN
+.fi
+.SH DESCRIPTION
+Runs the site server. With no argument or \fB--console\fR it runs in the foreground; \fB--service\fR runs as the Windows service. \fBinit\fR and \fBrecover-db-key\fR are the same as in \fBitcmdr-cli\fR(1). \fBhash-token\fR prints the stored hash of a legacy shared token. Settings come from server.json (see \fBITCMDR_SERVER_CONFIG\fR) and the database; see the settings guide.
+.SH ENVIRONMENT
+.TP
+.B ITCMDR_SERVER_CONFIG
+path of server.json
+.TP
+.B ITCMDR_DATA_DIR
+data folder (\-\-data\-dir beats it; it beats server.json)
+.TP
+.B ITCMDR_SERVER_PROGRAM
+the server program folder for self\-upgrade (default: the exe's folder)
+.TP
+.B ITCMDR_RESTORE_BIN
+path of itcmdr\-restore (default: next to the server)
+.TP
+.B ITCMDR_PLUGIN_PS_HOST
+path of itcmdr\-plugin\-ps (default: next to the exe)
+.TP
+.B ITCMDR_POWERSHELL
+PowerShell to run (default powershell.exe on Windows, pwsh elsewhere)
+.SH SEE ALSO
+\fBitcmdr\fR(7), docs/README.md (also the in-app help: \fBitcmdr-cli help\fR, \fBitcmdr-admin help\fR)

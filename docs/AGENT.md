@@ -1,6 +1,7 @@
-# itcmdr-agent (Rust, v0.17.1)
+# itcmdr-agent (Rust)
 
-A Windows service (`itcmdr-agent`, LocalSystem) on every PC **and on the office server**. In v0.17.0 it
+A Windows service (`itcmdr-agent`, LocalSystem) on every PC **and on the office server**. Since v0.20.1 it runs
+the plugins and schedules, takes its configuration over the link and replaces the nightly task. In v0.17.0 it
 enrolls with the site server and keeps a heartbeat link; the PowerShell agent keeps running the checks
 and plugins from its scheduled tasks, unchanged. Running plugins, schedules and the offline queue move
 into this agent in later point releases (PLAN.md).
@@ -106,11 +107,6 @@ informational items go first, then the oldest of any level, and the drop is repo
   server certificate). Keys are secret files (DPAPI / 0600). Replacing `agent-server.*` changes the pin:
   every agent then needs a new token.
 - The agent's log: `%ProgramData%\itcmdr\agent\logs\agent.log` (rotated at 10 MiB).
-
-## Not yet (later point releases)
-
-Running plugins and schedules in this agent (v0.18.0; the PowerShell tasks still do that), a Renew
-button in the app, and queue items from the PowerShell agent.
 
 ## Plugins and schedules (v0.18.0)
 

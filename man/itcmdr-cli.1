@@ -1,0 +1,1641 @@
+.TH ITCMDR\-CLI 1 "" "itcmdr" "itcmdr manual"
+.SH NAME
+itcmdr\-cli \- site server administration on the server itself
+.SH ITCMDR\-CLI
+.nf
+itcmdr server administration
+\&
+Usage: itcmdr\-cli [OPTIONS] <COMMAND>
+\&
+Commands:
+  help            The guides (docs/) in the terminal: `help` lists topics, `help <topic>` prints one
+  init            First\-run setup: prints the 24 recovery words ONCE. Do this in person at the server
+  recover\-db\-key  Restore keys/db.key from the escrow with the words (replacement machine)
+  keys            Key management
+  service         Register a service plugin client key (certified with the words)
+  plugins         Service plugin packages (also available as `service plugins ...`)
+  user            Users (people with app access)
+  backup          Backups (decision 13)
+  config          Runtime settings stored in the DB (override server.json): backup.dir, backup.hour, ...
+  schedule        Scheduled runs (decision 14)
+  cutover         Nightly task \-> default schedule cutover (v0.11.0): status, switch (gated), rollback
+  upgrade         Agent self\-upgrade through the rings (v0.21.0): status, start, pause, resume, abort
+  auth            Auth mode (v0.12.0 migration from the shared token to signed requests)
+  setup           Install and first\-run setup (v0.14.0): checks, site values, master key + first admin key
+  restore         Restore an archive into the data dir. Stop the server first
+  restore\-stage   Restore through the running server (the app's StageRestore path): the server verifies the archive, then itcmdr\-restore stops the service, restores, restarts and health\-checks, and rolls back on failure. Words on stdin. Signed with this server's root key (owner)
+  restore\-status  State of the last app/StageRestore restore
+  calls           Call log (v0.15.0): one row per RPC, newest first. Same data as the app's Calls view
+  alerts          Site alerts (v0.16.0): list, ack, resolve, silence. Same data as the app's Alerts screen
+  agent           Rust agents (v0.17.0): enrollment tokens, list, revoke, maintenance
+  adminsvr        Offsite adminsvr link (v0.19.0): enroll, status, unlink, share\-names, allow. In person on the site server
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+  \-V, \-\-version              Print version
+.fi
+.SH COMMAND: itcmdr\-cli init
+.nf
+First\-run setup: prints the 24 recovery words ONCE. Do this in person at the server
+\&
+Usage: itcmdr\-cli init [OPTIONS]
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli recover\-db\-key
+.nf
+Restore keys/db.key from the escrow with the words (replacement machine)
+\&
+Usage: itcmdr\-cli recover\-db\-key [OPTIONS]
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-force                
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli keys
+.nf
+Key management
+\&
+Usage: itcmdr\-cli keys [OPTIONS] <COMMAND>
+\&
+Commands:
+  certify   OFFLINE: certify an existing public key (hex) with the words. Prints a key bundle (JSON)
+  new       OFFLINE: generate a keypair and certify it. Private key \-> FILE, bundle \-> FILE.pub.json
+  register  Register a certified key bundle on this server
+  list      List registered keys
+  revoke    Revoke a key by fingerprint (takes effect immediately)
+  rotate    Replace a key: new keypair, same kind/name/role, certified with the words; old one revoked
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli keys certify
+.nf
+OFFLINE: certify an existing public key (hex) with the words. Prints a key bundle (JSON)
+\&
+Usage: itcmdr\-cli keys certify [OPTIONS] \-\-kind <KIND> \-\-name <NAME> \-\-role <ROLE> \-\-public\-key <PUBLIC_KEY>
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>      Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-kind <KIND>              [possible values: client, user]
+      \-\-json                     Print JSON instead of text
+      \-\-name <NAME>              
+      \-\-plain\-http               v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+      \-\-role <ROLE>              [possible values: owner, admin, user, client]
+      \-\-public\-key <PUBLIC_KEY>  
+      \-\-out <OUT>                Write the bundle here instead of stdout
+  \-h, \-\-help                     Print help
+.fi
+.SH COMMAND: itcmdr\-cli keys new
+.nf
+OFFLINE: generate a keypair and certify it. Private key \-> FILE, bundle \-> FILE.pub.json
+\&
+Usage: itcmdr\-cli keys new [OPTIONS] \-\-kind <KIND> \-\-name <NAME> \-\-role <ROLE> \-\-out <OUT>
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-kind <KIND>          [possible values: client, user]
+      \-\-json                 Print JSON instead of text
+      \-\-name <NAME>          
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+      \-\-role <ROLE>          [possible values: owner, admin, user, client]
+      \-\-out <OUT>            
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli keys register
+.nf
+Register a certified key bundle on this server
+\&
+Usage: itcmdr\-cli keys register [OPTIONS] <BUNDLE>
+\&
+Arguments:
+  <BUNDLE>  
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-email <EMAIL>        
+      \-\-json                 Print JSON instead of text
+      \-\-phone <PHONE>        
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli keys list
+.nf
+List registered keys
+\&
+Usage: itcmdr\-cli keys list [OPTIONS]
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli keys revoke
+.nf
+Revoke a key by fingerprint (takes effect immediately)
+\&
+Usage: itcmdr\-cli keys revoke [OPTIONS] <FINGERPRINT>
+\&
+Arguments:
+  <FINGERPRINT>  
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli keys rotate
+.nf
+Replace a key: new keypair, same kind/name/role, certified with the words; old one revoked
+\&
+Usage: itcmdr\-cli keys rotate [OPTIONS] \-\-out <OUT> <FINGERPRINT>
+\&
+Arguments:
+  <FINGERPRINT>  
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-out <OUT>            
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli service
+.nf
+Register a service plugin client key (certified with the words)
+\&
+Usage: itcmdr\-cli service [OPTIONS] <COMMAND>
+\&
+Commands:
+  plugins   Same as `itcmdr\-cli plugins ...`
+  register  Generate, certify (words) and register a client key for a service plugin
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli service plugins
+.nf
+Same as `itcmdr\-cli plugins ...`
+\&
+Usage: itcmdr\-cli service plugins [OPTIONS] <COMMAND>
+\&
+Commands:
+  install     Validate and install a package. Valid packages are enabled (setting plugins.enable_on_install, default true) unless \-\-disabled. Bad packages are quarantined and the install is denied
+  list        Installed plugins
+  enable      Enable NAME or NAME@VERSION (other versions of it are disabled)
+  disable     Disable every version of NAME
+  remove      Remove NAME or NAME@VERSION (files and record)
+  quarantine  Packages refused so far (quarantine/index.jsonl)
+  run         Run an enabled plugin now (Verify, then Execute; Log on failure)
+  runs        Recent plugin runs
+  pack        Build and sign a package from DIR/package.toml (checksums are filled in)
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli service plugins install
+.nf
+Validate and install a package. Valid packages are enabled (setting plugins.enable_on_install, default true) unless \-\-disabled. Bad packages are quarantined and the install is denied
+\&
+Usage: itcmdr\-cli service plugins install [OPTIONS] <\-\-url <URL>|\-\-path <PATH>>
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-url <URL>            
+      \-\-json                 Print JSON instead of text
+      \-\-path <PATH>          
+      \-\-disabled             Install without enabling
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+      \-\-enable               Accepted for compatibility (enabling is the default)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli service plugins list
+.nf
+Installed plugins
+\&
+Usage: itcmdr\-cli service plugins list [OPTIONS]
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli service plugins enable
+.nf
+Enable NAME or NAME@VERSION (other versions of it are disabled)
+\&
+Usage: itcmdr\-cli service plugins enable [OPTIONS] <SPEC>
+\&
+Arguments:
+  <SPEC>  
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli service plugins disable
+.nf
+Disable every version of NAME
+\&
+Usage: itcmdr\-cli service plugins disable [OPTIONS] <NAME>
+\&
+Arguments:
+  <NAME>  
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli service plugins remove
+.nf
+Remove NAME or NAME@VERSION (files and record)
+\&
+Usage: itcmdr\-cli service plugins remove [OPTIONS] <SPEC>
+\&
+Arguments:
+  <SPEC>  
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-force                
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli service plugins quarantine
+.nf
+Packages refused so far (quarantine/index.jsonl)
+\&
+Usage: itcmdr\-cli service plugins quarantine [OPTIONS]
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli service plugins run
+.nf
+Run an enabled plugin now (Verify, then Execute; Log on failure)
+\&
+Usage: itcmdr\-cli service plugins run [OPTIONS] <SPEC>
+\&
+Arguments:
+  <SPEC>  NAME or NAME@VERSION
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-report\-only          
+      \-\-arg <ARGS>           Plugin argument KEY=VALUE (repeatable)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli service plugins runs
+.nf
+Recent plugin runs
+\&
+Usage: itcmdr\-cli service plugins runs [OPTIONS] [PLUGIN]
+\&
+Arguments:
+  [PLUGIN]  
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-limit <LIMIT>        [default: 20]
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli service plugins pack
+.nf
+Build and sign a package from DIR/package.toml (checksums are filled in)
+\&
+Usage: itcmdr\-cli service plugins pack [OPTIONS] \-\-dir <DIR> \-\-key <KEY> \-\-out <OUT>
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-dir <DIR>            
+      \-\-json                 Print JSON instead of text
+      \-\-key <KEY>            Private key file of an admin/owner key (from `keys new` / `user add \-\-out`)
+      \-\-out <OUT>            
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli service register
+.nf
+Generate, certify (words) and register a client key for a service plugin
+\&
+Usage: itcmdr\-cli service register [OPTIONS] \-\-name <NAME> \-\-out <OUT>
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-name <NAME>          
+      \-\-json                 Print JSON instead of text
+      \-\-out <OUT>            
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli plugins
+.nf
+Service plugin packages (also available as `service plugins ...`)
+\&
+Usage: itcmdr\-cli plugins [OPTIONS] <COMMAND>
+\&
+Commands:
+  install     Validate and install a package. Valid packages are enabled (setting plugins.enable_on_install, default true) unless \-\-disabled. Bad packages are quarantined and the install is denied
+  list        Installed plugins
+  enable      Enable NAME or NAME@VERSION (other versions of it are disabled)
+  disable     Disable every version of NAME
+  remove      Remove NAME or NAME@VERSION (files and record)
+  quarantine  Packages refused so far (quarantine/index.jsonl)
+  run         Run an enabled plugin now (Verify, then Execute; Log on failure)
+  runs        Recent plugin runs
+  pack        Build and sign a package from DIR/package.toml (checksums are filled in)
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli plugins install
+.nf
+Validate and install a package. Valid packages are enabled (setting plugins.enable_on_install, default true) unless \-\-disabled. Bad packages are quarantined and the install is denied
+\&
+Usage: itcmdr\-cli plugins install [OPTIONS] <\-\-url <URL>|\-\-path <PATH>>
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-url <URL>            
+      \-\-json                 Print JSON instead of text
+      \-\-path <PATH>          
+      \-\-disabled             Install without enabling
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+      \-\-enable               Accepted for compatibility (enabling is the default)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli plugins list
+.nf
+Installed plugins
+\&
+Usage: itcmdr\-cli plugins list [OPTIONS]
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli plugins enable
+.nf
+Enable NAME or NAME@VERSION (other versions of it are disabled)
+\&
+Usage: itcmdr\-cli plugins enable [OPTIONS] <SPEC>
+\&
+Arguments:
+  <SPEC>  
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli plugins disable
+.nf
+Disable every version of NAME
+\&
+Usage: itcmdr\-cli plugins disable [OPTIONS] <NAME>
+\&
+Arguments:
+  <NAME>  
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli plugins remove
+.nf
+Remove NAME or NAME@VERSION (files and record)
+\&
+Usage: itcmdr\-cli plugins remove [OPTIONS] <SPEC>
+\&
+Arguments:
+  <SPEC>  
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-force                
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli plugins quarantine
+.nf
+Packages refused so far (quarantine/index.jsonl)
+\&
+Usage: itcmdr\-cli plugins quarantine [OPTIONS]
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli plugins run
+.nf
+Run an enabled plugin now (Verify, then Execute; Log on failure)
+\&
+Usage: itcmdr\-cli plugins run [OPTIONS] <SPEC>
+\&
+Arguments:
+  <SPEC>  NAME or NAME@VERSION
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-report\-only          
+      \-\-arg <ARGS>           Plugin argument KEY=VALUE (repeatable)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli plugins runs
+.nf
+Recent plugin runs
+\&
+Usage: itcmdr\-cli plugins runs [OPTIONS] [PLUGIN]
+\&
+Arguments:
+  [PLUGIN]  
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-limit <LIMIT>        [default: 20]
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli plugins pack
+.nf
+Build and sign a package from DIR/package.toml (checksums are filled in)
+\&
+Usage: itcmdr\-cli plugins pack [OPTIONS] \-\-dir <DIR> \-\-key <KEY> \-\-out <OUT>
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-dir <DIR>            
+      \-\-json                 Print JSON instead of text
+      \-\-key <KEY>            Private key file of an admin/owner key (from `keys new` / `user add \-\-out`)
+      \-\-out <OUT>            
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli user
+.nf
+Users (people with app access)
+\&
+Usage: itcmdr\-cli user [OPTIONS] <COMMAND>
+\&
+Commands:
+  add  Certify (words) and register a user. Pass \-\-public\-key (preferred: the key never leaves the user's device) or \-\-out to generate one here
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli user add
+.nf
+Certify (words) and register a user. Pass \-\-public\-key (preferred: the key never leaves the user's device) or \-\-out to generate one here
+\&
+Usage: itcmdr\-cli user add [OPTIONS] \-\-name <NAME> \-\-role <ROLE>
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>      Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-name <NAME>              
+      \-\-json                     Print JSON instead of text
+      \-\-role <ROLE>              [possible values: owner, admin, user]
+      \-\-email <EMAIL>            
+      \-\-plain\-http               v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+      \-\-phone <PHONE>            
+      \-\-public\-key <PUBLIC_KEY>  
+      \-\-out <OUT>                
+  \-h, \-\-help                     Print help
+.fi
+.SH COMMAND: itcmdr\-cli backup
+.nf
+Backups (decision 13)
+\&
+Usage: itcmdr\-cli backup [OPTIONS] <COMMAND>
+\&
+Commands:
+  create  Take a backup now
+  list    List archives, newest first
+  verify  Check an archive's signature and hash; \-\-deep also decrypts it with the words and checks every file against the manifest
+  drill   Restore drill (v0.22.0): copy the newest archive to a temp folder, check it against this server's master key, delete the copy and report. \-\-deep also decrypts it with the words (the monthly drill). Everything stays on this machine
+  prune   Apply nightly retention now
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli backup create
+.nf
+Take a backup now
+\&
+Usage: itcmdr\-cli backup create [OPTIONS]
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-out <OUT>            Folder (default: server.json backup.dir, else <data_dir>/backups)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli backup list
+.nf
+List archives, newest first
+\&
+Usage: itcmdr\-cli backup list [OPTIONS]
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-dir <DIR>            
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli backup verify
+.nf
+Check an archive's signature and hash; \-\-deep also decrypts it with the words and checks every file against the manifest
+\&
+Usage: itcmdr\-cli backup verify [OPTIONS] <ARCHIVE>
+\&
+Arguments:
+  <ARCHIVE>  
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-deep                 
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli backup drill
+.nf
+Restore drill (v0.22.0): copy the newest archive to a temp folder, check it against this server's master key, delete the copy and report. \-\-deep also decrypts it with the words (the monthly drill). Everything stays on this machine
+\&
+Usage: itcmdr\-cli backup drill [OPTIONS]
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-deep                 
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli backup prune
+.nf
+Apply nightly retention now
+\&
+Usage: itcmdr\-cli backup prune [OPTIONS]
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-dir <DIR>            
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli config
+.nf
+Runtime settings stored in the DB (override server.json): backup.dir, backup.hour, ...
+\&
+Usage: itcmdr\-cli config [OPTIONS] <COMMAND>
+\&
+Commands:
+  list   Every setting with its effective value and source (docs/SETTINGS.md)
+  get    One setting (or all, like `list`)
+  set    Set one key, e.g. `config set backup.hour 3`. Validated; folders must exist and be writable
+  unset  Remove an override (back to server.json / default)
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli config list
+.nf
+Every setting with its effective value and source (docs/SETTINGS.md)
+\&
+Usage: itcmdr\-cli config list [OPTIONS]
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-machine <MACHINE>    Resolve this PC's agent overrides
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli config get
+.nf
+One setting (or all, like `list`)
+\&
+Usage: itcmdr\-cli config get [OPTIONS] [KEY]
+\&
+Arguments:
+  [KEY]  
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-machine <MACHINE>    
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli config set
+.nf
+Set one key, e.g. `config set backup.hour 3`. Validated; folders must exist and be writable
+\&
+Usage: itcmdr\-cli config set [OPTIONS] <KEY> <VALUE>
+\&
+Arguments:
+  <KEY>    
+  <VALUE>  
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-machine <MACHINE>    Agent settings only: override for one PC
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli config unset
+.nf
+Remove an override (back to server.json / default)
+\&
+Usage: itcmdr\-cli config unset [OPTIONS] <KEY>
+\&
+Arguments:
+  <KEY>  
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-machine <MACHINE>    
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli schedule
+.nf
+Scheduled runs (decision 14)
+\&
+Usage: itcmdr\-cli schedule [OPTIONS] <COMMAND>
+\&
+Commands:
+  add               Create a schedule
+  list              All schedules with their next runs
+  edit              Change a schedule (only the given options change)
+  rm                Delete a schedule. Built\-in ones: pause them instead; deleting needs \-\-force and \-\-confirm <exact name> (and is remembered: upgrades don't re\-create it)
+  reset\-to\-default  Restore a built\-in schedule (nightly\-agent\-run, nightly\-backup, or its name) to its defaults
+  pause             
+  resume            
+  run\-now           Queue a run now (no office\-hours guard; the agent's clinical guard still applies)
+  history           Run history (all schedules, or one)
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli schedule add
+.nf
+Create a schedule
+\&
+Usage: itcmdr\-cli schedule add [OPTIONS] \-\-name <NAME>
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>      Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-name <NAME>              
+      \-\-json                     Print JSON instead of text
+      \-\-when <WHEN>              hourly | "every 6h" | "daily 01:30" | "weekdays 07:00" | "weekly mon 02:00" | "cron M H DOM MON DOW"
+      \-\-plain\-http               v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+      \-\-tz <TZ>                  IANA timezone (e.g. America/New_York) or "local"
+      \-\-all                      Target every machine
+      \-\-machines <MACHINES>      Target machines (comma\-separated or repeated)
+      \-\-groups <GROUPS>          Target groups = agent roles (Server, Workstation, RCU)
+      \-\-categories <CATEGORIES>  Check categories (empty = all)
+      \-\-plugins <PLUGINS>        Service plugins to run on the server
+      \-\-repair                   Repair (default report\-only)
+      \-\-report\-only              
+      \-\-guard <GUARD>            report\-only\-in\-hours (default) | skip\-in\-hours | none
+      \-\-missed <MISSED>          skip (default) | catch\-up
+      \-\-paused                   Create paused
+  \-h, \-\-help                     Print help
+.fi
+.SH COMMAND: itcmdr\-cli schedule list
+.nf
+All schedules with their next runs
+\&
+Usage: itcmdr\-cli schedule list [OPTIONS]
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli schedule edit
+.nf
+Change a schedule (only the given options change)
+\&
+Usage: itcmdr\-cli schedule edit [OPTIONS] <ID>
+\&
+Arguments:
+  <ID>  
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>      Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-name <NAME>              
+      \-\-json                     Print JSON instead of text
+      \-\-when <WHEN>              hourly | "every 6h" | "daily 01:30" | "weekdays 07:00" | "weekly mon 02:00" | "cron M H DOM MON DOW"
+      \-\-plain\-http               v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+      \-\-tz <TZ>                  IANA timezone (e.g. America/New_York) or "local"
+      \-\-all                      Target every machine
+      \-\-machines <MACHINES>      Target machines (comma\-separated or repeated)
+      \-\-groups <GROUPS>          Target groups = agent roles (Server, Workstation, RCU)
+      \-\-categories <CATEGORIES>  Check categories (empty = all)
+      \-\-plugins <PLUGINS>        Service plugins to run on the server
+      \-\-repair                   Repair (default report\-only)
+      \-\-report\-only              
+      \-\-guard <GUARD>            report\-only\-in\-hours (default) | skip\-in\-hours | none
+      \-\-missed <MISSED>          skip (default) | catch\-up
+  \-h, \-\-help                     Print help
+.fi
+.SH COMMAND: itcmdr\-cli schedule rm
+.nf
+Delete a schedule. Built\-in ones: pause them instead; deleting needs \-\-force and \-\-confirm <exact name> (and is remembered: upgrades don't re\-create it)
+\&
+Usage: itcmdr\-cli schedule rm [OPTIONS] <ID>
+\&
+Arguments:
+  <ID>  
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-force                
+      \-\-confirm <CONFIRM>    
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli schedule reset\-to\-default
+.nf
+Restore a built\-in schedule (nightly\-agent\-run, nightly\-backup, or its name) to its defaults
+\&
+Usage: itcmdr\-cli schedule reset\-to\-default [OPTIONS] <WHICH>
+\&
+Arguments:
+  <WHICH>  
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli schedule pause
+.nf
+Usage: itcmdr\-cli schedule pause [OPTIONS] <ID>
+\&
+Arguments:
+  <ID>  
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli schedule resume
+.nf
+Usage: itcmdr\-cli schedule resume [OPTIONS] <ID>
+\&
+Arguments:
+  <ID>  
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli schedule run\-now
+.nf
+Queue a run now (no office\-hours guard; the agent's clinical guard still applies)
+\&
+Usage: itcmdr\-cli schedule run\-now [OPTIONS] <ID>
+\&
+Arguments:
+  <ID>  
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli schedule history
+.nf
+Run history (all schedules, or one)
+\&
+Usage: itcmdr\-cli schedule history [OPTIONS] [ID]
+\&
+Arguments:
+  [ID]  
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-limit <LIMIT>        [default: 20]
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli cutover
+.nf
+Nightly task \-> default schedule cutover (v0.11.0): status, switch (gated), rollback
+\&
+Usage: itcmdr\-cli cutover [OPTIONS] <COMMAND>
+\&
+Commands:
+  status       Cutover state, the last 7 days of parity results, machines, and what still blocks the switch
+  vm\-verified  Record that the plugin runtime and poller were verified on the Windows VM (gate b)
+  switch       Switch the nightly run to the default schedule. Refused until every gate passes
+  rollback     One\-command rollback: the SYSTEM task runs the nightly again (agents re\-enable it)
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli cutover status
+.nf
+Cutover state, the last 7 days of parity results, machines, and what still blocks the switch
+\&
+Usage: itcmdr\-cli cutover status [OPTIONS]
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli cutover vm\-verified
+.nf
+Record that the plugin runtime and poller were verified on the Windows VM (gate b)
+\&
+Usage: itcmdr\-cli cutover vm\-verified [OPTIONS]
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-off                  Clear the flag
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli cutover switch
+.nf
+Switch the nightly run to the default schedule. Refused until every gate passes
+\&
+Usage: itcmdr\-cli cutover switch [OPTIONS]
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-to <TO>              schedule (v0.17: default schedule, PowerShell fallback stays) or agent (v0.20.1: the Rust agent runs plugins for real; the PowerShell agent is retired, no fallback) [default: schedule] [possible values: schedule, agent]
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli cutover rollback
+.nf
+One\-command rollback: the SYSTEM task runs the nightly again (agents re\-enable it)
+\&
+Usage: itcmdr\-cli cutover rollback [OPTIONS]
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli upgrade
+.nf
+Agent self\-upgrade through the rings (v0.21.0): status, start, pause, resume, abort
+\&
+Usage: itcmdr\-cli upgrade [OPTIONS] <COMMAND>
+\&
+Commands:
+  status        The current rollout (version, ring, state, what holds the ring) and the last few
+  start         Roll an installed, owner\-signed itcmdr\-agent\-release out, starting at ring 0
+  pause         Pause the rollout (no new offers)
+  resume        Resume a paused rollout (the ring soaks again; failed machines are offered it again)
+  abort         Abort the rollout (machines already upgraded stay upgraded)
+  server\-start  Upgrade this server to an installed, owner\-signed itcmdr\-server\-release (in the update window unless \-\-now; the server watchdog swaps it in and rolls back when unhealthy)
+  server\-abort  Cancel a server upgrade that is still waiting for the window
+  restore\-db    Watchdog rollback step: put the pre\-upgrade database safety copy back (server stopped)
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli upgrade status
+.nf
+The current rollout (version, ring, state, what holds the ring) and the last few
+\&
+Usage: itcmdr\-cli upgrade status [OPTIONS]
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli upgrade start
+.nf
+Roll an installed, owner\-signed itcmdr\-agent\-release out, starting at ring 0
+\&
+Usage: itcmdr\-cli upgrade start [OPTIONS] <VERSION>
+\&
+Arguments:
+  <VERSION>  
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-now                  Push: install now, outside the update window (and with automatic updates off)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli upgrade pause
+.nf
+Pause the rollout (no new offers)
+\&
+Usage: itcmdr\-cli upgrade pause [OPTIONS]
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-reason <REASON>      [default: "paused by an administrator"]
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli upgrade resume
+.nf
+Resume a paused rollout (the ring soaks again; failed machines are offered it again)
+\&
+Usage: itcmdr\-cli upgrade resume [OPTIONS]
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli upgrade abort
+.nf
+Abort the rollout (machines already upgraded stay upgraded)
+\&
+Usage: itcmdr\-cli upgrade abort [OPTIONS]
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli upgrade server\-start
+.nf
+Upgrade this server to an installed, owner\-signed itcmdr\-server\-release (in the update window unless \-\-now; the server watchdog swaps it in and rolls back when unhealthy)
+\&
+Usage: itcmdr\-cli upgrade server\-start [OPTIONS] <VERSION>
+\&
+Arguments:
+  <VERSION>  
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-now                  
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli upgrade server\-abort
+.nf
+Cancel a server upgrade that is still waiting for the window
+\&
+Usage: itcmdr\-cli upgrade server\-abort [OPTIONS]
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli upgrade restore\-db
+.nf
+Watchdog rollback step: put the pre\-upgrade database safety copy back (server stopped)
+\&
+Usage: itcmdr\-cli upgrade restore\-db [OPTIONS] \-\-from <FROM> \-\-to <TO>
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-from <FROM>          
+      \-\-json                 Print JSON instead of text
+      \-\-to <TO>              
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli auth
+.nf
+Auth mode (v0.12.0 migration from the shared token to signed requests)
+\&
+Usage: itcmdr\-cli auth [OPTIONS] <COMMAND>
+\&
+Commands:
+  status    Effective auth mode, where it comes from, and the keys that can sign in signed mode
+  set\-mode  Write `auth_mode` into server.json (restart the service afterwards). `signed` needs an active admin/owner key besides the server's own root key, unless \-\-force
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli auth status
+.nf
+Effective auth mode, where it comes from, and the keys that can sign in signed mode
+\&
+Usage: itcmdr\-cli auth status [OPTIONS]
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli auth set\-mode
+.nf
+Write `auth_mode` into server.json (restart the service afterwards). `signed` needs an active admin/owner key besides the server's own root key, unless \-\-force
+\&
+Usage: itcmdr\-cli auth set\-mode [OPTIONS] <MODE>
+\&
+Arguments:
+  <MODE>  [possible values: token, both, signed]
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-force                
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli setup
+.nf
+Install and first\-run setup (v0.14.0): checks, site values, master key + first admin key
+\&
+Usage: itcmdr\-cli setup [OPTIONS] <COMMAND>
+\&
+Commands:
+  check      Check the config, data dir, log share and backup folder (exist, writable), the initialization and the app keys. Exit code 1 when a check fails
+  apply      Write site values into server.json (created when missing). Upgrades pass \-\-keep\-existing, which only fills values that are missing or empty
+  first\-run  IN PERSON, at the server: create the master key and show the 24 words ONCE on this screen (never written to a file or log), ask three of them back, then register the first admin app key (owner) so the app can sign from day one
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli setup check
+.nf
+Check the config, data dir, log share and backup folder (exist, writable), the initialization and the app keys. Exit code 1 when a check fails
+\&
+Usage: itcmdr\-cli setup check [OPTIONS]
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-report <REPORT>      Also write the report to this file (the installer keeps it in the data dir)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli setup apply
+.nf
+Write site values into server.json (created when missing). Upgrades pass \-\-keep\-existing, which only fills values that are missing or empty
+\&
+Usage: itcmdr\-cli setup apply [OPTIONS]
+\&
+Options:
+      \-\-logs\-dir <LOGS_DIR>
+          The maintenanceRuns share/folder the agents write to
+      \-\-data\-dir <DATA_DIR>
+          
+      \-\-json
+          Print JSON instead of text
+      \-\-backup\-dir <BACKUP_DIR>
+          Backup folder (a share or second disk)
+      \-\-plain\-http
+          v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+      \-\-bind\-addr <BIND_ADDR>
+          
+      \-\-api\-plain\-http <API_PLAIN_HTTP>
+          Also accept plain HTTP (unencrypted) from other machines: `true` or `false`. HTTPS is always on; plain HTTP from this machine always works. For v1.0 apps until they update [possible values: true, false]
+      \-\-keep\-existing
+          
+      \-\-config <CONFIG>
+          server.json to write (default: the one in use, else %ProgramData%\\itcmdr\\server.json)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-cli setup first\-run
+.nf
+IN PERSON, at the server: create the master key and show the 24 words ONCE on this screen (never written to a file or log), ask three of them back, then register the first admin app key (owner) so the app can sign from day one
+\&
+Usage: itcmdr\-cli setup first\-run [OPTIONS]
+\&
+Options:
+      \-\-admin\-name <ADMIN_NAME>
+          Name for the first admin key (a person)
+      \-\-data\-dir <DATA_DIR>
+          Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-admin\-public\-key <ADMIN_PUBLIC_KEY>
+          Public key (hex) from the app's Keys screen
+      \-\-json
+          Print JSON instead of text
+      \-\-app\-key\-store
+          Windows: use (or create) the app key of the current user (%APPDATA%\\itcmdr\\app\-key.dpapi)
+      \-\-plain\-http
+          v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-cli restore
+.nf
+Restore an archive into the data dir. Stop the server first
+\&
+Usage: itcmdr\-cli restore [OPTIONS] \-\-from <FROM>
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-from <FROM>          
+      \-\-dry\-run              Verify and decrypt only, change nothing
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli restore\-stage
+.nf
+Restore through the running server (the app's StageRestore path): the server verifies the archive, then itcmdr\-restore stops the service, restores, restarts and health\-checks, and rolls back on failure. Words on stdin. Signed with this server's root key (owner)
+\&
+Usage: itcmdr\-cli restore\-stage [OPTIONS] \-\-backup <BACKUP>
+\&
+Options:
+      \-\-backup <BACKUP>      Archive name from `backup list`
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-wait                 Wait until the restore finished and print each step
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli restore\-status
+.nf
+State of the last app/StageRestore restore
+\&
+Usage: itcmdr\-cli restore\-status [OPTIONS]
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli calls
+.nf
+Call log (v0.15.0): one row per RPC, newest first. Same data as the app's Calls view
+\&
+Usage: itcmdr\-cli calls [OPTIONS] <COMMAND>
+\&
+Commands:
+  list   List calls, newest first
+  show   One call by id (an audit entry's call_id)
+  prune  Export finished days to server\-logs/calls now and prune by calllog.retention_days
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli calls list
+.nf
+List calls, newest first
+\&
+Usage: itcmdr\-cli calls list [OPTIONS]
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>    Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-method <METHOD>        Method name contains this
+      \-\-json                   Print JSON instead of text
+      \-\-principal <PRINCIPAL>  Principal contains this (a key name, "token", "anonymous")
+      \-\-plain\-http             v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+      \-\-status <STATUS>        Exact gRPC status code (0 = OK, 16 = UNAUTHENTICATED, ...)
+      \-\-errors                 Only failed calls
+      \-\-hours <HOURS>          Only calls in the last N hours
+      \-\-limit <LIMIT>          [default: 50]
+  \-h, \-\-help                   Print help
+.fi
+.SH COMMAND: itcmdr\-cli calls show
+.nf
+One call by id (an audit entry's call_id)
+\&
+Usage: itcmdr\-cli calls show [OPTIONS] <ID>
+\&
+Arguments:
+  <ID>  
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli calls prune
+.nf
+Export finished days to server\-logs/calls now and prune by calllog.retention_days
+\&
+Usage: itcmdr\-cli calls prune [OPTIONS]
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli alerts
+.nf
+Site alerts (v0.16.0): list, ack, resolve, silence. Same data as the app's Alerts screen
+\&
+Usage: itcmdr\-cli alerts [OPTIONS] <COMMAND>
+\&
+Commands:
+  list     List alerts, worst level first (default: unresolved)
+  ack      Acknowledge an alert (seen; stays unresolved)
+  resolve  Resolve an alert by hand
+  silence  Silence a machine and/or a source for some hours (new matching alerts are stored silenced)
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli alerts list
+.nf
+List alerts, worst level first (default: unresolved)
+\&
+Usage: itcmdr\-cli alerts list [OPTIONS]
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-state <STATE>        open (open+acked+silenced) | resolved | all | acked | silenced [default: open]
+      \-\-json                 Print JSON instead of text
+      \-\-level <LEVEL>        critical | cautious | informational
+      \-\-machine <MACHINE>    
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+      \-\-source <SOURCE>      plugin | check | backup | package | server
+      \-\-limit <LIMIT>        [default: 50]
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli alerts ack
+.nf
+Acknowledge an alert (seen; stays unresolved)
+\&
+Usage: itcmdr\-cli alerts ack [OPTIONS] <ID>
+\&
+Arguments:
+  <ID>  
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli alerts resolve
+.nf
+Resolve an alert by hand
+\&
+Usage: itcmdr\-cli alerts resolve [OPTIONS] <ID>
+\&
+Arguments:
+  <ID>  
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli alerts silence
+.nf
+Silence a machine and/or a source for some hours (new matching alerts are stored silenced)
+\&
+Usage: itcmdr\-cli alerts silence [OPTIONS] \-\-hours <HOURS>
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-machine <MACHINE>    [default: ""]
+      \-\-json                 Print JSON instead of text
+      \-\-source <SOURCE>      [default: ""]
+      \-\-hours <HOURS>        
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+      \-\-reason <REASON>      [default: ""]
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli agent
+.nf
+Rust agents (v0.17.0): enrollment tokens, list, revoke, maintenance
+\&
+Usage: itcmdr\-cli agent [OPTIONS] <COMMAND>
+\&
+Commands:
+  enroll\-token  Create a one\-time enrollment token (give it to `itcmdr\-agent enroll` or the agent installer's /EnrollToken=)
+  list          List enrolled agents and their heartbeat state
+  revoke        Revoke a machine's agent: its certificate is refused and it must be enrolled again
+  renew         Ask a machine's agent to renew its certificate at its next heartbeat (v0.17.1)
+  run           Run a plugin on a machine's agent now, report\-only (v0.18.0); the report arrives in `agent runs`
+  runs          Plugin runs reported by agents, newest first, with parity against the nightly (v0.18.0)
+  plugins       Plugins each agent reported as applied (v0.18.0)
+  maintenance   Maintenance on/off for a machine (no heartbeat alerts while on)
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli agent enroll\-token
+.nf
+Create a one\-time enrollment token (give it to `itcmdr\-agent enroll` or the agent installer's /EnrollToken=)
+\&
+Usage: itcmdr\-cli agent enroll\-token [OPTIONS]
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>    Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-machine <MACHINE>      Machine the token is for (empty: any one machine) [default: ""]
+      \-\-json                   Print JSON instead of text
+      \-\-ttl\-hours <TTL_HOURS>  Lifetime in hours (default 24, max 720) [default: 24]
+      \-\-address <ADDRESS>      host:port agents dial (default: this server's name and the agent link port) [default: ""]
+      \-\-plain\-http             v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                   Print help
+.fi
+.SH COMMAND: itcmdr\-cli agent list
+.nf
+List enrolled agents and their heartbeat state
+\&
+Usage: itcmdr\-cli agent list [OPTIONS]
+\&
+Options:
+      \-\-all                  Also old (replaced) and revoked enrollments
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli agent revoke
+.nf
+Revoke a machine's agent: its certificate is refused and it must be enrolled again
+\&
+Usage: itcmdr\-cli agent revoke [OPTIONS] <MACHINE>
+\&
+Arguments:
+  <MACHINE>  
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli agent renew
+.nf
+Ask a machine's agent to renew its certificate at its next heartbeat (v0.17.1)
+\&
+Usage: itcmdr\-cli agent renew [OPTIONS] <MACHINE>
+\&
+Arguments:
+  <MACHINE>  
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli agent run
+.nf
+Run a plugin on a machine's agent now, report\-only (v0.18.0); the report arrives in `agent runs`
+\&
+Usage: itcmdr\-cli agent run [OPTIONS] <MACHINE> <PLUGIN>
+\&
+Arguments:
+  <MACHINE>  
+  <PLUGIN>   
+\&
+Options:
+      \-\-arg <ARGS>           key=value arguments for the plugin
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli agent runs
+.nf
+Plugin runs reported by agents, newest first, with parity against the nightly (v0.18.0)
+\&
+Usage: itcmdr\-cli agent runs [OPTIONS]
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-machine <MACHINE>    
+      \-\-json                 Print JSON instead of text
+      \-\-limit <LIMIT>        [default: 20]
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli agent plugins
+.nf
+Plugins each agent reported as applied (v0.18.0)
+\&
+Usage: itcmdr\-cli agent plugins [OPTIONS]
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-machine <MACHINE>    
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli agent maintenance
+.nf
+Maintenance on/off for a machine (no heartbeat alerts while on)
+\&
+Usage: itcmdr\-cli agent maintenance [OPTIONS] <MACHINE> <MODE>
+\&
+Arguments:
+  <MACHINE>  
+  <MODE>     [possible values: on, off]
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli adminsvr
+.nf
+Offsite adminsvr link (v0.19.0): enroll, status, unlink, share\-names, allow. In person on the site server
+\&
+Usage: itcmdr\-cli adminsvr [OPTIONS] <COMMAND>
+\&
+Commands:
+  enroll       Link this site with a one\-time site token from `itcmdr\-admin site create`
+  status       Link state, the local allowlist and the name\-sharing opt\-in
+  unlink       Remove the link (the site keeps running standalone)
+  share\-names  Site owner: share machine display names with adminsvr (off by default). Paths, IPs, usernames and messages never leave
+  allow        Site owner: commands adminsvr may send (any of backup.start, alert.ack, alert.resolve, setting.set, schedule.run/pause/resume, plugin.install/enable/disable; restore, keys and auth are never possible)
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli adminsvr enroll
+.nf
+Link this site with a one\-time site token from `itcmdr\-admin site create`
+\&
+Usage: itcmdr\-cli adminsvr enroll [OPTIONS] <TOKEN>
+\&
+Arguments:
+  <TOKEN>  
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli adminsvr status
+.nf
+Link state, the local allowlist and the name\-sharing opt\-in
+\&
+Usage: itcmdr\-cli adminsvr status [OPTIONS]
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli adminsvr unlink
+.nf
+Remove the link (the site keeps running standalone)
+\&
+Usage: itcmdr\-cli adminsvr unlink [OPTIONS]
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli adminsvr share\-names
+.nf
+Site owner: share machine display names with adminsvr (off by default). Paths, IPs, usernames and messages never leave
+\&
+Usage: itcmdr\-cli adminsvr share\-names [OPTIONS] <STATE>
+\&
+Arguments:
+  <STATE>  [possible values: on, off]
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH COMMAND: itcmdr\-cli adminsvr allow
+.nf
+Site owner: commands adminsvr may send (any of backup.start, alert.ack, alert.resolve, setting.set, schedule.run/pause/resume, plugin.install/enable/disable; restore, keys and auth are never possible)
+\&
+Usage: itcmdr\-cli adminsvr allow [OPTIONS] [KINDS]...
+\&
+Arguments:
+  [KINDS]...  
+\&
+Options:
+      \-\-data\-dir <DATA_DIR>  Data dir override (beats ITCMDR_DATA_DIR and server.json)
+      \-\-json                 Print JSON instead of text
+      \-\-plain\-http           v1.1.0: talk to the local server over plain HTTP instead of HTTPS (not encrypted; explicit opt\-in)
+  \-h, \-\-help                 Print help
+.fi
+.SH ENVIRONMENT
+.TP
+.B ITCMDR_SERVER_CONFIG
+path of server.json
+.TP
+.B ITCMDR_DATA_DIR
+data folder (\-\-data\-dir beats it; it beats server.json)
+.TP
+.B ITCMDR_EXTRA_ROOTS
+extra PEM root files added to the system trust store (PATH\-style list)
+.SH SEE ALSO
+\fBitcmdr\fR(7), docs/README.md (also the in-app help: \fBitcmdr-cli help\fR, \fBitcmdr-admin help\fR)

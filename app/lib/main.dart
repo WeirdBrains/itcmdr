@@ -23,6 +23,7 @@ import 'proto/itcmdr.pbgrpc.dart';
 import 'schedules_page.dart';
 import 'server_settings.dart';
 import 'settings.dart';
+import 'help_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -244,6 +245,7 @@ class _HomeShellState extends State<HomeShell> {
         'Settings',
         SettingsPage(key: key, settings: s, client: c, onSave: save),
       ),
+      (Icons.help_outline, 'Help', HelpPage(key: key, topic: 'site-app')),
     ];
     return Scaffold(
       appBar: AppBar(

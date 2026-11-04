@@ -1,5 +1,5 @@
 //! v0.20.0: what adminsvr may see of the site's configuration and plugins, and the commands that
-//! change them (docs/design/ADMINSVR.md sections 3 and 5).
+//! change them (docs/historical/1.0/design/ADMINSVR.md sections 3 and 5).
 //!
 //! - Config document: every setting with its kind and whether it can be set remotely; values only
 //!   for numbers, switches and times (text and path values never leave the site). Schedules by

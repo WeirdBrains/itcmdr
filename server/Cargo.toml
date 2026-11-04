@@ -21,6 +21,7 @@ name = "itcmdr-restore"
 path = "src/bin/itcmdr-restore.rs"
 
 [dependencies]
+itcmdr-help = { path = "../help" }
 fs4 = { version = "0.13", features = ["sync"] }
 tokio = { version = "1.40", features = ["rt-multi-thread", "macros", "signal", "time", "process", "io-util"] }
 tonic = { version = "0.12", features = ["transport", "tls"] }

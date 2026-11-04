@@ -1658,6 +1658,7 @@ dependencies = [
  "hkdf",
  "itcmdr-adminlink",
  "itcmdr-agentlink",
+ "itcmdr-help",
  "itcmdr-keys",
  "prost",
  "rand 0.8.8",
@@ -1758,6 +1759,10 @@ dependencies = [
  "tower 0.4.13",
  "x509-parser 0.16.0",
 ]
+
+[[package]]
+name = "itcmdr-help"
+version = "1.1.0"
 
 [[package]]
 name = "itcmdr-keys"

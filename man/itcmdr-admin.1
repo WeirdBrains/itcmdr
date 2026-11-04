@@ -1,0 +1,1689 @@
+.TH ITCMDR\-ADMIN 1 "" "itcmdr" "itcmdr manual"
+.SH NAME
+itcmdr\-admin \- command line client for adminsvr
+.SH ITCMDR\-ADMIN
+.nf
+itcmdr adminsvr CLI (same signed API as the admin app)
+\&
+Usage: itcmdr\-admin [OPTIONS] <COMMAND>
+\&
+Commands:
+  help        The guides (docs/) in the terminal: `help` lists topics, `help <topic>` prints one
+  info        adminsvr version and root key (unsigned)
+  trust       v1.1.0: the certificate adminsvr presents and how this device trusts it
+  enroll      Enroll this device with a one\-time code: shows your 24 words ONCE, then asks three back
+  recover     New device from your 24 words (read from stdin): restore the backed\-up key or certify a new one
+  whoami      
+  user        
+  device      
+  key\-backup  
+  site        
+  alert       
+  backup      
+  command     
+  audit       
+  passkey     Passkeys / security keys: the optional second factor (needs libfido2's tools)
+  policy      Which actions need a passkey touch, and for which roles a passkey is required (owners set it)
+  push        Push notifications for alerts on this device (FCM / APNs token; the admin app does this itself)
+  org         Org\-wide settings: whether every approval needs a second owner/admin (owners set it)
+  release     Server/agent releases: approve one once, then roll it out to sites (v0.21.0)
+  config      A site's settings and schedules as adminsvr sees them; set a setting (v0.20.0)
+  schedule    Run, pause or resume a site's schedule (by the id from `config show`)
+  plugin      Plugin catalog, a site's plugins, enable/disable/push (two\-person)
+  freeze      Global freeze of every command (owners)
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+  \-V, \-\-version
+          Print version
+.fi
+.SH COMMAND: itcmdr\-admin info
+.nf
+adminsvr version and root key (unsigned)
+\&
+Usage: itcmdr\-admin info [OPTIONS] <ADDR>
+\&
+Arguments:
+  <ADDR>  
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-pin <PIN>
+          The internal certificate's SHA\-256 (empty = the system trust store) [default: ""]
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin trust
+.nf
+v1.1.0: the certificate adminsvr presents and how this device trusts it
+\&
+Usage: itcmdr\-admin trust [OPTIONS] <COMMAND>
+\&
+Commands:
+  show    How this device trusts adminsvr now
+  review  Connect and show the certificate adminsvr presents, compared with the trusted one
+  set     Trust exactly this certificate (it must be the one adminsvr presents now)
+  remove  Forget the trusted certificate (validate against the system trust store again)
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin trust show
+.nf
+How this device trusts adminsvr now
+\&
+Usage: itcmdr\-admin trust show [OPTIONS]
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin trust review
+.nf
+Connect and show the certificate adminsvr presents, compared with the trusted one
+\&
+Usage: itcmdr\-admin trust review [OPTIONS]
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin trust set
+.nf
+Trust exactly this certificate (it must be the one adminsvr presents now)
+\&
+Usage: itcmdr\-admin trust set [OPTIONS] <SHA256>
+\&
+Arguments:
+  <SHA256>  
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-replace
+          Replace a different, previously trusted certificate
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin trust remove
+.nf
+Forget the trusted certificate (validate against the system trust store again)
+\&
+Usage: itcmdr\-admin trust remove [OPTIONS]
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin enroll
+.nf
+Enroll this device with a one\-time code: shows your 24 words ONCE, then asks three back
+\&
+Usage: itcmdr\-admin enroll [OPTIONS] <CODE>
+\&
+Arguments:
+  <CODE>  
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-no\-key\-backup
+          Don't store the encrypted key backup on adminsvr (it is on by default)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-words\-file <WORDS_FILE>
+          Write the words to this file (0600) instead of showing them (automation)
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin recover
+.nf
+New device from your 24 words (read from stdin): restore the backed\-up key or certify a new one
+\&
+Usage: itcmdr\-admin recover [OPTIONS] \-\-email <EMAIL> <ADDR>
+\&
+Arguments:
+  <ADDR>  
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-pin <PIN>
+          [default: ""]
+      \-\-email <EMAIL>
+          
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-from\-backup
+          
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin whoami
+.nf
+Usage: itcmdr\-admin whoami [OPTIONS]
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin user
+.nf
+Usage: itcmdr\-admin user [OPTIONS] <COMMAND>
+\&
+Commands:
+  list     
+  create   Create a user (role sre by default); prints their one\-time enrollment code
+  role     
+  disable  
+  enable   
+  scopes   Assign sites to an SRE (replaces the list)
+  approve  Approve a pending device after checking its fingerprint with the user
+  code     A new one\-time enrollment code
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin user list
+.nf
+Usage: itcmdr\-admin user list [OPTIONS]
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin user create
+.nf
+Create a user (role sre by default); prints their one\-time enrollment code
+\&
+Usage: itcmdr\-admin user create [OPTIONS] \-\-name <NAME> <EMAIL>
+\&
+Arguments:
+  <EMAIL>  
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-name <NAME>
+          
+      \-\-role <ROLE>
+          [default: sre]
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin user role
+.nf
+Usage: itcmdr\-admin user role [OPTIONS] <USER> <ROLE>
+\&
+Arguments:
+  <USER>  
+  <ROLE>  
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin user disable
+.nf
+Usage: itcmdr\-admin user disable [OPTIONS] <USER>
+\&
+Arguments:
+  <USER>  
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin user enable
+.nf
+Usage: itcmdr\-admin user enable [OPTIONS] <USER>
+\&
+Arguments:
+  <USER>  
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin user scopes
+.nf
+Assign sites to an SRE (replaces the list)
+\&
+Usage: itcmdr\-admin user scopes [OPTIONS] <USER> [SITES]...
+\&
+Arguments:
+  <USER>      
+  [SITES]...  
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin user approve
+.nf
+Approve a pending device after checking its fingerprint with the user
+\&
+Usage: itcmdr\-admin user approve [OPTIONS] <USER> <FINGERPRINT>
+\&
+Arguments:
+  <USER>         
+  <FINGERPRINT>  
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin user code
+.nf
+A new one\-time enrollment code
+\&
+Usage: itcmdr\-admin user code [OPTIONS] <USER>
+\&
+Arguments:
+  <USER>  
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin device
+.nf
+Usage: itcmdr\-admin device [OPTIONS] <COMMAND>
+\&
+Commands:
+  list    
+  revoke  
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin device list
+.nf
+Usage: itcmdr\-admin device list [OPTIONS] [USER]
+\&
+Arguments:
+  [USER]  [default: ""]
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin device revoke
+.nf
+Usage: itcmdr\-admin device revoke [OPTIONS] <FINGERPRINT>
+\&
+Arguments:
+  <FINGERPRINT>  
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-user <USER>
+          [default: ""]
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin key\-backup
+.nf
+Usage: itcmdr\-admin key\-backup [OPTIONS] <COMMAND>
+\&
+Commands:
+  on   Store the encrypted key backup again (needs your 24 words on stdin)
+  off  Opt out: delete the backup from adminsvr
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin key\-backup on
+.nf
+Store the encrypted key backup again (needs your 24 words on stdin)
+\&
+Usage: itcmdr\-admin key\-backup on [OPTIONS]
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin key\-backup off
+.nf
+Opt out: delete the backup from adminsvr
+\&
+Usage: itcmdr\-admin key\-backup off [OPTIONS]
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin site
+.nf
+Usage: itcmdr\-admin site [OPTIONS] <COMMAND>
+\&
+Commands:
+  create   Create a site; prints its one\-time site token for `itcmdr\-cli adminsvr enroll` on the site
+  list     
+  revoke   
+  metrics  Status history (numbers only), oldest first
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin site create
+.nf
+Create a site; prints its one\-time site token for `itcmdr\-cli adminsvr enroll` on the site
+\&
+Usage: itcmdr\-admin site create [OPTIONS] <NAME>
+\&
+Arguments:
+  <NAME>  
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin site list
+.nf
+Usage: itcmdr\-admin site list [OPTIONS]
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin site revoke
+.nf
+Usage: itcmdr\-admin site revoke [OPTIONS] <SITE>
+\&
+Arguments:
+  <SITE>  
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin site metrics
+.nf
+Status history (numbers only), oldest first
+\&
+Usage: itcmdr\-admin site metrics [OPTIONS] <SITE>
+\&
+Arguments:
+  <SITE>  
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-hours <HOURS>
+          hours back [default: 24]
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin alert
+.nf
+Usage: itcmdr\-admin alert [OPTIONS] <COMMAND>
+\&
+Commands:
+  list     
+  ack      
+  resolve  
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin alert list
+.nf
+Usage: itcmdr\-admin alert list [OPTIONS]
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-site <SITE>
+          [default: ""]
+      \-\-state <STATE>
+          [default: open]
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-limit <LIMIT>
+          [default: 200]
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin alert ack
+.nf
+Usage: itcmdr\-admin alert ack [OPTIONS] <SITE> <ALERT>
+\&
+Arguments:
+  <SITE>   
+  <ALERT>  
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin alert resolve
+.nf
+Usage: itcmdr\-admin alert resolve [OPTIONS] <SITE> <ALERT>
+\&
+Arguments:
+  <SITE>   
+  <ALERT>  
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin backup
+.nf
+Usage: itcmdr\-admin backup [OPTIONS] <COMMAND>
+\&
+Commands:
+  start  Ask a site to start a local backup (the archive stays on the site)
+  drill  Ask a site to run its restore drill: it checks its newest backup on\-site and reports only ok/failed (adminsvr never sees the archive)
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin backup start
+.nf
+Ask a site to start a local backup (the archive stays on the site)
+\&
+Usage: itcmdr\-admin backup start [OPTIONS] <SITE>
+\&
+Arguments:
+  <SITE>  
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin backup drill
+.nf
+Ask a site to run its restore drill: it checks its newest backup on\-site and reports only ok/failed (adminsvr never sees the archive)
+\&
+Usage: itcmdr\-admin backup drill [OPTIONS] <SITE>
+\&
+Arguments:
+  <SITE>  
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin command
+.nf
+Usage: itcmdr\-admin command [OPTIONS] <COMMAND>
+\&
+Commands:
+  list     
+  show     State, result and preview of one command
+  approve  Be the second person for a two\-person command (owners/admins, not the requester)
+  reject   
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin command list
+.nf
+Usage: itcmdr\-admin command list [OPTIONS] [SITE]
+\&
+Arguments:
+  [SITE]  [default: ""]
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin command show
+.nf
+State, result and preview of one command
+\&
+Usage: itcmdr\-admin command show [OPTIONS] <ID>
+\&
+Arguments:
+  <ID>  
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin command approve
+.nf
+Be the second person for a two\-person command (owners/admins, not the requester)
+\&
+Usage: itcmdr\-admin command approve [OPTIONS] <ID>
+\&
+Arguments:
+  <ID>  
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin command reject
+.nf
+Usage: itcmdr\-admin command reject [OPTIONS] <ID>
+\&
+Arguments:
+  <ID>  
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin audit
+.nf
+Usage: itcmdr\-admin audit [OPTIONS] <COMMAND>
+\&
+Commands:
+  list    
+  verify  
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin audit list
+.nf
+Usage: itcmdr\-admin audit list [OPTIONS]
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-user <USER>
+          [default: ""]
+      \-\-limit <LIMIT>
+          [default: 50]
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin audit verify
+.nf
+Usage: itcmdr\-admin audit verify [OPTIONS]
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin passkey
+.nf
+Passkeys / security keys: the optional second factor (needs libfido2's tools)
+\&
+Usage: itcmdr\-admin passkey [OPTIONS] <COMMAND>
+\&
+Commands:
+  add     Register the security key that is plugged in
+  list    
+  remove  Remove one of your passkeys
+  reset   Owner/admin: remove another user's lost passkey (they then add a new one)
+  lock    Lock this device's key with a registered passkey (hmac\-secret)
+  unlock  Store this device's key unlocked again (one touch)
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin passkey add
+.nf
+Register the security key that is plugged in
+\&
+Usage: itcmdr\-admin passkey add [OPTIONS] \-\-label <LABEL>
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-label <LABEL>
+          
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-unlock
+          Also lock this device's key with it (hmac\-secret): every use then needs a touch
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin passkey list
+.nf
+Usage: itcmdr\-admin passkey list [OPTIONS] [USER]
+\&
+Arguments:
+  [USER]  [default: ""]
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin passkey remove
+.nf
+Remove one of your passkeys
+\&
+Usage: itcmdr\-admin passkey remove [OPTIONS] <CREDENTIAL_ID>
+\&
+Arguments:
+  <CREDENTIAL_ID>  
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin passkey reset
+.nf
+Owner/admin: remove another user's lost passkey (they then add a new one)
+\&
+Usage: itcmdr\-admin passkey reset [OPTIONS] <USER> <CREDENTIAL_ID>
+\&
+Arguments:
+  <USER>           
+  <CREDENTIAL_ID>  
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin passkey lock
+.nf
+Lock this device's key with a registered passkey (hmac\-secret)
+\&
+Usage: itcmdr\-admin passkey lock [OPTIONS]
+\&
+Options:
+      \-\-credential\-id <CREDENTIAL_ID>
+          
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin passkey unlock
+.nf
+Store this device's key unlocked again (one touch)
+\&
+Usage: itcmdr\-admin passkey unlock [OPTIONS]
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin policy
+.nf
+Which actions need a passkey touch, and for which roles a passkey is required (owners set it)
+\&
+Usage: itcmdr\-admin policy [OPTIONS] <COMMAND>
+\&
+Commands:
+  show  
+  set   Replace the policy (owners). Lists are comma separated; empty = none
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin policy show
+.nf
+Usage: itcmdr\-admin policy show [OPTIONS]
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin policy set
+.nf
+Replace the policy (owners). Lists are comma separated; empty = none
+\&
+Usage: itcmdr\-admin policy set [OPTIONS] \-\-stepup <STEPUP>
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-stepup <STEPUP>
+          AdminApi methods that need a touch, e.g. SetRole,RevokeDevice
+      \-\-required\-roles <REQUIRED_ROLES>
+          Roles that must have a passkey, e.g. owner [default: ""]
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+      \-\-uv
+          Require user verification (PIN or biometric) on every touch
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin push
+.nf
+Push notifications for alerts on this device (FCM / APNs token; the admin app does this itself)
+\&
+Usage: itcmdr\-admin push [OPTIONS] <COMMAND>
+\&
+Commands:
+  register    
+  unregister  Remove a token (no token: every token of this device)
+  test        Send a test push to your own devices
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin push register
+.nf
+Usage: itcmdr\-admin push register [OPTIONS] \-\-provider <PROVIDER> \-\-token <TOKEN>
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-provider <PROVIDER>
+          fcm | apns
+      \-\-token <TOKEN>
+          
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-platform <PLATFORM>
+          [default: ""]
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin push unregister
+.nf
+Remove a token (no token: every token of this device)
+\&
+Usage: itcmdr\-admin push unregister [OPTIONS]
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-token <TOKEN>
+          [default: ""]
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin push test
+.nf
+Send a test push to your own devices
+\&
+Usage: itcmdr\-admin push test [OPTIONS]
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin org
+.nf
+Org\-wide settings: whether every approval needs a second owner/admin (owners set it)
+\&
+Usage: itcmdr\-admin org [OPTIONS] <COMMAND>
+\&
+Commands:
+  policy  Show the org policy; `\-\-second\-approver on|off` changes it (owner only, audited)
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin org policy
+.nf
+Show the org policy; `\-\-second\-approver on|off` changes it (owner only, audited)
+\&
+Usage: itcmdr\-admin org policy [OPTIONS]
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-second\-approver <SECOND_APPROVER>
+          
+      \-\-deep\-check\-days <DEEP_CHECK_DAYS>
+          Warn when a site's last deep backup check is older than this many days (default 90)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin release
+.nf
+Server/agent releases: approve one once, then roll it out to sites (v0.21.0)
+\&
+Usage: itcmdr\-admin release [OPTIONS] <COMMAND>
+\&
+Commands:
+  list     Server and agent releases in the catalog, and who approved each
+  approve  Sign a one\-time approval of a release (owners/admins)
+  rollout  Roll an approved release out to a site, in its update window; `\-\-now` ignores the window
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin release list
+.nf
+Server and agent releases in the catalog, and who approved each
+\&
+Usage: itcmdr\-admin release list [OPTIONS]
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin release approve
+.nf
+Sign a one\-time approval of a release (owners/admins)
+\&
+Usage: itcmdr\-admin release approve [OPTIONS] <SHA256>
+\&
+Arguments:
+  <SHA256>  
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin release rollout
+.nf
+Roll an approved release out to a site, in its update window; `\-\-now` ignores the window
+\&
+Usage: itcmdr\-admin release rollout [OPTIONS] <SITE> <SHA256>
+\&
+Arguments:
+  <SITE>    
+  <SHA256>  
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-now
+          
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin config
+.nf
+A site's settings and schedules as adminsvr sees them; set a setting (v0.20.0)
+\&
+Usage: itcmdr\-admin config [OPTIONS] <COMMAND>
+\&
+Commands:
+  show  
+  set   Set a remote\-settable setting (numbers, switches, times)
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin config show
+.nf
+Usage: itcmdr\-admin config show [OPTIONS] <SITE>
+\&
+Arguments:
+  <SITE>  
+\&
+Options:
+      \-\-all
+          also settings whose values stay on the site
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin config set
+.nf
+Set a remote\-settable setting (numbers, switches, times)
+\&
+Usage: itcmdr\-admin config set [OPTIONS] <SITE> <KEY> <VALUE>
+\&
+Arguments:
+  <SITE>   
+  <KEY>    
+  <VALUE>  
+\&
+Options:
+      \-\-dry\-run
+          preview only: the site checks and shows before/after, changes nothing
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin schedule
+.nf
+Run, pause or resume a site's schedule (by the id from `config show`)
+\&
+Usage: itcmdr\-admin schedule [OPTIONS] <COMMAND>
+\&
+Commands:
+  run     
+  pause   
+  resume  
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin schedule run
+.nf
+Usage: itcmdr\-admin schedule run [OPTIONS] <SITE> <ID>
+\&
+Arguments:
+  <SITE>  
+  <ID>    
+\&
+Options:
+      \-\-dry\-run
+          
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin schedule pause
+.nf
+Usage: itcmdr\-admin schedule pause [OPTIONS] <SITE> <ID>
+\&
+Arguments:
+  <SITE>  
+  <ID>    
+\&
+Options:
+      \-\-dry\-run
+          
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin schedule resume
+.nf
+Usage: itcmdr\-admin schedule resume [OPTIONS] <SITE> <ID>
+\&
+Arguments:
+  <SITE>  
+  <ID>    
+\&
+Options:
+      \-\-dry\-run
+          
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin plugin
+.nf
+Plugin catalog, a site's plugins, enable/disable/push (two\-person)
+\&
+Usage: itcmdr\-admin plugin [OPTIONS] <COMMAND>
+\&
+Commands:
+  catalog  Packages in adminsvr's catalog
+  upload   Add a signed package (.tar.gz) to the catalog (owners/admins; adminsvr can't sign)
+  status   Installed plugins and quarantine of a site
+  push     Push a catalog package to a site (two\-person: a second owner/admin approves)
+  enable   
+  disable  
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin plugin catalog
+.nf
+Packages in adminsvr's catalog
+\&
+Usage: itcmdr\-admin plugin catalog [OPTIONS]
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin plugin upload
+.nf
+Add a signed package (.tar.gz) to the catalog (owners/admins; adminsvr can't sign)
+\&
+Usage: itcmdr\-admin plugin upload [OPTIONS] <FILE>
+\&
+Arguments:
+  <FILE>  
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin plugin status
+.nf
+Installed plugins and quarantine of a site
+\&
+Usage: itcmdr\-admin plugin status [OPTIONS] <SITE>
+\&
+Arguments:
+  <SITE>  
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin plugin push
+.nf
+Push a catalog package to a site (two\-person: a second owner/admin approves)
+\&
+Usage: itcmdr\-admin plugin push [OPTIONS] <SITE> <SHA256>
+\&
+Arguments:
+  <SITE>    
+  <SHA256>  
+\&
+Options:
+      \-\-dry\-run
+          
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin plugin enable
+.nf
+Usage: itcmdr\-admin plugin enable [OPTIONS] <SITE> <NAME>
+\&
+Arguments:
+  <SITE>  
+  <NAME>  
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-version <VERSION>
+          [default: ""]
+      \-\-dry\-run
+          
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin plugin disable
+.nf
+Usage: itcmdr\-admin plugin disable [OPTIONS] <SITE> <NAME>
+\&
+Arguments:
+  <SITE>  
+  <NAME>  
+\&
+Options:
+      \-\-dry\-run
+          
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin freeze
+.nf
+Global freeze of every command (owners)
+\&
+Usage: itcmdr\-admin freeze [OPTIONS] <COMMAND>
+\&
+Commands:
+  status  
+  on      
+  off     
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin freeze status
+.nf
+Usage: itcmdr\-admin freeze status [OPTIONS]
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin freeze on
+.nf
+Usage: itcmdr\-admin freeze on [OPTIONS]
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH COMMAND: itcmdr\-admin freeze off
+.nf
+Usage: itcmdr\-admin freeze off [OPTIONS]
+\&
+Options:
+      \-\-home <HOME>
+          Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
+      \-\-trust\-fingerprint <TRUST_FINGERPRINT>
+          v1.1.0: trust adminsvr's certificate when it is not trusted by this system (self\-signed or private CA): only this exact SHA\-256 is accepted, and it is remembered for this server
+      \-\-trust\-anyway
+          Also accept that certificate when it is expired or does not match the name (explicit override)
+  \-h, \-\-help
+          Print help
+.fi
+.SH ENVIRONMENT
+.TP
+.B ITCMDR_ADMIN_HOME
+this device's identity folder (default: the user config folder)
+.TP
+.B ITCMDR_FIDO2_DEVICE
+libfido2 device path for passkeys (default: the first one)
+.TP
+.B ITCMDR_EXTRA_ROOTS
+extra PEM root files added to the system trust store (PATH\-style list)
+.TP
+.B ITCMDR_ADMINSVR_ENV_FILE
+KEY=VALUE settings file
+.TP
+.B ITCMDR_ADMINSVR_DB_URL
+postgres://... or sqlite://<path> (default SQLite in the data folder)
+.TP
+.B ITCMDR_ADMINSVR_DATA_DIR
+data folder (default /var/lib/itcmdr\-adminsvr)
+.TP
+.B ITCMDR_ADMINSVR_API_ADDR
+admin API listen address (default 0.0.0.0:8444)
+.TP
+.B ITCMDR_ADMINSVR_SITE_ADDR
+SiteLink listen address (default 0.0.0.0:8443)
+.TP
+.B ITCMDR_ADMINSVR_PUBLIC_API
+host:port clients use (put into enrollment codes)
+.TP
+.B ITCMDR_ADMINSVR_PUBLIC_SITE
+host:port sites use (put into site tokens)
+.TP
+.B ITCMDR_ADMINSVR_TLS_NAMES
+extra internal certificate names, comma separated
+.TP
+.B ITCMDR_ADMINSVR_HEARTBEAT_SECS
+site status interval (default 60)
+.TP
+.B ITCMDR_ADMINSVR_SITE_MISSED
+missed heartbeats before a site is down (default 5)
+.TP
+.B ITCMDR_ADMINSVR_RP_ID
+WebAuthn RP id (default: the host of the public API)
+.TP
+.B ITCMDR_ADMINSVR_WEB_ORIGINS
+extra WebAuthn origins, comma separated
+.TP
+.B ITCMDR_ADMINSVR_FCM_SERVICE_ACCOUNT
+Firebase service account JSON (push to Android)
+.TP
+.B ITCMDR_ADMINSVR_FCM_URL
+FCM endpoint override
+.TP
+.B ITCMDR_ADMINSVR_APNS_KEY
+APNs .p8 auth key file
+.TP
+.B ITCMDR_ADMINSVR_APNS_KEY_ID
+APNs key id
+.TP
+.B ITCMDR_ADMINSVR_APNS_TEAM_ID
+Apple team id
+.TP
+.B ITCMDR_ADMINSVR_APNS_TOPIC
+the admin app's bundle id
+.TP
+.B ITCMDR_ADMINSVR_APNS_URL
+APNs endpoint (sandbox for development builds)
+.TP
+.B ITCMDR_ADMINSVR_PUSH_MIN_SEVERITY
+lowest pushed severity (default cautious)
+.TP
+.B ITCMDR_ADMINSVR_ACME_DOMAINS
+Let's Encrypt names for the admin API, comma separated (empty = off)
+.TP
+.B ITCMDR_ADMINSVR_ACME_CONTACT
+ACME account contact e\-mail(s)
+.TP
+.B ITCMDR_ADMINSVR_ACME_DIRECTORY
+production, staging or a directory URL (default production)
+.TP
+.B ITCMDR_ADMINSVR_ACME_DIRECTORY_ROOT
+PEM root for a test CA's directory
+.TP
+.B ITCMDR_ADMINSVR_ACME_CHALLENGE
+tls\-alpn\-01 (default) or http\-01
+.TP
+.B ITCMDR_ADMINSVR_ACME_HTTP_ADDR
+HTTP\-01 listener (default 0.0.0.0:80)
+.TP
+.B ITCMDR_ADMINSVR_ACME_CACHE_DIR
+account key and certificate (default <data dir>/acme)
+.TP
+.B ITCMDR_ADMINSVR_ACME_RENEW_DAYS
+renew this many days before expiry (default 30)
+.TP
+.B ITCMDR_ADMINSVR_ACME_RETRY_SECS
+wait after a failed attempt (default 3600)
+.SH SEE ALSO
+\fBitcmdr\fR(7), docs/README.md (also the in-app help: \fBitcmdr-cli help\fR, \fBitcmdr-admin help\fR)

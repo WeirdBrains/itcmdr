@@ -1,4 +1,4 @@
-//! v0.19.0 adminsvr: the offsite admin server (docs/design/ADMINSVR.md).
+//! v0.19.0 adminsvr: the offsite admin server (docs/historical/1.0/design/ADMINSVR.md).
 //! - Postgres store (`store`), signed admin API (`api`, same request signing as the site),
 //!   owner/admin/sre RBAC (`rbac`), hash-chained audit of every signed change (`audit`).
 //! - SiteLink (`link`): sites dial in over pinned TLS + mTLS and send redacted status and alerts;

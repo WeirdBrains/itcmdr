@@ -1,4 +1,4 @@
-//! Site alerts (v0.16.0, docs/design/SERVER-AGENT.md section 5).
+//! Site alerts (v0.16.0, docs/historical/1.0/design/SERVER-AGENT.md section 5).
 //!
 //! Levels: critical | cautious | informational. Sources: plugin (plugin errors), check (agent check results),
 //! backup (scheduled/manual backup outcome), package (quarantine), server. There are no external notifiers:

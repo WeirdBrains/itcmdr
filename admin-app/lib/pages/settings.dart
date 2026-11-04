@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 
 import '../backend.dart';
+import '../help_page.dart';
 import '../push.dart';
 import '../session.dart';
 import 'servers.dart' show confirm, kv;
@@ -133,6 +134,20 @@ class _SettingsPageState extends State<SettingsPage> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        ListTile(
+          key: const Key('open-help'),
+          leading: const Icon(Icons.help_outline),
+          title: const Text('Help'),
+          subtitle: const Text('Guides for adminsvr, the app and the CLI'),
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => Scaffold(
+                appBar: AppBar(title: const Text('Help')),
+                body: const HelpPage(topic: 'admin-app'),
+              ),
+            ),
+          ),
+        ),
         Text('You', style: t.titleMedium),
         kv('Name', me.name),
         kv('Email', me.email),

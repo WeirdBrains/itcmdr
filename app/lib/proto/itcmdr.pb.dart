@@ -8047,7 +8047,7 @@ class GetRestoreStatusResponse extends $pb.GeneratedMessage {
   RestoreStatus ensureStatus() => $_ensure(0);
 }
 
-/// v0.21.0: agent rollouts through the rings (docs/design/SERVER-AGENT.md section 8).
+/// v0.21.0: agent rollouts through the rings (docs/historical/1.0/design/SERVER-AGENT.md section 8).
 class AgentRollout extends $pb.GeneratedMessage {
   factory AgentRollout({
     $core.String? id,

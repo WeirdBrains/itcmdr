@@ -3,7 +3,7 @@
 //!
 //! Key material: BIP39 words -> master keys, fingerprints, certificates, db.key escrow.
 //!
-//! Derivation (all v1, documented in server/PLAN.md decision 4/12):
+//! Derivation (all v1, documented in docs/historical/1.0/SERVER-PLAN.md decision 4/12):
 //! - seed = BIP39 seed of the 24 words, empty passphrase (64 bytes)
 //! - master Ed25519 secret = HKDF (SHA-256)(salt "itcmdr", ikm seed, info "itcmdr/master/ed25519/v1")
 //! - master X25519 secret  = HKDF (SHA-256)(salt "itcmdr", ikm seed, info "itcmdr/master/x25519/v1")

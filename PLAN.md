@@ -1,7 +1,7 @@
 # itcmdr roadmap
 
 Phases, releases and their status. **Statuses live here only.** The service plugin design (decisions
-#1-#11) is in [server/PLAN.md](server/PLAN.md); day-to-day handover notes are in
+#1-#11) is in [docs/historical/1.0/SERVER-PLAN.md](docs/historical/1.0/SERVER-PLAN.md); day-to-day handover notes are in
 [docs/HANDOVER.md](docs/HANDOVER.md). Keep this file updated in every commit, like the handover.
 Placeholders only (SERVER01, WS-01, 198.51.100.x); real site details go in the gitignored HANDOVER.local.md.
 
@@ -70,7 +70,7 @@ Upgrading from the combined v0.14.2 installer: each split package takes over its
 
 Branding (v0.14.3): `branding/` holds the SVG masters, `build.py` and the rendered sets. The office icon is wired into the Windows app, the web icons, the Linux bundle (hicolor icons + `itcmdr.desktop`) and every installer. Android `res/` and the iOS `AppIcon.appiconset` (office and admin) are wired when `flutter create --platforms android,ios` runs (the mobile store work); the admin set is for the v0.19.0 SRE app. Tray/notification monochrome icons stay in `branding/` (no tray usage yet).
 
-### Proposed: server, agents and adminsvr (docs/design/SERVER-AGENT.md, docs/design/ADMINSVR.md; decisions recorded 2026-10-31; not started)
+### Proposed: server, agents and adminsvr (docs/historical/1.0/design/SERVER-AGENT.md, docs/historical/1.0/design/ADMINSVR.md; decisions recorded 2026-10-31; not started)
 
 Key backup on by default (opt-out), locked with the 24 words; COOP/COEP accepted. Pending: Mac build/signing step for iOS/macOS; adminsvr agent design (Michael); rootless Podman on alien-blue (needs sudo).
 
@@ -115,156 +115,8 @@ Key backup on by default (opt-out), locked with the 24 words; COOP/COEP accepted
 
 ## Phases
 
-### v0.1.0 Scaffold ✅
-- [x] PowerShell agent, Rust gRPC server, Flutter app, Inno Setup installer, CI workflows
-
-### v0.1.1 CI without third-party actions ✅
-- [x] Workflows rewritten with no third-party actions (rustup, pinned Flutter clone, gh release), because of the org actions allowlist
-
-### v0.2.0 Audit fixes batch 1 ✅
-- [x] Idempotent, timestamp-correct ingest incl. nested zips
-- [x] Windows service + console mode
-- [x] ISO-aligned rotation: weekly → 4-week blocks (B01-B13, week 53 in B13) → ISO yearly, verified manifests
-- [x] Metrics/rollups daily, weekly, 4-week block, ISO yearly
-- [x] On-demand loop (poller, per-machine locks, responses → request status)
-- [x] Exceptions format, validation, export; add/edit/expire in the app
-- [x] Token auth for mutating calls + audit log
-- [x] PowerShell 5.1 compatibility
-
-### v0.3.0 Agent checks ✅
-- [x] Scanner reachability (3D unit allowed via an exception rule)
-- [x] DNS records (expected / forbidden addresses)
-- [x] Drive maps per logged-on user
-- [x] Printer queues + spooler (server and workstation views)
-- [x] ExampleVendor drift, detect/report only
-- [x] `skipped` check status; `configuration` category in the app
-
-### v0.4.0 Metrics, charts, log search ✅
-- [x] Flapping checks and repeat offenders
-- [x] Bar charts (incidents, average uptime) in the app
-- [x] Log search: category/status/time filters, newest first, paging
-- [x] Private handover moved to the gitignored `HANDOVER.local.md`
-
-### v0.5.0 Backup, locks, timeouts, gRPC test ✅
-- [x] Backup coverage check (sources, scheduled tasks, destinations), report only
-- [x] Stale poller lock cleanup (150 min)
-- [x] Request timeouts (`TIMED_OUT`, default 3 h)
-- [x] gRPC integration test against a real server
-
-### v0.5.1-v0.5.3 Plugin plan docs ✅
-- [x] server/PLAN.md: Michael's plan + agreed implementation plan (decisions 1-9), fixed TOML example (v0.5.1)
-- [x] Decision 10: built-in checks as plugins → v0.11.0 (v0.5.2)
-- [x] Decision 11: plugin log path, `itcmdr.log/v1`, metrics from logs (v0.5.3)
-
-### v0.6.0 Storage ✅
-- [x] Data dir `%ProgramData%\itcmdr` / `~/.itcmdr`, override `--data-dir` > `ITCMDR_DATA_DIR` > `data_dir`
-- [x] Layout: `service_plugins/`, `quarantine/`, `keys/`, `plugin-logs/`, `itcmdr.database`
-- [x] SQLCipher (bundled, vendored OpenSSL); key in `keys/db.key` (DPAPI on Windows, 0600 on Linux)
-- [x] roles / users / clients / server_meta tables (UUID ids, public keys, unique fingerprints)
-- [x] Automatic migration of the plaintext DB with row-count verification
-
-### v0.6.1 Roadmap ✅
-- [x] This file
-
-### v0.6.2 Storage follow-up ✅
-- [x] Read the encrypted DB back after migration; matching row counts → plaintext backup overwritten, deleted, logged
-- [x] Backup kept (error logged) when the read-back fails or counts differ
-
-### v0.7.0 Keys & auth ✅
-- [x] 24 BIP39 words → master Ed25519 + X25519 (HKDF, pinned test vector); only the master public keys stored; words printed once by `itcmdr-server init`
-- [x] Root client keypair at init (role owner, `keys/root`, DPAPI / 0600)
-- [x] Client/user keys certified by the master; registration checks the certificate against key, kind, role, name
-- [x] Signed requests (fingerprint, ts, nonce, signature), ±5 min window, nonce replay cache, roles owner > admin > user > client
-- [x] Revocation (effective immediately)
-- [x] db.key escrow under the master key (`keys/db.key.escrow`, X25519 + HKDF + XChaCha20-Poly1305); `itcmdr-server recover-db-key` re-protects it with DPAPI / 0600 (decision 12)
-- [~] Retire the shared admin token: `auth_mode = signed` does it; default stays `both` until v0.12.0 (the app can't sign yet)
-
-### v0.8.0 itcmdr-cli + backup & restore ✅
-- [x] `itcmdr-cli` (installed next to the server): `init`, `recover-db-key`, `service register --name`, `user add`, `keys certify|new|register|list|revoke|rotate`
-- [x] Offline certification from the words (`keys certify` / `keys new` need no data dir; words only on stdin)
-- [x] Backup archive: consistent SQLCipher snapshot + db.key escrow + config, encrypted for the master key, signed by the root key, manifest with versions/schema/sha256 (`docs/BACKUP.md`)
-- [x] `backup create|list|verify [--deep]|prune`, `restore --from <archive> [--dry-run]` (safety copy, schema check, db.key from the words, new root key)
-- [x] RPCs `CreateBackup`, `ListBackups`, `VerifyBackup` (admin/owner, audited); restore is CLI-only (server stopped)
-- [x] Nightly backup (server.json `backup`, default 02:00 local) with daily/weekly/monthly retention
-- [x] Tests: round trip on a fresh data dir with only the words, tampered/foreign archive rejected, consistent under writes, retention, RPC roles + audit, CLI end to end
-- [x] Signing: canonical encoding rules + pinned vectors (`docs/SIGNING.md`); Dart side in v0.12.0
-
-### v0.8.1 Configurable paths ✅
-- [x] site.json `paths.localLogs` / `paths.agentData` in every agent script (agent, poller, rotation fallback, backup report); Pester tests
-- [x] Installer `/DLocalLogs` (build) and `/LocalLogs` (install) for the local log folder
-- [x] `GetSettings` / `UpdateSettings` for backup dir, nightly, hour, retention (admin, audited, folder must exist + be writable); DB overrides beat server.json
-- [x] `itcmdr-cli config get|set|unset backup.*`
-- [x] Backup retention: 7 daily, 4 weekly, 13 four-week blocks (was 12 months)
-- [x] Plans: decisions 14 (scheduled runs, default schedules + cutover) and 15 (configurable paths)
-
-### v0.9.0 Packages ✅
-- [x] package.toml (`[[files]]`, `main = true`), exact file list, sha256, admin/owner signature (`package.sig`)
-- [x] Safe unpack (no absolute paths, `..`, symlinks, hard links); failures → `quarantine/` + index + log + audit, install denied
-- [x] `plugins install --url|--path [--enable]` (v0.9.1: enabled by default, `--disabled`), list, enable, disable, remove, quarantine; install dir `{name}-{version}`; `plugins pack` builds and signs
-- [x] Plugin files and the quarantine index in backup archives
-- [x] Tests: every rejection case quarantines, management + audit, URL install, backup round trip, CLI end to end
-
-### v0.9.1 Settings everywhere ✅
-- [x] Audit every hard-coded value (agent, server, installer, app) → 29 settings with today's defaults (`docs/SETTINGS.md`)
-- [x] Typed settings registry (int with range, bool, time, path, text; read-only keys) + `ListSettings` / `UpdateSetting` (validated, admin/owner, audited); `GetSettings` / `UpdateSettings` (backup block) kept
-- [x] Runtime wired: ingest interval, request timeout, DB retention, flap/repeat thresholds, clock-skew window, search limits, package size limit
-- [x] `itcmdr-cli config list|get|set|unset [--machine]` for every key, audit-logged
-- [x] Agent settings served centrally (`agent-settings.json` on the share: global + per machine), site.json as local override, cached in agentData; agent, poller and installer read them
-- [x] `docs/SETTINGS.md`: name, default, scope, type/range, when it applies, who can change it
-- [x] Basic app Settings screen on the API (server/agent tabs, per-machine view, edit with validation, reset); full section in v0.12.0
-- [x] Plugins (Michael, t393u): validated packages enabled on install, `--disabled`, `--enable` kept as a no-op, setting `plugins.enable_on_install`
-- [x] Plan: decision 13 gets the app-triggered restore (StageRestore, restore helper, rollback), server side placed in v0.10.0
-- [x] Tests: defaults = current behaviour, overrides apply (search, metrics, plugins), validation, RPC roles + audit, agent picks up central settings (Pester)
-
-### v0.10.0 Plugin runtime ✅
-- [x] `PluginService` proto (Describe, Verify, Execute, Log), child process + per-launch secret handshake
-- [x] `itcmdr-plugin` Rust crate; PowerShell module + `itcmdr-plugin-ps` host (PS 5.1)
-- [x] Verify then Execute; failed Verify skips Execute; Log on error; timeouts
-- [x] Per-run log path (`ITCMDR_LOG_PATH`, `<data>/plugin-logs/<plugin>/<date>.jsonl`), log/metric helpers
-- [x] Hooks into on-demand runs and the audit log
-- [x] `itcmdr.log/v1` schema doc, validator, reject counts, generic metrics ingest, `GetPluginMetrics` (decision 11, moved from v0.9.0)
-- [x] Scheduled runs (decision 14): schedules table, scheduler queueing via the on-demand path, cron/presets with timezone + DST, clinical guard, max concurrency, missed-run policy, history + next runs
-- [x] Schedule RPCs (admin manage, user run-now, audited) and `itcmdr-cli schedule add|list|edit|rm|pause|resume|run-now|history`
-- [x] App-triggered restore (decision 13): `StageRestore` (owner, audited, archive verified, words over the authenticated channel, sealing client-side deferred) writes a restore job; `itcmdr-restore` helper stops the service, takes the safety copy, restores, restarts; `GetRestoreStatus` polling; automatic rollback when the health check fails
-- [x] `itcmdr-cli plugins run|runs`; plugin logs in the weekly rotation and server backups
-- [x] Tests: PS host stages + verify-fail + Log + v1 lines, bin plugins, bad handshake, metrics + rejects, on-demand plugin requests, scheduler (fire, concurrency, missed skip/catch-up, guard, groups, DST), schedule RPC roles + audit + CLI, restore done + forced rollback + roles + wrong words, Pester module + rotation
-
-### v0.11.0 Built-in checks as plugins ✅
-Agreed 2026-10-30: agents run only the plugin copies shipped with the agent, never copies pulled from the share or the network; plugin packages are fetched (HTTPS) and run by the server only. A signed share index is deferred.
-- [x] Network/connectivity, scanners, config (DNS, drive maps, printers, ExampleVendor drift), backup coverage, services as five plugins over one shared check library
-- [x] Pester: plugin versions give the same records as the built-in functions (scanners incl. exception and role filter, ExampleVendor drift, backup coverage, network, services)
-- [x] Clinical guard, exceptions, report-only rules unchanged; one itcmdr.log/v1 line per check
-- [x] Side-by-side report-only run on every nightly with a `parity` line; switch gated on 7 clean days; built-in functions stay as per-plugin fallback
-- [x] Default schedules seeded on every start/upgrade (idempotent); editable/pausable; delete needs owner/admin + `--confirm <name>` and is remembered; reset-to-default
-- [x] Safe cutover: task stays source of truth, agent schedule paused; `cutover switch` needs 7 clean parity days + VM flag + agents reading `schedule-state.json`
-- [x] After switch: task disabled (kept), `itcmdr-cli cutover rollback` / `Set-ItcmdrCutover.ps1 -To task`; poller runs locally when the server is unreachable
-- [x] Tests: Rust (seeding, defaults, delete/reset, backup schedule, gate, switch/rollback, DST) and Pester (parity, cutover, fallback, end to end); Windows VM under PS 5.1
-- [ ] Real installs: collect a week of parity, then `cutover vm-verified` + `cutover switch` (on site, by Michael)
-
-### v0.12.0 Flutter ✅
-- [x] Service Plugins section: list, run, recent runs, metric charts (install and enable/disable added in v0.13.0)
-- [x] Keys: make or import a key, WhoAmI, the offline certify command, owner register and revoke
-- [x] Plugin metric charts
-- [x] Backup & Restore screen (sealed words, dry run, then restore)
-- [x] Schedules screen (preview, edit, pause, run now, history)
-- [x] Settings: search, bool switches, client check of every registry key
-- [x] App signs requests; default `auth_mode` is `signed` (older installs keep `both`)
-- [x] Windows VM: Pester 82/82, installer, in-place upgrade, Dart e2e on Windows (2084630). App screens clicked through by Michael (passed).
-
-### v0.13.0 Key storage, plugins in the app, signed-only ✅
-- [x] App private key encrypted at rest: DPAPI (Windows), Secret Service keyring or a documented 0600 file fallback (Linux), Keychain (macOS); plaintext key migrated and removed
-- [x] Plugins from the app: install from an HTTPS URL or a file upload (optionally disabled), enable, disable, remove, quarantine list; admin, signed, audited
-- [x] Signed-only switch on the test VM, with the rollback tested; on-site checklist in docs/INSTALL.md
-- [x] App click-through on the VM: passed (Michael)
-- [ ] A real second PC as agent (open)
-
-### v0.14.0 Installer and first-run setup ✅
-- [x] First-run master setup from the installer, words shown once in a console only (`itcmdr-cli setup first-run`)
-- [x] First admin app key registered at first run (DPAPI store on the server PC, or a pasted public key): signed from day one
-- [x] Site values (server.json via `setup apply`, site.json via `Initialize-ItcmdrSite.ps1`), server vs agent roles, existence and writability checks (`setup check`)
-- [x] Upgrades keep existing settings (VM: server.json byte-identical, site.json unchanged)
-- [x] Windows VM: clean install (data backed up and restored), upgrade from v0.13.0
-- [x] Windows VM test items for the plugin system are in the handover (v0.10.0 to v0.13.0 results)
+The finished phases v0.1.0 through v1.0.0 (every checklist), the plugin plan and the design documents are
+archived in [docs/historical/1.0/](docs/historical/1.0/) (PLAN.md, SERVER-PLAN.md, design/, CHANGELOG.md).
 
 ### v1.1.0 HTTPS everywhere, Let's Encrypt for adminsvr (in progress, not tagged)
 - [x] adminsvr ACME (Let's Encrypt), off by default: per-install domains/contact/challenge (TLS-ALPN-01 on the API port or HTTP-01), staging/production, cache dir 0700/0600, renewal ~30 days before expiry with hot reload, fail-safe (keeps the current certificate, opens alert `tls-acme`), `itcmdr-adminsvr tls-status`; enrolled devices and the SiteLink keep the pinned internal certificate
@@ -272,4 +124,7 @@ Agreed 2026-10-30: agents run only the plugin copies shipped with the agent, nev
 - [x] Site server API on HTTPS (plain HTTP only from loopback or with `api_plain_http`), `itcmdr-cli --plain-http` opt-in
 - [x] Tests hold under heavy load: wall-clock deadlines, API/ACME readiness retries, the server joins its DB workers on stop (no exit-time SIGSEGV)
 - [x] Full suite green on 2026-11-04 (fmt, clippy, Rust 200 on SQLite+Postgres, Pester 105/10 skipped, Flutter 50+1 skipped/29); main pushed, not tagged
+- [x] Docs to the Muninn standard: a guide per feature with a docs/README.md index, the same docs as in-app help
+  (`itcmdr-cli help`, `itcmdr-admin help`, Help in both apps), generated man pages with every flag and env var,
+  deploy guides (site server, adminsvr with Let's Encrypt, website), finished plans in docs/historical/1.0/
 - [ ] Windows VM check, release (after v1.0.0 is published)
