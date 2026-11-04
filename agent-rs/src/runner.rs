@@ -11,6 +11,18 @@ use std::time::Duration;
 
 /// Longest a stage may take.
 pub const STAGE_TIMEOUT: Duration = Duration::from_secs(600);
+
+/// How long a plugin may take to print its handshake: 60s by default, or
+/// `ITCMDR_PLUGIN_START_SECS` (a PowerShell plugin's cold start can take longer on a slow or
+/// overloaded machine).
+pub fn start_timeout() -> Duration {
+    let secs = std::env::var("ITCMDR_PLUGIN_START_SECS")
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+        .filter(|s| *s > 0)
+        .unwrap_or(60);
+    Duration::from_secs(secs)
+}
 /// Caps on what a report carries.
 const MAX_LOG_BYTES: usize = 256 * 1024;
 const MAX_ARTIFACT_BYTES: usize = 1024 * 1024;
@@ -170,7 +182,7 @@ async fn stages(
         .env("ITCMDR_MACHINE", &ctx.machine)
         .env("ITCMDR_REPORT_ONLY", "1")
         .env("ITCMDR_ARTIFACT_DIR", art_dir);
-    let launched = itcmdr_plugin::host::launch(cmd, Duration::from_secs(60))
+    let launched = itcmdr_plugin::host::launch(cmd, start_timeout())
         .await
         .with_context(|| format!("starting {}", m.name))?;
     let mut c = launched.client.clone();

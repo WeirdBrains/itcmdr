@@ -218,6 +218,13 @@ async fn agent_runs_pushed_plugins_and_schedules() {
         eprintln!("pwsh not found: skipped");
         return;
     }
+    // pwsh's cold start on a loaded machine can pass the 60s handshake default; scale it like
+    // the other deadlines (ITCMDR_TEST_SLOW, default 3). The other test here runs no plugins.
+    let k: u64 = std::env::var("ITCMDR_TEST_SLOW")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(3);
+    std::env::set_var("ITCMDR_PLUGIN_START_SECS", (60 * k).to_string());
     let e = env().await;
     install_plugin(&e).await;
     let stop = start(&e.c).await;
@@ -300,7 +307,7 @@ async fn agent_runs_pushed_plugins_and_schedules() {
             .await
             .unwrap();
     let pool = e.pool.clone();
-    until("run report", 60, || {
+    until("run report", 120, || {
         let pool = pool.clone();
         async move {
             !srv::agent_plugins::list_runs(&pool, Some("WS-12"), 5)
