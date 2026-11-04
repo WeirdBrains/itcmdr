@@ -93,6 +93,7 @@ Key backup on by default (opt-out), locked with the 24 words; COOP/COEP accepted
 | v0.21.0 | Agent + server self-upgrade (rings, watchdogs, rollback), update window with push-now, approve-once releases from adminsvr, two-person approval as an org option (off by default); Updates screen | ✅ Released 2026-11-02 |
 | v0.22.0 | Retire the share flows; SRE app Windows/macOS builds; adminsvr restore drill | ✅ Released 2026-11-02 (restore drill on-site only) |
 | v1.0.0 | Product website (GitHub Pages from a separate `site` branch, the one allowed branch, site only; custom domain itcmdr.weirdbrains.com; Weird Brains branding), launch announcement (X and the internal Weird Brains Slack, drafted for Michael's review, never posted by us), 1.0 stabilization (nothing published or announced without Michael's review; no office-specific names, IPs or domains on the site) | ✅ Released 2026-11-02 (site branch updated, not live until Pages/DNS are enabled; launch drafts for Michael's review, not posted) |
+| v1.1.0 | HTTPS everywhere, Let's Encrypt for adminsvr (TLS-ALPN-01), self-signed trust pins, docs as man pages and in-app help | ✅ Released 2026-11-04 |
 
 ## Cross-cutting items
 
@@ -118,7 +119,7 @@ Key backup on by default (opt-out), locked with the 24 words; COOP/COEP accepted
 The finished phases v0.1.0 through v1.0.0 (every checklist), the plugin plan and the design documents are
 archived in [docs/historical/1.0/](docs/historical/1.0/) (PLAN.md, SERVER-PLAN.md, design/, CHANGELOG.md).
 
-### v1.1.0 HTTPS everywhere, Let's Encrypt for adminsvr (in progress, not tagged)
+### v1.1.0 HTTPS everywhere, Let's Encrypt for adminsvr ✅
 - [x] adminsvr ACME (Let's Encrypt), off by default: per-install domains/contact/challenge (TLS-ALPN-01 on the API port or HTTP-01), staging/production, cache dir 0700/0600, renewal ~30 days before expiry with hot reload, fail-safe (keeps the current certificate, opens alert `tls-acme`), `itcmdr-adminsvr tls-status`; enrolled devices and the SiteLink keep the pinned internal certificate
 - [x] Apps and CLIs: HTTPS with system-trust validation; otherwise review and trust exactly that certificate per server (TOFU), changed certificates blocked until reviewed, expired/wrong-name need "trust anyway", trusted certificates listed and removable; no global ignore switch
 - [x] Site server API on HTTPS (plain HTTP only from loopback or with `api_plain_http`), `itcmdr-cli --plain-http` opt-in
@@ -127,4 +128,5 @@ archived in [docs/historical/1.0/](docs/historical/1.0/) (PLAN.md, SERVER-PLAN.m
 - [x] Docs to the Muninn standard: a guide per feature with a docs/README.md index, the same docs as in-app help
   (`itcmdr-cli help`, `itcmdr-admin help`, Help in both apps), generated man pages with every flag and env var,
   deploy guides (site server, adminsvr with Let's Encrypt, website), finished plans in docs/historical/1.0/
-- [ ] Windows VM check, release (after v1.0.0 is published)
+- [x] Windows VM check (2026-11-04): upgrade over 1.0.0, HTTPS on 50051 with the pinned certificate, plain HTTP from loopback only (network only with `api_plain_http`), adminsvr self-signed trust pins (pinned info/enroll, changed certificate blocked, review + replace, wrong fingerprint refused), real breaks (killed server, watchdog, both, agent: all came back; agent online again); agentlink trust tests on Windows
+- [x] Released v1.1.0 (19 files: 7 Windows, 5 Linux, 6 macOS/Android, SHA256SUMS)
