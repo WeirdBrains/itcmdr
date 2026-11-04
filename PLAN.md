@@ -132,8 +132,8 @@ archived in [docs/historical/1.0/](docs/historical/1.0/) (PLAN.md, SERVER-PLAN.m
 - [x] Windows VM check (2026-11-04): upgrade over 1.0.0, HTTPS on 50051 with the pinned certificate, plain HTTP from loopback only (network only with `api_plain_http`), adminsvr self-signed trust pins (pinned info/enroll, changed certificate blocked, review + replace, wrong fingerprint refused), real breaks (killed server, watchdog, both, agent: all came back; agent online again); agentlink trust tests on Windows
 - [x] Released v1.1.0 (19 files: 7 Windows, 5 Linux, 6 macOS/Android, SHA256SUMS)
 
-### v1.2.0 App ids, adminsvr's own backup (in progress)
+### v1.2.0 App ids, adminsvr's own backup ✅
 
 - [x] Office app id `com.weirdbrains.itcmdr` (Linux, macOS, Windows); settings migration on Windows/Linux; admin app ids unchanged (already `com.weirdbrains.*`)
 - [x] adminsvr backup: init/create/list/verify/drill/prune/status, restore; encrypted for adminsvr's recovery words; SQLite and Postgres; real-break tests
-- [ ] Mac build check (macOS, Android), Linux build, Windows VM check, release
+- [x] Mac build check (macOS, Android; Swift Package Manager), Linux build, Windows VM check (upgrade over 1.1.0, app id + settings migration, adminsvr backup/drill/restore and real breaks), released v1.2.0 (19 files)
