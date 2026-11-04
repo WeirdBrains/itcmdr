@@ -175,6 +175,8 @@ Later the same day: those 4 infos fixed, widget tests added, Dart e2e green, ver
 
 ## In progress
 
+v1.1.0 (not tagged): HTTPS default / ACME / trust work is on main. Test flakes under load were fixed in 2026-11-04: wall-clock deadlines (`ITCMDR_TEST_SLOW`, default 3), retries while the API or Pebble starts, and `srv::run` closing its pool on stop (the calllog test binary used to segfault at exit when SQLite workers were still closing). Tests that start a server should stop it and await it before returning. Next: Windows VM check, then release.
+
 Nothing in progress. Proposed next: server/agent + adminsvr architecture (docs/design/SERVER-AGENT.md, docs/design/ADMINSVR.md incl. the SRE Flutter app; roadmap v0.15.0 to v0.22.0 in PLAN.md), Michael's decisions recorded 2026-10-31 (incl. key-based adminsvr auth and the signed, hash-chained audit of every change) (ADMINSVR.md "Decisions"); next is v0.14.2 (extract `itcmdr-keys` from server/src/keys.rs, auth.rs and restore_seal.rs; app/lib/signing.dart moves to flutter_rust_bridge), then v0.15.0. Passkeys/YubiKeys (second factor) planned as v0.19.1. Key backup defaults decided (on, 24-word lock, COOP/COEP fine); v0.14.2 released (keys crate + bridge; VM pass below). v0.15.0 released (errors + calls). Next: v0.16.0 (alerts). Pending: Mac signing step for iOS/macOS, the adminsvr agent design, rootless Podman install on alien-blue (sudo needs a password: `sudo pacman -S --needed podman passt slirp4netns fuse-overlayfs podman-compose`; subuid/subgid for m3talsmith already set, 100000:65536). v0.14.1 released; itcmdr history rewritten once (plugins/ removed, tags recreated); VM tree re-synced from the new history.
 
 ## Backlog (in order)

@@ -238,7 +238,7 @@ pub async fn run(
         calls.wrap(
             generated::itcmdr::itcmdr_server::ItcmdrServer::new(api::ItcmdrService::new(
                 cfg.clone(),
-                pool,
+                pool.clone(),
             ))
             .max_decoding_message_size(max_msg),
         ),
@@ -268,6 +268,9 @@ pub async fn run(
         .add_service(svc)
         .serve_with_incoming_shutdown(incoming, wait(stop_rx))
         .await?;
+    // Close every SQLite connection (and join its worker thread) before returning, so nothing is
+    // still closing a database while the process exits and libc/OpenSSL run their exit handlers.
+    pool.close().await;
     tracing::info!("itcmdr-server stopped");
     Ok(())
 }

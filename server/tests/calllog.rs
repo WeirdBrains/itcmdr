@@ -32,7 +32,21 @@ fn signed<T: Message>(key: &ed25519_dalek::SigningKey, method: &str, msg: T) -> 
     r
 }
 
-async fn start(c: ServerConfig) -> (ItcmdrClient<Channel>, tokio::sync::oneshot::Sender<()>) {
+struct Server {
+    stop: tokio::sync::oneshot::Sender<()>,
+    task: tokio::task::JoinHandle<anyhow::Result<()>>,
+}
+
+impl Server {
+    /// Shut the server down and wait for it: its SQLite worker threads must be joined before the
+    /// test binary exits, or they race libc/OpenSSL exit handlers (SIGSEGV at exit under load).
+    async fn stop(self) {
+        let _ = self.stop.send(());
+        self.task.await.unwrap().unwrap();
+    }
+}
+
+async fn start(c: ServerConfig) -> (ItcmdrClient<Channel>, Server) {
     let port = std::net::TcpListener::bind("127.0.0.1:0")
         .unwrap()
         .local_addr()
@@ -41,12 +55,12 @@ async fn start(c: ServerConfig) -> (ItcmdrClient<Channel>, tokio::sync::oneshot:
     let mut c = c;
     c.bind_addr = format!("127.0.0.1:{port}");
     let (tx, rx) = tokio::sync::oneshot::channel::<()>();
-    tokio::spawn(srv::run(c, async move {
+    let task = tokio::spawn(srv::run(c, async move {
         let _ = rx.await;
     }));
     for _ in 0..100 {
         if let Ok(cl) = ItcmdrClient::connect(format!("http://127.0.0.1:{port}")).await {
-            return (cl, tx);
+            return (cl, Server { stop: tx, task });
         }
         tokio::time::sleep(Duration::from_millis(50)).await;
     }
@@ -76,7 +90,7 @@ async fn every_call_is_logged_and_audit_links_to_it() {
     let root = srv::auth::load_root_key(&c.layout()).unwrap();
     let fp = srv::keys::fingerprint(&root.verifying_key());
     pool.close().await;
-    let (mut cl, _stop) = start(c.clone()).await;
+    let (mut cl, server) = start(c.clone()).await;
 
     // Unsigned in signed mode: refused, logged as anonymous UNAUTHENTICATED.
     let e = cl
@@ -218,6 +232,9 @@ async fn every_call_is_logged_and_audit_links_to_it() {
     assert!(dump
         .iter()
         .all(|(e, p)| !e.contains("WS-01") && !p.contains("WS-01")));
+    pool.close().await;
+    drop(cl);
+    server.stop().await;
 }
 
 #[tokio::test]
@@ -259,4 +276,5 @@ async fn export_then_prune() {
         .await
         .unwrap();
     assert_eq!(left, ["mid", "today"]);
+    pool.close().await;
 }
