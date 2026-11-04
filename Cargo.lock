@@ -1720,6 +1720,7 @@ dependencies = [
  "hmac",
  "itcmdr-adminlink",
  "itcmdr-agentlink",
+ "itcmdr-help",
  "itcmdr-keys",
  "p256",
  "prost",
@@ -1882,6 +1883,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "itcmdr-help"
+version = "1.1.0"
+
+[[package]]
 name = "itcmdr-keys"
 version = "1.0.0"
 dependencies = [
@@ -1961,6 +1966,7 @@ dependencies = [
  "itcmdr-agent",
  "itcmdr-agentlink",
  "itcmdr-common",
+ "itcmdr-help",
  "itcmdr-keys",
  "itcmdr-plugin",
  "itcmdr-sample-data-gen",

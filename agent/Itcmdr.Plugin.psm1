@@ -129,7 +129,7 @@ function Write-ItcmdrMetric {
 
 $script:ItcmdrPluginErrors = $null
 
-# ---- v0.15.0: the plugin error contract (docs/design/SERVER-AGENT.md section 6) ----
+# ---- v0.15.0: the plugin error contract (docs/historical/1.0/design/SERVER-AGENT.md section 6) ----
 # Criticality: Critical | Cautious | Informational. The host (itcmdr-plugin-ps) passes the error to
 # the server as PluginError; the server writes the plugin-error log line (plugins do not).
 

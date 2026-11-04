@@ -1078,7 +1078,7 @@ pub struct GetRestoreStatusResponse {
     #[prost(message, optional, tag = "1")]
     pub status: ::core::option::Option<RestoreStatus>,
 }
-/// v0.21.0: agent rollouts through the rings (docs/design/SERVER-AGENT.md section 8).
+/// v0.21.0: agent rollouts through the rings (docs/historical/1.0/design/SERVER-AGENT.md section 8).
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct AgentRollout {
     #[prost(string, tag = "1")]

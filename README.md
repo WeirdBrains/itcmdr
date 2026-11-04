@@ -24,12 +24,11 @@ SmartScreen and macOS Gatekeeper will warn.
 
 ## Docs
 
-- Install: [docs/INSTALL.md](docs/INSTALL.md) (no file share needed; the agents talk to the server over mutual TLS)
-- Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- Agent: [docs/AGENT.md](docs/AGENT.md) · Settings: [docs/SETTINGS.md](docs/SETTINGS.md)
-- Backup, restore and the monthly restore drill: [docs/BACKUP.md](docs/BACKUP.md)
-- Admin server: [docs/ADMINSVR.md](docs/ADMINSVR.md) · Signing: [docs/SIGNING.md](docs/SIGNING.md)
-- Building releases: [docs/RELEASE-LOCAL.md](docs/RELEASE-LOCAL.md) · Changes: [CHANGELOG.md](CHANGELOG.md)
+Start at [docs/README.md](docs/README.md): a guide per feature (install, the site server and app, agents,
+alerts, schedules, plugins, backups, upgrades, keys, certificates, adminsvr), deploy guides for a site
+server, adminsvr with Let's Encrypt and the website, every environment variable, and the man pages in
+[man/](man/). The same guides are the in-app help (`itcmdr-cli help`, `itcmdr-admin help`, Help in both
+apps). Changes: [CHANGELOG.md](CHANGELOG.md) · Roadmap: [PLAN.md](PLAN.md).
 
 ## Privacy and security
 

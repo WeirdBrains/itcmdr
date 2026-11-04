@@ -1,0 +1,24 @@
+.TH ITCMDR\-AGENT\-WATCHDOG 1 "" "itcmdr" "itcmdr manual"
+.SH NAME
+itcmdr\-agent\-watchdog \- keeps itcmdr\-agent running and rolls back bad upgrades
+.SH ITCMDR\-AGENT\-WATCHDOG
+.nf
+itcmdr watchdog: upgrades, rollback, restarts
+\&
+Usage: itcmdr\-agent\-watchdog [OPTIONS]
+\&
+Options:
+      \-\-root <ROOT>                  Program folder. Agent: the folder holding current\\ (default: the folder above this exe's folder). Server: the server folder itself (default: <folder above this exe's>\\server)
+      \-\-data <DATA>                  Data folder (health.json, upgrade\\). Default: %ProgramData%\\itcmdr\\agent (agent) or %ProgramData%\\itcmdr (server)
+      \-\-service\-name <SERVICE_NAME>  Service to watch (default: itcmdr\-agent or itcmdr\-server)
+      \-\-stale\-secs <STALE_SECS>      Restart the service when its health file is older than this (seconds) [default: 300]
+      \-\-once                         Run one pass and exit (tests, manual use)
+  \-h, \-\-help                         Print help
+  \-V, \-\-version                      Print version
+.fi
+.SH ENVIRONMENT
+.TP
+.B ITCMDR_AGENT_DIR
+agent data folder (default %ProgramData%\\itcmdr\\agent, /var/lib/itcmdr\-agent)
+.SH SEE ALSO
+\fBitcmdr\fR(7), docs/README.md (also the in-app help: \fBitcmdr-cli help\fR, \fBitcmdr-admin help\fR)

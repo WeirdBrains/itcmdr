@@ -1,4 +1,4 @@
-//! v0.19.0: the site side of the adminsvr link (docs/design/ADMINSVR.md).
+//! v0.19.0: the site side of the adminsvr link (docs/historical/1.0/design/ADMINSVR.md).
 //!
 //! The site dials adminsvr (pinned TLS + the mTLS client certificate from site enrollment) and
 //! sends its status and alerts. **Everything goes through `Redactor`** (decision 19): a

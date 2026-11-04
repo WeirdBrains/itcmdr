@@ -3,6 +3,7 @@ members = [
     "keys",
     "common",
     "common/derive",
+    "help",
     "agentlink",
     "adminlink",
     "adminsvr",

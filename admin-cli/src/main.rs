@@ -9,7 +9,8 @@ use std::path::PathBuf;
 #[command(
     name = "itcmdr-admin",
     version,
-    about = "itcmdr adminsvr CLI (same signed API as the admin app)"
+    about = "itcmdr adminsvr CLI (same signed API as the admin app)",
+    disable_help_subcommand = true
 )]
 struct Cli {
     /// Where this device's identity lives (default: the user config dir; env ITCMDR_ADMIN_HOME)
@@ -46,6 +47,11 @@ enum TrustCmd {
 
 #[derive(Subcommand)]
 enum Cmd {
+    /// The guides (docs/) in the terminal: `help` lists topics, `help <topic>` prints one
+    Help {
+        /// Topic (file name without .md, e.g. backup) or a word to search for
+        topic: Option<String>,
+    },
     /// adminsvr version and root key (unsigned)
     Info {
         addr: String,
@@ -550,6 +556,14 @@ async fn main() -> Result<()> {
     let home = cli.home.clone().unwrap_or_else(itcmdr_admin::default_dir);
     let platform = format!("cli-{}", std::env::consts::OS);
     match cli.cmd {
+        Cmd::Help { topic } => {
+            let (text, found) = itcmdr_help::render("itcmdr-admin", topic.as_deref());
+            print!("{text}");
+            if !found {
+                std::process::exit(1);
+            }
+            return Ok(());
+        }
         Cmd::Info { addr, pin } => {
             let mut api = pb::admin_api_client::AdminApiClient::new(
                 itcmdr_admin::channel(&addr, &pin).await?,

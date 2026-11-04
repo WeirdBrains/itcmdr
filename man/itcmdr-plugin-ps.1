@@ -1,0 +1,18 @@
+.TH ITCMDR\-PLUGIN\-PS 1 "" "itcmdr" "itcmdr manual"
+.SH NAME
+itcmdr\-plugin\-ps \- host for PowerShell check plugins
+.SH SYNOPSIS
+.nf
+itcmdr\-plugin\-ps \-\-script MAIN.ps1
+.fi
+.SH DESCRIPTION
+Runs a PowerShell plugin's main script for the agent and speaks the plugin protocol on stdio. Started by \fBitcmdr-agent\fR(1); see the plugins guide.
+.SH ENVIRONMENT
+.TP
+.B ITCMDR_POWERSHELL
+PowerShell to run (default powershell.exe on Windows, pwsh elsewhere)
+.TP
+.B ITCMDR_PLUGIN_SCRIPT
+the plugin script, instead of \-\-script
+.SH SEE ALSO
+\fBitcmdr\fR(7), docs/README.md (also the in-app help: \fBitcmdr-cli help\fR, \fBitcmdr-admin help\fR)

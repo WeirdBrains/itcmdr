@@ -1,4 +1,4 @@
-//! Rust agents (v0.17.0, docs/design/SERVER-AGENT.md sections 2 and 4).
+//! Rust agents (v0.17.0, docs/historical/1.0/design/SERVER-AGENT.md sections 2 and 4).
 //!
 //! - Enrollment: an admin creates a one-time token (`CreateEnrollToken`, `itcmdr-cli agent
 //!   enroll-token`). It carries the agent link address and the SHA-256 of the server's TLS

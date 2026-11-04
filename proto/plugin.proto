@@ -29,7 +29,7 @@ message CheckResult {
   string message = 3;
 }
 
-// v0.15.0: the plugin error contract (itcmdr-common, docs/design/SERVER-AGENT.md section 6).
+// v0.15.0: the plugin error contract (itcmdr-common, docs/historical/1.0/design/SERVER-AGENT.md section 6).
 // criticality: critical | cautious | informational. The server writes each one as an
 // itcmdr.log/v1 `plugin-error` line; v0.16.0 turns it into an alert (dedupe: plugin + kind + machine).
 message PluginError {

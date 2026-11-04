@@ -1,0 +1,92 @@
+.TH ITCMDR\-AGENT 1 "" "itcmdr" "itcmdr manual"
+.SH NAME
+itcmdr\-agent \- Rust agent that runs on every office machine
+.SH ITCMDR\-AGENT
+.nf
+itcmdr agent: heartbeat link to the site server (pinned TLS + client certificate)
+\&
+Usage: itcmdr\-agent [OPTIONS] [COMMAND]
+\&
+Commands:
+  enroll  Enroll with a one\-time token from `itcmdr\-cli agent enroll\-token` (or the app)
+  run     Run in the foreground (Ctrl+C stops)
+  status  Show the enrollment
+  alert   Queue an alert for the server; delivered by the service, also after an outage (v0.17.1)
+  help    Print this message or the help of the given subcommand(s)
+\&
+Options:
+      \-\-dir <DIR>  Data folder (default: %ProgramData%\\itcmdr\\agent on Windows, /var/lib/itcmdr\-agent elsewhere, or ITCMDR_AGENT_DIR)
+  \-h, \-\-help       Print help
+  \-V, \-\-version    Print version
+.fi
+.SH COMMAND: itcmdr\-agent enroll
+.nf
+Enroll with a one\-time token from `itcmdr\-cli agent enroll\-token` (or the app)
+\&
+Usage: itcmdr\-agent enroll [OPTIONS] <TOKEN>
+\&
+Arguments:
+  <TOKEN>  
+\&
+Options:
+      \-\-dir <DIR>          Data folder (default: %ProgramData%\\itcmdr\\agent on Windows, /var/lib/itcmdr\-agent elsewhere, or ITCMDR_AGENT_DIR)
+      \-\-machine <MACHINE>  Machine name to enroll as (default: this computer's name)
+      \-\-role <ROLE>        workstation | server (the office server's own agent) [default: workstation] [possible values: workstation, server]
+  \-h, \-\-help               Print help
+.fi
+.SH COMMAND: itcmdr\-agent run
+.nf
+Run in the foreground (Ctrl+C stops)
+\&
+Usage: itcmdr\-agent run [OPTIONS]
+\&
+Options:
+      \-\-dir <DIR>                Data folder (default: %ProgramData%\\itcmdr\\agent on Windows, /var/lib/itcmdr\-agent elsewhere, or ITCMDR_AGENT_DIR)
+      \-\-token\-file <TOKEN_FILE>  Token file used when not enrolled yet (default: ..\\agent\-enroll.token next to the data folder)
+  \-h, \-\-help                     Print help
+.fi
+.SH COMMAND: itcmdr\-agent status
+.nf
+Show the enrollment
+\&
+Usage: itcmdr\-agent status [OPTIONS]
+\&
+Options:
+      \-\-dir <DIR>  Data folder (default: %ProgramData%\\itcmdr\\agent on Windows, /var/lib/itcmdr\-agent elsewhere, or ITCMDR_AGENT_DIR)
+  \-h, \-\-help       Print help
+.fi
+.SH COMMAND: itcmdr\-agent alert
+.nf
+Queue an alert for the server; delivered by the service, also after an outage (v0.17.1)
+\&
+Usage: itcmdr\-agent alert [OPTIONS] <KEY> <TITLE>
+\&
+Arguments:
+  <KEY>    Alert key (raised on the server as agent:<machine>:<key>; same key = same alert)
+  <TITLE>  
+\&
+Options:
+      \-\-dir <DIR>        Data folder (default: %ProgramData%\\itcmdr\\agent on Windows, /var/lib/itcmdr\-agent elsewhere, or ITCMDR_AGENT_DIR)
+      \-\-level <LEVEL>    [default: cautious] [possible values: critical, cautious, informational]
+      \-\-detail <DETAIL>  [default: ""]
+      \-\-resolve          Resolve the open alert with this key instead of raising one
+  \-h, \-\-help             Print help
+.fi
+.SH ENVIRONMENT
+.TP
+.B ITCMDR_PLUGIN_PS_HOST
+path of itcmdr\-plugin\-ps (default: next to the exe)
+.TP
+.B ITCMDR_AGENT_DIR
+agent data folder (default %ProgramData%\\itcmdr\\agent, /var/lib/itcmdr\-agent)
+.TP
+.B ITCMDR_AGENT_PROGRAM
+the agent program folder (holding current\\) for self\-upgrade
+.TP
+.B ITCMDR_PLUGIN_START_SECS
+seconds a plugin has to answer the handshake (default 60)
+.TP
+.B ITCMDR_PS_MODULE
+path of Itcmdr.Plugin.psm1 for PowerShell plugins
+.SH SEE ALSO
+\fBitcmdr\fR(7), docs/README.md (also the in-app help: \fBitcmdr-cli help\fR, \fBitcmdr-admin help\fR)

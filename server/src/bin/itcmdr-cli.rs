@@ -13,7 +13,12 @@ use std::path::PathBuf;
 use zeroize::Zeroizing;
 
 #[derive(Parser)]
-#[command(name = "itcmdr-cli", version, about = "itcmdr server administration")]
+#[command(
+    name = "itcmdr-cli",
+    version,
+    about = "itcmdr server administration",
+    disable_help_subcommand = true
+)]
 struct Cli {
     /// Data dir override (beats ITCMDR_DATA_DIR and server.json).
     #[arg(long, global = true)]
@@ -32,6 +37,11 @@ static PLAIN_HTTP: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool
 
 #[derive(Subcommand)]
 enum Cmd {
+    /// The guides (docs/) in the terminal: `help` lists topics, `help <topic>` prints one
+    Help {
+        /// Topic (file name without .md, e.g. backup) or a word to search for
+        topic: Option<String>,
+    },
     /// First-run setup: prints the 24 recovery words ONCE. Do this in person at the server.
     Init,
     /// Restore keys/db.key from the escrow with the words (replacement machine).
@@ -1233,6 +1243,14 @@ fn run(rt: &tokio::runtime::Runtime) -> Result<()> {
         Ok(c)
     };
     match &cli.cmd {
+        Cmd::Help { topic } => {
+            let (text, found) = itcmdr_help::render("itcmdr-cli", topic.as_deref());
+            print!("{text}");
+            if !found {
+                std::process::exit(1);
+            }
+            Ok(())
+        }
         Cmd::Init => {
             let cfg = load()?;
             rt.block_on(async {
