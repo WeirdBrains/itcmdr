@@ -23,6 +23,8 @@ pub struct Values {
     pub data_dir: Option<PathBuf>,
     pub backup_dir: Option<PathBuf>,
     pub bind_addr: Option<String>,
+    /// v1.1.0: also accept plain HTTP from the network (`api_plain_http`; default false).
+    pub api_plain_http: Option<bool>,
 }
 
 /// Server.json written when none exists (same as `installer/server.windows.json`, without site paths).
@@ -92,6 +94,9 @@ pub fn apply(path: &Path, v: &Values, keep_existing: bool) -> Result<Vec<String>
         b.parse::<std::net::SocketAddr>()
             .with_context(|| format!("bind address {b:?} is not host:port"))?;
         set(&mut j, "bind_addr", serde_json::Value::String(b.clone()));
+    }
+    if let Some(b) = v.api_plain_http {
+        set(&mut j, "api_plain_http", serde_json::Value::Bool(b));
     }
     if !path.exists() || !changed.is_empty() {
         if let Some(d) = path.parent() {

@@ -175,30 +175,3 @@ class _TrustedCertsSectionState extends State<TrustedCertsSection> {
     );
   }
 }
-
-/// Turning HTTPS off asks first.
-Future<bool> confirmPlainHttp(BuildContext context) async =>
-    await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        key: const Key('plain-http-warning'),
-        title: const Text('Use plain HTTP?'),
-        content: const Text(
-          'Plain HTTP is not encrypted: anyone on the network can read the traffic, and the '
-          'server is not verified. The server only accepts it from the same machine unless '
-          'its api_plain_http option is on. Use HTTPS unless you know why not.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Keep HTTPS'),
-          ),
-          FilledButton(
-            key: const Key('plain-http-confirm'),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Use plain HTTP'),
-          ),
-        ],
-      ),
-    ) ??
-    false;

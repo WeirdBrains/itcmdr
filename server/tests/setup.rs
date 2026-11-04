@@ -251,3 +251,38 @@ fn walk(d: &Path) -> Vec<std::path::PathBuf> {
     }
     v
 }
+
+#[test]
+fn api_plain_http_is_off_by_default_and_set_explicitly() {
+    let t = tempfile::tempdir().unwrap();
+    let p = t.path().join("server.json");
+    setup::apply(&p, &Values::default(), false).unwrap();
+    let cfg = srv::config::ServerConfig::from_path(p.clone()).unwrap();
+    assert!(
+        !cfg.api_plain_http,
+        "HTTPS only from the network by default"
+    );
+    let on = Values {
+        api_plain_http: Some(true),
+        ..Default::default()
+    };
+    assert_eq!(setup::apply(&p, &on, false).unwrap(), ["api_plain_http"]);
+    assert!(
+        srv::config::ServerConfig::from_path(p.clone())
+            .unwrap()
+            .api_plain_http
+    );
+    // An upgrade (keep_existing) does not undo the admin's choice.
+    let off = Values {
+        api_plain_http: Some(false),
+        ..Default::default()
+    };
+    assert!(setup::apply(&p, &off, true).unwrap().is_empty());
+    assert_eq!(setup::apply(&p, &off, false).unwrap(), ["api_plain_http"]);
+    let lan: std::net::SocketAddr = "192.0.2.10:5000".parse().unwrap();
+    let lo: std::net::SocketAddr = "127.0.0.1:5000".parse().unwrap();
+    let lo6: std::net::SocketAddr = "[::1]:5000".parse().unwrap();
+    assert!(!srv::plain_allowed(false, lan));
+    assert!(srv::plain_allowed(false, lo) && srv::plain_allowed(false, lo6));
+    assert!(srv::plain_allowed(true, lan));
+}

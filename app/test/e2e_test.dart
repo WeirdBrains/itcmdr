@@ -120,6 +120,11 @@ void main() {
 
     final me = await client.whoAmI(WhoAmIRequest());
     expect(me.signed, isTrue);
+    // Plain HTTP as the explicit opt-in (allowed from this machine without api_plain_http).
+    final plainCh = settings.copyWith(tls: false).channel(store);
+    final plainMe = await settings.client(plainCh, key).whoAmI(WhoAmIRequest());
+    expect(plainMe.signed, isTrue);
+    await plainCh.shutdown();
     expect(me.name, 'Front desk');
     expect(me.role, 'owner');
     expect(me.kind, 'user');

@@ -3,8 +3,10 @@
 //! hostname, expiry). When that fails, the caller gets a [`CertProblem`] with the certificate's
 //! SHA-256 fingerprint, subject and expiry so the user can choose "Trust this certificate", which
 //! pins that exact certificate for that one server (trust on first use). A pinned certificate is
-//! accepted only while it is byte-for-byte the same; a different one is refused (`pin-changed`)
-//! until the user reviews and re-trusts it. There is no global "ignore errors" switch.
+//! accepted while it is byte-for-byte the same; a different one that the system store also
+//! refuses is blocked (`pin-changed`) until the user reviews and re-trusts it. A certificate the
+//! system store accepts for the right name is accepted even with an older pin (same as the Flutter
+//! apps); the pin is kept as the anchor for when the system store refuses. There is no global "ignore errors" switch.
 //!
 //! Sites and agents are not affected: they keep their own exact pins (`tls::connect`) and mTLS.
 use crate::tls::{pem_to_der, provider, Pem};
@@ -221,6 +223,10 @@ pub fn pem_certs(pem: &str) -> Vec<CertificateDer<'static>> {
     out
 }
 
+/// `CertReport.detail` prefix when the system store accepted a certificate other than the pinned
+/// one (the pin stays as the fallback anchor; nothing is replaced silently).
+pub const SYSTEM_OVER_PIN: &str = "trusted by the system store, not the pin";
+
 #[derive(Debug)]
 struct TrustVerifier {
     pin: Option<String>,
@@ -240,42 +246,54 @@ impl ServerCertVerifier for TrustVerifier {
     ) -> Result<ServerCertVerified, rustls::Error> {
         let der = end_entity.as_ref();
         let fp = crate::sha256_hex(der);
-        let (res, rep) =
-            if let Some(pin) = &self.pin {
-                if fp.eq_ignore_ascii_case(pin) {
-                    (
-                        Ok(ServerCertVerified::assertion()),
-                        report_for(der, "ok", "pinned"),
-                    )
-                } else {
-                    (
-                        Err(rustls::Error::General(format!(
-                            "server certificate {fp} is not the trusted {pin}"
-                        ))),
-                        report_for(
-                            der,
-                            "pin-changed",
-                            &format!("trusted certificate was {pin}"),
-                        ),
-                    )
-                }
-            } else {
-                match self.webpki.as_ref().map(|w| {
-                    w.verify_server_cert(end_entity, intermediates, server_name, ocsp, now)
-                }) {
-                    Some(Ok(v)) => (Ok(v), report_for(der, "ok", "trusted by the system store")),
-                    Some(Err(e)) => {
-                        let (p, d) = classify(&e, der);
-                        (Err(e), report_for(der, p, &d))
-                    }
-                    None => (
-                        Err(rustls::Error::InvalidCertificate(
-                            CertificateError::UnknownIssuer,
-                        )),
-                        report_for(der, "untrusted", "no trusted roots on this system"),
+        // The system store (plus extra roots) first, as the Flutter apps do: a certificate that
+        // validates for this name (chain, hostname, expiry) is accepted even when an older pin
+        // is stored. The pin is only the trust anchor for certificates the system store refuses.
+        let system = self
+            .webpki
+            .as_ref()
+            .map(|w| w.verify_server_cert(end_entity, intermediates, server_name, ocsp, now));
+        let pin_ok = self
+            .pin
+            .as_ref()
+            .is_some_and(|pin| fp.eq_ignore_ascii_case(pin));
+        let (res, rep) = match (system, &self.pin) {
+            (Some(Ok(v)), Some(pin)) if !pin_ok => (
+                Ok(v),
+                report_for(
+                    der,
+                    "ok",
+                    &format!(
+                        "{SYSTEM_OVER_PIN} (the pinned certificate {pin} is kept as a fallback)"
                     ),
-                }
-            };
+                ),
+            ),
+            (Some(Ok(v)), _) => (Ok(v), report_for(der, "ok", "trusted by the system store")),
+            (_, Some(_)) if pin_ok => (
+                Ok(ServerCertVerified::assertion()),
+                report_for(der, "ok", "pinned"),
+            ),
+            (_, Some(pin)) => (
+                Err(rustls::Error::General(format!(
+                    "server certificate {fp} is not the trusted {pin}"
+                ))),
+                report_for(
+                    der,
+                    "pin-changed",
+                    &format!("trusted certificate was {pin}"),
+                ),
+            ),
+            (Some(Err(e)), None) => {
+                let (p, d) = classify(&e, der);
+                (Err(e), report_for(der, p, &d))
+            }
+            (None, None) => (
+                Err(rustls::Error::InvalidCertificate(
+                    CertificateError::UnknownIssuer,
+                )),
+                report_for(der, "untrusted", "no trusted roots on this system"),
+            ),
+        };
         *self.seen.lock().unwrap() = Some(rep);
         res
     }
@@ -419,17 +437,12 @@ pub async fn connect(
 /// Plain HTTP (no encryption). Only for an explicit opt-in; callers print a warning.
 pub async fn connect_plain(addr: &str) -> Result<tonic::transport::Channel> {
     let a = addr.trim().trim_start_matches("http://");
-    tracing_warn(a);
     Ok(
         tonic::transport::Endpoint::from_shared(format!("http://{a}"))?
             .connect_timeout(std::time::Duration::from_secs(10))
             .connect()
             .await?,
     )
-}
-
-fn tracing_warn(a: &str) {
-    eprintln!("WARNING: connecting to {a} over plain HTTP: the connection is not encrypted or authenticated");
 }
 
 /// Look at a server's certificate without trusting it (for the warning shown to the user).

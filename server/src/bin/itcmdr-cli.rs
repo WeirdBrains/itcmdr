@@ -261,6 +261,10 @@ enum SetupCmd {
         backup_dir: Option<PathBuf>,
         #[arg(long)]
         bind_addr: Option<String>,
+        /// Also accept plain HTTP (unencrypted) from other machines: `true` or `false`. HTTPS is
+        /// always on; plain HTTP from this machine always works. For v1.0 apps until they update.
+        #[arg(long)]
+        api_plain_http: Option<bool>,
         #[arg(long)]
         keep_existing: bool,
         /// server.json to write (default: the one in use, else %ProgramData%\itcmdr\server.json).
@@ -971,6 +975,7 @@ fn run_setup(
             data_dir,
             backup_dir,
             bind_addr,
+            api_plain_http,
             keep_existing,
             config,
         } => {
@@ -993,6 +998,7 @@ fn run_setup(
                 data_dir: data_dir.clone(),
                 backup_dir: backup_dir.clone(),
                 bind_addr: bind_addr.clone(),
+                api_plain_http: *api_plain_http,
             };
             let changed = srv::setup::apply(&path, &v, *keep_existing)?;
             if changed.is_empty() {

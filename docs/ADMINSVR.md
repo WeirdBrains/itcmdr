@@ -320,8 +320,16 @@ that one server (trust on first use). Compare the fingerprint with the server fi
   admin app Settings → Certificate; `itcmdr-admin trust show | review | remove`.
 - `itcmdr-admin --trust-fingerprint <sha256>` trusts the certificate non-interactively (it must be
   the one the server presents); on a terminal it asks instead (type `trust`, or `trust anyway`).
-- Plain HTTP is only an explicit opt-in with a warning: the site app's HTTPS switch asks first;
-  `itcmdr-cli --plain-http`. The site server accepts plain HTTP only from the same machine
-  (loopback) unless `api_plain_http: true` is set in server.json (for a TLS-terminating proxy).
+- A certificate the system trust store accepts for the right name is accepted even when an older
+  certificate is trusted (for example a self-signed one trusted before the server got a Let's
+  Encrypt certificate); the trusted one is kept as the fallback for when the system store refuses.
+  A changed certificate that the system store does not accept is always blocked.
+- **HTTPS and plain HTTP are both supported; HTTPS is the default.** Plain HTTP is an explicit
+  opt-in: the site app's "Use HTTPS" switch off, or `itcmdr-cli --plain-http`. The site server
+  always serves HTTPS, accepts plain HTTP from the same machine, and from other machines only with
+  `api_plain_http: true` in server.json (default false; `itcmdr-cli setup apply --api-plain-http
+  true`), for example behind a TLS-terminating proxy.
+- **v1.0 apps and a v1.1 server:** v1.0 site apps talk plain HTTP. Until they are updated, set
+  `api_plain_http: true` on the server (then back to false after the update).
 - Enrolled adminsvr devices keep the pin from their enrollment code (the internal certificate),
   and sites and agents keep their exact pins and mTLS; none of that depends on the system trust store.

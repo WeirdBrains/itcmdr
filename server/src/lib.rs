@@ -249,9 +249,7 @@ pub async fn run(
     let tls = itcmdr_agentlink::tls::api_server_config(&mat.server)?;
     let plain_any = cfg.api_plain_http;
     if plain_any {
-        tracing::warn!(
-            "api_plain_http is on: the API also accepts unencrypted HTTP from the network"
-        );
+        tracing::info!("API: HTTPS, and plain HTTP (api_plain_http)");
     }
     let listener = tokio::net::TcpListener::bind(addr)
         .await
@@ -260,7 +258,7 @@ pub async fn run(
     let incoming = itcmdr_agentlink::tls::incoming_mixed(
         listener,
         tls,
-        std::sync::Arc::new(move |p: std::net::SocketAddr| plain_any || p.ip().is_loopback()),
+        std::sync::Arc::new(move |p: std::net::SocketAddr| plain_allowed(plain_any, p)),
         std::sync::Arc::new(
             |p: std::net::SocketAddr, e: String| tracing::debug!(peer=%p.ip(), error=%e, "api connection refused"),
         ),
@@ -272,4 +270,10 @@ pub async fn run(
         .await?;
     tracing::info!("itcmdr-server stopped");
     Ok(())
+}
+
+/// v1.1.0 API policy: HTTPS always; plain HTTP from this machine, or from anywhere with
+/// `api_plain_http` (v1.0 apps until they update, or a TLS-terminating proxy).
+pub fn plain_allowed(api_plain_http: bool, peer: std::net::SocketAddr) -> bool {
+    api_plain_http || peer.ip().is_loopback()
 }
