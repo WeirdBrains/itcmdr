@@ -7,6 +7,7 @@
 - HTTPS and plain HTTP are both supported, HTTPS by default; plain HTTP is an explicit opt-in (site app setting, `itcmdr-cli --plain-http`; server `api_plain_http: true`, also `itcmdr-cli setup apply --api-plain-http true`).
 - A certificate valid in the system trust store for the right name is accepted even with an older trusted (pinned) certificate; the pin anchors only certificates the system store refuses (CLIs now match the apps).
 - Upgrading: v1.0 site apps talk plain HTTP; a v1.1 server needs `api_plain_http: true` until they are updated.
+- The Rust agent waits `ITCMDR_PLUGIN_START_SECS` (default 60) for a plugin's handshake; a PowerShell plugin's cold start on a slow or overloaded machine can need longer.
 - Fix: `itcmdr-server` now closes its database pool (joining the SQLite worker threads) when it stops, so a stopping server no longer races process exit. This was seen as a rare SIGSEGV/SIGABRT at exit in the call log tests under heavy load (OpenSSL and SQLCipher exit cleanup running while connections were still closing). Test servers are now shut down and awaited, and tests use wall-clock deadlines (scaled by `ITCMDR_TEST_SLOW`, default 3).
 
 ## v1.0.0 (2026-11-02)
