@@ -23,6 +23,14 @@ Root: HKLM; Subkey: "SYSTEM\CurrentControlSet\Control\Session Manager\Environmen
 [Code]
 #include "common-code.iss"
 
+// v1.2.1: install/upgrade log (common-code.iss). No services; programs that are open are closed
+// by Setup (CloseApplications), so there is no lock probe here.
+function InitializeSetup(): Boolean;
+begin
+  InstallLogBegin('admin', '{#AdminAppId}', ExpandConstant('{commonappdata}\itcmdr\install-logs'), '', '');
+  Result := True;
+end;
+
 function NeedsPath(Dir: string): Boolean;
 var
   P: string;
@@ -49,4 +57,10 @@ end;
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   if CurUninstallStep = usPostUninstall then RemovePath(ExpandConstant('{app}\admin'));
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssPostInstall then InstallFilesDone();
+  if CurStep = ssDone then IStep := 'done';
 end;

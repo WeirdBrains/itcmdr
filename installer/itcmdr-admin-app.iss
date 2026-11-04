@@ -28,3 +28,17 @@ Name: "desktopicon"; Description: "Create a &desktop icon"; Flags: unchecked
 
 [Code]
 #include "common-code.iss"
+
+// v1.2.1: install/upgrade log (common-code.iss). No services; programs that are open are closed
+// by Setup (CloseApplications), so there is no lock probe here.
+function InitializeSetup(): Boolean;
+begin
+  InstallLogBegin('admin-app', '{#AdminAppAppId}', ExpandConstant('{commonappdata}\itcmdr\install-logs'), '', '');
+  Result := True;
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssPostInstall then InstallFilesDone();
+  if CurStep = ssDone then IStep := 'done';
+end;

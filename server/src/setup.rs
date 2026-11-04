@@ -191,6 +191,34 @@ pub fn check_paths(cfg: &ServerConfig) -> Vec<Check> {
     } else {
         out.push(c("bind_addr", Level::Ok, cfg.bind_addr.clone()));
     }
+    // v1.2.1: the last Windows installer run of the server and agent packages, when there is one.
+    for part in crate::install_log::PARTS {
+        if let Some(r) = crate::install_log::latest(&cfg.layout().root, part) {
+            out.push(if r.ok {
+                c(
+                    &format!("install.{part}"),
+                    Level::Ok,
+                    format!(
+                        "{} -> {} ({})",
+                        if r.from.is_empty() { "new" } else { &r.from },
+                        r.to,
+                        r.time
+                    ),
+                )
+            } else {
+                c(
+                    &format!("install.{part}"),
+                    Level::Fail,
+                    format!(
+                        "{}: {} (log: {})",
+                        crate::install_log::title(&r),
+                        r.error,
+                        r.log
+                    ),
+                )
+            });
+        }
+    }
     out
 }
 

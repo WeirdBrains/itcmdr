@@ -88,23 +88,16 @@ var
   WasFreshAgent: Boolean;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
-var
-  RC: Integer;
 begin
-  // The watchdog first, so it does not restart the agent mid-install.
-  if ServiceExists('itcmdr-agent-watchdog') then
-    Exec(ExpandConstant('{sys}\sc.exe'), 'stop itcmdr-agent-watchdog', '', SW_HIDE, ewWaitUntilTerminated, RC);
-  if ServiceExists('itcmdr-agent') then
-  begin
-    Exec(ExpandConstant('{sys}\sc.exe'), 'stop itcmdr-agent', '', SW_HIDE, ewWaitUntilTerminated, RC);
-    Sleep(3000);
-  end;
-  Result := '';
+  // v1.2.1: the watchdog first, both waited for, then a lock probe (common-code.iss).
+  Result := InstallStopAndProbe();
 end;
 
 function InitializeSetup(): Boolean;
 begin
   WasFreshAgent := not FileExists(DataDir() + '\site.json');
+  InstallLogBegin('agent', '{#AgentAppId}', ExpandConstant('{commonappdata}\itcmdr\install-logs'), 'itcmdr-agent-watchdog,itcmdr-agent',
+    'agent\current\itcmdr-agent.exe,agent\current\itcmdr-plugin-ps.exe,agent\watchdog\itcmdr-agent-watchdog.exe');
   Result := True;
 end;
 
@@ -153,8 +146,10 @@ end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
+  if CurStep = ssDone then InstallVerifyServices();
   if CurStep = ssPostInstall then
   begin
+    InstallFilesDone();
     SaveEnrollToken();
     MigrateCombined('agent');
   end;
