@@ -10,6 +10,8 @@
 - The Rust agent waits `ITCMDR_PLUGIN_START_SECS` (default 60) for a plugin's handshake; a PowerShell plugin's cold start on a slow or overloaded machine can need longer.
 - Fix: `itcmdr-server` now closes its database pool (joining the SQLite worker threads) when it stops, so a stopping server no longer races process exit. This was seen as a rare SIGSEGV/SIGABRT at exit in the call log tests under heavy load (OpenSSL and SQLCipher exit cleanup running while connections were still closing). Test servers are now shut down and awaited, and tests use wall-clock deadlines (scaled by `ITCMDR_TEST_SLOW`, default 3).
 
+- Tests: the site app's end-to-end test finds the server binaries under `CARGO_TARGET_DIR` when it is set.
+
 ## v1.0.0 (2026-11-02)
 itcmdr 1.0: self-healing IT for small offices, with no file share needed.
 - **Fresh install with no share**, tested on the Windows VM: server and agent installed without a share or backup folder, the agent enrolled with only `/EnrollToken=` and came online, a backup and the restore drill passed on the local backup folder, and no share path appears in any config, report or log. docs/INSTALL.md says how.
