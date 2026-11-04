@@ -94,6 +94,7 @@ Key backup on by default (opt-out), locked with the 24 words; COOP/COEP accepted
 | v0.22.0 | Retire the share flows; SRE app Windows/macOS builds; adminsvr restore drill | ✅ Released 2026-11-02 (restore drill on-site only) |
 | v1.0.0 | Product website (GitHub Pages from a separate `site` branch, the one allowed branch, site only; custom domain itcmdr.weirdbrains.com; Weird Brains branding), launch announcement (X and the internal Weird Brains Slack, drafted for Michael's review, never posted by us), 1.0 stabilization (nothing published or announced without Michael's review; no office-specific names, IPs or domains on the site) | ✅ Released 2026-11-02 (site branch updated, not live until Pages/DNS are enabled; launch drafts for Michael's review, not posted) |
 | v1.1.0 | HTTPS everywhere, Let's Encrypt for adminsvr (TLS-ALPN-01), self-signed trust pins, docs as man pages and in-app help | ✅ Released 2026-11-04 |
+| v1.2.0 | Real app ids (office app `com.weirdbrains.itcmdr`), adminsvr's own encrypted backup, restore and restore drill | In progress |
 
 ## Cross-cutting items
 
@@ -130,3 +131,9 @@ archived in [docs/historical/1.0/](docs/historical/1.0/) (PLAN.md, SERVER-PLAN.m
   deploy guides (site server, adminsvr with Let's Encrypt, website), finished plans in docs/historical/1.0/
 - [x] Windows VM check (2026-11-04): upgrade over 1.0.0, HTTPS on 50051 with the pinned certificate, plain HTTP from loopback only (network only with `api_plain_http`), adminsvr self-signed trust pins (pinned info/enroll, changed certificate blocked, review + replace, wrong fingerprint refused), real breaks (killed server, watchdog, both, agent: all came back; agent online again); agentlink trust tests on Windows
 - [x] Released v1.1.0 (19 files: 7 Windows, 5 Linux, 6 macOS/Android, SHA256SUMS)
+
+### v1.2.0 App ids, adminsvr's own backup (in progress)
+
+- [x] Office app id `com.weirdbrains.itcmdr` (Linux, macOS, Windows); settings migration on Windows/Linux; admin app ids unchanged (already `com.weirdbrains.*`)
+- [x] adminsvr backup: init/create/list/verify/drill/prune/status, restore; encrypted for adminsvr's recovery words; SQLite and Postgres; real-break tests
+- [ ] Mac build check (macOS, Android), Linux build, Windows VM check, release

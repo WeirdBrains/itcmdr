@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+- **adminsvr backs up its own state** (`itcmdr-adminsvr backup init|create|list|verify|drill|prune|status`, `restore --from`): its database (SQLite or Postgres), root key, CA and server certificate, ACME account and certificate, settings and push key files. Encrypted for adminsvr's own 24 recovery words (shown once by `backup init`; only the public keys are kept), header signed by the root key, which the recovery key certifies. Nightly at `--backup-hour` (default 3, local) while serving, keep `--backup-keep` (14), folder `--backup-dir` (default `<data dir>/backups`); or `--backup-hour off` and your own scheduler. Restore drill (quick, or `--deep` into a throwaway database), recorded and audited. Restore checks everything first, refuses wrong words, damaged or truncated archives, another recovery key, a newer schema, a running service and a mismatched database type; keeps a `pre-restore-<ts>` copy and rolls back on failure; puts the archived settings under `restored/` for review. adminsvr never holds, fetches or opens site backups; an archive may hold only its own files (allow list). docs/BACKUP-ADMINSVR.md.
+- **Office app id**: `com.weirdbrains.itcmdr` instead of the placeholder `com.example.app` (Linux application id, macOS bundle id, Windows company name). In-place upgrade: Windows and Linux settings are copied once from the old folder; on macOS the settings (sandbox container) are entered once again, the key in the keychain is kept. The office app has no Android or iOS build. The admin app already used `com.weirdbrains.itcmdr_admin` (Android, Linux) and `com.weirdbrains.itcmdrAdmin` (Apple): unchanged, so Android installs upgrade in place, no reinstall.
+
 ## v1.1.0 (2026-11-04)
 itcmdr 1.1: HTTPS everywhere, Let's Encrypt for adminsvr, and the docs as in-app help.
 - Versions 1.1.0 (app and admin app 1.1.0+39).

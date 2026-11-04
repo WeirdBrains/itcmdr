@@ -1,3 +1,5 @@
+import 'app_id_migration.dart';
+
 import 'dart:async';
 
 import 'package:fixnum/fixnum.dart';
@@ -28,6 +30,7 @@ import 'help_page.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await RustLib.init(); // itcmdr-keys (all signing and sealing)
+  await migrateLegacyPrefs(); // v1.2.0 app id change (before any settings are read)
   runApp(const MyApp());
 }
 

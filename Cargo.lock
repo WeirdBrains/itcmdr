@@ -1762,6 +1762,7 @@ version = "1.1.0"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
+ "chacha20poly1305",
  "chrono",
  "clap",
  "diesel",
@@ -1800,7 +1801,9 @@ dependencies = [
  "tracing-subscriber",
  "uuid",
  "windows-service",
+ "x25519-dalek",
  "x509-parser 0.16.0",
+ "zeroize",
 ]
 
 [[package]]

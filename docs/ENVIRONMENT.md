@@ -51,6 +51,9 @@ a test fails when a variable in the source is missing here. adminsvr flags each 
 | `ITCMDR_ADMINSVR_ACME_CACHE_DIR` | itcmdr-adminsvr | account key and certificate (default <data dir>/acme) |
 | `ITCMDR_ADMINSVR_ACME_RENEW_DAYS` | itcmdr-adminsvr | renew this many days before expiry (default 30) |
 | `ITCMDR_ADMINSVR_ACME_RETRY_SECS` | itcmdr-adminsvr | wait after a failed attempt (default 3600) |
+| `ITCMDR_ADMINSVR_BACKUP_DIR` | itcmdr-adminsvr | v1.2.0 folder for adminsvr's own backups (default <data dir>/backups; [adminsvr backup](BACKUP-ADMINSVR.md)) |
+| `ITCMDR_ADMINSVR_BACKUP_HOUR` | itcmdr-adminsvr | nightly backup hour, 0-23 local, or `off` (default 3) |
+| `ITCMDR_ADMINSVR_BACKUP_KEEP` | itcmdr-adminsvr | nightly backups kept (default 14; manual ones are never pruned) |
 
 ## Set for plugins
 

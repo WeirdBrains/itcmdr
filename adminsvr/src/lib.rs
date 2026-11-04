@@ -12,6 +12,7 @@ pub mod acme;
 pub mod api;
 pub mod audit;
 pub mod auth;
+pub mod backup;
 pub mod config;
 pub mod link;
 pub mod material;
@@ -84,6 +85,7 @@ pub async fn run(
             let _ = r.changed().await;
         }
     });
+    tokio::spawn(backup::nightly(cfg.clone(), pool.clone(), rx.clone()));
     let mon = link::monitor(pool.clone(), cfg.clone(), hub.clone(), rx.clone());
     tokio::spawn(async move {
         shutdown.await;

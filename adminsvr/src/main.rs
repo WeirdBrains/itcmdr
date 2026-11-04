@@ -128,6 +128,15 @@ struct Cli {
     acme_renew_days: i64,
     #[arg(long, env = "ITCMDR_ADMINSVR_ACME_RETRY_SECS", default_value_t = 3600)]
     acme_retry_secs: u64,
+    /// v1.2.0 adminsvr's own backups: archive folder (default <data dir>/backups)
+    #[arg(long, env = "ITCMDR_ADMINSVR_BACKUP_DIR", default_value = "")]
+    backup_dir: String,
+    /// Nightly backup hour (0-23, local time) while serving, or `off`
+    #[arg(long, env = "ITCMDR_ADMINSVR_BACKUP_HOUR", default_value = "3")]
+    backup_hour: String,
+    /// Nightly archives kept (manual archives are never pruned)
+    #[arg(long, env = "ITCMDR_ADMINSVR_BACKUP_KEEP", default_value_t = 14)]
+    backup_keep: usize,
     #[command(subcommand)]
     cmd: Cmd,
 }
@@ -152,9 +161,220 @@ enum Cmd {
     AuditVerify,
     /// v1.1.0: the admin API certificate (mode, expiry, last renewal, last error)
     TlsStatus,
+    /// v1.2.0: adminsvr's own backups (its database, keys, TLS, ACME and settings; never site backups)
+    #[command(subcommand)]
+    Backup(BackupCmd),
+    /// v1.2.0: restore adminsvr from one of its own backups (recovery words on stdin; stop the service first)
+    Restore {
+        /// The archive (.itcab)
+        #[arg(long)]
+        from: PathBuf,
+        /// Open and check everything, show what would be written, change nothing
+        #[arg(long)]
+        dry_run: bool,
+    },
     /// Run as a Windows service (started by the service manager; installed by the Setup)
     #[command(hide = true)]
     Service,
+}
+
+#[derive(Subcommand)]
+enum BackupCmd {
+    /// Set up backups: print 24 new recovery words ONCE (write them down; they are never stored)
+    Init {
+        /// Issue new words (archives made before still need the old words)
+        #[arg(long)]
+        replace: bool,
+    },
+    /// Make a backup now
+    Create {
+        /// Write it here instead of the backup folder
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
+    /// List the backups
+    List {
+        #[arg(long)]
+        dir: Option<PathBuf>,
+    },
+    /// Check a backup: signature and hash; --deep (words on stdin) also decrypts and checks every file
+    Verify {
+        archive: PathBuf,
+        #[arg(long)]
+        deep: bool,
+    },
+    /// Restore drill: check the newest backup without touching the live install;
+    /// --deep (words on stdin) also decrypts it and restores it into a throwaway database
+    Drill {
+        #[arg(long)]
+        deep: bool,
+        #[arg(long)]
+        dir: Option<PathBuf>,
+    },
+    /// Delete old nightly backups (keeps --backup-keep)
+    Prune {
+        #[arg(long)]
+        dir: Option<PathBuf>,
+    },
+    /// Recovery key, last backup and last drill
+    Status,
+}
+
+/// The recovery words from stdin (typed or piped; never from a flag).
+fn read_words() -> anyhow::Result<String> {
+    use std::io::IsTerminal;
+    if std::io::stdin().is_terminal() {
+        eprintln!("Type the 24 recovery words, then Enter:");
+    }
+    let mut w = String::new();
+    let mut line = String::new();
+    while w.split_whitespace().count() < 24 {
+        line.clear();
+        if std::io::stdin().read_line(&mut line)? == 0 {
+            break;
+        }
+        w.push(' ');
+        w.push_str(&line);
+    }
+    Ok(w)
+}
+
+fn fmt_ms(ms: i64) -> String {
+    chrono::DateTime::from_timestamp_millis(ms)
+        .map(|t| {
+            t.with_timezone(&chrono::Local)
+                .format("%Y-%m-%d %H:%M %Z")
+                .to_string()
+        })
+        .unwrap_or_else(|| "never".into())
+}
+
+async fn backup_cmd(cfg: Config, cmd: BackupCmd) -> anyhow::Result<()> {
+    use itcmdr_adminsvr::backup as b;
+    match cmd {
+        BackupCmd::Init { replace } => {
+            let (words, r) = b::init(&cfg, replace)?;
+            println!("Recovery words for adminsvr's backups (shown once; write them down and keep them offline, apart from the backups):\n\n{words}\n");
+            println!("Recovery key {}. Only these words open adminsvr's backups; adminsvr keeps just the public key.", r.fingerprint());
+            Ok(())
+        }
+        BackupCmd::Create { out } => {
+            let pool = itcmdr_adminsvr::store::connect(&cfg.db_url).await?;
+            itcmdr_adminsvr::store::migrate(&pool).await?;
+            let i = b::create(&cfg, &pool, "manual", out.as_deref()).await?;
+            println!(
+                "{} ({} bytes, {} files)",
+                i.path.display(),
+                i.size,
+                i.manifest.files.len()
+            );
+            Ok(())
+        }
+        BackupCmd::List { dir } => {
+            for i in b::list(&b::backup_dir(&cfg, dir.as_deref()))? {
+                println!(
+                    "{}  {} bytes  {}  {}",
+                    i.name,
+                    i.size,
+                    i.manifest.kind,
+                    if i.manifest.format == "damaged" {
+                        "DAMAGED".to_string()
+                    } else {
+                        format!(
+                            "v{} schema {}",
+                            i.manifest.version, i.manifest.schema_version
+                        )
+                    }
+                );
+            }
+            Ok(())
+        }
+        BackupCmd::Verify { archive, deep } => {
+            let pinned = b::load_recovery(&cfg.data_dir)?;
+            if deep {
+                let (_, f) = b::open(&archive, &read_words()?, pinned.as_ref())?;
+                println!("ok: signature, hash, decryption and {} files", f.len());
+            } else {
+                let h = b::verify(&archive, pinned.as_ref())?;
+                println!(
+                    "ok: signature and hash ({} files, recovery key {}{})",
+                    h.manifest.files.len(),
+                    h.recovery.fingerprint(),
+                    if pinned.is_none() {
+                        "; not pinned: this install has no recovery key"
+                    } else {
+                        ""
+                    }
+                );
+            }
+            Ok(())
+        }
+        BackupCmd::Drill { deep, dir } => {
+            let pool = itcmdr_adminsvr::store::connect(&cfg.db_url).await.ok();
+            let w = if deep { Some(read_words()?) } else { None };
+            let r = b::drill(&cfg, pool.as_ref(), dir.as_deref(), w.as_deref()).await?;
+            if r.ok {
+                println!(
+                    "drill ok{}: {} ({} files{})",
+                    if r.deep { " (deep)" } else { "" },
+                    r.archive,
+                    r.files,
+                    if r.deep {
+                        format!(", {} users", r.users)
+                    } else {
+                        String::new()
+                    }
+                );
+                Ok(())
+            } else {
+                anyhow::bail!("drill FAILED: {} {}", r.archive, r.error)
+            }
+        }
+        BackupCmd::Prune { dir } => {
+            for g in b::prune(&b::backup_dir(&cfg, dir.as_deref()), cfg.backup.keep)? {
+                println!("deleted {g}");
+            }
+            Ok(())
+        }
+        BackupCmd::Status => {
+            match b::load_recovery(&cfg.data_dir)? {
+                None => println!("backups: not set up (run `itcmdr-adminsvr backup init`)"),
+                Some(r) => println!(
+                    "recovery key {} (since {})",
+                    r.fingerprint(),
+                    fmt_ms(r.created_ms)
+                ),
+            }
+            println!("folder: {}", cfg.backup.dir.display());
+            println!(
+                "nightly: {}",
+                cfg.backup
+                    .hour
+                    .map(|h| format!("{h}:00 local, keep {}", cfg.backup.keep))
+                    .unwrap_or("off".into())
+            );
+            let all = b::list(&cfg.backup.dir)?;
+            println!(
+                "newest: {}",
+                all.last().map(|i| i.name.clone()).unwrap_or("none".into())
+            );
+            match b::last_drill(&cfg.data_dir) {
+                None => println!("last drill: never"),
+                Some(d) => println!(
+                    "last drill: {} {} {}{}",
+                    fmt_ms(d.ms),
+                    if d.deep { "deep" } else { "quick" },
+                    if d.ok { "ok" } else { "FAILED" },
+                    if d.ok {
+                        String::new()
+                    } else {
+                        format!(" ({})", d.error)
+                    }
+                ),
+            }
+            Ok(())
+        }
+    }
 }
 
 /// Ctrl-C, or SIGTERM (what systemd, SysV init, OpenRC, launchd and podman send to stop).
@@ -335,7 +555,24 @@ fn config(c: Cli) -> Config {
         renew_days: c.acme_renew_days,
         retry_secs: c.acme_retry_secs.max(10),
     });
+    let backup = itcmdr_adminsvr::config::BackupConfig {
+        dir: path_opt(&c.backup_dir).unwrap_or_else(|| c.data_dir.join("backups")),
+        hour: match c.backup_hour.trim() {
+            "" | "off" | "none" => None,
+            h => Some(
+                h.parse::<u32>()
+                    .ok()
+                    .filter(|h| *h < 24)
+                    .unwrap_or_else(|| {
+                        eprintln!("--backup-hour must be 0-23 or off");
+                        std::process::exit(2)
+                    }),
+            ),
+        },
+        keep: c.backup_keep,
+    };
     Config {
+        backup,
         acme,
         db_url: if c.db_url.trim().is_empty() {
             format!("sqlite://{}", c.data_dir.join("adminsvr.db").display())
@@ -382,6 +619,25 @@ async fn dispatch(cfg: Config, cmd: Cmd) -> anyhow::Result<()> {
         Cmd::RecoverOwner { email } => {
             let code = itcmdr_adminsvr::api::recover_owner(&cfg, &email).await?;
             println!("Owner recovery code (24 h, single use; audited):\n{code}");
+            Ok(())
+        }
+        Cmd::Backup(b) => backup_cmd(cfg, b).await,
+        Cmd::Restore { from, dry_run } => {
+            let w = read_words()?;
+            let r = itcmdr_adminsvr::backup::restore(&cfg, &from, &w, dry_run).await?;
+            let verb = if dry_run { "would write" } else { "wrote" };
+            for x in &r.written {
+                println!("{verb} {x}");
+            }
+            for x in &r.review {
+                println!("{verb} for review (not active): {}", x.display());
+            }
+            if let Some(s) = &r.safety_copy {
+                println!("the state before the restore is in {}", s.display());
+            }
+            if !dry_run {
+                println!("restored. Review the settings in {}/restored/ (the active config was not changed), then start the service.", cfg.data_dir.display());
+            }
             Ok(())
         }
         Cmd::TlsStatus => {

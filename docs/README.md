@@ -35,6 +35,7 @@ page in both apps, `itcmdr-cli help <topic>`, `itcmdr-admin help <topic>`).
 
 - [adminsvr](ADMINSVR.md): what leaves a site, install, commands, approvals, releases, passkeys, push, Let's Encrypt
 - [Deploying adminsvr with Let's Encrypt](DEPLOY-ADMINSVR.md): DNS, firewall, ACME settings per install
+- [adminsvr backup and restore](BACKUP-ADMINSVR.md): adminsvr's own encrypted backups, the drill, restoring onto a new machine
 - [Admin app](ADMIN-APP.md) and [itcmdr-admin](ADMIN-CLI.md)
 
 ## Reference

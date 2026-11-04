@@ -1685,5 +1685,14 @@ renew this many days before expiry (default 30)
 .TP
 .B ITCMDR_ADMINSVR_ACME_RETRY_SECS
 wait after a failed attempt (default 3600)
+.TP
+.B ITCMDR_ADMINSVR_BACKUP_DIR
+v1.2.0 folder for adminsvr's own backups (default <data dir>/backups; [adminsvr backup](BACKUP\-ADMINSVR.md))
+.TP
+.B ITCMDR_ADMINSVR_BACKUP_HOUR
+nightly backup hour, 0\-23 local, or off (default 3)
+.TP
+.B ITCMDR_ADMINSVR_BACKUP_KEEP
+nightly backups kept (default 14; manual ones are never pruned)
 .SH SEE ALSO
 \fBitcmdr\fR(7), docs/README.md (also the in-app help: \fBitcmdr-cli help\fR, \fBitcmdr-admin help\fR)

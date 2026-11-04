@@ -46,6 +46,12 @@ instant-acme = { version = "0.8", default-features = false, features = ["ring", 
 x509-parser = "0.16"
 rcgen = { version = "0.13", default-features = false, features = ["ring", "pem"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+# v1.2.0 adminsvr's own backup
+chacha20poly1305 = "0.10"
+x25519-dalek = { version = "2.0", features = ["static_secrets"] }
+zeroize = "1.8"
+chrono = "0.4"
+tempfile = "3.10"
 
 [target.'cfg(windows)'.dependencies]
 windows-service = "0.7"
@@ -55,7 +61,6 @@ sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio",
 tempfile = "3.10"
 itcmdr-admin-cli = { path = "../admin-cli", features = ["soft-authenticator"] }
 itcmdr-server = { path = "../server" }
-chrono = "0.4"
 rsa = { version = "0.9", features = ["pem"] }
 p256 = { version = "0.13", features = ["pkcs8", "pem"] }
 
