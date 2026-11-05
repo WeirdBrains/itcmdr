@@ -245,3 +245,9 @@ extra leak patterns for release\-local.sh check (scripts)
 .TP
 .B ITCMDR_KEEP_BUILD
 1: release\-local.sh skips its automatic clean step after unix/android/ios\-check (to chain several targets; run release\-local.sh clean at the end) (scripts)
+.TP
+.B ITCMDR_BUILD_COMMIT
+git commit written into every binary's build stamp (default git rev\-parse HEAD); set by release\-local.sh and release\-windows.ps1 (build (help/build.rs), release scripts)
+.TP
+.B ITCMDR_ALLOW_UNTAGGED
+1: release\-local.sh builds a trial from a commit that is not the version tag (check refuses it) (scripts)
