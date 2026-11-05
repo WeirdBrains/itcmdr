@@ -21,7 +21,8 @@ that release.
 - Since 1.3.2 no Windows install needs the Visual C++ Redistributable: the Rust binaries link the C runtime
   statically (`.cargo/config.toml`, `+crt-static`), and the Windows build copies the runtime DLLs from the
   Build Tools' `VC\Redist\MSVC\<ver>\x64\Microsoft.VC143.CRT` next to both Flutter apps. It refuses a Rust
-  `.exe` that still names `vcruntime140` (`GUARD: ... imports the VC++ runtime`).
+  `.exe` whose import table (`dumpbin /dependents`) still lists `vcruntime*`/`msvcp*` (`GUARD: ... imports the
+  VC++ runtime`); a plain text search is not enough, since the CLIs embed these docs.
 - `release-local.sh check` (and again `publish`) runs `scripts/check_stamps.py`: every asset needs a stamp, and
   every stamp must name the tag's commit and the help hash of the tag's docs, else `GUARD: ...` and no release.
   Tests: `python3 scripts/test_check_stamps.py` (also run by `cargo test -p itcmdr-help`).
