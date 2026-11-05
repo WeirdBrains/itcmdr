@@ -222,8 +222,8 @@ begin
         if IsPartLog(FR.Name, Part) and (CompareText(LogRoot + '\' + FR.Name, Current) <> 0) then
         begin
           Count := Count + 1;
-          if (Oldest = '') or (FR.LastWriteTimeHigh < OH) or ((FR.LastWriteTimeHigh = OH) and (FR.LastWriteTimeLow < OL)) then
-          begin Oldest := FR.Name; OH := FR.LastWriteTimeHigh; OL := FR.LastWriteTimeLow; end;
+          if (Oldest = '') or (FR.LastWriteTime.dwHighDateTime < OH) or ((FR.LastWriteTime.dwHighDateTime = OH) and (FR.LastWriteTime.dwLowDateTime < OL)) then
+          begin Oldest := FR.Name; OH := FR.LastWriteTime.dwHighDateTime; OL := FR.LastWriteTime.dwLowDateTime; end;
         end;
       until not FindNext(FR);
     finally
