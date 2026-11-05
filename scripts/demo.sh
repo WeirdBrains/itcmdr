@@ -18,6 +18,9 @@
 #                      only listed ports): an address of this box the clients reach (the compose network's
 #                      gateway); step 6 forwards <it>:50051/50052 to the server VM over its SSH port
 #   DEMO_ISO_CACHE     where teardown --vms keeps the Windows ISO for the next provision (~/.cache/itcmdr-demo-iso)
+#   DEMO_RENAME        rename-vms: demo computer names for the server VM and the clients, in DEMO_SERVER_SSH,
+#                      DEMO_CLIENT_SSH order (default "OFFICE-SRV FRONT-DESK EXAM-ROOM"); the original names are
+#                      kept in DEMO_NAMES_FILE (~/.cache/itcmdr-demo-names) and teardown renames them back
 #   DEMO_SERVER_USER   SSH user on the server VM (default: your login name)
 #   DEMO_CLIENT_USER   SSH user on the client VMs (default demo)
 #   DEMO_SERVER_SSH    SSH port of the office server VM (default 2222)
@@ -47,7 +50,7 @@ read -r -a CL_NAME <<<"${DEMO_CLIENT_NAMES:-}"
 YES=0; START=1; ONLY=""; CMD=run
 while [[ $# -gt 0 ]]; do case "$1" in
   --step) START=$2; shift ;; --only) ONLY=$2; shift ;; --yes|-y) YES=1 ;;
-  list|teardown|provision-vms) CMD=$1 ;; --vms) TD_VMS=1 ;;
+  list|teardown|provision-vms|rename-vms|restore-names) CMD=$1 ;; --vms) TD_VMS=1 ;;
   -h|--help) sed -n '2,30p' "$0"; exit 0 ;; *) echo "unknown argument $1" >&2; exit 2 ;; esac; shift; done
 
 REL=$D/rel; ASV=$REL/itcmdr-adminsvr-$VER-linux-x86_64/itcmdr-adminsvr
@@ -147,7 +150,7 @@ s6() { say "6. Client PCs: enroll an agent on each"
     tok=$(vm "$SRV_SSH" "$CLI agent enroll-token --machine $name --address $addr:50052" | grep -o 'itcmdr-enroll:[^[:space:]]*' | head -1)
     [[ -n $tok ]] || { echo "no enrollment token for $name" >&2; return 1; }
     vm "$port" "New-Item -ItemType Directory -Force C:\\itcmdr-demo | Out-Null
-      if (-not (Test-Path C:\\Windows\\System32\\vcruntime140.dll)) { Invoke-WebRequest https://aka.ms/vs/17/release/vc_redist.x64.exe -OutFile C:\\itcmdr-demo\\vc_redist.x64.exe -UseBasicParsing
+      if ('$(old_crt)' -eq 'yes' -and -not (Test-Path C:\\Windows\\System32\\vcruntime140.dll)) { Invoke-WebRequest https://aka.ms/vs/17/release/vc_redist.x64.exe -OutFile C:\\itcmdr-demo\\vc_redist.x64.exe -UseBasicParsing
         \$v = Start-Process C:\\itcmdr-demo\\vc_redist.x64.exe -ArgumentList '/install','/quiet','/norestart' -Wait -PassThru; '$name VC++ runtime install exit ' + \$v.ExitCode }"
     vmcopy "$port" "$REL/itcmdr-agent-Setup-$VER.exe" "C:/itcmdr-demo/"
     vm "$port" "\$r = Start-Process C:\\itcmdr-demo\\itcmdr-agent-Setup-$VER.exe -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/EnrollToken=$tok' -Wait -PassThru; '$name agent setup exit ' + \$r.ExitCode"
@@ -234,6 +237,27 @@ s14() { say "14. Setup check and installer logs"
   vm "$SRV_SSH" "Get-ChildItem C:\\ProgramData\\itcmdr\\install-logs | Sort-Object LastWriteTime | Select-Object -Last 6 Name | Out-String -Width 100"
   vm "${CL_SSH[0]}" "Get-Content (Get-ChildItem C:\\ProgramData\\itcmdr\\install-logs -Filter 'agent-*.log' | Sort-Object LastWriteTime | Select-Object -Last 1).FullName -TotalCount 8"; }
 
+NAMES_FILE=${DEMO_NAMES_FILE:-$HOME/.cache/itcmdr-demo-names}
+# Rename one VM and restart it; wait until SSH answers again and the itcmdr services run.
+rename_one() { local port=$1 new=$2 i
+  [[ $(vm "$port" '$env:COMPUTERNAME' | tr -d '\r' | tail -1) == "$new" ]] && { note "port $port already $new"; return; }
+  vm "$port" "Rename-Computer -NewName '$new' -Force -WarningAction SilentlyContinue; Restart-Computer -Force" >/dev/null || true
+  note "port $port: renamed to $new, restarting"; sleep 30
+  for i in $(seq 1 60); do [[ $(vm "$port" '$env:COMPUTERNAME' 2>/dev/null | tr -d '\r' | tail -1) == "$new" ]] && break; sleep 10; done
+  vm "$port" "'now ' + \$env:COMPUTERNAME; Get-Service itcmdr-* -ErrorAction SilentlyContinue | ForEach-Object { \$_.Name + ' ' + \$_.Status }"; }
+rename_vms() { say "Demo computer names"
+  local -a ports=("$SRV_SSH" "${CL_SSH[@]}") names; read -r -a names <<<"${DEMO_RENAME:-OFFICE-SRV FRONT-DESK EXAM-ROOM}"
+  local i; if [[ ! -s $NAMES_FILE ]]; then (umask 077; for i in "${!ports[@]}"; do
+    echo "${ports[$i]} $(vm "${ports[$i]}" '$env:COMPUTERNAME' | tr -d '\r' | tail -1)"; done > "$NAMES_FILE"); fi
+  note "original names kept in $NAMES_FILE (not in the repo)"
+  for i in "${!ports[@]}"; do [[ -n ${names[$i]:-} ]] && rename_one "${ports[$i]}" "${names[$i]}"; done; }
+restore_names() { [[ -s $NAMES_FILE ]] || return 0; say "Original computer names"
+  local port name; while read -r port name; do [[ -n $name ]] && rename_one "$port" "$name"; done < "$NAMES_FILE"
+  rm -f "$NAMES_FILE"; }
+
+# Before 1.3.2 the Windows binaries needed the VC++ runtime, which a fresh Windows does not have.
+old_crt() { [[ $(printf '%s\n' "$VER" 1.3.2 | sort -V | head -1) == 1.3.2 ]] && echo no || echo yes; }
+
 client_names() { [[ -n ${DEMO_CLIENT_NAMES:-} ]] && return; local i
   for i in "${!CL_SSH[@]}"; do CL_NAME[$i]=$(vm "${CL_SSH[$i]}" '$env:COMPUTERNAME' | tr -d '\r' | tail -1); done; }
 
@@ -301,6 +325,7 @@ teardown() { say "Teardown"
   pkill -f "$ASV serve" 2>/dev/null || true
   [[ -n ${DEMO_TUNNEL_BIND:-} ]] && { pkill -f "L $DEMO_TUNNEL_BIND:50052:" 2>/dev/null || true; }
   rm -rf "$D"; note "removed $D (adminsvr data, demo identity, release files)"
+  restore_names
   if [[ ${TD_VMS:-} == 1 ]]; then
     local C=${DEMO_COMPOSE_DIR:?set DEMO_COMPOSE_DIR}; local R=${DEMO_CLIENT_ROOT:-$C-demo}
     if [[ -f $R/docker-compose.demo.yml ]]; then
@@ -317,6 +342,8 @@ teardown() { say "Teardown"
 case $CMD in
   list) for i in "${!STEPS[@]}"; do grep -m1 -o "say \"$((i+1))\.[^\"]*" "$0" | sed 's/say "//'; done ;;
   provision-vms) provision_vms ;;
+  rename-vms) rename_vms ;;
+  restore-names) restore_names ;;
   teardown) client_names; teardown ;;
   run) if (( ${ONLY:-$START} >= 6 )); then client_names; fi
        if [[ -n $ONLY ]]; then "${STEPS[$((ONLY - 1))]}"; else

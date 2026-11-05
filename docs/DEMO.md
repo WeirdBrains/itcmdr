@@ -29,7 +29,7 @@ Nothing is installed system-wide on the Linux box: adminsvr runs as your user wi
         # SSH users: DEMO_SERVER_USER (default: your login) DEMO_CLIENT_USER (default demo)
         # server VM ports not reachable from the clients (dockur publishes only listed ports):
         #   DEMO_TUNNEL_BIND=<compose network gateway> forwards <it>:50051/50052 to the server VM over SSH
-        # Fresh Windows lacks the VC++ runtime the binaries need; step 6 installs it on the clients.
+        # DEMO_VERSION before 1.3.2: step 6 installs the VC++ runtime on the clients (1.3.2+ need none).
         # live demo: DEMO_INTERACTIVE=1 (words on screen, asked back, never written to a file)
 
 ## The steps
@@ -58,6 +58,13 @@ Rollouts (step 13) need an owner-signed `itcmdr-agent-release` package of a newe
 (`itcmdr-cli plugins pack`, [upgrades](UPGRADES.md)); the release files do not include one. With one:
 `itcmdr-cli plugins install --path <pkg>`, `itcmdr-cli upgrade start <ver> --now`, and `upgrade status`
 shows ring 0 (the first PC), then ring 1, then the rest, each after `agent.upgradeSoakMins`.
+
+## Demo computer names
+
+For recordings, `scripts/demo.sh rename-vms` gives the VMs demo names (`DEMO_RENAME`, default
+`OFFICE-SRV FRONT-DESK EXAM-ROOM` for the server VM and the two clients) and restarts them. It keeps their
+original names in `DEMO_NAMES_FILE` (`~/.cache/itcmdr-demo-names`, never in the repo); `teardown` (or
+`restore-names`) renames them back. Agents enroll under the computer name, so rename before step 4.
 
 ## Teardown
 
