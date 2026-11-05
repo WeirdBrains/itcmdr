@@ -1,0 +1,5 @@
+# v1.3.2: link the C runtime statically into the Windows binaries, so they run on a fresh Windows
+# without the Visual C++ Redistributable (vcruntime140.dll). Applies to every crate built from this
+# checkout (the workspace and the apps' Rust libraries); no effect on Linux or macOS builds.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]

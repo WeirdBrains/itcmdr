@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.3.2 (2026-11-05)
+itcmdr 1.3.2: the Windows parts run on a fresh Windows without the Visual C++ runtime.
+- Versions 1.3.2 (app and admin app 1.3.2+44).
+- Tested: Linux fmt and clippy clean, Rust tests on SQLite and Postgres (217), Pester 105 (10 skipped), office app 55 (+1 skipped), admin app 34, docs and man pages current. Windows build guard: no Rust binary needs the VC++ runtime. Fresh-client check after release: docs/HANDOVER.md.
+- Fix: on a fresh Windows (no Visual C++ Redistributable) the agent, server, CLIs and watchdogs did not start (service error 1053: `vcruntime140.dll` missing). The Rust binaries now link the C runtime statically, and the office app and admin app installers carry the runtime DLLs next to the app. The Windows build refuses a Rust binary that still needs the runtime. docs/RELEASE-LOCAL.md.
+- Demo workflow: `scripts/demo.sh` and docs/DEMO.md (adminsvr on Linux, an office server VM and two client VMs; real break and self-heal, alerts, backups, deep check, update rings).
+
 ## v1.3.1 (2026-11-05)
 itcmdr 1.3.1: every release file is built from the tag, so the built-in help matches the docs.
 - Versions 1.3.1 (app and admin app 1.3.1+43).

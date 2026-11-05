@@ -97,6 +97,7 @@ Key backup on by default (opt-out), locked with the 24 words; COOP/COEP accepted
 | v1.2.0 | Real app ids (office app `com.weirdbrains.itcmdr`), adminsvr's own encrypted backup, restore and restore drill | ✅ Released 2026-11-04 (v1.2.1 installer logs) |
 | v1.3.0 | Installer log pruning, admin app Deep backup checks screen, VM end-to-end check script with real breaks | ✅ Released 2026-11-05 |
 | v1.3.1 | Release guard: every asset built from the tag (build stamp with commit and help hash, checked before publishing) | ✅ Released 2026-11-05 |
+| v1.3.2 | Windows parts run without the Visual C++ runtime (static CRT, app-local runtime DLLs for the apps); demo workflow | ✅ Released 2026-11-05 |
 
 ## Cross-cutting items
 

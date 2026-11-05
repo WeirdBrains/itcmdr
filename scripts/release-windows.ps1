@@ -1,6 +1,6 @@
 param([Parameter(Mandatory)][string]$Zip, [Parameter(Mandatory)][string]$Ver, [Parameter(Mandatory)][string]$Commit,
       [string]$Work = 'C:\e2e', [string]$Share = '\\host.lan\Data')
-# Builds the 7 Windows installers from a source zip of the tag (git archive vX.Y.Z + third_party).
+# Builds the 7 Windows installers (Rust binaries with the static C runtime; the apps carry its DLLs) from a source zip of the tag (git archive vX.Y.Z + third_party).
 # v1.3.1 release guard: $Commit (the tag's commit) goes into every binary's build stamp; after the
 # build each binary is checked for "ITCMDR-BUILD v=$Ver commit=$Commit ..." and the stamps are
 # written to <share>\rel-$Ver\windows-stamps.txt (one "<installer>: <stamp>" line per installer)
@@ -30,6 +30,16 @@ try {
     flutter pub get --enforce-lockfile; if ($LASTEXITCODE -ne 0) { throw "pub get $d failed" }
     flutter build windows --release; if ($LASTEXITCODE -ne 0) { throw "flutter build $d failed" }
     Pop-Location
+  }
+  # v1.3.2: the Rust binaries link the C runtime statically (.cargo/config.toml); the Flutter apps'
+  # runners still need it, so its DLLs ship next to them (app-local, Microsoft's redistributable CRT).
+  $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -property installationPath
+  $crt = Get-ChildItem "$vs\VC\Redist\MSVC\*\x64\Microsoft.VC14*.CRT" -Directory | Sort-Object FullName | Select-Object -Last 1
+  if (-not $crt) { throw "no VC++ redistributable CRT folder under $vs" }
+  foreach ($d in 'app','admin-app') { Copy-Item "$($crt.FullName)\*.dll" "$d\build\windows\x64\runner\Release\" -Force }
+  # Guard: no Rust binary may need the VC++ runtime DLLs (a fresh Windows does not have them).
+  foreach ($f in Get-ChildItem target\release\*.exe) {
+    if ([Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes($f.FullName)) -match '(?i)vcruntime140') { throw "GUARD: $($f.Name) imports the VC++ runtime" }
   }
   # Release guard: the stamp of each binary that goes into an installer.
   $re = [regex]"ITCMDR-BUILD v=(\S+) commit=([0-9a-zA-Z]+) help=([0-9a-f]{16}) END"
