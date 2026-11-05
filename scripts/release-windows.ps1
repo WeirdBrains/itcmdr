@@ -38,8 +38,13 @@ try {
   if (-not $crt) { throw "no VC++ redistributable CRT folder under $vs" }
   foreach ($d in 'app','admin-app') { Copy-Item "$($crt.FullName)\*.dll" "$d\build\windows\x64\runner\Release\" -Force }
   # Guard: no Rust binary may need the VC++ runtime DLLs (a fresh Windows does not have them).
+  # Reads the real import table (dumpbin /dependents): the CLIs embed the docs, which name the DLL in text.
+  $dumpbin = Get-ChildItem "$vs\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" | Sort-Object FullName | Select-Object -Last 1
+  if (-not $dumpbin) { throw "no dumpbin.exe under $vs" }
   foreach ($f in Get-ChildItem target\release\*.exe) {
-    if ([Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes($f.FullName)) -match '(?i)vcruntime140') { throw "GUARD: $($f.Name) imports the VC++ runtime" }
+    $deps = & $dumpbin.FullName /nologo /dependents $f.FullName
+    if ($LASTEXITCODE -ne 0) { throw "dumpbin failed on $($f.Name)" }
+    if ($deps -match '(?i)^\s*(vcruntime|msvcp)\d+.*\.dll\s*$') { throw "GUARD: $($f.Name) imports the VC++ runtime" }
   }
   # Release guard: the stamp of each binary that goes into an installer.
   $re = [regex]"ITCMDR-BUILD v=(\S+) commit=([0-9a-zA-Z]+) help=([0-9a-f]{16}) END"
