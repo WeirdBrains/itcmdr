@@ -135,6 +135,7 @@ fn run(c: Cli, k: Kind, stop: impl Fn() -> bool) {
 
 /// The whole program for one kind of watchdog.
 pub fn main(k: Kind) {
+    itcmdr_help::keep_stamp();
     let c = Cli::parse_from(
         std::iter::once(std::ffi::OsString::from(k.own_name())).chain(std::env::args_os().skip(1)),
     );

@@ -89,3 +89,5 @@ a test fails when a variable in the source is missing here. adminsvr flags each 
 | `ITCMDR_PLUGINS_REPO` | scripts | plugins repository for fetch-plugins.sh |
 | `ITCMDR_LEAK_PATTERNS` | scripts | extra leak patterns for release-local.sh check |
 | `ITCMDR_KEEP_BUILD` | scripts | `1`: release-local.sh skips its automatic clean step after unix/android/ios-check (to chain several targets; run `release-local.sh clean` at the end) |
+| `ITCMDR_BUILD_COMMIT` | build (help/build.rs), release scripts | git commit written into every binary's build stamp (default `git rev-parse HEAD`); set by release-local.sh and release-windows.ps1 |
+| `ITCMDR_ALLOW_UNTAGGED` | scripts | `1`: release-local.sh builds a trial from a commit that is not the version tag (`check` refuses it) |

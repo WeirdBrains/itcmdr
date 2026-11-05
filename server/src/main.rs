@@ -64,6 +64,7 @@ fn take_data_dir(args: &mut Vec<String>) -> anyhow::Result<Option<std::path::Pat
 }
 
 fn main() -> anyhow::Result<()> {
+    itcmdr_help::keep_stamp();
     let mut args: Vec<String> = std::env::args().skip(1).collect();
     let _ = DATA_DIR_FLAG.set(take_data_dir(&mut args)?);
     match args.first().map(String::as_str) {

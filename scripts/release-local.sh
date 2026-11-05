@@ -45,6 +45,13 @@ clean_build() {
 }
 case "$step" in unix|android|ios-check) [[ "${ITCMDR_KEEP_BUILD:-}" == 1 ]] || trap 'cd "$OLDPWD_ROOT" && clean_build' EXIT ;; esac
 OLDPWD_ROOT=$(pwd)
+# v1.3.1 release guard: release builds only from the tagged commit (ITCMDR_ALLOW_UNTAGGED=1 for
+# trial builds; check then refuses them). The commit goes into every binary's build stamp.
+case "$step" in unix|android)
+  if [[ "$(git rev-parse HEAD)" != "$(git rev-parse "v$ver^{commit}" 2>/dev/null)" && "${ITCMDR_ALLOW_UNTAGGED:-}" != 1 ]]; then
+    echo "HEAD is not tag v$ver: check out the tag (or ITCMDR_ALLOW_UNTAGGED=1 for a trial)" >&2; exit 1; fi
+  export ITCMDR_BUILD_COMMIT; ITCMDR_BUILD_COMMIT=$(git rev-parse HEAD) ;;
+esac
 case "$step" in
 clean) clean_build ;;
 unix)
@@ -95,11 +102,15 @@ check)
     n=$( (grep -raiF -l -f "$pats" "$d" || true) | wc -l); echo "leak check $a: $n file(s) with hits"; hits=$((hits+n))
   done
   [[ $hits -eq 0 ]] || { echo "LEAK: fix before publishing" >&2; exit 1; }
+  # v1.3.1 release guard: every asset built from the tagged commit with the current docs.
+  tagc=$(git rev-parse "v$ver^{commit}" 2>/dev/null) || { echo "tag v$ver missing (tag before building)" >&2; exit 1; }
+  python3 ../../scripts/check_stamps.py . "$tagc" --stamps "../$ver.windows-stamps.txt" || { echo "GUARD: rebuild from v$ver" >&2; exit 1; }
   sha256sum -- * > SHA256SUMS; cat SHA256SUMS ;;
 publish)
   tag="v$ver"
   git ls-remote --exit-code origin "refs/tags/$tag" >/dev/null || { echo "$tag not on origin" >&2; exit 1; }
   [[ -f "$out/SHA256SUMS" ]] || { echo "run check first" >&2; exit 1; }
+  python3 scripts/check_stamps.py "$out" "$(git rev-parse "$tag^{commit}")" --stamps "dist/$ver.windows-stamps.txt" >/dev/null || { echo "GUARD: assets not built from $tag" >&2; exit 1; }
   notes=$(mktemp); trap 'rm -f "$notes"' EXIT
   { awk -v h="## $tag " 'index($0,h)==1{p=1;next} /^## /{p=0} p' CHANGELOG.md
     echo; echo "Built locally (not by Actions). Verify downloads with SHA256SUMS."
