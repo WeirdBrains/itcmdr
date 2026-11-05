@@ -263,7 +263,7 @@ client_names() { [[ -n ${DEMO_CLIENT_NAMES:-} ]] && return; local i
 
 STEPS=(s1 s2 s3 s4 s5 s6 s7 s8 s9 s10 s11 s12 s13 s14)
 
-provision_vms() { say "Provision the two client VMs (dockur/windows, Windows 10 LTSC evaluation, 2 cores, 3 GB, 40 GB)"
+provision_vms() { say "Provision the two client VMs (dockur/windows, Windows 10 Pro without activation, 2 cores, 3 GB, 40 GB)"
   local C=${DEMO_COMPOSE_DIR:?set DEMO_COMPOSE_DIR}; local R=${DEMO_CLIENT_ROOT:-$C-demo}
   mkdir -p "$R/oem"; chmod 700 "$R"
   [[ -f $R/.env-demo ]] || (umask 077; echo "PASSWORD=$(head -c 18 /dev/urandom | base64 | tr -d '/+=')" > "$R/.env-demo")
@@ -279,14 +279,14 @@ BAT
     echo "services:"
     for n in 1 2; do mkdir -p "$R/client$n/storage"
       # reuse the Windows ISO a past teardown kept (dockur skips the download when it is in /storage)
-      [[ -f $ISO_CACHE/win10x64-enterprise-ltsc-eval.iso ]] && cp -n "$ISO_CACHE/win10x64-enterprise-ltsc-eval.iso" "$R/client$n/storage/"
+      local iso; for iso in "$ISO_CACHE"/*.iso; do [[ -f $iso ]] && cp -n "$iso" "$R/client$n/storage/"; done
       cat <<YML
   windows-client$n:
     # itcmdr demo client $n (agent only)
     image: dockurr/windows
     container_name: itcmdr-demo-client$n
     environment:
-      VERSION: "10l"
+      VERSION: "10"
       RAM_SIZE: "3G"
       CPU_CORES: "2"
       DISK_SIZE: "40G"
