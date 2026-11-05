@@ -16,9 +16,10 @@ Nothing is installed system-wide on the Linux box: adminsvr runs as your user wi
   OpenSSH with the box's key in `C:\ProgramData\ssh\administrators_authorized_keys`.
 - Client VMs: `DEMO_COMPOSE_DIR=<folder of the compose file> scripts/demo.sh provision-vms` writes
   `<compose folder>-demo/docker-compose.demo.yml` (the main compose file is never edited), layers it
-  with `docker compose -f docker-compose.yml -f <override>` and starts `windows-client1`/`windows-client2` (Windows 10 LTSC evaluation, 2 cores,
+  with `docker compose -f docker-compose.yml -f <override>` and starts `windows-client1`/`windows-client2` (Windows 10 Pro, not activated, 2 cores,
   3 GB RAM, 40 GB disk, SSH on ports 2223/2224, screen on 8007/8008, on the same compose network as
-  the server VM) and starts them. Windows installs itself in 30-60 minutes; a first-boot script turns
+  the server VM) and starts them. Not the LTSC evaluation: its evaluation period has ended, so Windows shuts
+  itself down every hour. Windows installs itself in 30-60 minutes; a first-boot script turns
   on OpenSSH with the box's key. Then SSH to each once and accept its host key after checking the
   fingerprint (the demo never skips host key checks).
 - Environment for the demo:
