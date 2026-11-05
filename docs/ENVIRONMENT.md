@@ -88,3 +88,4 @@ a test fails when a variable in the source is missing here. adminsvr flags each 
 | `ITCMDR_FAULT_TESTBED` | tests | enables the fault suite (testbed machines only) |
 | `ITCMDR_PLUGINS_REPO` | scripts | plugins repository for fetch-plugins.sh |
 | `ITCMDR_LEAK_PATTERNS` | scripts | extra leak patterns for release-local.sh check |
+| `ITCMDR_KEEP_BUILD` | scripts | `1`: release-local.sh skips its automatic clean step after unix/android/ios-check (to chain several targets; run `release-local.sh clean` at the end) |
