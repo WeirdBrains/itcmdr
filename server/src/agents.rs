@@ -414,15 +414,83 @@ pub async fn prepare(pool: &DbPool, layout: &Layout, secret: &str) -> Result<pb:
 
 /// v0.18.0 Check: is this agent id revoked? (No client certificate: a revoked agent's handshake
 /// fails, so this is how it learns to stop retrying.)
-pub async fn check(pool: &DbPool, agent_id: &str) -> Result<pb::CheckResponse> {
-    let st: Option<String> = sqlx::query_scalar("SELECT state FROM agents WHERE id = ?")
-        .bind(agent_id)
-        .fetch_optional(pool)
-        .await?;
+///
+/// v1.3.3: answered only to the enrolled agent itself. The request must name a certificate issued
+/// to that enrollment (current or previous) and carry a fresh, unreplayed Ed25519 signature by the
+/// agent key registered at enrollment over `check_bytes`. Anything else, an unknown id included,
+/// gets the same empty answer, so Check is not an oracle for which ids exist or were revoked. The
+/// nonce is only recorded after the signature verifies, so others cannot burn an agent's nonces.
+pub async fn check(
+    pool: &DbPool,
+    nonces: &crate::auth::NonceCache,
+    r: &pb::CheckRequest,
+    skew_ms: i64,
+) -> Result<pb::CheckResponse> {
+    let row: Option<(String, String, Option<String>, String)> =
+        sqlx::query_as("SELECT state, cert_fp, prev_cert_fp, public_key FROM agents WHERE id = ?")
+            .bind(&r.agent_id)
+            .fetch_optional(pool)
+            .await?;
+    let Some((state, cur, prev, pk)) = row else {
+        return Ok(pb::CheckResponse::default());
+    };
+    let fp_ok = fp_matches(&r.cert_fingerprint, &cur)
+        || fp_matches(&r.cert_fingerprint, prev.as_deref().unwrap_or(""));
+    let fresh = (now() - r.ts_ms).abs() <= skew_ms;
+    let nonce_ok = (16..=128).contains(&r.nonce.len())
+        && r.nonce
+            .bytes()
+            .all(|c| c.is_ascii_alphanumeric() || c == b'-' || c == b'_');
+    let sig_ok = (|| -> Option<()> {
+        let pk: [u8; 32] = hex::decode(&pk).ok()?.try_into().ok()?;
+        let vk = ed25519_dalek::VerifyingKey::from_bytes(&pk).ok()?;
+        let sig: [u8; 64] = hex::decode(&r.signature).ok()?.try_into().ok()?;
+        vk.verify_strict(
+            &itcmdr_agentlink::check_bytes(&r.agent_id, &r.cert_fingerprint, r.ts_ms, &r.nonce),
+            &ed25519_dalek::Signature::from_bytes(&sig),
+        )
+        .ok()
+    })()
+    .is_some();
+    if !(fp_ok && fresh && nonce_ok && sig_ok)
+        || !nonces.check_and_insert_ttl(
+            &format!("check:{}", r.agent_id),
+            &r.nonce,
+            now(),
+            2 * skew_ms,
+        )
+    {
+        return Ok(pb::CheckResponse::default());
+    }
     Ok(pb::CheckResponse {
-        revoked: st.as_deref() == Some("revoked"),
-        known: st.is_some(),
+        revoked: state == "revoked",
+        known: true,
     })
+}
+
+/// Case-insensitive comparison of two hex fingerprints in constant time; empty never matches.
+fn fp_matches(a: &str, b: &str) -> bool {
+    let (a, b) = (a.trim().to_ascii_lowercase(), b.trim().to_ascii_lowercase());
+    if a.is_empty() || a.len() != b.len() {
+        return false;
+    }
+    a.bytes().zip(b.bytes()).fold(0u8, |d, (x, y)| d | (x ^ y)) == 0
+}
+
+/// v1.3.3: the enrollment a client certificate was issued to (current certificate, or the
+/// previous one during its renewal overlap), revoked ones included.
+pub async fn by_cert_fp(pool: &DbPool, fp: &str) -> Result<Option<Agent>> {
+    let fp = fp.to_ascii_lowercase();
+    Ok(sqlx::query(
+        "SELECT * FROM agents WHERE lower(cert_fp) = ? OR (lower(prev_cert_fp) = ? AND prev_until_ms > ?) ORDER BY enrolled_ms DESC LIMIT 1",
+    )
+    .bind(&fp)
+    .bind(&fp)
+    .bind(now())
+    .fetch_optional(pool)
+    .await?
+    .as_ref()
+    .map(row))
 }
 
 /// Enroll: check and burn the token, register the key, sign the CSR.
@@ -944,7 +1012,8 @@ impl pb::agent_service_server::AgentService for AgentLink {
         &self,
         req: Request<pb::CheckRequest>,
     ) -> Result<Response<pb::CheckResponse>, Status> {
-        check(&self.pool, &req.get_ref().agent_id)
+        let skew = crate::settings::get_i64(&self.pool, None, "auth.max_skew_secs").await * 1000;
+        check(&self.pool, &self.nonces, req.get_ref(), skew)
             .await
             .map(Response::new)
             .map_err(|e| Status::internal(e.to_string()))
@@ -975,6 +1044,25 @@ impl pb::agent_service_server::AgentService for AgentLink {
         let peer = peer_of(&req);
         let fp = client_fp(&req)
             .ok_or_else(|| Status::unauthenticated("a client certificate is required"))?;
+        // v1.3.3: the certificate must belong to a live enrollment before anything is read. The
+        // handshake allow-list already refuses revoked serials; this also covers the moment after
+        // a revoke by another process (itcmdr-cli) and before this server reloads that list.
+        match by_cert_fp(&self.pool, &fp)
+            .await
+            .map_err(|e| Status::internal(e.to_string()))?
+        {
+            None => {
+                return Err(Status::unauthenticated(
+                    "the client certificate is not the one issued to this agent",
+                ))
+            }
+            Some(a) if a.state == "revoked" => {
+                return Err(Status::permission_denied(
+                    "this agent was revoked; enroll it again",
+                ))
+            }
+            Some(_) => {}
+        }
         let mut inbound = req.into_inner();
         let first = tokio::time::timeout(Duration::from_secs(15), inbound.next())
             .await

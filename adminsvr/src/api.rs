@@ -918,7 +918,23 @@ async fn get_site(pool: &Pool, id: &str) -> Result<pb::SiteInfo, Status> {
 
 #[tonic::async_trait]
 impl pb::admin_api_server::AdminApi for Api {
-    async fn info(&self, _: Request<pb::Empty>) -> Result<Response<pb::InfoResponse>, Status> {
+    /// v1.3.3: unsigned callers get only what the TLS handshake already shows (the internal
+    /// certificate fingerprint and the TLS mode), enough to check a pin. Version, initialization,
+    /// the root key and certificate health need a signed request from an enrolled device.
+    async fn info(&self, req: Request<pb::Empty>) -> Result<Response<pb::InfoResponse>, Status> {
+        if !req.metadata().contains_key("x-itcmdr-sig") {
+            return Ok(Response::new(pb::InfoResponse {
+                tls_mode: if self.cfg.acme.is_some() {
+                    "acme"
+                } else {
+                    "internal"
+                }
+                .into(),
+                internal_fingerprint: self.m.fingerprint.clone(),
+                ..Default::default()
+            }));
+        }
+        self.signed(&req, "/itcmdr.admin.AdminApi/Info").await?;
         let n: i64 = self
             .pool
             .run(|c| Ok(users::table.count().get_result(c)?))

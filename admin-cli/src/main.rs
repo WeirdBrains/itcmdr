@@ -52,7 +52,7 @@ enum Cmd {
         /// Topic (file name without .md, e.g. backup) or a word to search for
         topic: Option<String>,
     },
-    /// adminsvr version and root key (unsigned)
+    /// adminsvr certificate; version, root key and certificate health when this device is enrolled
     Info {
         addr: String,
         /// The internal certificate's SHA-256 (empty = the system trust store)
@@ -566,15 +566,24 @@ async fn main() -> Result<()> {
             return Ok(());
         }
         Cmd::Info { addr, pin } => {
-            let mut api = pb::admin_api_client::AdminApiClient::new(
-                itcmdr_admin::channel(&addr, &pin).await?,
-            );
-            let i = api.info(pb::Empty {}).await?.into_inner();
-            println!(
-                "adminsvr {}  initialized={}  root={}",
-                i.version, i.initialized, i.root_public_key
-            );
-            print_tls(&i);
+            // v1.3.3: signed (full) when this device is enrolled with that adminsvr; otherwise
+            // only the certificate facts the server shows to anyone.
+            let enrolled = Identity::load(&home).ok().filter(|id| id.addr == addr);
+            if let Some(id) = enrolled {
+                let i = Client::connect(&id).await?.info().await?;
+                println!(
+                    "adminsvr {}  initialized={}  root={}",
+                    i.version, i.initialized, i.root_public_key
+                );
+                print_tls(&i);
+            } else {
+                let mut api = pb::admin_api_client::AdminApiClient::new(
+                    itcmdr_admin::channel(&addr, &pin).await?,
+                );
+                let i = api.info(pb::Empty {}).await?.into_inner();
+                println!("adminsvr {addr} (not enrolled here: version and certificate health need an enrolled device)");
+                print_tls(&i);
+            }
         }
         Cmd::Enroll {
             code,

@@ -207,9 +207,9 @@ async fn prepare_refuses_before_enrollment_and_check_reports_revoked() {
         .await
         .unwrap();
     assert!(!st.root_public_key.is_empty());
-    assert!(!link::is_revoked(&st).await);
+    assert!(!link::is_revoked(&adir, &st).await);
     srv::agents::revoke(&e.pool, "WS-11").await.unwrap();
-    assert!(link::is_revoked(&st).await);
+    assert!(link::is_revoked(&adir, &st).await);
 }
 
 #[tokio::test]
@@ -396,4 +396,127 @@ async fn agent_runs_pushed_plugins_and_schedules() {
     })
     .await;
     h.abort();
+}
+
+/// v1.3.3: Check answers only the enrolled agent, proven by a signature of its enrolled Ed25519
+/// key. The certificate fingerprint alone, another key, a replayed or stale request and unknown
+/// ids all get the same empty answer (no enumeration or revocation oracle).
+#[tokio::test]
+async fn check_needs_the_agent_signature() {
+    use ed25519_dalek::{Signer, SigningKey};
+    use itcmdr_agentlink::pb::{self, agent_service_client::AgentServiceClient};
+    let e = env().await;
+    let _stop = start(&e.c).await;
+    let adir = e.root.join("agent");
+    let st = link::enroll(
+        &adir,
+        &token(&e, "WS-12").await,
+        Some("WS-12"),
+        "workstation",
+    )
+    .await
+    .unwrap();
+    let fp = itcmdr_agentlink::tls::pem_fingerprint(&st.cert_pem).unwrap();
+    let seed = itcmdr_agent::state::read_secret(&adir.join("keys").join("agent.key")).unwrap();
+    let b: [u8; 32] = hex::decode(String::from_utf8_lossy(&seed).trim())
+        .unwrap()
+        .try_into()
+        .unwrap();
+    let key = SigningKey::from_bytes(&b);
+    let other = SigningKey::from_bytes(&[7u8; 32]);
+    let now = || chrono::Utc::now().timestamp_millis();
+    let req = |k: Option<&SigningKey>, id: &str, f: &str, ts: i64, nonce: &str| pb::CheckRequest {
+        agent_id: id.into(),
+        cert_fingerprint: f.into(),
+        ts_ms: ts,
+        nonce: nonce.into(),
+        signature: k
+            .map(|k| {
+                hex::encode(
+                    k.sign(&itcmdr_agentlink::check_bytes(id, f, ts, nonce))
+                        .to_bytes(),
+                )
+            })
+            .unwrap_or_default(),
+    };
+    let ch = itcmdr_agentlink::tls::connect(&st.address, &st.pin, None)
+        .await
+        .unwrap();
+    let c = AgentServiceClient::new(ch);
+    let ask = |r: pb::CheckRequest| {
+        let mut c = c.clone();
+        async move { c.check(r).await.unwrap().into_inner() }
+    };
+    let empty = pb::CheckResponse::default();
+    let live = pb::CheckResponse {
+        known: true,
+        revoked: false,
+    };
+    let n = |i: u8| format!("nonce-{i:02}-0123456789abcdef");
+    // The legacy request (fingerprint only) and a bare fingerprint get nothing.
+    assert_eq!(ask(req(None, &st.agent_id, &fp, now(), &n(1))).await, empty);
+    // Another key, even with the right fingerprint, and a wrong fingerprint signed correctly.
+    assert_eq!(
+        ask(req(Some(&other), &st.agent_id, &fp, now(), &n(2))).await,
+        empty
+    );
+    assert_eq!(
+        ask(req(
+            Some(&key),
+            &st.agent_id,
+            &"ab".repeat(32),
+            now(),
+            &n(3)
+        ))
+        .await,
+        empty
+    );
+    // Unknown id; a stale timestamp; a malformed nonce.
+    assert_eq!(
+        ask(req(Some(&key), "no-such-agent", &fp, now(), &n(4))).await,
+        empty
+    );
+    assert_eq!(
+        ask(req(
+            Some(&key),
+            &st.agent_id,
+            &fp,
+            now() - 86_400_000,
+            &n(5)
+        ))
+        .await,
+        empty
+    );
+    assert_eq!(
+        ask(req(Some(&key), &st.agent_id, &fp, now(), "short")).await,
+        empty
+    );
+    // The agent itself, once; the same request again is a replay.
+    let good = req(Some(&key), &st.agent_id, &fp, now(), &n(6));
+    assert_eq!(ask(good.clone()).await, live);
+    assert_eq!(ask(good).await, empty);
+    // A forged request does not burn the agent's nonce.
+    assert_eq!(
+        ask(req(Some(&other), &st.agent_id, &fp, now(), &n(7))).await,
+        empty
+    );
+    assert_eq!(
+        ask(req(Some(&key), &st.agent_id, &fp, now(), &n(7))).await,
+        live
+    );
+    srv::agents::revoke(&e.pool, "WS-12").await.unwrap();
+    assert_eq!(ask(req(None, &st.agent_id, &fp, now(), &n(8))).await, empty);
+    assert_eq!(
+        ask(req(Some(&other), &st.agent_id, &fp, now(), &n(9))).await,
+        empty
+    );
+    assert_eq!(
+        ask(req(Some(&key), &st.agent_id, &fp, now(), &n(10))).await,
+        pb::CheckResponse {
+            known: true,
+            revoked: true
+        }
+    );
+    // The agent's own code path still learns it was revoked.
+    assert!(link::is_revoked(&adir, &st).await);
 }

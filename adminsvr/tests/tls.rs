@@ -278,13 +278,7 @@ async fn acme_issues_renews_in_place_and_fails_safe_against_pebble() {
         ("untrusted", r1.fingerprint.as_str())
     );
     // Enrolled devices still get the internal certificate they pinned.
-    let i = o
-        .api
-        .clone()
-        .info(itcmdr_admin::proto::Empty {})
-        .await
-        .unwrap()
-        .into_inner();
+    let i = o.info().await.unwrap();
     assert_eq!(i.tls_mode, "acme");
     assert_eq!(i.tls_domains, vec![DOMAIN.to_string()]);
     assert!(i.tls_expires_ms > 0 && !i.tls_renewal_failing);
@@ -381,13 +375,7 @@ async fn acme_issues_renews_in_place_and_fails_safe_against_pebble() {
                 .is_some_and(|x| x.id == "tls-acme" && x.state == "open")),
         "{alerts:?}"
     );
-    let i = o2
-        .api
-        .clone()
-        .info(itcmdr_admin::proto::Empty {})
-        .await
-        .unwrap()
-        .into_inner();
+    let i = o2.info().await.unwrap();
     assert!(i.tls_renewal_failing);
     drop(ctr);
 }

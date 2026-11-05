@@ -691,7 +691,7 @@ pub async fn run(
                 attempt = 0;
             }
             // v0.18.0: a revoked agent's handshake fails with a reset on Windows; ask the server.
-            if matches!(end, End::Lost(_)) && attempt >= 1 && is_revoked(&st).await {
+            if matches!(end, End::Lost(_)) && attempt >= 1 && is_revoked(dir, &st).await {
                 end = End::Refused("this agent was revoked (checked with the server)".into());
             }
             match end {
@@ -721,13 +721,27 @@ pub async fn run(
 }
 
 /// Ask the server (no client certificate) whether this agent is revoked. False when unsure.
-pub async fn is_revoked(st: &State) -> bool {
+/// v1.3.3: the request is signed with the agent's enrolled key (`check_bytes`).
+pub async fn is_revoked(dir: &Path, st: &State) -> bool {
     let r = async {
+        let sk = signing_key(dir)?;
+        let fp = tls::pem_fingerprint(&st.cert_pem).unwrap_or_default();
+        let ts = now();
+        let nonce = hex::encode(rand::random::<[u8; 16]>());
+        let sig = sk.sign(&itcmdr_agentlink::check_bytes(
+            &st.agent_id,
+            &fp,
+            ts,
+            &nonce,
+        ));
         let ch = tls::connect(&st.address, &st.pin, None).await?;
         let r = AgentServiceClient::new(ch)
             .check(pb::CheckRequest {
                 agent_id: st.agent_id.clone(),
-                cert_fingerprint: tls::pem_fingerprint(&st.cert_pem).unwrap_or_default(),
+                cert_fingerprint: fp,
+                ts_ms: ts,
+                nonce,
+                signature: hex::encode(sig.to_bytes()),
             })
             .await?
             .into_inner();

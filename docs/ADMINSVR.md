@@ -308,8 +308,12 @@ How it works:
   certificate expires within 7 days or there is none, Cautious otherwise); the next success
   resolves it. It retries after `retry-secs`.
 - Status: `itcmdr-adminsvr tls-status` on the server (mode, names, expiry, last renewal, issuer,
-  fingerprint, last error) and `itcmdr-admin info <addr>` anywhere (mode, names, expiry, a warning
-  when the last renewal failed; errors are not shown over the network).
+  fingerprint, last error) and `itcmdr-admin info <addr>` from an enrolled device (version, root
+  key, mode, names, expiry, a warning when the last renewal failed; errors are not shown over the
+  network). From v1.3.3 `Info` needs a signed request from an active device for those details;
+  unsigned callers (and `itcmdr-admin info` on a device not enrolled with that adminsvr) get only
+  the TLS mode and the internal certificate fingerprint, which the TLS handshake shows anyway.
+  Enrollment does not use `Info`: the code carries the address and the pin.
 - Tests run against Pebble (Let's Encrypt's test CA) in podman: `adminsvr/tests/tls.rs`
   (`podman pull ghcr.io/letsencrypt/pebble ghcr.io/letsencrypt/pebble-challtestsrv`; the test is
   skipped without them or with `ITCMDR_SKIP_PEBBLE=1`).

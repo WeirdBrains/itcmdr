@@ -395,3 +395,51 @@ async fn queued_alerts_delivered_once_after_reconnect() {
     let a = agent(&pool, "WS-05").await;
     assert!(a.last_seq >= 3);
 }
+
+/// v1.3.3: a revoke written by another process (itcmdr-cli) reaches the handshake allow-list only
+/// at the server's next refresh. Until then Link must still refuse the certificate before it reads
+/// any message: never "the first message must be Hello" for a revoked agent.
+#[tokio::test]
+async fn link_refuses_a_revoked_certificate_before_the_allow_list_reloads() {
+    use itcmdr_agentlink::pb::{self, agent_service_client::AgentServiceClient};
+    let tmp = tempfile::tempdir().unwrap();
+    let c = cfg(tmp.path());
+    let pool = srv::db::init_db(&c).await.unwrap();
+    let _stop = start(&c).await;
+    let adir = tmp.path().join("agent");
+    let st = link::enroll(
+        &adir,
+        &token(&pool, &c, "WS-13").await,
+        Some("WS-13"),
+        "workstation",
+    )
+    .await
+    .unwrap();
+    let key = String::from_utf8(
+        itcmdr_agent::state::read_secret(&adir.join("keys").join("tls.key")).unwrap(),
+    )
+    .unwrap();
+    let pem = itcmdr_agentlink::tls::Pem {
+        cert: st.cert_pem.clone(),
+        key,
+    };
+    // Like `itcmdr-cli agent revoke`: the database only, no in-process refresh.
+    sqlx::query("UPDATE agents SET state = 'revoked', revoked_ms = 1 WHERE machine = 'WS-13'")
+        .execute(&pool)
+        .await
+        .unwrap();
+    let r = async {
+        let ch = itcmdr_agentlink::tls::connect(&st.address, &st.pin, Some(&pem)).await?;
+        let msgs = tokio_stream::iter(vec![pb::AgentMessage::default()]);
+        AgentServiceClient::new(ch)
+            .link(msgs)
+            .await
+            .map(|_| ())
+            .map_err(anyhow::Error::from)
+    }
+    .await;
+    let e = format!("{r:?}");
+    assert!(r.is_err(), "a revoked certificate opened a link");
+    assert!(!e.contains("first message must be Hello"), "{e}");
+    assert!(e.contains("revoked") || e.contains("Revoked"), "{e}");
+}
