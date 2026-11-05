@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.3.0 (2026-11-05)
+itcmdr 1.3: installer logs are pruned, and the admin app has a Deep backup checks screen.
+- Versions 1.3.0 (app and admin app 1.3.0+42).
+- TESTS-PLACEHOLDER
+- **Installer logs are pruned**: each Windows installer run keeps the newest 20 logs of its own part in `install-logs` (current run included) and deletes older ones. `last-<part>.json`, `last-<part>.reported.json` and other parts' logs are never touched (the `admin` part does not match `admin-app` logs). The run's log notes how many it pruned.
+- **Admin app: Deep backup checks** (Servers → Deep backup checks): every server's last deep backup check (date, ok or failed) and the overdue warning, worst first, with the organization's limit. Only the date and result the site sends; adminsvr never holds or opens a backup.
+
 ## v1.2.1 (2026-11-04)
 itcmdr 1.2.1: Windows installers keep a log of every run, and a failed upgrade is loud.
 - Versions 1.2.1 (app and admin app 1.2.1+41).
