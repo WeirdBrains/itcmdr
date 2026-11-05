@@ -10,7 +10,16 @@ $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Env
 $env:ITCMDR_BUILD_COMMIT = $Commit
 $src = "C:\src\rel-$Ver"
 if (Test-Path $src) { Remove-Item -Recurse -Force $src }
-Expand-Archive "$Work\$Zip" $src -Force
+# A git checkout of the tag (from a bundle), so build scripts that run without our environment
+# (Flutter native-asset hooks) still find the commit with `git rev-parse HEAD`; the zip adds third_party/.
+$bundle = "$Share\itcmdr-v$Ver.bundle"
+if (Test-Path $bundle) {
+  git -c core.autocrlf=false clone -q -c core.autocrlf=false $bundle $src; if ($LASTEXITCODE -ne 0) { throw "clone failed" }
+  git -C $src checkout -q "v$Ver"; if ($LASTEXITCODE -ne 0) { throw "checkout v$Ver failed" }
+  if ((git -C $src rev-parse HEAD) -ne $Commit) { throw "GUARD: bundle v$Ver is not $Commit" }
+  $tmp = "$src-zip"; Expand-Archive "$Work\$Zip" $tmp -Force
+  Copy-Item "$tmp\third_party" $src -Recurse -Force; Remove-Item -Recurse -Force $tmp
+} else { Expand-Archive "$Work\$Zip" $src -Force }
 Set-Location $src
 try {
   cargo build --release --locked -p itcmdr-server -p itcmdr-agent -p itcmdr-watchdog -p itcmdr-admin-cli -p itcmdr-adminsvr --bins
