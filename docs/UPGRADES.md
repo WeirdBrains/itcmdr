@@ -47,6 +47,7 @@ Approve a release once and roll it out to the sites you choose: `itcmdr-admin re
 Every Windows installer run (new install or upgrade, interactive or `/VERYSILENT`) writes a log, also when it fails:
 - Server, agent, office app, CLI, admin CLI and admin app: `%ProgramData%\itcmdr\install-logs\<part>-<version>-<yyyymmdd-hhnnss>.log`.
 - adminsvr: `%ProgramData%\itcmdr-adminsvr\install-logs\`.
+- Pruned (v1.3.0): each run keeps the newest 20 logs of its own part (by file time, the current run included) and deletes older ones; `last-<part>.json`, `last-<part>.reported.json` and other parts' logs are never touched. The log says `pruned N old install log(s)`.
 
 The log has one timestamped line per step: the version found (fresh install or "upgrade from X"), each service stop and the wait for STOPPED, each process exit (forced with `taskkill /F` after 30 s), a lock probe of every program file (30 tries, 2 s apart, each retry logged), files replaced, each service start and the wait for RUNNING (one `sc start` retry), the result and the exit code. Inno Setup's own log is appended under `---- Inno Setup log ----`. The command line is not logged (it may hold an enrollment token). Old logs are not pruned.
 

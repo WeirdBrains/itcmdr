@@ -266,7 +266,7 @@ never holds or opens site backups. See [adminsvr backup and restore](BACKUP-ADMI
 Each site status carries `deep_check_ms` and `deep_check_result` (ok | failed | none): the date and
 result of the site's last `itcmdr-cli backup drill --deep`, which only runs on the site with the 24
 words. Nothing else about backups is sent. `itcmdr-admin site list` and the admin app's Servers page
-show "last deep check: N days ago" and a warning when it never ran, failed, or is older than the
+show "last deep check: N days ago" (the admin app also lists every server on its Deep backup checks screen, v1.3.0) and a warning when it never ran, failed, or is older than the
 organization's limit (`OrgPolicy.deep_check_max_days`, default 90, `itcmdr-admin org policy
 --deep-check-days N`, owners only, audited as `org.policy`).
 
