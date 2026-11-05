@@ -55,7 +55,7 @@ A failed run is loud:
 - The services that were running are started again (on the old version when nothing was replaced).
 - An Application event log entry, source `itcmdr-setup`, id 100.
 - `last-<part>.json` next to the logs: `part`, `from`, `to`, `ok`, `step`, `error`, `exit`, `log`, `time`.
-- The site server reads `last-server.json` on its next self-upgrade tick and opens the Critical alert `installer-server` (a good run resolves it); each agent reads its own `last-agent.json` at start and sends `installer-agent`. The file is then renamed to `last-<part>.reported.json`.
+- The site server reads `last-server.json` on its next self-upgrade tick and opens the Critical alert `installer-server` (a good run resolves it); each agent reads its own `last-agent.json` at start and every minute and sends `installer-agent`. The file is then renamed to `last-<part>.reported.json`.
 - `itcmdr-cli setup check` shows `install.server` and `install.agent` (Ok, or Fail with the log path).
 
 Testing the failure path: `/SIMULATEFAIL=lock` fails at the lock probe (exit 7, nothing changed); `/SIMULATEFAIL=start` fails the service start check (exit 8).

@@ -375,7 +375,6 @@ end;
 
 procedure DeinitializeSetup();
 var
-  Inno: AnsiString;
   Code, OkS: string;
   RC: Integer;
 begin
@@ -383,14 +382,13 @@ begin
   OkS := 'false';
   if IOk and not IPostFail then
   begin
-    ILog('OK: ' + IPart + ' ' + IFrom + ' -> {#MyAppVersion}');
+    ILog('OK: ' + IPart + ' ' + IFrom + ' -> {#MyAppVersion}; exit code 0');
     Code := '0';
     OkS := 'true';
   end
   else
   begin
     if IError = '' then IFail(IStep, 'setup was aborted (see the Inno Setup log below); the files were rolled back');
-    if not IOk then InstallRestoreServices();
     if IPostFail then Code := '8' else if IStep = 'file locks' then Code := '7' else Code := 'non-zero';
     ILog('UPGRADE FAILED: ' + IPart + ' stays at ' + IFrom + '; exit code ' + Code);
     RC := RunRC(ExpandConstant('{sys}\eventcreate.exe'), '/L APPLICATION /T ERROR /SO itcmdr-setup /ID 100 /D ' + Q('itcmdr ' + IPart + ' setup {#MyAppVersion} failed at ' + IStep + ': ' + IError + ' Log: ' + ILogPath));
@@ -401,9 +399,10 @@ begin
     ',"ok":' + OkS + ',"step":' + JsonStr(IStep) +
     ',"error":' + JsonStr(IError) + ',"exit":' + JsonStr(Code) + ',"log":' + JsonStr(ILogPath) +
     ',"time":' + JsonStr(IStamp()) + '}', False);
-  try
-    if LoadStringFromFile(ExpandConstant('{log}'), Inno) then
-      SaveStringToFile(ILogPath, #13#10 + '---- Inno Setup log ----' + #13#10 + String(Inno), True);
-  except
-  end;
+  // After last-<part>.json, so the restarted service sees the result at once.
+  if not IOk then InstallRestoreServices();
+  // Setup still holds its own log open (deny write), so copy it with cmd's type, which shares.
+  SaveStringToFile(ILogPath, #13#10 + '---- Inno Setup log ----' + #13#10, True);
+  if RunRC(ExpandConstant('{cmd}'), '/C type "' + ExpandConstant('{log}') + '" >> "' + ILogPath + '"') <> 0 then
+    SaveStringToFile(ILogPath, '(could not copy ' + ExpandConstant('{log}') + ')' + #13#10, True);
 end;
