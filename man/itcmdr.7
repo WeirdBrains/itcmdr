@@ -242,3 +242,6 @@ plugins repository for fetch\-plugins.sh (scripts)
 .TP
 .B ITCMDR_LEAK_PATTERNS
 extra leak patterns for release\-local.sh check (scripts)
+.TP
+.B ITCMDR_KEEP_BUILD
+1: release\-local.sh skips its automatic clean step after unix/android/ios\-check (to chain several targets; run release\-local.sh clean at the end) (scripts)
