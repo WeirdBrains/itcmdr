@@ -1,11 +1,15 @@
 # Changelog
 
 ## Unreleased
-Security hardening from an internal review.
-- adminsvr `Info`: unsigned callers get only the TLS mode and the internal certificate fingerprint (what the handshake shows). Version, initialization, root key and certificate health need a signed request from an active device; `itcmdr-admin info` signs when the device is enrolled with that adminsvr. Compatibility: older `itcmdr-admin info` shows an empty version and root key; enrollment is unchanged.
-- Agent `Check` is signed by the agent's enrolled key (time, one-time nonce, the certificate issued to it); anything else gets the same empty answer, so it no longer tells others which agent ids exist or were revoked. Compatibility: agents older than 1.3.3 are not told they were revoked (they keep retrying, each attempt refused) until updated.
-- Agent link: a client certificate that does not belong to a live enrollment is refused before any message is read, also in the seconds between a revoke by `itcmdr-cli` and the server's next allow-list reload (the handshake already refused it after the reload).
-- Tests: new regression tests for all three.
+
+## v1.3.3 (2026-11-05)
+itcmdr 1.3.3: Info, Check and revoked-agent handling are tightened.
+- Versions 1.3.3 (app and admin app 1.3.3+45).
+- Tested: Linux fmt and clippy clean, Rust tests on SQLite and Postgres (221), Pester 105 (10 skipped), office app 55 (+1 skipped), admin app 34, docs and man pages current. Every file passed the release guard (built from the v1.3.3 tag).
+- **Security:** unsigned callers of adminsvr `Info` get only the TLS mode and the internal certificate fingerprint (what the handshake shows). Version, initialization, root key and certificate health need a signed request from an active device; `itcmdr-admin info` signs when the device is enrolled with that adminsvr. Agent `Check` is signed by the agent's enrolled key (time, one-time nonce, the certificate issued to it); anything else gets the same empty answer. `Link` refuses a client certificate that does not belong to a live enrollment before any message is read, including in the seconds between a revoke by `itcmdr-cli` and the server's next allow-list reload. Regression tests cover all three.
+- **Compatibility:** older unsigned `itcmdr-admin info` callers see an empty version (and an empty root key); enrollment is unchanged. Agents before 1.3.3 do not learn they have been revoked (they keep retrying at the normal backoff); the server still refuses those reconnects.
+- Windows build guard: the CRT check reads the import table (`dumpbin /dependents`) so binaries that mention the runtime only in embedded docs are not mistaken for linking it.
+- Demo workflow: client VMs use Windows 10 Pro (the LTSC evaluation ISO's licence period has expired).
 
 ## v1.3.2 (2026-11-05)
 itcmdr 1.3.2: the Windows parts run on a fresh Windows without the Visual C++ runtime.
