@@ -60,6 +60,8 @@ Site site(
   String name,
   String version, {
   List<Machine> machines = const [],
+  String deepText = 'last deep check: never',
+  String deepWarning = 'deep backup check never run',
 }) => Site(
   id: id,
   name: name,
@@ -91,8 +93,8 @@ Site site(
     runSecsMax24H: 95,
     pluginErrors24H: 2,
     alertsOpened24H: 3,
-    deepCheckText: 'last deep check: never',
-    deepCheckWarning: 'deep backup check never run',
+    deepCheckText: deepText,
+    deepCheckWarning: deepWarning,
   ),
 );
 

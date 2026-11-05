@@ -191,6 +191,52 @@ begin
   if not RegQueryStringValue(HKLM64, UninstallRoot + '{' + Guid + '}_is1', 'DisplayVersion', Result) then Result := '';
 end;
 
+// v1.3.0: keep the newest InstallLogKeep logs of this part; last-<part>.json and the current run's
+// log are never touched. "admin-*" also matches "admin-app-*", so the name must continue with a digit.
+const
+  InstallLogKeep = 20;
+
+function IsPartLog(Name, Part: string): Boolean;
+var
+  C: string;
+begin
+  Result := False;
+  if (Length(Name) <= Length(Part) + 1) or (CompareText(Copy(Name, 1, Length(Part) + 1), Part + '-') <> 0) then exit;
+  C := Copy(Name, Length(Part) + 2, 1);
+  Result := (C >= '0') and (C <= '9') and (CompareText(ExtractFileExt(Name), '.log') = 0);
+end;
+
+procedure InstallLogPrune(LogRoot, Part, Current: string);
+var
+  FR: TFindRec;
+  Count, Removed: Integer;
+  Oldest: string;
+  OH, OL: Cardinal;
+begin
+  Removed := 0;
+  repeat
+    Count := 0; Oldest := '';
+    if FindFirst(LogRoot + '\' + Part + '-*.log', FR) then
+    try
+      repeat
+        if IsPartLog(FR.Name, Part) and (CompareText(LogRoot + '\' + FR.Name, Current) <> 0) then
+        begin
+          Count := Count + 1;
+          if (Oldest = '') or (FR.LastWriteTimeHigh < OH) or ((FR.LastWriteTimeHigh = OH) and (FR.LastWriteTimeLow < OL)) then
+          begin Oldest := FR.Name; OH := FR.LastWriteTimeHigh; OL := FR.LastWriteTimeLow; end;
+        end;
+      until not FindNext(FR);
+    finally
+      FindClose(FR);
+    end;
+    // Count excludes the current log, so keep InstallLogKeep - 1 older ones.
+    if (Count < InstallLogKeep) or (Oldest = '') then break;
+    if not DeleteFile(LogRoot + '\' + Oldest) then begin ILog('could not prune ' + Oldest); break; end;
+    Removed := Removed + 1;
+  until False;
+  if Removed > 0 then ILog('pruned ' + IntToStr(Removed) + ' old install log(s), keeping the newest ' + IntToStr(InstallLogKeep));
+end;
+
 // Called from InitializeSetup. Services: stop order (e.g. watchdog first). Exes: files under {app}
 // that are replaced (relative paths), probed for locks.
 procedure InstallLogBegin(Part, Guid, LogRoot, Services, Exes: string);
@@ -203,6 +249,7 @@ begin
   if IFrom = '' then ILog('itcmdr ' + Part + ' setup {#MyAppVersion}: fresh install')
   else ILog('itcmdr ' + Part + ' setup {#MyAppVersion}: upgrade from ' + IFrom);
   if WizardSilent() then ILog('mode: silent') else ILog('mode: interactive');
+  InstallLogPrune(LogRoot, Part, ILogPath);
 end;
 
 procedure IFail(Step, Err: string);

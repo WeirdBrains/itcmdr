@@ -8,6 +8,7 @@ import '../session.dart';
 import 'alerts.dart';
 import 'chart.dart';
 import 'config.dart';
+import 'deep_checks.dart';
 
 class ServersPage extends StatefulWidget {
   const ServersPage({super.key});
@@ -107,6 +108,33 @@ class _ServersPageState extends State<ServersPage> {
               onRefresh: _load,
               child: ListView(
                 children: [
+                  ListTile(
+                    key: const Key('open-deep-checks'),
+                    leading: Icon(
+                      Icons.fact_check,
+                      color: l.any((x) => deepRank(x) == 0)
+                          ? Colors.orange
+                          : null,
+                    ),
+                    title: const Text('Deep backup checks'),
+                    subtitle: Text(() {
+                      final n = l.where((x) => deepRank(x) == 0).length;
+                      return n == 0
+                          ? 'All servers within the limit'
+                          : '$n server(s) need a deep check';
+                    }()),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => SessionScope(
+                          session: s,
+                          child: const DeepChecksPage(),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const Divider(height: 1),
                   for (final x in l)
                     ListTile(
                       key: Key('site-${x.id}'),

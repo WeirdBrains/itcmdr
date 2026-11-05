@@ -11,7 +11,7 @@ the [admin CLI](ADMIN-CLI.md).
 | Tab | What |
 |---|---|
 | Alerts | open, resolved or all; acknowledge and resolve; a banner for new alerts while the app is open |
-| Servers | status, configuration, versions per machine ("update available"), metrics history (6 h to 30 days), commands, start a backup, last deep backup check; admins add and revoke servers |
+| Servers | status, configuration, versions per machine ("update available"), metrics history (6 h to 30 days), commands, start a backup, last deep backup check; **Deep backup checks** (v1.3.0, top of the list): every server's last deep check date and result (ok/failed) and the overdue warning, worst first, with the org limit; admins add and revoke servers |
 | Plugins | the plugin and release catalog, approvals, the second-approver switch (owners) |
 | Users | (owners and admins) create with a code, roles, disable, SRE scopes, approve and revoke devices, reset passkeys |
 | Settings | passkeys, the step-up policy (owners), notifications, audit verify, the trusted certificate, forget this device, Help |

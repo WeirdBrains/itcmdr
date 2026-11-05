@@ -240,6 +240,92 @@ void main() {
     },
   );
 
+  testWidgets('deep checks: overdue first, ok and failed shown, org limit', (
+    t,
+  ) async {
+    await start(
+      t,
+      me: me0(),
+      setup: (b) {
+        b.siteList = [
+          site(
+            'a',
+            'Alpha',
+            '1.3.0',
+            deepText: 'last deep check: 3 days ago (ok)',
+            deepWarning: '',
+          ),
+          site(
+            'z',
+            'Zulu',
+            '1.3.0',
+            deepText: 'last deep check: 120 days ago (failed)',
+            deepWarning: 'last deep backup check failed',
+          ),
+        ];
+      },
+    );
+    await t.tap(find.text('Servers'));
+    await t.pumpAndSettle();
+    expect(find.text('1 server(s) need a deep check'), findsOneWidget);
+    await t.tap(find.byKey(const Key('open-deep-checks')));
+    await t.pumpAndSettle();
+    expect(find.text('Deep backup checks'), findsOneWidget);
+    expect(find.text('1 server(s) need a deep check'), findsOneWidget);
+    expect(find.textContaining('Warn after 90 days'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('deep-z')),
+        matching: find.textContaining('120 days ago (failed)'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('deep-z')),
+        matching: find.byIcon(Icons.warning_amber),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('deep-a')),
+        matching: find.byIcon(Icons.verified),
+      ),
+      findsOneWidget,
+    );
+    // Worst first: Zulu (failed) above Alpha (ok).
+    expect(
+      t.getTopLeft(find.byKey(const Key('deep-z'))).dy <
+          t.getTopLeft(find.byKey(const Key('deep-a'))).dy,
+      isTrue,
+    );
+  });
+
+  testWidgets('deep checks: all within the limit', (t) async {
+    await start(
+      t,
+      me: me0(),
+      setup: (b) {
+        b.siteList = [
+          site(
+            'a',
+            'Alpha',
+            '1.3.0',
+            deepText: 'last deep check: 3 days ago (ok)',
+            deepWarning: '',
+          ),
+        ];
+      },
+    );
+    await t.tap(find.text('Servers'));
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const Key('open-deep-checks')));
+    await t.pumpAndSettle();
+    expect(find.text('All servers are within the limit'), findsOneWidget);
+    expect(find.byIcon(Icons.warning_amber), findsNothing);
+  });
+
   testWidgets('servers: admins create a site and get the token', (t) async {
     final b = await start(t, me: me0(role: 'admin'));
     await t.tap(find.text('Servers'));
