@@ -3,7 +3,8 @@
 ## v1.3.0 (2026-11-05)
 itcmdr 1.3: installer logs are pruned, and the admin app has a Deep backup checks screen.
 - Versions 1.3.0 (app and admin app 1.3.0+42).
-- TESTS-PLACEHOLDER
+- Tested: Linux fmt and clippy clean, Rust tests on SQLite and Postgres, Pester 105 (10 skipped), office app 55 (+1 skipped), admin app 34, docs and man pages current. Windows VM end-to-end check (48 checks, 0 failures): real upgrades 1.2.1 to 1.3.0 of server and agent and an admin CLI install with older logs present leave exactly 20 logs per part, keep `last-*.json` and other parts' logs; real breaks heal: killed server back in 35 s, killed watchdog back (Windows service recovery), server stopped with `sc stop` started again by the watchdog, server and watchdog killed together both back, killed agent and agent watchdog back, agent online again.
+- Fix: `ITCMDR_KEEP_BUILD` is listed in docs/ENVIRONMENT.md (and `itcmdr(7)`).
 - **Installer logs are pruned**: each Windows installer run keeps the newest 20 logs of its own part in `install-logs` (current run included) and deletes older ones. `last-<part>.json`, `last-<part>.reported.json` and other parts' logs are never touched (the `admin` part does not match `admin-app` logs). The run's log notes how many it pruned.
 - **Admin app: Deep backup checks** (Servers → Deep backup checks): every server's last deep backup check (date, ok or failed) and the overdue warning, worst first, with the organization's limit. Only the date and result the site sends; adminsvr never holds or opens a backup.
 
