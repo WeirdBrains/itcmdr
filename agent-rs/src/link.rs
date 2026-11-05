@@ -613,6 +613,14 @@ pub fn backoff(attempt: u32, cap_secs: u64) -> Duration {
 }
 
 /// Run until `stop` fires: enroll from the token file when needed, then keep the link up.
+/// Aborts the task when dropped (when `run` returns).
+struct AbortOnDrop(tokio::task::JoinHandle<()>);
+impl Drop for AbortOnDrop {
+    fn drop(&mut self) {
+        self.0.abort();
+    }
+}
+
 pub async fn run(
     dir: &Path,
     token_file: &Path,
@@ -620,6 +628,15 @@ pub async fn run(
 ) -> Result<()> {
     // v1.2.1: report a failed (or good) agent installer run once, on the durable queue.
     crate::install_result::report(dir);
+    // and keep looking: an installer that fails after the agent started (exit 8) writes it later.
+    let watch_dir = dir.to_path_buf();
+    let watch = tokio::spawn(async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+            crate::install_result::report(&watch_dir);
+        }
+    });
+    let _watch = AbortOnDrop(watch);
     let mut reconnect_cap = 300u64;
     let mut warned = false;
     let mut sched: Option<tokio::task::JoinHandle<()>> = None;
