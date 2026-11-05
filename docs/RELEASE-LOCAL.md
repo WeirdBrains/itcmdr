@@ -19,7 +19,7 @@ that release.
   binary's stamp before Inno Setup and writes `windows-stamps.txt`; copy it to `dist/X.Y.Z.windows-stamps.txt`
   (the installers are compressed, so `check` uses those lines for them).
 - `release-local.sh check` (and again `publish`) runs `scripts/check_stamps.py`: every asset needs a stamp, and
-  every stamp must name the tag's commit and the current docs' help hash, else `GUARD: ...` and no release.
+  every stamp must name the tag's commit and the help hash of the tag's docs, else `GUARD: ...` and no release.
   Tests: `python3 scripts/test_check_stamps.py` (also run by `cargo test -p itcmdr-help`).
 
 So the order is: commit, annotated tag (locally), build every platform from the tag, `check`, push with
