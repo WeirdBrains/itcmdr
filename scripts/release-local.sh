@@ -104,13 +104,17 @@ check)
   [[ $hits -eq 0 ]] || { echo "LEAK: fix before publishing" >&2; exit 1; }
   # v1.3.1 release guard: every asset built from the tagged commit with the current docs.
   tagc=$(git rev-parse "v$ver^{commit}" 2>/dev/null) || { echo "tag v$ver missing (tag before building)" >&2; exit 1; }
-  python3 ../../scripts/check_stamps.py . "$tagc" --stamps "../$ver.windows-stamps.txt" || { echo "GUARD: rebuild from v$ver" >&2; exit 1; }
+  # the docs of the tag (main may have moved on)
+  git archive "v$ver" docs | tar -x -C "$tmp"
+  python3 ../../scripts/check_stamps.py . "$tagc" --stamps "../$ver.windows-stamps.txt" --docs "$tmp/docs" || { echo "GUARD: rebuild from v$ver" >&2; exit 1; }
   sha256sum -- * > SHA256SUMS; cat SHA256SUMS ;;
 publish)
   tag="v$ver"
   git ls-remote --exit-code origin "refs/tags/$tag" >/dev/null || { echo "$tag not on origin" >&2; exit 1; }
   [[ -f "$out/SHA256SUMS" ]] || { echo "run check first" >&2; exit 1; }
-  python3 scripts/check_stamps.py "$out" "$(git rev-parse "$tag^{commit}")" --stamps "dist/$ver.windows-stamps.txt" >/dev/null || { echo "GUARD: assets not built from $tag" >&2; exit 1; }
+  gd=$(mktemp -d); git archive "$tag" docs | tar -x -C "$gd"
+  python3 scripts/check_stamps.py "$out" "$(git rev-parse "$tag^{commit}")" --stamps "dist/$ver.windows-stamps.txt" --docs "$gd/docs" >/dev/null || { rm -rf "$gd"; echo "GUARD: assets not built from $tag" >&2; exit 1; }
+  rm -rf "$gd"
   notes=$(mktemp); trap 'rm -f "$notes"' EXIT
   { awk -v h="## $tag " 'index($0,h)==1{p=1;next} /^## /{p=0} p' CHANGELOG.md
     echo; echo "Built locally (not by Actions). Verify downloads with SHA256SUMS."

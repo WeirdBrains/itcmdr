@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """v1.3.1 release guard: every release asset must be built from the tagged commit.
 
-    python3 scripts/check_stamps.py <dist dir> <commit> [--stamps <file>]   # exit 1 on any mismatch
+    python3 scripts/check_stamps.py <dist dir> <commit> [--stamps <file>] [--docs <dir>]   # exit 1 on any mismatch
     python3 scripts/check_stamps.py --help-hash                             # print the docs/help hash
 
 Each binary carries "ITCMDR-BUILD v=<version> commit=<sha> help=<hash> END" (help/build.rs). The
@@ -88,7 +88,8 @@ def main(argv):
     if len(argv) < 3:
         print(__doc__); return 2
     sf = Path(argv[argv.index("--stamps") + 1]) if "--stamps" in argv else None
-    bad = check(Path(argv[1]), argv[2], help_hash(), sf)
+    docs = Path(argv[argv.index("--docs") + 1]) if "--docs" in argv else ROOT / "docs"
+    bad = check(Path(argv[1]), argv[2], help_hash(docs), sf)
     for b in bad:
         print("GUARD:", b, file=sys.stderr)
     return 1 if bad else 0
