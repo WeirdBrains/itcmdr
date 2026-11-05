@@ -49,6 +49,10 @@ off). The script refuses to build when a Podfile or Pods folder exists. All plug
 ## Windows VM step
 
 1. `git archive --format=zip -o <share>/src-vX.Y.Z.zip vX.Y.Z` plus `third_party/`.
+   Also `git bundle create <share>/itcmdr-vX.Y.Z.bundle vX.Y.Z`: the script then builds from a git checkout of
+   the tag (with `core.autocrlf=false`, so the embedded help keeps the docs' line endings) because the Flutter
+   native-asset hooks do not pass `ITCMDR_BUILD_COMMIT` on; without a checkout the app bridges get `commit=unknown`
+   and the guard stops the build (found while building 1.3.1).
 2. On the VM: `scripts/release-windows.ps1 -Zip src-vX.Y.Z.zip -Ver X.Y.Z -Commit $(git rev-parse vX.Y.Z^{commit})`
    (cargo, both Flutter apps, stamp check, the 7 Inno Setup installers, then the build caches are removed).
 3. Copy the `*.exe` into `dist/X.Y.Z/` and `windows-stamps.txt` to `dist/X.Y.Z.windows-stamps.txt`.
