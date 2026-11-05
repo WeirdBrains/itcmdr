@@ -12,6 +12,7 @@ use std::sync::{Arc, OnceLock};
 
 #[frb(init)]
 pub fn init_app() {
+    itcmdr_help::keep_stamp();
     flutter_rust_bridge::setup_default_user_utils();
 }
 

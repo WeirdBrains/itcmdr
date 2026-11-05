@@ -4,6 +4,8 @@
     python3 scripts/gen-help.py [--check]     # --check exits 1 when a generated file is stale
 """
 import json, sys
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent))
+from check_stamps import help_hash
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -22,6 +24,9 @@ def dart():
     for tid, md in topics():
         lines.append(f"  {json.dumps(tid)}: {json.dumps(md).replace('$', chr(92) + '$')},")
     lines.append("};")
+    lines.append("")
+    lines.append("/// Hash of docs/ (same as the build stamp in the Rust parts; scripts/check_stamps.py).")
+    lines.append(f"const helpHash = '{help_hash()}';")
     return "\n".join(lines) + "\n"
 
 def main():

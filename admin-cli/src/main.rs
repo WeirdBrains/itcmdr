@@ -552,6 +552,7 @@ fn read_words() -> Result<String> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    itcmdr_help::keep_stamp();
     let cli = Cli::parse();
     let home = cli.home.clone().unwrap_or_else(itcmdr_admin::default_dir);
     let platform = format!("cli-{}", std::env::consts::OS);

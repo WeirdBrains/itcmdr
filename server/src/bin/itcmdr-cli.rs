@@ -1227,6 +1227,7 @@ fn print_backup(json: bool, b: &srv::backup::BackupInfo) -> Result<()> {
 }
 
 fn main() -> Result<()> {
+    itcmdr_help::keep_stamp();
     srv::db::track_pools();
     let rt = tokio::runtime::Runtime::new()?;
     let r = run(&rt);

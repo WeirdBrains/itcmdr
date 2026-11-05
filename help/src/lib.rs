@@ -1,6 +1,11 @@
 //! In-app help for the CLIs: the guides in docs/ (topic = file name in lower case, README = `index`).
 include!(concat!(env!("OUT_DIR"), "/help_topics.rs"));
 
+/// Keeps [`BUILD_STAMP`] in the binary (call once from `main` / the app's init).
+pub fn keep_stamp() {
+    std::hint::black_box(BUILD_STAMP);
+}
+
 /// The markdown of a topic (case-insensitive; `.md` and a `docs/` prefix are accepted).
 pub fn get(topic: &str) -> Option<&'static str> {
     let t = topic.trim().to_lowercase();

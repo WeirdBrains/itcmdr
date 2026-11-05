@@ -4,6 +4,27 @@ Used while GitHub Actions is unavailable (v0.15.0 and later). Nothing here uses 
 and pushed first by the normal release procedure (docs/HANDOVER.md); these steps build from that exact tag and never
 move or recreate it.
 
+## Release guard: everything from the tag (v1.3.1)
+
+Every release asset must be built from the exact tagged commit, so the built-in help always matches the docs of
+that release.
+
+- Each binary carries a build stamp `ITCMDR-BUILD v=<version> commit=<git commit> help=<hash> END` (from
+  `help/build.rs`): the server, `itcmdr-cli`, `itcmdr-admin`, adminsvr, agent and watchdogs, and the Rust bridge
+  of both apps. The help hash is FNV-1a 64 over the embedded docs; the apps' `help_topics.g.dart` carries the
+  same `helpHash`. The commit comes from `ITCMDR_BUILD_COMMIT`, or else `git rev-parse HEAD`.
+- `release-local.sh unix` and `android` refuse to build unless HEAD is the tag `vX.Y.Z`
+  (`ITCMDR_ALLOW_UNTAGGED=1` for a trial build, which `check` then refuses), and set `ITCMDR_BUILD_COMMIT`.
+- The Windows build (`scripts/release-windows.ps1 -Zip src.zip -Ver X.Y.Z -Commit <tag commit>`) checks every
+  binary's stamp before Inno Setup and writes `windows-stamps.txt`; copy it to `dist/X.Y.Z.windows-stamps.txt`
+  (the installers are compressed, so `check` uses those lines for them).
+- `release-local.sh check` (and again `publish`) runs `scripts/check_stamps.py`: every asset needs a stamp, and
+  every stamp must name the tag's commit and the current docs' help hash, else `GUARD: ...` and no release.
+  Tests: `python3 scripts/test_check_stamps.py` (also run by `cargo test -p itcmdr-help`).
+
+So the order is: commit, annotated tag (locally), build every platform from the tag, `check`, push with
+`--follow-tags`, `publish`.
+
 ## Linux step (dev box)
 
     git checkout vX.Y.Z            # or stay on main at the tagged commit
@@ -27,10 +48,10 @@ off). The script refuses to build when a Podfile or Pods folder exists. All plug
 
 ## Windows VM step
 
-1. `git archive --format=zip -o <share>/src-rX.zip vX.Y.Z` plus `third_party/` (as `sync.sh` does).
-2. On the VM: expand it, `cargo build --release --locked -p itcmdr-server -p itcmdr-agent --bins`, `flutter build windows --release`,
-   then `ISCC itcmdr-{server,agent,cli,app}.iss`.
-3. Copy `installer\out\*.exe` back into `dist/X.Y.Z/`.
+1. `git archive --format=zip -o <share>/src-vX.Y.Z.zip vX.Y.Z` plus `third_party/`.
+2. On the VM: `scripts/release-windows.ps1 -Zip src-vX.Y.Z.zip -Ver X.Y.Z -Commit $(git rev-parse vX.Y.Z^{commit})`
+   (cargo, both Flutter apps, stamp check, the 7 Inno Setup installers, then the build caches are removed).
+3. Copy the `*.exe` into `dist/X.Y.Z/` and `windows-stamps.txt` to `dist/X.Y.Z.windows-stamps.txt`.
 4. Scan the uncompressed payload (release exes, the Flutter runner folder, agent and installer files) for the
    private leak patterns; the installers themselves are compressed.
 

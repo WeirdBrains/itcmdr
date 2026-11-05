@@ -83,6 +83,7 @@ fn init_tracing(file: Option<PathBuf>) {
 }
 
 fn main() {
+    itcmdr_help::keep_stamp();
     if let Err(e) = real_main() {
         // One line, so it survives PowerShell's stderr handling.
         eprintln!("error: {e:#}");

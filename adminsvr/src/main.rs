@@ -504,6 +504,7 @@ mod tests {
 }
 
 fn main() -> anyhow::Result<()> {
+    itcmdr_help::keep_stamp();
     pre_env()?;
     let mut c = Cli::parse();
     if matches!(c.cmd, Cmd::Service) {
