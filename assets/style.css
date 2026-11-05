@@ -25,3 +25,12 @@ code{font-family:ui-monospace,monospace;background:#eef2f8;padding:1px 5px;borde
 .foot{background:var(--navy);color:#cfd9ea;padding:24px 0;margin-top:20px}.foot a{color:var(--teal2)}.foot img{vertical-align:middle}
 @media (max-width:760px){.hero-grid{grid-template-columns:1fr}.hero-img{max-width:180px;grid-row:1}.hero{padding:40px 0}}
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+.demos{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:28px;padding-bottom:36px}
+.demo{margin:0}
+.demo video{display:block;width:100%;height:auto;border-radius:12px;background:var(--navy);aspect-ratio:16/9}
+.demo figcaption{margin:.7em 0 0}
+.demo figcaption h3{margin:0 0 .25em;color:var(--navy);font-size:1.15rem}
+.demo figcaption p{margin:0;color:var(--muted);font-size:.95rem}
+.demo-jump{display:flex;flex-wrap:wrap;gap:8px 18px;list-style:none;margin:1em 0 0;padding:0;font-weight:700}
+h2.demo-h{margin-top:2.2em}
