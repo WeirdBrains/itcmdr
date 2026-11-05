@@ -105,7 +105,7 @@ check)
   # v1.3.1 release guard: every asset built from the tagged commit with the current docs.
   tagc=$(git rev-parse "v$ver^{commit}" 2>/dev/null) || { echo "tag v$ver missing (tag before building)" >&2; exit 1; }
   # the docs of the tag (main may have moved on)
-  git archive "v$ver" docs | tar -x -C "$tmp"
+  git -C ../.. archive "v$ver" docs | tar -x -C "$tmp"
   python3 ../../scripts/check_stamps.py . "$tagc" --stamps "../$ver.windows-stamps.txt" --docs "$tmp/docs" || { echo "GUARD: rebuild from v$ver" >&2; exit 1; }
   sha256sum -- * > SHA256SUMS; cat SHA256SUMS ;;
 publish)
