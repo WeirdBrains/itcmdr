@@ -6,8 +6,10 @@
 #   scripts/release-local.sh ios-check       # (v0.19.2) admin app iOS build without code signing (no artifact: needs an Apple team to sign)
 #   scripts/release-local.sh windows-notes   # print the Windows VM step (see docs/RELEASE-LOCAL.md)
 #   scripts/release-local.sh check           # SHA256SUMS + leak check of every artifact (unpacked)
+#   scripts/release-local.sh clean           # (v1.2.1) remove this repo's build caches and targets (also run after unix/android/ios-check)
 #   scripts/release-local.sh publish         # gh release create vX.Y.Z (tag must exist on origin; never moves it)
 # Environment: ITCMDR_LEAK_PATTERNS=file with one extra fixed string per line (e.g. the VM hostname);
+# ITCMDR_KEEP_BUILD=1 skips the automatic clean (to chain build steps, then run `clean` last).
 # config/banned.local.txt is always used when present. NINJA_DIR is prepended to PATH for Linux builds.
 # (v0.20.0) No CocoaPods: the Rust bridges build through flutter_rust_bridge native assets (hook/build.dart,
 # rust/rust-toolchain.toml via rustup) and iOS/macOS use Swift Package Manager (once per user:
@@ -23,7 +25,28 @@ no_pods() {
   [[ -z "$p" ]] || { echo "CocoaPods files present (use Swift Package Manager): $p" >&2; exit 1; }
   flutter config 2>/dev/null | grep -q "enable-swift-package-manager: true" || flutter config --enable-swift-package-manager >/dev/null
 }
+# Build caches and targets of this repo only: Rust targets (and CARGO_TARGET_DIR when it is an
+# itcmdr one), Flutter build output and native-asset builds, Gradle output, Xcode DerivedData of
+# this checkout. Never dist/, sources or logs.
+clean_build() {
+  local root; root=$(pwd -P)
+  rm -rf target app/rust/target admin-app/rust/target app/build admin-app/build \
+    app/.dart_tool/hooks_runner admin-app/.dart_tool/hooks_runner admin-app/android/build admin-app/android/app/build
+  if [[ -n "${CARGO_TARGET_DIR:-}" && "$(basename "$CARGO_TARGET_DIR")" == itcmdr* ]]; then rm -rf "$CARGO_TARGET_DIR"; fi
+  if [[ "$(uname)" == Darwin ]]; then
+    local d w
+    for d in "$HOME"/Library/Developer/Xcode/DerivedData/Runner-*; do
+      [[ -f "$d/info.plist" ]] || continue
+      w=$(/usr/libexec/PlistBuddy -c 'Print :WorkspacePath' "$d/info.plist" 2>/dev/null || true)
+      [[ "$w" == "$root"/* ]] && rm -rf "$d"
+    done
+  fi
+  echo "cleaned build caches ($(df -h . | awk 'NR==2{print $4}') free)"
+}
+case "$step" in unix|android|ios-check) [[ "${ITCMDR_KEEP_BUILD:-}" == 1 ]] || trap 'cd "$OLDPWD_ROOT" && clean_build' EXIT ;; esac
+OLDPWD_ROOT=$(pwd)
 case "$step" in
+clean) clean_build ;;
 unix)
   [[ -z "$(git status --porcelain --untracked-files=no)" ]] || { echo "tree not clean" >&2; exit 1; }
   [[ -n "${NINJA_DIR:-}" ]] && export PATH="$NINJA_DIR:$PATH"
