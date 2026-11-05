@@ -3,7 +3,7 @@
 ## v1.3.1 (2026-11-05)
 itcmdr 1.3.1: every release file is built from the tag, so the built-in help matches the docs.
 - Versions 1.3.1 (app and admin app 1.3.1+43).
-- TESTS-PLACEHOLDER
+- Tested: Linux fmt and clippy clean, Rust tests on SQLite and Postgres (incl. the stamp and guard tests), guard script tests 6/6, Pester 105 (10 skipped), office app 55 (+1 skipped), admin app 34, docs and man pages current. Every file passed the release guard (built from the v1.3.1 tag). Windows VM smoke after release: see docs/HANDOVER.md.
 - **Release guard**: every binary (server, CLIs, adminsvr, agent, watchdogs, both apps' Rust bridge) carries a build stamp with its version, git commit and a hash of the embedded help. `release-local.sh unix|android` only build from the version tag; the Windows build (`scripts/release-windows.ps1`, now in the repo) checks each binary's stamp before Inno Setup; `release-local.sh check` and `publish` refuse any file whose stamp is missing, from another commit, or has other help than the docs (`scripts/check_stamps.py`, with tests). docs/RELEASE-LOCAL.md.
 - Fix: the 1.3.0 files were built a few commits before the tag, so their built-in help missed the newest lines (`ITCMDR_KEEP_BUILD` and the release notes). 1.3.1 is built from its tag.
 
