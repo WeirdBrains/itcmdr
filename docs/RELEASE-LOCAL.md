@@ -54,3 +54,6 @@ release with the CHANGELOG section as notes (`--verify-tag`), or uploads to an e
 - Windows: built on the Windows VM (`flutter build windows` in `admin-app`, then Inno Setup) as
   `itcmdr-admin-app-Setup-<v>.exe`. Unsigned.
 - Linux tarball and Android APK (debug-signed) come from the Linux and Mac runs.
+
+## Build caches (v1.2.1)
+Every build step (`unix`, `android`, `ios-check`) removes this checkout's build caches and targets when it ends, also on failure: the Rust `target` dirs (and `CARGO_TARGET_DIR` when its name starts with `itcmdr`), Flutter `build/` and native-asset builds (`.dart_tool/hooks_runner`), Gradle output and, on macOS, the Xcode DerivedData of this checkout. `dist/`, sources and logs stay. `ITCMDR_KEEP_BUILD=1` skips it to chain steps; then run `scripts/release-local.sh clean` last. The Windows VM build removes its `target` and Flutter build dirs after copying the installers.
