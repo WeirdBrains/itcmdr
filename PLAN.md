@@ -95,7 +95,7 @@ Key backup on by default (opt-out), locked with the 24 words; COOP/COEP accepted
 | v1.0.0 | Product website (GitHub Pages from a separate `site` branch, the one allowed branch, site only; custom domain itcmdr.weirdbrains.com; Weird Brains branding), launch announcement (X and the internal Weird Brains Slack, drafted for Michael's review, never posted by us), 1.0 stabilization (nothing published or announced without Michael's review; no office-specific names, IPs or domains on the site) | ✅ Released 2026-11-02 (site branch updated, not live until Pages/DNS are enabled; launch drafts for Michael's review, not posted) |
 | v1.1.0 | HTTPS everywhere, Let's Encrypt for adminsvr (TLS-ALPN-01), self-signed trust pins, docs as man pages and in-app help | ✅ Released 2026-11-04 |
 | v1.2.0 | Real app ids (office app `com.weirdbrains.itcmdr`), adminsvr's own encrypted backup, restore and restore drill | ✅ Released 2026-11-04 (v1.2.1 installer logs) |
-| v1.3.0 | Installer log pruning, admin app Deep backup checks screen, VM end-to-end check script with real breaks | In progress |
+| v1.3.0 | Installer log pruning, admin app Deep backup checks screen, VM end-to-end check script with real breaks | ✅ Released 2026-11-05 |
 
 ## Cross-cutting items
 
@@ -139,8 +139,8 @@ archived in [docs/historical/1.0/](docs/historical/1.0/) (PLAN.md, SERVER-PLAN.m
 - [x] adminsvr backup: init/create/list/verify/drill/prune/status, restore; encrypted for adminsvr's recovery words; SQLite and Postgres; real-break tests
 - [x] Mac build check (macOS, Android; Swift Package Manager), Linux build, Windows VM check (upgrade over 1.1.0, app id + settings migration, adminsvr backup/drill/restore and real breaks), released v1.2.0 (19 files)
 
-### v1.3.0 Installer log pruning, deep-check screen, VM e2e 🔄
+### v1.3.0 Installer log pruning, deep-check screen, VM e2e ✅
 
 - [x] Installer keeps the newest 20 logs per part (never `last-<part>.json`, never the current run)
 - [x] Admin app Deep backup checks screen (date, ok/failed, overdue warning; widget tests)
-- [ ] VM end-to-end check (upgrade 1.2.1 -> 1.3.0, pruning on real runs, real breaks heal), full suite, release (19 files)
+- [x] VM end-to-end check (upgrade 1.2.1 -> 1.3.0, pruning on real runs, real breaks heal), full suite, release (19 files)
