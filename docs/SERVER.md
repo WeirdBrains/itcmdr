@@ -13,7 +13,9 @@ backups, and it is the only part that decides what may leave the office.
 
 The Windows installer binds both to all addresses and adds firewall rules limited to
 `/AllowSubnet=<lan cidr>`. A server.json without `bind_addr` listens on `127.0.0.1:50051` only.
-`agent_bind_addr: ""` turns the agent link off.
+`agent_bind_addr: ""` turns the agent link off. A client certificate that is not the current
+(or, during a renewal overlap, previous) certificate of a live enrollment is refused in the
+TLS handshake and again before any message is read (see [agent](AGENT.md)).
 
 Since v1.1.0 the API is HTTPS with the server certificate the agents already pin
 (`<data dir>\keys\agent-server.pem`). Plain HTTP is accepted from the same machine only, or from

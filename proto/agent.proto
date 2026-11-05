@@ -21,7 +21,15 @@ message PrepareResponse {
   string ca_signature = 2;
   string root_public_key = 3;
 }
-message CheckRequest { string agent_id = 1; string cert_fingerprint = 2; }
+// v1.3.3: signed by the agent's enrolled Ed25519 key over itcmdr_agentlink::check_bytes; the
+// server answers only a valid, fresh, unreplayed signature (otherwise the empty answer).
+message CheckRequest {
+  string agent_id = 1;
+  string cert_fingerprint = 2;
+  int64 ts_ms = 3;
+  string nonce = 4;
+  string signature = 5;
+}
 message CheckResponse { bool revoked = 1; bool known = 2; }
 
 message EnrollRequest {

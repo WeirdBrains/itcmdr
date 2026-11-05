@@ -455,6 +455,10 @@ impl Client {
     pub fn key(&self) -> &SigningKey {
         &self.key
     }
+    /// v1.3.3: the full Info (version, root key, certificate health) needs a signed request.
+    pub async fn info(&self) -> Result<pb::InfoResponse> {
+        call!(self, info, "Info", pb::Empty {})
+    }
     pub async fn whoami(&self) -> Result<pb::UserInfo> {
         call!(self, who_am_i, "WhoAmI", pb::Empty {})
     }

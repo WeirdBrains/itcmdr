@@ -116,6 +116,8 @@ informational items go first, then the oldest of any level, and the drop is repo
 - Runs are report-only (`ITCMDR_REPORT_ONLY=1`). Reports go through the offline queue; artifacts land in `<data>/agent-artifacts/<run>/`, logs in `plugin-logs/<plugin>/agents/<machine>.jsonl`, parity as `agent:<run>`.
 - Alerts: `agent-plugin:<machine>:<name>` (install refused), `agent-run:<machine>:<plugin>` (run failed).
 - Enrollment calls `Prepare` first (CA and root key verified before the token is used); a disconnected agent calls `Check` and, when revoked, stops reconnecting (logs "enroll it again", checks every 15 min).
+- From v1.3.3 `Check` is signed with the agent key registered at enrollment (`itcmdr-agent-check/v1`: agent id, the fingerprint of a certificate issued to it, time, a one-time nonce). The server answers only a valid, fresh, unreplayed signature; any other request, an unknown agent id included, gets the same empty answer. Agents older than 1.3.3 send no signature, so when revoked they keep retrying at the normal backoff (each attempt is refused) instead of every 15 min until they are updated or uninstalled.
+- Revocation on the link is enforced twice: the TLS handshake refuses client certificates that are not the current (or, during a renewal overlap, previous) certificate of a live enrollment, reloaded every few seconds and at once after an in-process revoke; and from v1.3.3 `Link` refuses such a certificate before it reads any message, which also covers the seconds between a revoke by `itcmdr-cli` and the next reload.
 
 ## Config and the switch to the agent (v0.20.1)
 The server sends each agent a config document over the link (`ConfigUpdate`): the cutover

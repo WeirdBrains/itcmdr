@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+Security hardening from an internal review.
+- adminsvr `Info`: unsigned callers get only the TLS mode and the internal certificate fingerprint (what the handshake shows). Version, initialization, root key and certificate health need a signed request from an active device; `itcmdr-admin info` signs when the device is enrolled with that adminsvr. Compatibility: older `itcmdr-admin info` shows an empty version and root key; enrollment is unchanged.
+- Agent `Check` is signed by the agent's enrolled key (time, one-time nonce, the certificate issued to it); anything else gets the same empty answer, so it no longer tells others which agent ids exist or were revoked. Compatibility: agents older than 1.3.3 are not told they were revoked (they keep retrying, each attempt refused) until updated.
+- Agent link: a client certificate that does not belong to a live enrollment is refused before any message is read, also in the seconds between a revoke by `itcmdr-cli` and the server's next allow-list reload (the handshake already refused it after the reload).
+- Tests: new regression tests for all three.
+
 ## v1.3.2 (2026-11-05)
 itcmdr 1.3.2: the Windows parts run on a fresh Windows without the Visual C++ runtime.
 - Versions 1.3.2 (app and admin app 1.3.2+44).

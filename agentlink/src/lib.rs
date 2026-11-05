@@ -127,6 +127,12 @@ pub fn hello_bytes(
         .into_bytes()
 }
 
+/// v1.3.3: bytes an agent signs for `Check` (its enrolled Ed25519 key), binding the agent id, the
+/// certificate issued to it, the time and a one-time nonce.
+pub fn check_bytes(agent_id: &str, cert_fp: &str, ts_ms: i64, nonce: &str) -> Vec<u8> {
+    format!("itcmdr-agent-check/v1\n{agent_id}\n{cert_fp}\n{ts_ms}\n{nonce}").into_bytes()
+}
+
 /// SHA-256 hex of DER bytes (certificate fingerprints, token secrets).
 pub fn sha256_hex(b: &[u8]) -> String {
     use sha2::Digest;

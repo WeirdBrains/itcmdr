@@ -9,7 +9,7 @@ Usage: itcmdr\-admin [OPTIONS] <COMMAND>
 \&
 Commands:
   help        The guides (docs/) in the terminal: `help` lists topics, `help <topic>` prints one
-  info        adminsvr version and root key (unsigned)
+  info        adminsvr certificate; version, root key and certificate health when this device is enrolled
   trust       v1.1.0: the certificate adminsvr presents and how this device trusts it
   enroll      Enroll this device with a one\-time code: shows your 24 words ONCE, then asks three back
   recover     New device from your 24 words (read from stdin): restore the backed\-up key or certify a new one
@@ -46,7 +46,7 @@ Options:
 .fi
 .SH COMMAND: itcmdr\-admin info
 .nf
-adminsvr version and root key (unsigned)
+adminsvr certificate; version, root key and certificate health when this device is enrolled
 \&
 Usage: itcmdr\-admin info [OPTIONS] <ADDR>
 \&

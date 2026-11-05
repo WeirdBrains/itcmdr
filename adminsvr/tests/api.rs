@@ -395,3 +395,54 @@ fn cli_parity_covers_every_api_method() {
     }
     assert_eq!(methods.len(), itcmdr_admin::PARITY.len());
 }
+
+both!(info_disclosure, info_sqlite, info_postgres);
+
+/// v1.3.3: an unsigned Info shows only the certificate facts of the TLS handshake (enough to
+/// check a pin); version, initialization and the root key need a signed request from an active
+/// device. Pending devices and bad signatures are refused.
+async fn info_disclosure(db: String) {
+    let s = start(&db).await;
+    let (o, oe) = owner(&s).await;
+    let id = &oe.identity;
+    let mut anon = pb::admin_api_client::AdminApiClient::new(
+        itcmdr_admin::channel(&id.addr, &id.pin).await.unwrap(),
+    );
+    let a = anon.info(pb::Empty {}).await.unwrap().into_inner();
+    assert_eq!(a.tls_mode, "internal");
+    assert_eq!(a.internal_fingerprint, id.pin);
+    assert!(
+        a.version.is_empty() && !a.initialized && a.root_public_key.is_empty(),
+        "{a:?}"
+    );
+    assert!(a.tls_issuer.is_empty() && a.tls_expires_ms == 0 && !a.tls_renewal_failing);
+
+    let full = o.info().await.unwrap();
+    assert_eq!(full.version, env!("CARGO_PKG_VERSION"));
+    assert!(
+        full.initialized && full.root_public_key.len() == 64,
+        "{full:?}"
+    );
+    assert_eq!(full.internal_fingerprint, id.pin);
+
+    // A signature header that does not verify is refused, not downgraded.
+    let mut bad = tonic::Request::new(pb::Empty {});
+    for (k, v) in [
+        ("x-itcmdr-key", "00".repeat(32)),
+        ("x-itcmdr-ts", itcmdr_keys::now_ms().to_string()),
+        ("x-itcmdr-nonce", "n".repeat(32)),
+        ("x-itcmdr-sig", "00".repeat(64)),
+    ] {
+        bad.metadata_mut().insert(k, v.parse().unwrap());
+    }
+    let e = anon.info(bad).await.unwrap_err();
+    assert_eq!(e.code(), tonic::Code::Unauthenticated, "{e:?}");
+
+    // A device still waiting for approval gets nothing more than anyone else.
+    let r = o.create_user("p@example.com", "P", "sre").await.unwrap();
+    let pe = itcmdr_admin::enroll(&r.enroll_code, "test", false, None)
+        .await
+        .unwrap();
+    let pending = Client::connect(&pe.identity).await.unwrap();
+    assert!(pending.info().await.is_err());
+}
