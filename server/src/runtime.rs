@@ -26,6 +26,16 @@ pub struct RunSpec {
     pub request_id: Option<String>,
 }
 
+fn current_platform() -> &'static str {
+    if cfg!(target_os = "windows") {
+        "windows"
+    } else if cfg!(target_os = "macos") {
+        "macos"
+    } else {
+        "linux"
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct StageOutcome {
     pub stage: String,
@@ -120,6 +130,18 @@ pub async fn command_for(
 )> {
     let m = packages::parse_manifest(&std::fs::read(p.dir.join("package.toml"))?)
         .map_err(|r| anyhow!("{}: {}", p.name, r.0))?;
+    // Pre-spawn platform gate: when supported_platforms is set, refuse to launch on others.
+    if !m.supported_platforms.is_empty() {
+        let cur = current_platform();
+        if !m
+            .supported_platforms
+            .iter()
+            .any(|x| x.eq_ignore_ascii_case(cur))
+        {
+            let list = m.supported_platforms.join(", ");
+            bail!("unsupported platform: {cur} (supported: {list})");
+        }
+    }
     let main = m
         .files
         .iter()
