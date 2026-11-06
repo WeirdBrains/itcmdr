@@ -1,6 +1,6 @@
 [package]
 name = "itcmdr-agent"
-version = "1.3.6"
+version = "1.3.7"
 edition.workspace = true
 license.workspace = true
 description = "itcmdr agent: enrolls with the site server and keeps a heartbeat stream over pinned TLS + mTLS"

@@ -66,11 +66,15 @@ Filename: "{sys}\sc.exe"; Parameters: "create itcmdr-agent binPath= ""\""{app}\a
 Filename: "{sys}\sc.exe"; Parameters: "config itcmdr-agent binPath= ""\""{app}\agent\current\itcmdr-agent.exe\"" --service"""; Flags: runhidden; Check: ServiceExists('itcmdr-agent')
 Filename: "{sys}\sc.exe"; Parameters: "description itcmdr-agent ""itcmdr agent: heartbeat link to the site server"""; Flags: runhidden
 Filename: "{sys}\sc.exe"; Parameters: "failure itcmdr-agent reset= 86400 actions= restart/60000/restart/60000/restart/300000"; Flags: runhidden
+; failureflag also applies recovery when the service stops with an error (not only on a crash). Re-applied on upgrade.
+Filename: "{sys}\sc.exe"; Parameters: "failureflag itcmdr-agent 1"; Flags: runhidden
 Filename: "{sys}\sc.exe"; Parameters: "start itcmdr-agent"; Flags: runhidden; StatusMsg: "Starting itcmdr-agent..."
 Filename: "{sys}\sc.exe"; Parameters: "create itcmdr-agent-watchdog binPath= ""\""{app}\agent\watchdog\itcmdr-agent-watchdog.exe\"" --service"" start= auto DisplayName= ""itcmdr-agent-watchdog"""; Flags: runhidden; StatusMsg: "Creating Windows service itcmdr-agent-watchdog..."; Check: not ServiceExists('itcmdr-agent-watchdog')
 Filename: "{sys}\sc.exe"; Parameters: "config itcmdr-agent-watchdog binPath= ""\""{app}\agent\watchdog\itcmdr-agent-watchdog.exe\"" --service"""; Flags: runhidden; Check: ServiceExists('itcmdr-agent-watchdog')
 Filename: "{sys}\sc.exe"; Parameters: "description itcmdr-agent-watchdog ""itcmdr agent watchdog: agent upgrades, rollback and restarts"""; Flags: runhidden
 Filename: "{sys}\sc.exe"; Parameters: "failure itcmdr-agent-watchdog reset= 86400 actions= restart/60000/restart/60000/restart/300000"; Flags: runhidden
+; failureflag also applies recovery when the service stops with an error (not only on a crash). Re-applied on upgrade.
+Filename: "{sys}\sc.exe"; Parameters: "failureflag itcmdr-agent-watchdog 1"; Flags: runhidden
 Filename: "{sys}\sc.exe"; Parameters: "start itcmdr-agent-watchdog"; Flags: runhidden; StatusMsg: "Starting itcmdr-agent-watchdog..."
 
 [UninstallRun]

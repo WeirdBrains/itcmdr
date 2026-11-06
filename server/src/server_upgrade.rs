@@ -338,3 +338,31 @@ pub async fn tick(
     }
     current(pool).await
 }
+
+/// Watchdog of the watchdog: on Windows, start `itcmdr-server-watchdog` when it is not running.
+/// Returns Some(true) when it is already running, Some(false) when it was missing or stopped
+/// (and a start was attempted), None when there is nothing to watch (not Windows).
+pub fn check_watchdog() -> Option<bool> {
+    if !cfg!(windows) {
+        return None;
+    }
+    use wd::Service;
+    let s = wd::ScService("itcmdr-server-watchdog".into());
+    if s.running() {
+        return Some(true);
+    }
+    match s.start() {
+        Ok(()) => tracing::warn!("itcmdr-server-watchdog was not running (started it)"),
+        Err(e) => tracing::warn!(error=%format!("{e:#}"), "could not start itcmdr-server-watchdog"),
+    }
+    Some(false)
+}
+
+#[cfg(test)]
+mod check_watchdog_tests {
+    #[test]
+    fn check_watchdog_is_a_noop_off_windows() {
+        #[cfg(not(windows))]
+        assert_eq!(super::check_watchdog(), None);
+    }
+}

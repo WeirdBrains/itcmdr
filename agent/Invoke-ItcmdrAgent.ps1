@@ -47,7 +47,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-$script:AgentVersion = '1.3.6'
+$script:AgentVersion = '1.3.7'
 
 # The check library (shared with the built-in check plugins).
 . (Join-Path $PSScriptRoot 'Itcmdr.Checks.ps1')

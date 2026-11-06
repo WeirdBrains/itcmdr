@@ -49,12 +49,16 @@ Filename: "{sys}\sc.exe"; Parameters: "create itcmdr-server binPath= ""\""{app}\
 Filename: "{sys}\sc.exe"; Parameters: "config itcmdr-server binPath= ""\""{app}\server\itcmdr-server.exe\"" --service"""; Flags: runhidden; Check: ServiceExists('itcmdr-server')
 Filename: "{sys}\sc.exe"; Parameters: "description itcmdr-server ""itcmdr log ingest, metrics and on-demand run server (gRPC)"""; Flags: runhidden
 Filename: "{sys}\sc.exe"; Parameters: "failure itcmdr-server reset= 86400 actions= restart/60000/restart/60000/restart/300000"; Flags: runhidden
+; failureflag also applies recovery when the service stops with an error (not only on a crash). Re-applied on upgrade.
+Filename: "{sys}\sc.exe"; Parameters: "failureflag itcmdr-server 1"; Flags: runhidden
 Filename: "{app}\server\itcmdr-cli.exe"; Parameters: "setup apply --config ""{commonappdata}\itcmdr\server.json"" {code:ServerApplyArgs}"; Flags: runhidden; StatusMsg: "Writing site settings..."; Check: FreshServer
 Filename: "{sys}\sc.exe"; Parameters: "start itcmdr-server"; Flags: runhidden; StatusMsg: "Starting itcmdr-server..."
 Filename: "{sys}\sc.exe"; Parameters: "create itcmdr-server-watchdog binPath= ""\""{app}\server-watchdog\itcmdr-server-watchdog.exe\"" --service"" start= delayed-auto DisplayName= ""itcmdr-server-watchdog"""; Flags: runhidden; StatusMsg: "Creating Windows service itcmdr-server-watchdog..."; Check: not ServiceExists('itcmdr-server-watchdog')
 Filename: "{sys}\sc.exe"; Parameters: "config itcmdr-server-watchdog binPath= ""\""{app}\server-watchdog\itcmdr-server-watchdog.exe\"" --service"""; Flags: runhidden; Check: ServiceExists('itcmdr-server-watchdog')
 Filename: "{sys}\sc.exe"; Parameters: "description itcmdr-server-watchdog ""itcmdr server watchdog: server upgrades, rollback and restarts"""; Flags: runhidden
 Filename: "{sys}\sc.exe"; Parameters: "failure itcmdr-server-watchdog reset= 86400 actions= restart/60000/restart/60000/restart/300000"; Flags: runhidden
+; failureflag also applies recovery when the service stops with an error (not only on a crash). Re-applied on upgrade.
+Filename: "{sys}\sc.exe"; Parameters: "failureflag itcmdr-server-watchdog 1"; Flags: runhidden
 Filename: "{sys}\sc.exe"; Parameters: "start itcmdr-server-watchdog"; Flags: runhidden; StatusMsg: "Starting itcmdr-server-watchdog..."
 Filename: "{app}\server\itcmdr-cli.exe"; Parameters: "setup check --report ""{commonappdata}\itcmdr\setup-check.txt"""; Flags: runhidden; StatusMsg: "Checking the server setup..."
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Command ""$s = '{code:GetAllowSubnet}'; if ($s) {{ netsh advfirewall firewall delete rule name='itcmdr-server' | Out-Null; netsh advfirewall firewall add rule name='itcmdr-server' dir=in action=allow enable=yes profile=any localport=50051 protocol=TCP remoteip=$s; netsh advfirewall firewall delete rule name='itcmdr-agent-link' | Out-Null; netsh advfirewall firewall add rule name='itcmdr-agent-link' dir=in action=allow enable=yes profile=any localport=50052 protocol=TCP remoteip=$s }"""; Flags: runhidden; StatusMsg: "Adding firewall rule..."

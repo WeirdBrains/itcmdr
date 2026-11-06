@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v1.3.7 (2026-11-06)
+itcmdr 1.3.7: the site server starts `itcmdr-server-watchdog` again when that service is stopped.
+- Versions 1.3.7 (app and admin app 1.3.7+49).
+- Tested: Linux fmt and clippy clean, Rust tests on SQLite and Postgres (222), Pester 117 (10 skipped), office app 55 (+1 skipped), admin app 34, docs and man pages current. Every file passed the release guard (built from the v1.3.7 tag).
+- **Fix:** killing only the `itcmdr-server-watchdog` process could leave that service Stopped for minutes. The agent already starts `itcmdr-agent-watchdog` when it is down; the server did not do the same. After two earlier crashes the same day, Windows service recovery waits 5 minutes (60 s, then 60 s, then 5 min) and a 180 s check failed, while 1.3.3's VM script waited 360 s and passed. The server now starts the watchdog on its health tick (about every 30 s). The Windows server and agent installers also set `failureflag` 1 on those services and both watchdogs, and re-apply `sc failure` plus `failureflag` on upgrade (adminsvr already did this).
+
 ## v1.3.6 (2026-11-06)
 itcmdr 1.3.6: `/EnrollToken=` on an already-enrolled PC no longer rolls back a good enroll.
 - Versions 1.3.6 (app and admin app 1.3.6+48).
