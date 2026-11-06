@@ -1,28 +1,67 @@
-<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>itcmdr security and privacy</title><meta name="description" content="How itcmdr keeps office data in the office.">
-<meta property="og:title" content="itcmdr security and privacy"><meta property="og:description" content="How itcmdr keeps office data in the office.">
-<meta property="og:image" content="https://itcmdr.weirdbrains.com/assets/og.png"><meta name="theme-color" content="#0B2350">
-<link rel="icon" type="image/svg+xml" href="assets/logo-mark.svg"><link rel="icon" type="image/png" href="assets/favicon.png">
-<link rel="apple-touch-icon" href="assets/apple-touch-icon.png"><link rel="stylesheet" href="assets/style.css"></head>
-<body><a class="skip" href="#main">Skip to content</a>
-<header class="top"><div class="wrap bar"><a class="brand" href="index.html"><img src="assets/logo-mark.svg" alt="" width="36" height="36"><span>itcmdr</span></a>
-<nav aria-label="Main"><ul><li><a href="index.html">Home</a></li><li><a href="demos.html">Demos</a></li><li><a href="download.html">Download</a></li><li><a href="docs.html">Docs</a></li><li><a href="security.html" aria-current="page">Security &amp; privacy</a></li><li><a href="https://github.com/WeirdBrains/itcmdr">GitHub</a></li></ul></nav></div></header>
-<main id="main"><section class="wrap narrow"><h1>Security &amp; privacy</h1>
-<p class="lead">itcmdr is built for offices that handle sensitive data, so privacy is the default, not a setting.</p>
-<h2>What stays in the office</h2><ul class="ticks"><li>Everything the agents collect goes to the site server in the office.</li>
-<li>Backups stay on the site server. There's no restore from the admin server, and tests check that no backup bytes or key material cross the link.</li>
-<li>If you connect an admin server, the site sends only opaque site-scoped IDs, alert codes, check and plugin names, severity, counts, timestamps and numeric rollups. Anything else is hashed. Tests check that no hostnames, IPs, paths or usernames leave.</li>
-<li>Display names are shared only after the owner turns it on for that site.</li></ul>
-<h2>Keys and identity</h2><ul class="ticks"><li>A 24-word master key, shown once at setup, backs certified keys for every user.</li>
-<li>Every request to the server is signed, and every change goes to an audit log.</li>
-<li>The database is encrypted and its key is escrowed under the 24 words.</li>
-<li>On the admin server, passkeys or security keys can be required as a second factor, and audit entries are signed and hash-chained.</li></ul>
-<h2>Agents</h2><ul class="ticks"><li>Agents enroll with one-time tokens and pin the server's certificate.</li>
-<li>Every connection uses TLS 1.3 with mutual certificates from the site's own CA. No public CA is involved.</li>
-<li>Certificates renew automatically, and revoked agents are refused during the handshake.</li>
-<li>Plugins are signed and checked against checksums. Tampered packages are quarantined.</li></ul>
-<h2>Changes from the admin server</h2><p>Only allowlisted commands can be sent. They come with a preview and two-person approval, and the site owner can freeze them at any time.</p>
-<h2>Reporting a problem</h2><p>Please report security issues privately through <a href="https://github.com/WeirdBrains/itcmdr/security">GitHub</a>.</p></section></main>
-<footer class="foot"><div class="wrap"><p><img src="assets/logo-mark.svg" alt="" width="24" height="24"> itcmdr is built by <a href="https://weirdbrains.com">Weird Brains</a>.</p>
-<p><a href="https://github.com/WeirdBrains/itcmdr">Source on GitHub</a> · <a href="https://github.com/WeirdBrains/itcmdr/releases">Releases</a> · <a href="security.html">Security &amp; privacy</a></p></div></footer></body></html>
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <!--$-->
+    <title>Security &amp; privacy — itcmdr</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <meta name="description" content="How itcmdr keeps office data in the office."/>
+    <meta name="og:title" content="Security &amp; privacy — itcmdr"/>
+    <meta name="og:description" content="How itcmdr keeps office data in the office."/>
+    <meta name="og:image" content="https://itcmdr.weirdbrains.com/assets/og.png"/>
+    <meta name="theme-color" content="#0B2350"/>
+    <link href="assets/logo-mark.svg" rel="icon" type="image/svg+xml"/>
+    <link href="assets/favicon.png" rel="icon" type="image/png"/>
+    <link href="assets/apple-touch-icon.png" rel="apple-touch-icon"/>
+    <link href="assets/style.css" rel="stylesheet"/>
+    <!--/-->
+    <script src="/main.client.dart.js" defer></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="top">
+      <div class="wrap bar">
+        <a class="brand" href="index.html"><img alt width="36" height="36" src="assets/logo-mark.svg"/><span>itcmdr</span></a>
+        <nav aria-label="Main">
+          <ul>
+            <li><a href="index.html">Home</a></li>
+            <li><a href="demos.html">Demos</a></li>
+            <li><a href="download.html">Download</a></li>
+            <li><a href="docs.html">Docs</a></li>
+            <li><a aria-current="page" href="security.html">Security &amp; privacy</a></li>
+            <li><a href="https://github.com/WeirdBrains/itcmdr">GitHub</a></li>
+          </ul>
+        </nav>
+      </div>
+    </header>
+    <main id="main">
+      <section class="wrap narrow"><h1>Security &amp; privacy</h1>
+      <p class="lead">itcmdr is built for offices that handle sensitive data, so privacy is the default, not a setting.</p>
+      <h2>What stays in the office</h2><ul class="ticks"><li>Everything the agents collect goes to the site server in the office.</li>
+      <li>Backups stay on the site server. There's no restore from the admin server, and tests check that no backup bytes or key material cross the link.</li>
+      <li>If you connect an admin server, the site sends only opaque site-scoped IDs, alert codes, check and plugin names, severity, counts, timestamps and numeric rollups. Anything else is hashed. Tests check that no hostnames, IPs, paths or usernames leave.</li>
+      <li>Display names are shared only after the owner turns it on for that site.</li></ul>
+      <h2>Keys and identity</h2><ul class="ticks"><li>A 24-word master key, shown once at setup, backs certified keys for every user.</li>
+      <li>Every request to the server is signed, and every change goes to an audit log.</li>
+      <li>The database is encrypted and its key is escrowed under the 24 words.</li>
+      <li>On the admin server, passkeys or security keys can be required as a second factor, and audit entries are signed and hash-chained.</li></ul>
+      <h2>Agents</h2><ul class="ticks"><li>Agents enroll with one-time tokens and pin the server's certificate.</li>
+      <li>Every connection uses TLS 1.3 with mutual certificates from the site's own CA. No public CA is involved.</li>
+      <li>Certificates renew automatically, and revoked agents are refused during the handshake.</li>
+      <li>Plugins are signed and checked against checksums. Tampered packages are quarantined.</li></ul>
+      <h2>Changes from the admin server</h2><p>Only allowlisted commands can be sent. They come with a preview and two-person approval, and the site owner can freeze them at any time.</p>
+      <h2>Reporting a problem</h2><p>Please report security issues privately through <a href="https://github.com/WeirdBrains/itcmdr/security">GitHub</a>.</p></section>
+    </main>
+    <footer class="foot">
+      <div class="wrap">
+        <p>
+          <img alt width="24" height="24" src="assets/logo-mark.svg"/> itcmdr is built by <a href="https://weirdbrains.com">Weird Brains</a>.
+        </p>
+        <p>
+          <a href="https://github.com/WeirdBrains/itcmdr">Source on GitHub</a> · <a href="https://github.com/WeirdBrains/itcmdr/releases">Releases</a>
+           · <a href="security.html">Security &amp; privacy</a>
+        </p>
+      </div>
+    </footer>
+  </body>
+</html>
