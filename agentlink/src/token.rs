@@ -31,7 +31,25 @@ impl Token {
         )
     }
     pub fn decode(s: &str) -> Result<Token> {
-        let s = s.trim();
+        match Self::decode_one(s.trim()) {
+            Ok(t) => Ok(t),
+            Err(first) => {
+                for line in s.lines() {
+                    let line = line.trim().trim_matches('"').trim_matches('\'');
+                    if line.is_empty() {
+                        continue;
+                    }
+                    let candidate = line.find(PREFIX).map(|i| &line[i..]).unwrap_or(line);
+                    if let Ok(t) = Self::decode_one(candidate) {
+                        return Ok(t);
+                    }
+                }
+                Err(first)
+            }
+        }
+    }
+
+    fn decode_one(s: &str) -> Result<Token> {
         let Some(b) = s.strip_prefix(PREFIX) else {
             bail!("not an itcmdr enrollment token (expected {PREFIX}...)")
         };
@@ -65,7 +83,16 @@ mod tests {
             machine: "WS-01".into(),
             root: "cd".repeat(32),
         };
-        assert_eq!(Token::decode(&t.encode()).unwrap(), t);
+        let enc = t.encode();
+        assert_eq!(Token::decode(&enc).unwrap(), t);
+        assert_eq!(Token::decode(&format!("  {enc} \n")).unwrap(), t);
+        assert_eq!(
+            Token::decode(&format!(
+                "one-time token for WS-01 until later; agents dial SERVER01:50052\n{enc}\n"
+            ))
+            .unwrap(),
+            t
+        );
         assert!(Token::decode("junk").is_err());
         let bad = Token {
             pin: "zz".into(),

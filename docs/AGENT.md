@@ -15,10 +15,14 @@ Placeholders only: SERVER01, WS-01.
    the address agents dial (default: the server's name and the agent link port, `--address host:port`
    to override), the SHA-256 of the server's TLS certificate, and a secret (only its hash is stored).
    The token is never written to the audit log.
-2. On the PC: `itcmdr-agent-Setup-<ver>.exe /VERYSILENT /EnrollToken=<token>` (the installer stores it
-   for Administrators and SYSTEM only; the service enrolls with it on start and deletes it), or by hand:
-   `itcmdr-agent enroll <token> [--machine WS-01] [--role server]`. Use `--role server` for the agent on
-   the office server (its non-responsive alert uses `agent.serverNonresponsiveLevel`).
+2. On the PC: `itcmdr-agent-Setup-<ver>.exe /VERYSILENT /EnrollToken=<token>` (v1.3.4: the installer
+   stops the agent services, enrolls immediately as this computer's name — replacing any earlier
+   enrollment — and checks that the agent links; a copy of `agent.json` is kept so a failed enroll
+   rolls back, Setup exits 9, `install-logs/last-agent.json` records it and the installer alert is
+   raised. Leading and trailing whitespace, quotes, or a stderr line mixed with the token are
+   ignored). Or by hand: `itcmdr-agent enroll <token> [--machine WS-01] [--role server]`. Use
+   `--role server` for the agent on the office server (its non-responsive alert uses
+   `agent.serverNonresponsiveLevel`).
 3. The agent creates two keys that never leave the PC (`%ProgramData%\itcmdr\agent\keys\`, DPAPI
    LocalMachine): an Ed25519 key that signs every Hello, and a TLS client key. It sends the public key and
    a CSR; the server burns the token and returns a client certificate from the **site CA**
