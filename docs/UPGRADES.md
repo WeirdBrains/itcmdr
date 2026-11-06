@@ -46,6 +46,31 @@ installers also set `failureflag` 1 on the server, agent and both watchdogs (and
 plus `failureflag` on upgrade), so recovery runs when the service stops with an error, not only on a
 crash. `itcmdr-adminsvr` already did this.
 
+## VM upgrade smoke (test bed)
+
+On a disposable Windows test VM, `e2e/v137.ps1` upgrades FromVer → ToVer with the
+published installers and checks:
+
+- build stamps match the ToVer tag (`commit` + `help` hash)
+- `sc qfailureflag` is TRUE on the server, agent and both watchdogs after upgrade
+- real self-heal: killed server, **server-watchdog-only** (must be Running within
+  90 seconds by default; the server starts that watchdog on its health tick),
+  `sc stop` of the server, both killed together, agent and agent-watchdog
+- already-enrolled `/EnrollToken=` with a published agent installer, then a bad
+  token that exits 9 without losing the working enrollment
+
+Paths and versions are parameters; do not hardcode hostnames or share names in the
+script. Example:
+
+```powershell
+.\e2e\v137.ps1 -FromVer 1.3.6 -ToVer 1.3.7 `
+  -Commit <tag-commit> -Help <16-hex-help-hash> `
+  -RelDir <folder-with-Setup-exes> -PublishedDir <published-agent-Setup> `
+  -DocsDir <tag-checkout>\docs
+```
+
+See `e2e/README.md`.
+
 ## From adminsvr
 
 Approve a release once and roll it out to the sites you choose: `itcmdr-admin release approve|rollout`

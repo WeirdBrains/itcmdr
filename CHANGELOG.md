@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Windows VM upgrade smoke script `e2e/v137.ps1`: parameterized FromVer→ToVer check with stamp and `failureflag` asserts, real self-heal including a server-watchdog-only kill that must be Running within 90 s, and `/EnrollToken=` re-enroll plus bad-token exit 9. docs/UPGRADES.md, e2e/README.md.
 
 ## v1.3.7 (2026-11-06)
 itcmdr 1.3.7: the site server starts `itcmdr-server-watchdog` again when that service is stopped.
