@@ -109,17 +109,29 @@ function Get-ItcmdrAgentLogSize {
   return [int64]0
 }
 
+function Read-ItcmdrSharedText {
+  param([string]$Path)
+  # The agent keeps agent.log open for append; ReadAllText would throw and look like an enroll failure.
+  $fs = [IO.File]::Open($Path, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
+  try {
+    $sr = New-Object System.IO.StreamReader($fs)
+    try { return $sr.ReadToEnd() } finally { $sr.Dispose() }
+  } finally { $fs.Dispose() }
+}
+
 function Wait-ItcmdrAgentLinked {
   param([string]$DataDir, [int]$TimeoutSec, [int64]$AfterBytes = 0)
   $log = Join-Path $DataDir 'logs\agent.log'
   $deadline = [datetime]::UtcNow.AddSeconds($TimeoutSec)
   do {
     if (Test-Path -LiteralPath $log) {
-      $txt = [IO.File]::ReadAllText($log)
-      $start = 0
-      if ($AfterBytes -gt 0 -and $txt.Length -ge $AfterBytes) { $start = [int]$AfterBytes }
-      if ($txt.Length -lt $AfterBytes) { $start = 0 }
-      if ($txt.Substring($start) -match 'linked to the server') { return $true }
+      try { $txt = Read-ItcmdrSharedText -Path $log } catch { $txt = '' }
+      if ($txt) {
+        $start = 0
+        if ($AfterBytes -gt 0 -and $txt.Length -ge $AfterBytes) { $start = [int]$AfterBytes }
+        if ($txt.Length -lt $AfterBytes) { $start = 0 }
+        if ($txt.Substring($start) -match 'linked to the server') { return $true }
+      }
     }
     Start-Sleep -Milliseconds 250
   } while ([datetime]::UtcNow -lt $deadline)
