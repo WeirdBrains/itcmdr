@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v1.3.5 (2026-11-06)
+itcmdr 1.3.5: the Windows agent installer of 1.3.4 compiles.
+- Versions 1.3.5 (app and admin app 1.3.5+47).
+- Tested: Linux fmt and clippy clean, Rust tests on SQLite and Postgres (221), Pester 117 (10 skipped), office app 55 (+1 skipped), admin app 34 for the 1.3.4 changes (identical except this installer type fix). Every file passed the release guard (built from the v1.3.5 tag).
+- **Fix:** Unicode Inno Setup refused `LoadStringFromFile` into a `String` (`Type mismatch` at compile, no agent installer). The enroll error is read into an `AnsiString` first. Same `/EnrollToken=` re-enroll behaviour as 1.3.4.
+
 ## v1.3.4 (2026-11-06)
 itcmdr 1.3.4: the Windows agent installer re-enrolls when `/EnrollToken=` is given.
 - Versions 1.3.4 (app and admin app 1.3.4+46).
