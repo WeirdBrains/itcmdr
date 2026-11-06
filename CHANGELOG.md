@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## v1.3.4 (2026-11-06)
+itcmdr 1.3.4: the Windows agent installer re-enrolls when `/EnrollToken=` is given.
+- Versions 1.3.4 (app and admin app 1.3.4+46).
+- Tested: Linux fmt and clippy clean, Rust tests on SQLite and Postgres (221), Pester 117 (10 skipped), office app 55 (+1 skipped), admin app 34, docs and man pages current. Every file passed the release guard (built from the v1.3.4 tag).
+- **Fix:** re-running `itcmdr-agent-Setup` with `/EnrollToken=` on an already-enrolled PC wrote the token file and exited 0; the running service never picked it up (it only enrolls from that file when it is not enrolled yet), so a revoked or renamed agent stayed offline. The installer now stops the agent services, enrolls with the new token as this computer's name (replacing the old enrollment), keeps a copy of `agent.json` so a failed enroll rolls back, restarts the services and checks that the agent links. Any enroll failure exits 9, is recorded in `install-logs/last-agent.json` and raises the installer alert; Setup never exits 0 after a silent no-op.
+- Enrollment tokens tolerate leading or trailing whitespace, surrounding quotes, and a stderr line mixed with the token (installer, `itcmdr-agent enroll`, and the token file).
+
 ## v1.3.3 (2026-11-05)
 itcmdr 1.3.3: Info, Check and revoked-agent handling are tightened.
 - Versions 1.3.3 (app and admin app 1.3.3+45).

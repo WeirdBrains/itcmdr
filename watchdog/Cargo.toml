@@ -1,6 +1,6 @@
 [package]
 name = "itcmdr-watchdog"
-version = "1.3.3"
+version = "1.3.4"
 edition.workspace = true
 license.workspace = true
 description = "itcmdr watchdogs (v0.21.0): swap current/previous, health-check an upgrade, roll back; restart a stale service. Upgraded only by the installer."

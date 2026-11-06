@@ -4,7 +4,7 @@
 ;     /Share=\\SERVER01\maintenanceRuns [/LocalLogs=C:\maintenanceRuns] [/EnrollToken=<one-time token>]
 ; v0.17.0: also the Rust agent (itcmdr-agent.exe, Windows service "itcmdr-agent", LocalSystem). The
 ; enroll token is kept in %ProgramData%\itcmdr\agent-enroll.token (Administrators and SYSTEM only);
-; the service enrolls with it on start (pinned TLS, client certificate) and deletes it. The
+; Apply-ItcmdrEnrollToken.ps1 then enrolls immediately as this computer (v1.3.4: roll back on failure, exit 9). The
 ; PowerShell agent keeps running its tasks unchanged. Push-Install-ItcmdrAgent.ps1 (copy-over-SMB push) still works and is included.
 ; v0.21.0: the Rust agent runs from {app}\agent\current\ (agent upgrades swap current\ and previous\),
 ; and the itcmdr-agent-watchdog service ({app}\agent\watchdog\, replaced only by this installer)
@@ -37,6 +37,7 @@ Source: "..\agent\Itcmdr.PluginRunner.ps1"; DestDir: "{app}\agent"; Flags: ignor
 Source: "..\agent\Initialize-ItcmdrSite.ps1"; DestDir: "{app}\agent"; Flags: ignoreversion
 Source: "..\agent\Set-ItcmdrCutover.ps1"; DestDir: "{app}\agent"; Flags: ignoreversion
 Source: "..\agent\Push-Install-ItcmdrAgent.ps1"; DestDir: "{app}\agent"; Flags: ignoreversion
+Source: "..\agent\Apply-ItcmdrEnrollToken.ps1"; DestDir: "{app}\agent"; Flags: ignoreversion
 Source: "..\agent\Itcmdr.Plugin.psm1"; DestDir: "{app}\agent"; Flags: ignoreversion sharedfile
 #if !FileExists(AddBackslash(SourcePath) + "..\third_party\itcmdr-plugins\plugins\itcmdr-network\main.ps1")
   #error "Pinned plugins missing: run scripts/fetch-plugins.sh (see plugins.pin.json)"
@@ -129,19 +130,41 @@ end;
 
 procedure SaveEnrollToken();
 var
-  Tok, P: string;
+  Tok, P, Args, ErrP, Err: string;
   RC: Integer;
 begin
+  // v1.3.4: /EnrollToken= on an already-enrolled PC must re-enroll (stop services,
+  // enroll as this computer's name, roll back agent.json on failure). Writing the
+  // token file and hoping the running service picks it up does nothing once enrolled.
   Tok := Trim(ExpandConstant('{param:EnrollToken|}'));
   if Tok = '' then exit;
   ForceDirectories(DataDir());
   P := DataDir() + '\agent-enroll.token';
-  if SaveStringToFile(P, Tok, False) then
+  if not SaveStringToFile(P, Tok, False) then
   begin
-    // Administrators and SYSTEM only (no inheritance).
-    Exec(ExpandConstant('{sys}\icacls.exe'), Q(P) + ' /inheritance:r /grant:r *S-1-5-32-544:F *S-1-5-18:F', '', SW_HIDE, ewWaitUntilTerminated, RC);
-    Log('enroll token stored (the itcmdr-agent service enrolls with it)');
+    IEnrollFail := True;
+    IFail('enroll', 'could not write the enrollment token file');
+    exit;
   end;
+  Exec(ExpandConstant('{sys}\icacls.exe'), Q(P) + ' /inheritance:r /grant:r *S-1-5-32-544:F *S-1-5-18:F', '', SW_HIDE, ewWaitUntilTerminated, RC);
+  ILog('applying /EnrollToken= (stop services, enroll as this computer, verify the link)');
+  Args := '-NoProfile -ExecutionPolicy Bypass -File ' + Q(ExpandConstant('{app}\agent\Apply-ItcmdrEnrollToken.ps1'))
+    + ' -TokenFile ' + Q(P)
+    + ' -AgentExe ' + Q(ExpandConstant('{app}\agent\current\itcmdr-agent.exe'))
+    + ' -DataDir ' + Q(DataDir() + '\agent')
+    + ' -ComputerName ' + Q(GetComputerNameString());
+  if not Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'), Args, '', SW_HIDE, ewWaitUntilTerminated, RC) then RC := -1;
+  if RC <> 0 then
+  begin
+    IEnrollFail := True;
+    Err := 're-enrollment with /EnrollToken= failed (exit ' + IntToStr(RC) + ')';
+    ErrP := DataDir() + '\agent\last-enroll-error.txt';
+    if LoadStringFromFile(ErrP, Err) then Err := Trim(Err);
+    IFail('enroll', Err);
+    ILog('enroll failed: ' + Err);
+  end
+  else
+    ILog('enroll applied; agent linked as ' + GetComputerNameString());
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);

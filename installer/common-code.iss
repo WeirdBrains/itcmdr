@@ -131,10 +131,11 @@ end;
 // for locks with retries, and if anything fails the services that were running are started again
 // on the version still installed, an Application event (source itcmdr-setup) is written and Setup
 // exits non-zero (7: failed before any file was replaced; 8: installed but a service did not start;
+// 9: files installed but /EnrollToken= enroll or re-enroll failed, with agent.json rolled back;
 // Inno's own codes otherwise). Test hook: /SIMULATEFAIL=lock or /SIMULATEFAIL=start.
 var
   ILogPath, IPart, IFrom, IStep, IError, ILogRoot, IServices, IExes, IWasRunning: string;
-  IStarted, IOk, IPostFail: Boolean;
+  IStarted, IOk, IPostFail, IEnrollFail: Boolean;
 
 function IStamp(): string;
 begin
@@ -242,7 +243,7 @@ end;
 procedure InstallLogBegin(Part, Guid, LogRoot, Services, Exes: string);
 begin
   IPart := Part; ILogRoot := LogRoot; IServices := Services; IExes := Exes;
-  IStep := 'start'; IError := ''; IWasRunning := '';
+  IStep := 'start'; IError := ''; IWasRunning := ''; IEnrollFail := False;
   ForceDirectories(LogRoot);
   ILogPath := LogRoot + '\' + Part + '-{#MyAppVersion}-' + GetDateTimeString('yyyymmdd-hhnnss', #0, #0) + '.log';
   IFrom := InstalledVersion(Guid);
@@ -386,7 +387,7 @@ begin
       IFail('start services', 'service ' + S + ' did not start after the upgrade to {#MyAppVersion}');
     end;
   end;
-  if not IPostFail then IStep := 'done';
+  if not IPostFail and not IEnrollFail then IStep := 'done';
 end;
 
 // Failure before or during the file copy: Inno restored the old files; start what was running.
@@ -417,7 +418,9 @@ end;
 
 function GetCustomSetupExitCode(): Integer;
 begin
-  if IPostFail then Result := 8 else Result := 0;
+  if IEnrollFail then Result := 9
+  else if IPostFail then Result := 8
+  else Result := 0;
 end;
 
 procedure DeinitializeSetup();
@@ -427,7 +430,7 @@ var
 begin
   if ILogPath = '' then exit;
   OkS := 'false';
-  if IOk and not IPostFail then
+  if IOk and not IPostFail and not IEnrollFail then
   begin
     ILog('OK: ' + IPart + ' ' + IFrom + ' -> {#MyAppVersion}; exit code 0');
     Code := '0';
@@ -436,7 +439,7 @@ begin
   else
   begin
     if IError = '' then IFail(IStep, 'setup was aborted (see the Inno Setup log below); the files were rolled back');
-    if IPostFail then Code := '8' else if IStep = 'file locks' then Code := '7' else Code := 'non-zero';
+    if IEnrollFail then Code := '9' else if IPostFail then Code := '8' else if IStep = 'file locks' then Code := '7' else Code := 'non-zero';
     ILog('UPGRADE FAILED: ' + IPart + ' stays at ' + IFrom + '; exit code ' + Code);
     RC := RunRC(ExpandConstant('{sys}\eventcreate.exe'), '/L APPLICATION /T ERROR /SO itcmdr-setup /ID 100 /D ' + Q('itcmdr ' + IPart + ' setup {#MyAppVersion} failed at ' + IStep + ': ' + IError + ' Log: ' + ILogPath));
     ILog('Application event written (eventcreate exit ' + IntToStr(RC) + ')');
