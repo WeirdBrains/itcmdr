@@ -1,6 +1,6 @@
 [package]
 name = "itcmdr_admin_bridge"
-version = "1.3.7"
+version = "1.3.8"
 edition = "2021"
 license = "Apache-2.0"
 description = "flutter_rust_bridge glue for itcmdr Admin: the app's API client is itcmdr-admin-cli's (signing, pinned TLS, passkey step-up)"

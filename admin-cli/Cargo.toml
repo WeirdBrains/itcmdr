@@ -1,6 +1,6 @@
 [package]
 name = "itcmdr-admin-cli"
-version = "1.3.7"
+version = "1.3.8"
 edition.workspace = true
 license.workspace = true
 description = "itcmdr-admin: the adminsvr CLI (same signed API as the admin app)"
