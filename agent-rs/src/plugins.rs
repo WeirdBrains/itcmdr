@@ -35,6 +35,12 @@ pub struct Manifest {
     pub files: Vec<ManifestFile>,
     #[serde(default)]
     pub default_error_criticality: Option<String>,
+    /// Optional search metadata (ignored by the agent, preserved in manifest)
+    #[serde(default)]
+    pub tags: Vec<String>,
+    /// Authoritative platform support: windows | linux | macos (case-insensitive). Empty = all.
+    #[serde(default)]
+    pub supported_platforms: Vec<String>,
 }
 
 pub fn plugins_dir(dir: &Path) -> PathBuf {
