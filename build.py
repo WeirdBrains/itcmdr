@@ -23,7 +23,7 @@ def page(fn, title, desc, body):
 def card(t, p): return f'<div class="card"><h3>{t}</h3><p>{p}</p></div>'
 HOME = f'''
 <section class="hero"><div class="wrap hero-grid"><div>
-<p class="eyebrow">itcmdr 1.3.2</p>
+<p class="eyebrow">itcmdr 1.3.3</p>
 <h1>Self-healing IT for small offices.</h1>
 <p class="lead">An agent on every PC checks the network, connections and services each night and repairs what it safely can. A server on site keeps the history, alerts and backups. And nothing internal leaves the office.</p>
 <p class="cta"><a class="btn" href="download.html">Download</a> <a class="btn ghost" href="demos.html">Watch the demos</a> <a class="btn ghost" href="{R}">View on GitHub</a></p></div>
@@ -36,6 +36,21 @@ HOME = f'''
 {card("Backups that stay home","Backup coverage checks, encrypted backups and on-site restore. Backups never leave the site server.")}
 {card("Keys, not passwords","A 24-word master key backs certified keys, and every request is signed. Passkeys and security keys can be added as a second factor on the admin server.")}
 </div></section>
+
+<section class="wrap" aria-labelledby="shots"><h2 id="shots">See it in action</h2>
+<p>Stills from the <a href="demos.html">recorded demo</a> of a throwaway install. The names are fictional; nothing here is a live office.</p>
+<div class="shots">
+<figure class="shot"><a href="demos.html#apps"><img src="assets/shots/admin-status.webp" width="1280" height="720" alt="The itcmdr admin app showing a demo office: online, three machines listed only as opaque ids, display names not shared."></a>
+<figcaption><h3>Admin app</h3><p>A site at a glance. Machine names stay in the office; the admin app sees opaque ids.</p></figcaption></figure>
+<figure class="shot"><a href="demos.html#apps"><img src="assets/shots/office-agents.webp" width="1280" height="720" alt="The itcmdr office app listing three demo agents named EXAM-ROOM, FRONT-DESK and OFFICE-SRV, all online."></a>
+<figcaption><h3>Office app</h3><p>Agents on the office server: status, last seen, and certificate lifetime.</p></figcaption></figure>
+<figure class="shot"><a href="demos.html#fleet"><img src="assets/shots/cli-rings.webp" width="1280" height="720" alt="Terminal session: itcmdr-cli sets update rings on demo PCs, then itcmdr-admin lists the site as counts and an opaque id."></a>
+<figcaption><h3>CLI and terminal</h3><p>Update rings from the CLI, and the redacted view the admin server is allowed.</p></figcaption></figure>
+<figure class="shot"><a href="demos.html#fleet"><img src="assets/shots/cli-alerts.webp" width="1280" height="720" alt="Terminal session: itcmdr-cli lists demo agents and shows a critical alert after one agent was stopped."></a>
+<figcaption><h3>Alerts in the CLI</h3><p>A demo outage becomes an alert on the office server.</p></figcaption></figure>
+</div>
+<p class="shots-more"><a href="demos.html">Watch the twenty short clips →</a></p>
+</section>
 <section class="band" aria-labelledby="p"><div class="wrap"><h2 id="p">The privacy promise</h2>
 <p class="lead">No internal information leaves the office it's installed in.</p>
 <ul class="ticks"><li>The site server decides what leaves, and it denies by default.</li>
@@ -60,14 +75,14 @@ DL = f'''<section class="wrap narrow"><h1>Download</h1>
 <p class="lead">Every build, with its checksums in <code>SHA256SUMS</code>, is on GitHub Releases.</p>
 <p><a class="btn" href="{R}/releases/latest">Latest release</a> <a class="btn ghost" href="{R}/releases">All releases</a></p>
 <div class="note" role="note"><h2>Builds are unsigned for now</h2><p>The Windows installers and the macOS app aren't code-signed yet. Windows SmartScreen will warn about them, and machines where SmartScreen or app control is locked down won't install them at all. On macOS, Gatekeeper may block the app until you allow it. Signed builds are coming. Check each file against <code>SHA256SUMS</code> before you install it.</p></div>
-<h2>itcmdr 1.3.2</h2><p>Direct downloads for 1.3.2 (<a href="{R}/releases/tag/v1.3.2">release notes</a>, <a href="{R}/releases/download/v1.3.2/SHA256SUMS">SHA256SUMS</a>).</p><div class="table-wrap"><table><thead><tr><th scope="col">Package</th><th scope="col">Downloads</th></tr></thead><tbody>
-<tr><td>Site server</td><td><a href="{R}/releases/download/v1.3.2/itcmdr-server-Setup-1.3.2.exe">Installer</a></td></tr>
-<tr><td>Agent</td><td><a href="{R}/releases/download/v1.3.2/itcmdr-agent-Setup-1.3.2.exe">Installer</a></td></tr>
-<tr><td>CLI</td><td><a href="{R}/releases/download/v1.3.2/itcmdr-cli-Setup-1.3.2.exe">Windows</a> · <a href="{R}/releases/download/v1.3.2/itcmdr-cli-1.3.2-linux-x86_64.tar.gz">Linux</a> · <a href="{R}/releases/download/v1.3.2/itcmdr-cli-1.3.2-macos-aarch64.tar.gz">macOS</a></td></tr>
-<tr><td>Office app</td><td><a href="{R}/releases/download/v1.3.2/itcmdr-app-Setup-1.3.2.exe">Windows</a> · <a href="{R}/releases/download/v1.3.2/itcmdr-app-1.3.2-linux-x86_64.tar.gz">Linux</a> · <a href="{R}/releases/download/v1.3.2/itcmdr-app-1.3.2-macos-aarch64.zip">macOS</a></td></tr>
-<tr><td>Admin server</td><td><a href="{R}/releases/download/v1.3.2/itcmdr-adminsvr-Setup-1.3.2.exe">Windows</a> · <a href="{R}/releases/download/v1.3.2/itcmdr-adminsvr-1.3.2-linux-x86_64.tar.gz">Linux</a> · <a href="{R}/releases/download/v1.3.2/itcmdr-adminsvr-1.3.2-macos-aarch64.tar.gz">macOS</a></td></tr>
-<tr><td>Admin CLI</td><td><a href="{R}/releases/download/v1.3.2/itcmdr-admin-Setup-1.3.2.exe">Windows</a> · <a href="{R}/releases/download/v1.3.2/itcmdr-admin-1.3.2-linux-x86_64.tar.gz">Linux</a> · <a href="{R}/releases/download/v1.3.2/itcmdr-admin-1.3.2-macos-aarch64.tar.gz">macOS</a></td></tr>
-<tr><td>Admin app</td><td><a href="{R}/releases/download/v1.3.2/itcmdr-admin-app-Setup-1.3.2.exe">Windows</a> · <a href="{R}/releases/download/v1.3.2/itcmdr-admin-app-1.3.2-linux-x86_64.tar.gz">Linux</a> · <a href="{R}/releases/download/v1.3.2/itcmdr-admin-app-1.3.2-macos-aarch64.zip">macOS</a> · <a href="{R}/releases/download/v1.3.2/itcmdr-admin-app-1.3.2-android.apk">Android</a></td></tr>
+<h2>itcmdr 1.3.3</h2><p>Direct downloads for 1.3.3 (<a href="{R}/releases/tag/v1.3.3">release notes</a>, <a href="{R}/releases/download/v1.3.3/SHA256SUMS">SHA256SUMS</a>).</p><div class="table-wrap"><table><thead><tr><th scope="col">Package</th><th scope="col">Downloads</th></tr></thead><tbody>
+<tr><td>Site server</td><td><a href="{R}/releases/download/v1.3.3/itcmdr-server-Setup-1.3.3.exe">Installer</a></td></tr>
+<tr><td>Agent</td><td><a href="{R}/releases/download/v1.3.3/itcmdr-agent-Setup-1.3.3.exe">Installer</a></td></tr>
+<tr><td>CLI</td><td><a href="{R}/releases/download/v1.3.3/itcmdr-cli-Setup-1.3.3.exe">Windows</a> · <a href="{R}/releases/download/v1.3.3/itcmdr-cli-1.3.3-linux-x86_64.tar.gz">Linux</a> · <a href="{R}/releases/download/v1.3.3/itcmdr-cli-1.3.3-macos-aarch64.tar.gz">macOS</a></td></tr>
+<tr><td>Office app</td><td><a href="{R}/releases/download/v1.3.3/itcmdr-app-Setup-1.3.3.exe">Windows</a> · <a href="{R}/releases/download/v1.3.3/itcmdr-app-1.3.3-linux-x86_64.tar.gz">Linux</a> · <a href="{R}/releases/download/v1.3.3/itcmdr-app-1.3.3-macos-aarch64.zip">macOS</a></td></tr>
+<tr><td>Admin server</td><td><a href="{R}/releases/download/v1.3.3/itcmdr-adminsvr-Setup-1.3.3.exe">Windows</a> · <a href="{R}/releases/download/v1.3.3/itcmdr-adminsvr-1.3.3-linux-x86_64.tar.gz">Linux</a> · <a href="{R}/releases/download/v1.3.3/itcmdr-adminsvr-1.3.3-macos-aarch64.tar.gz">macOS</a></td></tr>
+<tr><td>Admin CLI</td><td><a href="{R}/releases/download/v1.3.3/itcmdr-admin-Setup-1.3.3.exe">Windows</a> · <a href="{R}/releases/download/v1.3.3/itcmdr-admin-1.3.3-linux-x86_64.tar.gz">Linux</a> · <a href="{R}/releases/download/v1.3.3/itcmdr-admin-1.3.3-macos-aarch64.tar.gz">macOS</a></td></tr>
+<tr><td>Admin app</td><td><a href="{R}/releases/download/v1.3.3/itcmdr-admin-app-Setup-1.3.3.exe">Windows</a> · <a href="{R}/releases/download/v1.3.3/itcmdr-admin-app-1.3.3-linux-x86_64.tar.gz">Linux</a> · <a href="{R}/releases/download/v1.3.3/itcmdr-admin-app-1.3.3-macos-aarch64.zip">macOS</a> · <a href="{R}/releases/download/v1.3.3/itcmdr-admin-app-1.3.3-android.apk">Android</a></td></tr>
 </tbody></table></div>
 <p>No file share is needed: install the server, then each PC's agent with a one-time enrollment token.</p>
 <p>Install steps are in the <a href="{D}INSTALL.md">install guide</a> and the <a href="{D}ADMINSVR.md">admin server guide</a>.</p></section>'''
