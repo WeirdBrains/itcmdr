@@ -131,6 +131,7 @@ end;
 procedure SaveEnrollToken();
 var
   Tok, P, Args, ErrP, Err: string;
+  ErrA: AnsiString;
   RC: Integer;
 begin
   // v1.3.4: /EnrollToken= on an already-enrolled PC must re-enroll (stop services,
@@ -159,7 +160,7 @@ begin
     IEnrollFail := True;
     Err := 're-enrollment with /EnrollToken= failed (exit ' + IntToStr(RC) + ')';
     ErrP := DataDir() + '\agent\last-enroll-error.txt';
-    if LoadStringFromFile(ErrP, Err) then Err := Trim(Err);
+    if LoadStringFromFile(ErrP, ErrA) then Err := Trim(ErrA);
     IFail('enroll', Err);
     ILog('enroll failed: ' + Err);
   end

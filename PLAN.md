@@ -99,6 +99,7 @@ Key backup on by default (opt-out), locked with the 24 words; COOP/COEP accepted
 | v1.3.1 | Release guard: every asset built from the tag (build stamp with commit and help hash, checked before publishing) | ✅ Released 2026-11-05 |
 | v1.3.3 | Info, Check and revoked-agent handling; compatibility notes for older Info callers and agents | ✅ Released 2026-11-05 |
 | v1.3.4 | Windows agent installer re-enrolls with `/EnrollToken=` (rollback + exit 9 on failure); current computer name | ✅ Released 2026-11-06 |
+| v1.3.5 | Unicode Inno Setup type fix so the 1.3.4 agent installer compiles (`LoadStringFromFile` AnsiString) | ✅ Released 2026-11-06 |
 | v1.3.2 | Windows parts run without the Visual C++ runtime (static CRT, app-local runtime DLLs for the apps); demo workflow | ✅ Released 2026-11-05 |
 
 ## Cross-cutting items
