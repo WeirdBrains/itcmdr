@@ -1,6 +1,6 @@
 [package]
 name = "itcmdr-keys"
-version = "1.3.6"
+version = "1.3.7"
 edition.workspace = true
 license.workspace = true
 description = "itcmdr key material: 24 words, master keys, certificates, escrow, sealed words, request signing"

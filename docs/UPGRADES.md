@@ -38,6 +38,14 @@ need a newer server (`min_server`) wait for it.
 `itcmdr-agent-watchdog` and `itcmdr-server-watchdog` restart their service when its health file is
 older than `--stale-secs` (default 300) and perform the swap and rollback. `--once` runs one pass.
 
+The agent starts `itcmdr-agent-watchdog` when that service is stopped (every 30 s). From v1.3.7 the
+server does the same for `itcmdr-server-watchdog` on its health tick (about every 30 s), so killing
+only the server-watchdog process does not leave upgrades and rollback unwatched until Windows
+service recovery runs (60 s, then 60 s, then 5 min; the counter resets after a day). The Windows
+installers also set `failureflag` 1 on the server, agent and both watchdogs (and re-apply `sc failure`
+plus `failureflag` on upgrade), so recovery runs when the service stops with an error, not only on a
+crash. `itcmdr-adminsvr` already did this.
+
 ## From adminsvr
 
 Approve a release once and roll it out to the sites you choose: `itcmdr-admin release approve|rollout`

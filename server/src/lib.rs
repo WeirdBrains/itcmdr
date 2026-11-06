@@ -212,6 +212,8 @@ pub async fn run(
         loop {
             tokio::time::sleep(Duration::from_secs(10)).await;
             write_health(&h_pool, &h_cfg, &mut connected).await;
+            // v1.3.7: watchdog of the watchdog (start it when stopped), same idea as the agent.
+            let _ = server_upgrade::check_watchdog();
             tokio::time::sleep(Duration::from_secs(20)).await;
         }
     });

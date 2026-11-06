@@ -39,7 +39,9 @@ the network with `api_plain_http: true` (see [certificates](CERTIFICATES.md)).
     itcmdr-server.exe hash-token <token>       # legacy shared token hash (auth mode "both" only)
 
 `itcmdr-server-watchdog` keeps the service running (restart when its health file goes stale) and
-swaps in server upgrades with a rollback ([upgrades](UPGRADES.md)). Errors are in
+swaps in server upgrades with a rollback ([upgrades](UPGRADES.md)). From v1.3.7 the server starts
+that watchdog again when it is stopped (the agent already did this for `itcmdr-agent-watchdog`).
+Errors are in
 `%ProgramData%\itcmdr\server-logs\itcmdr-server.txt`.
 
 ## What it does
