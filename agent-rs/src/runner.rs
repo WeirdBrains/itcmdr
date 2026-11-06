@@ -153,6 +153,28 @@ async fn stages(
     rep: &mut pb::RunReport,
     errors: &mut Vec<itcmdr_common::PluginErrorRecord>,
 ) -> Result<()> {
+    // Pre-spawn platform gate: when supported_platforms is set, refuse to launch on others.
+    let cur = if cfg!(target_os = "windows") {
+        "windows"
+    } else if cfg!(target_os = "macos") {
+        "macos"
+    } else if cfg!(target_os = "linux") {
+        "linux"
+    } else {
+        "unknown"
+    };
+    if !m.supported_platforms.is_empty()
+        && !m
+            .supported_platforms
+            .iter()
+            .any(|p| p.eq_ignore_ascii_case(cur))
+    {
+        bail!(
+            "unsupported platform: {} (supported: {})",
+            cur,
+            m.supported_platforms.join(", ")
+        );
+    }
     let main = m
         .files
         .iter()

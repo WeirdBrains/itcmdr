@@ -554,6 +554,51 @@ Invoke-ItcmdrPlugin -Info @{{ name = 'gate-demo'; version = '1.0.0'; features = 
     );
 }
 
+#[cfg(unix)]
+#[tokio::test]
+async fn unsupported_platform_blocks_bin_plugin_start() {
+    let e = env().await;
+    let marker = e.root.join("bin-started.txt");
+    let body = format!(
+        "#!/bin/sh\necho started > \"{}\"\nexec sleep 1\n",
+        marker.display()
+    );
+    let mut d = e.root.join("bin-src");
+    std::fs::create_dir_all(&d).unwrap();
+    let toml = {
+        let exclude = if cfg!(target_os = "linux") { "macos" } else { "linux" };
+        format!(
+            "name = \"gate-bin\"\nversion = \"1.0.0\"\nfeatures = [\"execute\"]\nsupported_platforms = [\"{}\"]\n\n[[files]]\nname = \"run.sh\"\ntype = \"bin\"\nmain = true\nchecksum = \"\"\n",
+            exclude
+        )
+    };
+    std::fs::write(d.join("run.sh"), &body).unwrap();
+    std::fs::write(d.join("package.toml"), toml).unwrap();
+    let out = e.root.join("gate-bin.tar.gz");
+    packages::pack(&d, &e.admin, &out).unwrap();
+    packages::install(&e.pool, &e.c.layout(), Source::Path(&out), Some(true), "test")
+        .await
+        .unwrap();
+    // Make executable bit for bin.
+    use std::os::unix::fs::PermissionsExt;
+    let p = e
+        .c
+        .layout()
+        .service_plugins()
+        .join("gate-bin-1.0.0")
+        .join("run.sh");
+    std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let r = srv::runtime::run_plugin(&e.pool, &e.c, spec("gate-bin", &[]), "tester")
+        .await
+        .unwrap();
+    assert_eq!(r.status, "error", "{r:?}");
+    assert!(r.message.to_lowercase().contains("unsupported platform"));
+    assert!(
+        !marker.exists(),
+        "bin plugin executable must not be started on an unsupported platform"
+    );
+}
+
 #[test]
 fn bad_default_error_criticality_is_refused() {
     let m = "name = \"x\"\nversion = \"1.0.0\"\ndefault_error_criticality = \"fatal\"\n[[files]]\nname = \"a\"\ntype = \"bin\"\nmain = true\nchecksum = \"\"\n";

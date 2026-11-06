@@ -564,6 +564,10 @@ pub struct InstalledPlugin {
     pub signer: String,
     pub package_sha256: String,
     pub dir: PathBuf,
+    /// Search metadata from package.toml (normalized). Empty when missing.
+    pub tags: Vec<String>,
+    /// Supported platforms from package.toml (canonical tokens). Empty = all.
+    pub supported_platforms: Vec<String>,
 }
 
 pub fn plugin_dir(layout: &Layout, name: &str, version: &str) -> PathBuf {
@@ -699,6 +703,8 @@ pub async fn install(
         installed_at: now,
         signer: v.signer,
         package_sha256: v.package_sha256,
+        tags: v.manifest.tags,
+        supported_platforms: v.manifest.supported_platforms,
     })
 }
 
@@ -710,17 +716,27 @@ pub async fn list(pool: &DbPool, layout: &Layout) -> Result<Vec<InstalledPlugin>
     .await?;
     Ok(rows
         .into_iter()
-        .map(
-            |(name, version, en, installed_at, signer, package_sha256)| InstalledPlugin {
-                dir: plugin_dir(layout, &name, &version),
+        .map(|(name, version, en, installed_at, signer, package_sha256)| {
+            let dir = plugin_dir(layout, &name, &version);
+            let (tags, supported_platforms) = match std::fs::read(dir.join(MANIFEST))
+                .ok()
+                .and_then(|b| parse_manifest(&b).ok())
+            {
+                Some(m) => (m.tags, m.supported_platforms),
+                None => (vec![], vec![]),
+            };
+            InstalledPlugin {
+                dir,
                 name,
                 version,
                 enabled: en != 0,
                 installed_at,
                 signer,
                 package_sha256,
-            },
-        )
+                tags,
+                supported_platforms,
+            }
+        })
         .collect())
 }
 
