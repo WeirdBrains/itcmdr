@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Windows: `/EnrollToken=` verify reads `agent.log` with a shared share so a running agent cannot make Setup treat a good enroll as a failure (exit 9 and a rollback).
+- Windows: `/EnrollToken=` verify reads `agent.log` with a shared read so a running agent cannot make Setup treat a good enroll as a failure (exit 9 and a rollback).
 
 ## v1.3.5 (2026-11-06)
 itcmdr 1.3.5: the Windows agent installer of 1.3.4 compiles.
