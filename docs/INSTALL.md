@@ -89,7 +89,7 @@ Silent agent install on a PC (push-friendly; the enroll token is optional and ke
 itcmdr-agent-Setup-<ver>.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SiteName="Example Office" /ServerHostname=SERVER01 /Share="\\SERVER01\DATA\maintenanceRuns" [/EnrollToken=<token>]
 ```
 
-With `/EnrollToken=` (v1.3.4) the installer enrolls as this computer's name, even when the PC was already enrolled (it stops the agent services, keeps a copy of `agent.json` so a failed enroll rolls back, restarts the services and checks the link). A bad token or a failed enroll exits 9, writes `install-logs/last-agent.json` and raises the installer alert; it never exits 0 after leaving the old enrollment in place. The token may have leading or trailing whitespace or a stderr line mixed in.
+With `/EnrollToken=` (v1.3.4) the installer enrolls as this computer's name, even when the PC was already enrolled (it stops the agent services, keeps a copy of `agent.json` so a failed enroll rolls back, restarts the services and checks the link). A bad token or a failed enroll exits 9, writes `install-logs/last-agent.json` and raises the installer alert; it never exits 0 after leaving the old enrollment in place. The token may have leading or trailing whitespace or a stderr line mixed in. v1.3.6: the link check reads `agent.log` with a shared read so a running agent cannot make a good enroll look like a failure.
 
 This registers two tasks, both running as SYSTEM:
 - `itcmdr Agent Nightly` at 01:30

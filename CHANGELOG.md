@@ -2,7 +2,12 @@
 
 ## Unreleased
 
-- Windows: `/EnrollToken=` verify reads `agent.log` with a shared read so a running agent cannot make Setup treat a good enroll as a failure (exit 9 and a rollback).
+## v1.3.6 (2026-11-06)
+itcmdr 1.3.6: `/EnrollToken=` on an already-enrolled PC no longer rolls back a good enroll.
+- Versions 1.3.6 (app and admin app 1.3.6+48).
+- Tested: Linux fmt and clippy clean, Rust tests on SQLite and Postgres (221), Pester 117 (10 skipped), office app 55 (+1 skipped), admin app 34, docs and man pages current. Every file passed the release guard (built from the v1.3.6 tag).
+- **Fix:** 1.3.5's agent installer could treat a successful `/EnrollToken=` re-enroll as a failure: the link check opened `agent.log` exclusively while the running agent still had it open, threw, rolled `agent.json` back and exited 9. The check now reads the log with a shared read.
+- **Release notes:** v1.3.4 was tagged but never published (Unicode Inno Setup refused `LoadStringFromFile` into a `String`; 1.3.5 fixed the compile). Use 1.3.6, not 1.3.5, when re-enrolling an already-enrolled Windows agent with `/EnrollToken=`.
 
 ## v1.3.5 (2026-11-06)
 itcmdr 1.3.5: the Windows agent installer of 1.3.4 compiles.
