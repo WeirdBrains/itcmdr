@@ -1,0 +1,66 @@
+import 'package:jaspr/dom.dart';
+import 'package:jaspr/server.dart';
+
+import '../components/site_shell.dart';
+
+class HomePage extends StatelessComponent {
+  const HomePage({super.key});
+
+  @override
+  Component build(BuildContext context) {
+    return SiteShell(
+      pageId: 'index',
+      title: """itcmdr: self-healing IT for small offices""",
+      description: """Self-healing IT for small offices, with privacy by design. By Weird Brains.""",
+      body: RawText("""<section class="hero"><div class="wrap hero-grid"><div>
+<p class="eyebrow">itcmdr 1.3.7</p>
+<h1>Self-healing IT for small offices.</h1>
+<p class="lead">An agent on every PC checks the network, connections and services each night and repairs what it safely can. A server on site keeps the history, alerts and backups. And nothing internal leaves the office.</p>
+<p class="cta"><a class="btn" href="download.html">Download</a> <a class="btn ghost" href="demos.html">Watch the demos</a> <a class="btn ghost" href="https://github.com/WeirdBrains/itcmdr">View on GitHub</a></p></div>
+<img class="hero-img" src="assets/logo-mark.svg" alt="itcmdr logo: a navy shield with a teal terminal prompt" width="320" height="320"></div></section>
+<section class="wrap" aria-labelledby="f"><h2 id="f">Features</h2><div class="grid">
+<div class="card"><h3>Nightly checks and repairs</h3><p>The agent checks network settings, connectivity and services, repairs what it safely can, and logs every check. Checks with no safe repair are reported, not guessed at.</p></div>
+<div class="card"><h3>Plugins and schedules</h3><p>Checks are signed plugin packages. Tampered or unsigned packages are quarantined. Schedules run on the agent, even while it's offline.</p></div>
+<div class="card"><h3>Alerts that make sense</h3><p>Site alerts come in three severity levels. You can acknowledge, resolve or silence them, and they also show up as push notifications in the admin app.</p></div>
+<div class="card"><h3>Metrics and log search</h3><p>Flapping checks, repeat offenders, charts, and log search with filters and paging.</p></div>
+<div class="card"><h3>Backups that stay home</h3><p>Backup coverage checks, encrypted backups and on-site restore. Backups never leave the site server.</p></div>
+<div class="card"><h3>Keys, not passwords</h3><p>A 24-word master key backs certified keys, and every request is signed. Passkeys and security keys can be added as a second factor on the admin server.</p></div>
+</div></section>
+
+<section class="wrap" aria-labelledby="shots"><h2 id="shots">See it in action</h2>
+<p>Stills from the <a href="demos.html">recorded demo</a> of a throwaway install. The names are fictional; nothing here is a live office.</p>
+<div class="shots">
+<figure class="shot"><a href="demos.html#apps"><img src="assets/shots/admin-status.webp" width="1280" height="720" alt="The itcmdr admin app showing a demo office: online, three machines listed only as opaque ids, display names not shared."></a>
+<figcaption><h3>Admin app</h3><p>A site at a glance. Machine names stay in the office; the admin app sees opaque ids.</p></figcaption></figure>
+<figure class="shot"><a href="demos.html#apps"><img src="assets/shots/office-agents.webp" width="1280" height="720" alt="The itcmdr office app listing three demo agents named EXAM-ROOM, FRONT-DESK and OFFICE-SRV, all online."></a>
+<figcaption><h3>Office app</h3><p>Agents on the office server: status, last seen, and certificate lifetime.</p></figcaption></figure>
+<figure class="shot"><a href="demos.html#fleet"><img src="assets/shots/cli-rings.webp" width="1280" height="720" alt="Terminal session: itcmdr-cli sets update rings on demo PCs, then itcmdr-admin lists the site as counts and an opaque id."></a>
+<figcaption><h3>CLI and terminal</h3><p>Update rings from the CLI, and the redacted view the admin server is allowed.</p></figcaption></figure>
+<figure class="shot"><a href="demos.html#fleet"><img src="assets/shots/cli-alerts.webp" width="1280" height="720" alt="Terminal session: itcmdr-cli lists demo agents and shows a critical alert after one agent was stopped."></a>
+<figcaption><h3>Alerts in the CLI</h3><p>A demo outage becomes an alert on the office server.</p></figcaption></figure>
+</div>
+<p class="shots-more"><a href="demos.html">Watch the twenty short clips →</a></p>
+</section>
+<section class="band" aria-labelledby="p"><div class="wrap"><h2 id="p">The privacy promise</h2>
+<p class="lead">No internal information leaves the office it's installed in.</p>
+<ul class="ticks"><li>The site server decides what leaves, and it denies by default.</li>
+<li>Hostnames, IPs, paths, usernames and message text never leave. The admin server sees opaque IDs, alert codes, counts and timestamps.</li>
+<li>Display names are only shared if the office owner opts in on that site.</li>
+<li>Backups never leave the site server, and the admin server can't restore them.</li></ul>
+<p><a href="security.html">How the security and privacy work →</a></p></div></section>
+<section class="wrap" aria-labelledby="h"><h2 id="h">How it works</h2><ol class="steps">
+<li><strong>Install the site server</strong> on the office server. First-run setup shows your 24 words once and creates the first admin key.</li>
+<li><strong>Enroll each PC</strong> with a one-time token. The agent gets its own certificate from the site, and every connection is mutually authenticated.</li>
+<li><strong>Let it run.</strong> Checks and repairs run on schedule, results come back to the site server, and problems become alerts.</li>
+<li><strong>Optionally connect an admin server</strong> to watch many sites from one place, with redacted data only.</li></ol></section>
+<section class="band light" aria-labelledby="c"><div class="wrap"><h2 id="c">Components</h2><div class="grid">
+<div class="card"><h3>Agent</h3><p>A Rust service on every PC and on the office server. It enrolls with mutual TLS, keeps a heartbeat, renews its certificate, runs plugins and schedules, and queues alerts while offline.</p></div>
+<div class="card"><h3>Site server</h3><p>A Rust gRPC server for the office, with an encrypted database, roles and users, plugins, schedules, alerts, backups and an audit log.</p></div>
+<div class="card"><h3>Office app</h3><p>A Flutter desktop app for the office: overview, metrics, logs, schedules, plugins, backups, audit, keys and settings.</p></div>
+<div class="card"><h3>CLI</h3><p><code>itcmdr-cli</code> handles setup, backup and restore, settings and enrollment tokens.</p></div>
+<div class="card"><h3>Admin server</h3><p>Optional and off-site, for IT providers. It runs on SQLite or Postgres, uses passkeys and sends push alerts. Changes it sends need preview, two-person approval and can be frozen by the owner. It runs as a service on Linux, macOS or Windows, or as a container.</p></div>
+<div class="card"><h3><img src="assets/icon-admin.svg" alt="" width="28" height="28"> Admin app and CLI</h3><p>A Flutter app and <code>itcmdr-admin</code> CLI for the people who look after many sites: alert inbox, servers, users and service plugins.</p></div>
+</div></div></section>"""),
+    );
+  }
+}
