@@ -20,7 +20,8 @@ Placeholders only: SERVER01, WS-01.
    enrollment — and checks that the agent links; a copy of `agent.json` is kept so a failed enroll
    rolls back, Setup exits 9, `install-logs/last-agent.json` records it and the installer alert is
    raised. Leading and trailing whitespace, quotes, or a stderr line mixed with the token are
-   ignored). Or by hand: `itcmdr-agent enroll <token> [--machine WS-01] [--role server]`. Use
+   ignored. v1.3.6: the link check reads `agent.log` with a shared read so a running agent cannot
+   make a good enroll look like a failure and roll it back). Or by hand: `itcmdr-agent enroll <token> [--machine WS-01] [--role server]`. Use
    `--role server` for the agent on the office server (its non-responsive alert uses
    `agent.serverNonresponsiveLevel`).
 3. The agent creates two keys that never leave the PC (`%ProgramData%\itcmdr\agent\keys\`, DPAPI
