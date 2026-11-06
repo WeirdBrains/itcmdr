@@ -45,6 +45,14 @@ pub struct Manifest {
     pub features: Vec<String>,
     #[serde(default)]
     pub files: Vec<PackageFile>,
+    /// Optional search metadata (normalized to lowercase a-z, 0-9, - and _; deduped).
+    /// Backward-compat: when missing, treated as empty.
+    #[serde(default)]
+    pub tags: Vec<String>,
+    /// Authoritative platform support. Canonical tokens: windows | linux | macos (case-insensitive).
+    /// Empty or missing = all platforms supported (backward-compatible).
+    #[serde(default)]
+    pub supported_platforms: Vec<String>,
     /// v0.15.0: criticality of an error the plugin did not classify (an uncaught exception, a
     /// failed stage without a `PluginError`): critical | cautious | informational. Default cautious.
     #[serde(default)]
@@ -77,6 +85,7 @@ fn sig_message(manifest_bytes: &[u8]) -> Vec<u8> {
 
 const FEATURES: [&str; 3] = ["verify", "execute", "log"];
 const KINDS: [&str; 4] = ["bin", "powershell", "data", "config"];
+const PLATFORMS: [&str; 3] = ["windows", "linux", "macos"];
 
 /// Safe relative path: no absolute/root/prefix, no `..`, no backslashes, no empty segments.
 /// Returns the normalized `a/b/c` form.
@@ -122,9 +131,32 @@ fn valid_version(s: &str) -> bool {
             .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '-' | '+'))
 }
 
+fn normalize_tag(t: &str) -> Option<String> {
+    let n = t.trim().to_ascii_lowercase();
+    if n.is_empty() || n.len() > 32 {
+        return None;
+    }
+    if n.chars()
+        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_')
+    {
+        Some(n)
+    } else {
+        None
+    }
+}
+
+fn normalize_platform(p: &str) -> Option<String> {
+    let n = p.trim().to_ascii_lowercase();
+    if PLATFORMS.contains(&n.as_str()) {
+        Some(n)
+    } else {
+        None
+    }
+}
+
 pub fn parse_manifest(bytes: &[u8]) -> std::result::Result<Manifest, Reject> {
     let text = std::str::from_utf8(bytes).map_err(|_| Reject("package.toml is not UTF8".into()))?;
-    let m: Manifest =
+    let mut m: Manifest =
         toml::from_str(text).map_err(|e| Reject(format!("package.toml is invalid: {e}")))?;
     if !valid_name(&m.name) {
         return rej(format!(
@@ -139,6 +171,40 @@ pub fn parse_manifest(bytes: &[u8]) -> std::result::Result<Manifest, Reject> {
         if !FEATURES.contains(&f.as_str()) {
             return rej(format!("unknown feature {f:?}"));
         }
+    }
+    // tags: normalize, dedupe, bounds
+    if !m.tags.is_empty() {
+        let mut out = Vec::new();
+        let mut seen = std::collections::HashSet::new();
+        for t in &m.tags {
+            let Some(n) = normalize_tag(t) else {
+                return rej(format!("invalid tag {t:?} (1..32 chars, a-z, 0-9, - and _)"));
+            };
+            if seen.insert(n.clone()) {
+                out.push(n);
+            }
+        }
+        // Reasonable upper bound to keep manifests small
+        if out.len() > 32 {
+            return rej("too many tags (max 32)");
+        }
+        m.tags = out;
+    }
+    // supported_platforms: strict canonical tokens
+    if !m.supported_platforms.is_empty() {
+        let mut out = Vec::new();
+        let mut seen = std::collections::HashSet::new();
+        for p in &m.supported_platforms {
+            let Some(n) = normalize_platform(p) else {
+                return rej(format!(
+                    "unsupported platform {p:?} (use: windows, linux or macos)"
+                ));
+            };
+            if seen.insert(n.clone()) {
+                out.push(n);
+            }
+        }
+        m.supported_platforms = out;
     }
     if let Some(c) = &m.default_error_criticality {
         if itcmdr_common::ErrorCriticality::parse(c).is_none() {
@@ -839,5 +905,61 @@ mod tests {
                 && !valid_version("v1")
                 && !valid_version("1/2")
         );
+    }
+
+    #[test]
+    fn tags_are_normalized_deduped_and_bounded() {
+        let man = r#"
+name = "demo"
+version = "1.0.0"
+tags = [" Windows ", "windows", "DOMAIN_health", "UPPER", "ok-1", "ok_2"]
+[[files]]
+name = "a"
+type = "bin"
+main = true
+checksum = "0000000000000000000000000000000000000000000000000000000000000000"
+"#;
+        let m = parse_manifest(man.as_bytes()).unwrap();
+        assert_eq!(m.tags, vec!["windows", "domain_health", "upper", "ok-1", "ok_2"]);
+        // too many tags
+        let too_many = format!(
+            "name=\"d\"\nversion=\"1.0.0\"\ntags = [{}]\n[[files]]\nname=\"a\"\ntype=\"bin\"\nmain=true\nchecksum=\"0000000000000000000000000000000000000000000000000000000000000000\"\n",
+            (0..33).map(|i| format!("\"t{i}\"")).collect::<Vec<_>>().join(",")
+        );
+        assert!(parse_manifest(too_many.as_bytes()).is_err());
+        // bad char
+        let bad = man.replace("ok-1", "bad!");
+        assert!(parse_manifest(bad.as_bytes()).is_err());
+    }
+
+    #[test]
+    fn supported_platforms_are_canonical_and_strict() {
+        let ok = r#"
+name = "demo"
+version = "1.0.0"
+supported_platforms = ["Windows","linux"]
+[[files]]
+name = "a"
+type = "bin"
+main = true
+checksum = "0000000000000000000000000000000000000000000000000000000000000000"
+"#;
+        let m = parse_manifest(ok.as_bytes()).unwrap();
+        assert_eq!(m.supported_platforms, vec!["windows", "linux"]);
+        // unknown token refused
+        let bad = ok.replace("linux", "darwin");
+        assert!(parse_manifest(bad.as_bytes()).is_err());
+        // missing or empty is accepted (all platforms)
+        let nofield = r#"
+name = "demo"
+version = "1.0.0"
+[[files]]
+name = "a"
+type = "bin"
+main = true
+checksum = "0000000000000000000000000000000000000000000000000000000000000000"
+"#;
+        let m = parse_manifest(nofield.as_bytes()).unwrap();
+        assert!(m.supported_platforms.is_empty());
     }
 }

@@ -510,6 +510,50 @@ async fn default_error_criticality_from_the_package() {
     );
 }
 
+#[tokio::test]
+async fn unsupported_platform_never_spawns_the_plugin() {
+    let e = env().await;
+    // A plugin that would touch a marker file if it ever ran.
+    let marker = e.root.join("started.txt");
+    let script = format!(
+        r#"
+Import-Module $env:ITCMDR_PS_MODULE -Force
+Set-Content -Path '{}' -Value 'started'
+Invoke-ItcmdrPlugin -Info @{{ name = 'gate-demo'; version = '1.0.0'; features = @('execute') }} `
+  -Execute {{ param($Ctx) @{{ ok = $true; message = 'ran' }} }}
+"#,
+        marker.display()
+    );
+    // Declare support for a platform we are not on (macos on Linux/Windows CI, linux on Windows).
+    // The server must refuse to start the host at all.
+    let want = if cfg!(target_os = "macos") {
+        "linux"
+    } else {
+        "macos"
+    };
+    let extra = format!("supported_platforms = [\"{}\"]\n", want);
+    install_with(
+        &e,
+        "gate-demo",
+        &[("main.ps1", "powershell", &script, true)],
+        &extra,
+    )
+    .await;
+    let r = srv::runtime::run_plugin(&e.pool, &e.c, spec("gate-demo", &[]), "tester")
+        .await
+        .unwrap();
+    assert_eq!(r.status, "error", "{r:?}");
+    assert!(
+        r.message.to_lowercase().contains("unsupported platform"),
+        "{}",
+        r.message
+    );
+    assert!(
+        !marker.exists(),
+        "plugin executable must not be started on an unsupported platform"
+    );
+}
+
 #[test]
 fn bad_default_error_criticality_is_refused() {
     let m = "name = \"x\"\nversion = \"1.0.0\"\ndefault_error_criticality = \"fatal\"\n[[files]]\nname = \"a\"\ntype = \"bin\"\nmain = true\nchecksum = \"\"\n";
