@@ -1,7 +1,12 @@
 # Changelog
 
 ## Unreleased
-- Windows VM upgrade smoke script `e2e/v137.ps1`: parameterized FromVer→ToVer check with stamp and `failureflag` asserts, real self-heal including a server-watchdog-only kill that must be Running within 90 s, and `/EnrollToken=` re-enroll plus bad-token exit 9. docs/UPGRADES.md, e2e/README.md.
+
+## v1.3.8 (2026-11-06)
+itcmdr 1.3.8: Windows VM upgrade smoke script in the repo.
+- Versions 1.3.8 (app and admin app 1.3.8+50).
+- Tested: Linux fmt and clippy clean, Rust tests on SQLite and Postgres (222), Pester 117 (10 skipped), office app 55 (+1 skipped), admin app 34, docs and man pages current. Every file passed the release guard (built from the v1.3.8 tag).
+- **Change:** no runtime behaviour change since 1.3.7. Adds `e2e/v137.ps1`, a parameterized FromVer→ToVer Windows test-bed upgrade smoke (stamps, `failureflag`, self-heal including a server-watchdog-only kill that must be Running within 90 s, `/EnrollToken=` re-enroll and bad-token exit 9). docs/UPGRADES.md, e2e/README.md. Documents `ITCMDR_SITE_DIR` for the Jaspr site sync script.
 
 ## v1.3.7 (2026-11-06)
 itcmdr 1.3.7: the site server starts `itcmdr-server-watchdog` again when that service is stopped.
