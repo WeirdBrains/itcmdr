@@ -13,7 +13,7 @@ class HomePage extends StatelessComponent {
       title: """itcmdr: self-healing IT for small offices""",
       description: """Self-healing IT for small offices, with privacy by design. By Weird Brains.""",
       body: RawText("""<section class="hero"><div class="wrap hero-grid"><div>
-<p class="eyebrow">itcmdr 1.3.7</p>
+<p class="eyebrow">itcmdr 1.3.8</p>
 <h1>Self-healing IT for small offices.</h1>
 <p class="lead">An agent on every PC checks the network, connections and services each night and repairs what it safely can. A server on site keeps the history, alerts and backups. And nothing internal leaves the office.</p>
 <p class="cta"><a class="btn" href="download.html">Download</a> <a class="btn ghost" href="demos.html">Watch the demos</a> <a class="btn ghost" href="https://github.com/WeirdBrains/itcmdr">View on GitHub</a></p></div>
