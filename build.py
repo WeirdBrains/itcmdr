@@ -23,7 +23,7 @@ def page(fn, title, desc, body):
 def card(t, p): return f'<div class="card"><h3>{t}</h3><p>{p}</p></div>'
 HOME = f'''
 <section class="hero"><div class="wrap hero-grid"><div>
-<p class="eyebrow">itcmdr 1.3.5</p>
+<p class="eyebrow">itcmdr 1.3.6</p>
 <h1>Self-healing IT for small offices.</h1>
 <p class="lead">An agent on every PC checks the network, connections and services each night and repairs what it safely can. A server on site keeps the history, alerts and backups. And nothing internal leaves the office.</p>
 <p class="cta"><a class="btn" href="download.html">Download</a> <a class="btn ghost" href="demos.html">Watch the demos</a> <a class="btn ghost" href="{R}">View on GitHub</a></p></div>
@@ -75,14 +75,14 @@ DL = f'''<section class="wrap narrow"><h1>Download</h1>
 <p class="lead">Every build, with its checksums in <code>SHA256SUMS</code>, is on GitHub Releases.</p>
 <p><a class="btn" href="{R}/releases/latest">Latest release</a> <a class="btn ghost" href="{R}/releases">All releases</a></p>
 <div class="note" role="note"><h2>Builds are unsigned for now</h2><p>The Windows installers and the macOS app aren't code-signed yet. Windows SmartScreen will warn about them, and machines where SmartScreen or app control is locked down won't install them at all. On macOS, Gatekeeper may block the app until you allow it. Signed builds are coming. Check each file against <code>SHA256SUMS</code> before you install it.</p></div>
-<h2>itcmdr 1.3.5</h2><p>Direct downloads for 1.3.5 (<a href="{R}/releases/tag/v1.3.5">release notes</a>, <a href="{R}/releases/download/v1.3.5/SHA256SUMS">SHA256SUMS</a>).</p><div class="table-wrap"><table><thead><tr><th scope="col">Package</th><th scope="col">Downloads</th></tr></thead><tbody>
-<tr><td>Site server</td><td><a href="{R}/releases/download/v1.3.5/itcmdr-server-Setup-1.3.5.exe">Installer</a></td></tr>
-<tr><td>Agent</td><td><a href="{R}/releases/download/v1.3.5/itcmdr-agent-Setup-1.3.5.exe">Installer</a></td></tr>
-<tr><td>CLI</td><td><a href="{R}/releases/download/v1.3.5/itcmdr-cli-Setup-1.3.5.exe">Windows</a> · <a href="{R}/releases/download/v1.3.5/itcmdr-cli-1.3.5-linux-x86_64.tar.gz">Linux</a> · <a href="{R}/releases/download/v1.3.5/itcmdr-cli-1.3.5-macos-aarch64.tar.gz">macOS</a></td></tr>
-<tr><td>Office app</td><td><a href="{R}/releases/download/v1.3.5/itcmdr-app-Setup-1.3.5.exe">Windows</a> · <a href="{R}/releases/download/v1.3.5/itcmdr-app-1.3.5-linux-x86_64.tar.gz">Linux</a> · <a href="{R}/releases/download/v1.3.5/itcmdr-app-1.3.5-macos-aarch64.zip">macOS</a></td></tr>
-<tr><td>Admin server</td><td><a href="{R}/releases/download/v1.3.5/itcmdr-adminsvr-Setup-1.3.5.exe">Windows</a> · <a href="{R}/releases/download/v1.3.5/itcmdr-adminsvr-1.3.5-linux-x86_64.tar.gz">Linux</a> · <a href="{R}/releases/download/v1.3.5/itcmdr-adminsvr-1.3.5-macos-aarch64.tar.gz">macOS</a></td></tr>
-<tr><td>Admin CLI</td><td><a href="{R}/releases/download/v1.3.5/itcmdr-admin-Setup-1.3.5.exe">Windows</a> · <a href="{R}/releases/download/v1.3.5/itcmdr-admin-1.3.5-linux-x86_64.tar.gz">Linux</a> · <a href="{R}/releases/download/v1.3.5/itcmdr-admin-1.3.5-macos-aarch64.tar.gz">macOS</a></td></tr>
-<tr><td>Admin app</td><td><a href="{R}/releases/download/v1.3.5/itcmdr-admin-app-Setup-1.3.5.exe">Windows</a> · <a href="{R}/releases/download/v1.3.5/itcmdr-admin-app-1.3.5-linux-x86_64.tar.gz">Linux</a> · <a href="{R}/releases/download/v1.3.5/itcmdr-admin-app-1.3.5-macos-aarch64.zip">macOS</a> · <a href="{R}/releases/download/v1.3.5/itcmdr-admin-app-1.3.5-android.apk">Android</a></td></tr>
+<h2>itcmdr 1.3.6</h2><p>Direct downloads for 1.3.6 (<a href="{R}/releases/tag/v1.3.6">release notes</a>, <a href="{R}/releases/download/v1.3.6/SHA256SUMS">SHA256SUMS</a>).</p><div class="table-wrap"><table><thead><tr><th scope="col">Package</th><th scope="col">Downloads</th></tr></thead><tbody>
+<tr><td>Site server</td><td><a href="{R}/releases/download/v1.3.6/itcmdr-server-Setup-1.3.6.exe">Installer</a></td></tr>
+<tr><td>Agent</td><td><a href="{R}/releases/download/v1.3.6/itcmdr-agent-Setup-1.3.6.exe">Installer</a></td></tr>
+<tr><td>CLI</td><td><a href="{R}/releases/download/v1.3.6/itcmdr-cli-Setup-1.3.6.exe">Windows</a> · <a href="{R}/releases/download/v1.3.6/itcmdr-cli-1.3.6-linux-x86_64.tar.gz">Linux</a> · <a href="{R}/releases/download/v1.3.6/itcmdr-cli-1.3.6-macos-aarch64.tar.gz">macOS</a></td></tr>
+<tr><td>Office app</td><td><a href="{R}/releases/download/v1.3.6/itcmdr-app-Setup-1.3.6.exe">Windows</a> · <a href="{R}/releases/download/v1.3.6/itcmdr-app-1.3.6-linux-x86_64.tar.gz">Linux</a> · <a href="{R}/releases/download/v1.3.6/itcmdr-app-1.3.6-macos-aarch64.zip">macOS</a></td></tr>
+<tr><td>Admin server</td><td><a href="{R}/releases/download/v1.3.6/itcmdr-adminsvr-Setup-1.3.6.exe">Windows</a> · <a href="{R}/releases/download/v1.3.6/itcmdr-adminsvr-1.3.6-linux-x86_64.tar.gz">Linux</a> · <a href="{R}/releases/download/v1.3.6/itcmdr-adminsvr-1.3.6-macos-aarch64.tar.gz">macOS</a></td></tr>
+<tr><td>Admin CLI</td><td><a href="{R}/releases/download/v1.3.6/itcmdr-admin-Setup-1.3.6.exe">Windows</a> · <a href="{R}/releases/download/v1.3.6/itcmdr-admin-1.3.6-linux-x86_64.tar.gz">Linux</a> · <a href="{R}/releases/download/v1.3.6/itcmdr-admin-1.3.6-macos-aarch64.tar.gz">macOS</a></td></tr>
+<tr><td>Admin app</td><td><a href="{R}/releases/download/v1.3.6/itcmdr-admin-app-Setup-1.3.6.exe">Windows</a> · <a href="{R}/releases/download/v1.3.6/itcmdr-admin-app-1.3.6-linux-x86_64.tar.gz">Linux</a> · <a href="{R}/releases/download/v1.3.6/itcmdr-admin-app-1.3.6-macos-aarch64.zip">macOS</a> · <a href="{R}/releases/download/v1.3.6/itcmdr-admin-app-1.3.6-android.apk">Android</a></td></tr>
 </tbody></table></div>
 <p>No file share is needed: install the server, then each PC's agent with a one-time enrollment token.</p>
 <p>Install steps are in the <a href="{D}INSTALL.md">install guide</a> and the <a href="{D}ADMINSVR.md">admin server guide</a>.</p></section>'''
