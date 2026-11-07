@@ -53,13 +53,14 @@ Describe 'Invoke-ItcmdrEnrollToken' {
     '{"machine":"OLDNAME","role":"workstation","agent_id":"old"}' | Set-Content -LiteralPath $agentJson
     New-Item -ItemType Directory -Path (Join-Path $d 'keys') | Out-Null
     'oldkey' | Set-Content -LiteralPath (Join-Path $d 'keys\agent.key')
+    $script:CN = 'NEWPC'
   }
   AfterEach { Remove-Item -LiteralPath $d -Recurse -Force -ErrorAction SilentlyContinue }
 
   It 'rolls back agent.json and keys when enroll fails' {
     Mock Invoke-ItcmdrAgentEnrollExe { throw 'itcmdr-agent enroll exited 1' }
     { Invoke-ItcmdrEnrollToken -Token 'itcmdr-enroll:AAAABBBBCCCCDDDD' -AgentExe 'fake' `
-        -DataDir $d -ComputerName 'NEWPC' -SkipServiceControl $true -SkipConnectCheck $true } | Should -Throw '*enroll exited 1*'
+        -DataDir $d -ComputerName $script:CN -SkipServiceControl $true -SkipConnectCheck $true } | Should -Throw '*enroll exited 1*'
     $j = Get-Content -LiteralPath $agentJson -Raw | ConvertFrom-Json
     $j.machine | Should -Be 'OLDNAME'
     (Get-Content -LiteralPath (Join-Path $d 'keys\agent.key') -Raw).Trim() | Should -Be 'oldkey'
@@ -71,7 +72,7 @@ Describe 'Invoke-ItcmdrEnrollToken' {
       'newkey' | Set-Content -LiteralPath (Join-Path $DataDir 'keys\agent.key')
     }
     Invoke-ItcmdrEnrollToken -Token 'itcmdr-enroll:AAAABBBBCCCCDDDD' -AgentExe 'fake' `
-      -DataDir $d -ComputerName 'NEWPC' -SkipServiceControl $true -SkipConnectCheck $true
+      -DataDir $d -ComputerName $script:CN -SkipServiceControl $true -SkipConnectCheck $true
     $j = Get-Content -LiteralPath $agentJson -Raw | ConvertFrom-Json
     $j.machine | Should -Be 'NEWPC'
     (Get-Content -LiteralPath (Join-Path $d 'keys\agent.key') -Raw).Trim() | Should -Be 'newkey'
@@ -83,7 +84,7 @@ Describe 'Invoke-ItcmdrEnrollToken' {
       '{"machine":"OLDNAME","role":"workstation","agent_id":"new"}' | Set-Content -LiteralPath (Join-Path $DataDir 'agent.json')
     }
     { Invoke-ItcmdrEnrollToken -Token 'itcmdr-enroll:AAAABBBBCCCCDDDD' -AgentExe 'fake' `
-        -DataDir $d -ComputerName 'NEWPC' -SkipServiceControl $true -SkipConnectCheck $true } | Should -Throw '*current computer name*'
+        -DataDir $d -ComputerName $script:CN -SkipServiceControl $true -SkipConnectCheck $true } | Should -Throw '*current computer name*'
     (Get-Content -LiteralPath $agentJson -Raw | ConvertFrom-Json).machine | Should -Be 'OLDNAME'
   }
 
@@ -92,13 +93,13 @@ Describe 'Invoke-ItcmdrEnrollToken' {
     'itcmdr-enroll:AAAABBBBCCCCDDDD' | Set-Content -LiteralPath $tf
     Mock Invoke-ItcmdrAgentEnrollExe { throw 'boom' }
     { Invoke-ItcmdrEnrollToken -TokenFile $tf -AgentExe 'fake' `
-        -DataDir $d -ComputerName 'NEWPC' -SkipServiceControl $true -SkipConnectCheck $true } | Should -Throw
+        -DataDir $d -ComputerName $script:CN -SkipServiceControl $true -SkipConnectCheck $true } | Should -Throw
     Test-Path -LiteralPath $tf | Should -BeTrue
     Mock Invoke-ItcmdrAgentEnrollExe {
       '{"machine":"NEWPC","role":"workstation"}' | Set-Content -LiteralPath (Join-Path $DataDir 'agent.json')
     }
     Invoke-ItcmdrEnrollToken -TokenFile $tf -AgentExe 'fake' `
-      -DataDir $d -ComputerName 'NEWPC' -SkipServiceControl $true -SkipConnectCheck $true
+      -DataDir $d -ComputerName $script:CN -SkipServiceControl $true -SkipConnectCheck $true
     Test-Path -LiteralPath $tf | Should -BeFalse
   }
 
@@ -109,7 +110,7 @@ Describe 'Invoke-ItcmdrEnrollToken' {
       '{"machine":"NEWPC","role":"workstation"}' | Set-Content -LiteralPath (Join-Path $DataDir 'agent.json')
     }
     { Invoke-ItcmdrEnrollToken -Token 'itcmdr-enroll:AAAABBBBCCCCDDDD' -AgentExe 'fake' `
-        -DataDir $d -ComputerName 'NEWPC' -SkipServiceControl $true -SkipConnectCheck $false -ConnectTimeoutSec 1 } | Should -Throw '*did not link*'
+        -DataDir $d -ComputerName $script:CN -SkipServiceControl $true -SkipConnectCheck $false -ConnectTimeoutSec 1 } | Should -Throw '*did not link*'
     (Get-Content -LiteralPath $agentJson -Raw | ConvertFrom-Json).machine | Should -Be 'OLDNAME'
   }
 }
