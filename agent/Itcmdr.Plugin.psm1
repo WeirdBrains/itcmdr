@@ -157,6 +157,7 @@ function New-ItcmdrPluginError {
     fails the stage with it; Write-ItcmdrPluginError records a non-fatal one. The backtrace is the
     PowerShell call stack here (a thrown one also gets the catch site's ScriptStackTrace).
   #>
+  [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification = 'Builds an object; changes nothing')]
   [CmdletBinding()]
   param(
     [Parameter(Mandatory)][string]$Message,

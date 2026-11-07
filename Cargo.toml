@@ -29,3 +29,6 @@ unsafe_code = "deny"
 unused_imports = "deny"
 dead_code = "warn"
 
+[patch.crates-io]
+# (unused)
+

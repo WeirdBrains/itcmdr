@@ -36,3 +36,20 @@ Plugin environment (set by the agent or server for each run): `ITCMDR_PLUGIN_SEC
 `ITCMDR_LOG_PATH`, `ITCMDR_RUN_ID`, `ITCMDR_MACHINE`, `ITCMDR_REPORT_ONLY`, `ITCMDR_ARTIFACT_DIR`,
 `ITCMDR_PS_MODULE` ([environment](ENVIRONMENT.md)). A plugin has `ITCMDR_PLUGIN_START_SECS`
 (default 60) to answer the handshake.
+
+## package.toml fields
+
+Required fields:
+
+- name: a-z, 0-9, - and _, max 64
+- version: SemVer-like (max 32)
+- [[files]]: name, type (bin | powershell | data | config), checksum (sha256 hex); exactly one with main = true
+
+Optional fields:
+
+- features: verify | execute | log
+- default_error_criticality: critical | cautious | informational (default cautious)
+- tags: descriptive metadata for future search/filters. Normalized to lowercase; allowed characters a-z, 0-9, - and _; 1..32 chars per tag; duplicates dropped; max 32 tags. Tags never drive behaviour.
+- supported_platforms: authoritative OS support. Canonical tokens: windows, linux, macos (case-insensitive). Empty or missing means all platforms (backward-compatible). The host refuses to spawn a plugin whose supported_platforms does not include the current OS; plugins should also guard their OS at runtime for defense in depth.
+
+Signed metadata: `package.sig` covers the exact bytes of `package.toml` (and `package.toml` lists every file checksum), so these fields are protected by the package's signature and cannot be altered without invalidating it.

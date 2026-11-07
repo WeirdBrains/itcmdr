@@ -1,6 +1,11 @@
 # Changelog
 
 ## Unreleased
+itcmdr: plugin metadata and platform gating.
+- Add `tags` (search metadata) and `supported_platforms` (windows|linux|macos) to service plugin `package.toml`. Unknown tokens are refused; tags are normalized (lowercase a-z, 0-9, - and _, deduped, max 32).
+- Host enforces `supported_platforms` before spawning: unsupported plugins never start; runs return an error with a clear "unsupported platform" message. Backward-compatible: a missing/empty `supported_platforms` means all platforms.
+- Metadata stays inside signed `package.toml` and survives pack/install/list/runtime; no proto changes.
+- Docs: `docs/PLUGINS.md` documents the new fields and semantics.
 
 ## v1.3.8 (2026-11-06)
 itcmdr 1.3.8: Windows VM upgrade smoke script in the repo.

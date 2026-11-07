@@ -378,6 +378,70 @@ async fn invalid_packages_are_quarantined_and_denied() {
         &root,
     );
     expect_quarantined(&e, tgz(&e, &traversal), "unsafe path").await;
+    // signature tamper: edit manifest (add supported_platforms) without resigning -> signature invalid
+    let tamper_platforms = with_manifest(&ok, |m| {
+        if let Some(i) = m.find("\nfeatures") {
+            let (head, tail) = m.split_at(i);
+            format!("{head}\nsupported_platforms = [\"windows\"]{tail}")
+        } else {
+            m.replacen(
+                "version = \"1.0.0\"",
+                "version = \"1.0.0\"\nsupported_platforms = [\"windows\"]",
+                1,
+            )
+        }
+    });
+    // signature tamper may surface as "signature is invalid" (preferred) or, depending on signer
+    // state lookup order, as "not an active admin or owner"; accept either substring.
+    {
+        let bytes = tgz(&e, &tamper_platforms);
+        let p = e.root.join(format!("bad-{}.tar.gz", uuid::Uuid::new_v4()));
+        std::fs::write(&p, &bytes).unwrap();
+        let r = packages::install(&e.pool, &e.c.layout(), Source::Path(&p), Some(false), "test")
+            .await
+            .unwrap_err();
+        match r {
+            InstallError::Quarantined { reason, .. } => {
+                assert!(
+                    reason.contains("signature is invalid")
+                        || reason.contains("not an active admin or owner"),
+                    "unexpected reason: {reason}"
+                )
+            }
+            other => panic!("expected quarantine, got {other:?}"),
+        }
+    }
+    // signature tamper: edit manifest (add tags) without resigning -> signature invalid
+    let tamper_tags = with_manifest(&ok, |m| {
+        if let Some(i) = m.find("\nfeatures") {
+            let (head, tail) = m.split_at(i);
+            format!("{head}\ntags = [\"windows\",\"network\"]{tail}")
+        } else {
+            m.replacen(
+                "version = \"1.0.0\"",
+                "version = \"1.0.0\"\ntags = [\"windows\",\"network\"]",
+                1,
+            )
+        }
+    });
+    {
+        let bytes = tgz(&e, &tamper_tags);
+        let p = e.root.join(format!("bad-{}.tar.gz", uuid::Uuid::new_v4()));
+        std::fs::write(&p, &bytes).unwrap();
+        let r = packages::install(&e.pool, &e.c.layout(), Source::Path(&p), Some(false), "test")
+            .await
+            .unwrap_err();
+        match r {
+            InstallError::Quarantined { reason, .. } => {
+                assert!(
+                    reason.contains("signature is invalid")
+                        || reason.contains("not an active admin or owner"),
+                    "unexpected reason: {reason}"
+                )
+            }
+            other => panic!("expected quarantine, got {other:?}"),
+        }
+    }
     // unsafe tar entries
     let good_root = resign(&e, ok.clone(), &root);
     expect_quarantined(
@@ -537,6 +601,37 @@ async fn plugins_and_the_quarantine_index_are_in_backups() {
     assert_eq!(packages::list_quarantine(&fc.layout()).unwrap().len(), 1);
 }
 
+#[tokio::test]
+async fn list_exposes_tags_and_supported_platforms_roundtrip() {
+    let e = env().await;
+    // Build a package with tags and platforms
+    let d = e.root.join("src-mdata");
+    std::fs::create_dir_all(&d).unwrap();
+    std::fs::write(d.join("main.ps1"), "Write-Output 'ok'\n").unwrap();
+    let toml = r#"
+name = "meta-demo"
+version = "1.0.0"
+features = ["execute"]
+tags = ["windows","domain_health"]
+supported_platforms = ["windows"]
+
+[[files]]
+name = "main.ps1"
+type = "powershell"
+main = true
+checksum = ""
+"#;
+    std::fs::write(d.join("package.toml"), toml).unwrap();
+    let pkg = e.root.join("meta-demo-1.0.0.tar.gz");
+    packages::pack(&d, &e.admin, &pkg).unwrap();
+    packages::install(&e.pool, &e.c.layout(), Source::Path(&pkg), Some(true), "test")
+        .await
+        .unwrap();
+    let rows = packages::list(&e.pool, &e.c.layout()).await.unwrap();
+    let p = rows.into_iter().find(|p| p.name == "meta-demo").unwrap();
+    assert_eq!(p.tags, vec!["windows".to_string(), "domain_health".to_string()]);
+    assert_eq!(p.supported_platforms, vec!["windows".to_string()]);
+}
 #[test]
 fn cli_pack_install_list_enable_remove() {
     let tmp = tempfile::tempdir().unwrap();
@@ -648,6 +743,118 @@ fn cli_pack_install_list_enable_remove() {
     assert!(q.contains("not a .tar.gz"), "{q}");
 }
 
+#[test]
+fn cli_list_json_includes_metadata_fields() {
+    let tmp = tempfile::tempdir().unwrap();
+    let root = tmp.path();
+    let cfgp = root.join("server.json");
+    std::fs::write(&cfgp, serde_json::to_vec(&cfg(root)).unwrap()).unwrap();
+    // init and admin key
+    let out = String::from_utf8(
+        assert_cmd::Command::cargo_bin("itcmdr-cli")
+            .unwrap()
+            .env("ITCMDR_SERVER_CONFIG", &cfgp)
+            .env_remove("ITCMDR_DATA_DIR")
+            .arg("init")
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone(),
+    )
+    .unwrap();
+    let words = out
+        .lines()
+        .filter_map(|l| {
+            l.trim()
+                .split_once(". ")
+                .filter(|(n, _)| n.parse::<u32>().is_ok())
+                .map(|(_, w)| w)
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+        + "\n";
+    let key = root.join("adm.key");
+    assert_cmd::Command::cargo_bin("itcmdr-cli")
+        .unwrap()
+        .env("ITCMDR_SERVER_CONFIG", &cfgp)
+        .env_remove("ITCMDR_DATA_DIR")
+        .args(["user", "add", "--name", "Dr A", "--role", "admin", "--out"])
+        .arg(&key)
+        .write_stdin(words)
+        .assert()
+        .success();
+    // build a meta-rich package
+    let src = root.join("src-md");
+    std::fs::create_dir_all(&src).unwrap();
+    std::fs::write(src.join("main.ps1"), "Write-Output 'x'\n").unwrap();
+    let toml = r#"
+name = "mdemo"
+version = "1.0.0"
+features = ["execute"]
+tags = ["windows","domain_health"]
+supported_platforms = ["windows","linux"]
+
+[[files]]
+name = "main.ps1"
+type = "powershell"
+main = true
+checksum = ""
+"#;
+    std::fs::write(src.join("package.toml"), toml).unwrap();
+    let pkg = root.join("mdemo-1.0.0.tar.gz");
+    // pack and install
+    assert_cmd::Command::cargo_bin("itcmdr-cli")
+        .unwrap()
+        .env("ITCMDR_SERVER_CONFIG", &cfgp)
+        .env_remove("ITCMDR_DATA_DIR")
+        .args(["plugins", "pack", "--dir"])
+        .arg(&src)
+        .arg("--key")
+        .arg(&key)
+        .arg("--out")
+        .arg(&pkg)
+        .assert()
+        .success();
+    assert_cmd::Command::cargo_bin("itcmdr-cli")
+        .unwrap()
+        .env("ITCMDR_SERVER_CONFIG", &cfgp)
+        .env_remove("ITCMDR_DATA_DIR")
+        .args(["plugins", "install", "--path"])
+        .arg(&pkg)
+        .assert()
+        .success();
+    // list --json and verify metadata fields present
+    let jsonl = String::from_utf8(
+        assert_cmd::Command::cargo_bin("itcmdr-cli")
+            .unwrap()
+            .env("ITCMDR_SERVER_CONFIG", &cfgp)
+            .env_remove("ITCMDR_DATA_DIR")
+            .args(["--json", "plugins", "list"])
+            .assert()
+            .success()
+            .get_output()
+            .stdout
+            .clone(),
+    )
+    .unwrap();
+    let mut found = false;
+    for line in jsonl.lines() {
+        let v: serde_json::Value = serde_json::from_str(line).unwrap_or_default();
+        if v.get("name") == Some(&serde_json::Value::String("mdemo".into())) {
+            let t = v.get("tags").cloned().unwrap_or_default().to_string();
+            let sp = v
+                .get("supported_platforms")
+                .cloned()
+                .unwrap_or_default()
+                .to_string();
+            assert!(t.contains("windows") && t.contains("domain_health"), "{t}");
+            assert!(sp.contains("windows") && sp.contains("linux"), "{sp}");
+            found = true;
+        }
+    }
+    assert!(found, "mdemo not found in JSON list");
+}
 #[tokio::test]
 async fn enable_on_install_follows_the_setting_and_disabled_flag() {
     let e = env().await;

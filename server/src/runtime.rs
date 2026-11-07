@@ -26,6 +26,25 @@ pub struct RunSpec {
     pub request_id: Option<String>,
 }
 
+fn current_platform() -> &'static str {
+    if cfg!(target_os = "windows") {
+        "windows"
+    } else if cfg!(target_os = "macos") {
+        "macos"
+    } else if cfg!(target_os = "linux") {
+        "linux"
+    } else {
+        "unknown"
+    }
+}
+
+fn allowed_on_platform(supported: &[String], current: &str) -> bool {
+    if supported.is_empty() {
+        return true;
+    }
+    supported.iter().any(|p| p.eq_ignore_ascii_case(current))
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct StageOutcome {
     pub stage: String,
@@ -120,6 +139,12 @@ pub async fn command_for(
 )> {
     let m = packages::parse_manifest(&std::fs::read(p.dir.join("package.toml"))?)
         .map_err(|r| anyhow!("{}: {}", p.name, r.0))?;
+    // Pre-spawn platform gate: when supported_platforms is set, refuse to launch on others.
+    let cur = current_platform();
+    if !allowed_on_platform(&m.supported_platforms, cur) {
+        let list = m.supported_platforms.join(", ");
+        bail!("unsupported platform: {cur} (supported: {list})");
+    }
     let main = m
         .files
         .iter()
@@ -383,6 +408,22 @@ async fn run_stages(
     out
 }
 
+#[cfg(test)]
+mod tests {
+    use super::allowed_on_platform;
+
+    #[test]
+    fn platform_gate_logic() {
+        // Empty list: all platforms allowed, including unknown.
+        assert!(allowed_on_platform(&[], "linux"));
+        assert!(allowed_on_platform(&[], "unknown"));
+        // Specific set: only listed allowed.
+        let sp = vec!["windows".to_string(), "macos".to_string()];
+        assert!(allowed_on_platform(&sp, "windows"));
+        assert!(!allowed_on_platform(&sp, "linux"));
+        assert!(!allowed_on_platform(&sp, "unknown"));
+    }
+}
 pub fn hostname() -> String {
     std::env::var("COMPUTERNAME")
         .or_else(|_| std::env::var("HOSTNAME"))
