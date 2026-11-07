@@ -83,22 +83,36 @@ function Restore-ItcmdrAgentState {
 }
 
 function Remove-ItcmdrAgentStateBackup {
+  [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification = 'Removes backup artifacts only')]
+  [CmdletBinding(SupportsShouldProcess)]
   param([string]$DataDir)
   foreach ($n in @('agent.json.bak-enroll', 'keys.bak-enroll')) {
     $p = Join-Path $DataDir $n
-    if (Test-Path -LiteralPath $p) { Remove-Item -LiteralPath $p -Recurse -Force -ErrorAction SilentlyContinue }
+    if (Test-Path -LiteralPath $p) {
+      if ($PSCmdlet.ShouldProcess($p, 'Remove backup')) {
+        try { Remove-Item -LiteralPath $p -Recurse -Force -ErrorAction SilentlyContinue } catch { Write-Verbose "remove backup failed: $_" }
+      }
+    }
   }
 }
 
 function Stop-ItcmdrAgentServices {
+  [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '', Justification = 'Controls two related services')]
+  [CmdletBinding(SupportsShouldProcess)]
   foreach ($s in @('itcmdr-agent-watchdog', 'itcmdr-agent')) {
-    try { Stop-Service -Name $s -Force -ErrorAction Stop } catch { }
+    if ($PSCmdlet.ShouldProcess($s, 'Stop service')) {
+      try { Stop-Service -Name $s -Force -ErrorAction Stop } catch { Write-Verbose "stop $s failed: $_" }
+    }
   }
 }
 
 function Start-ItcmdrAgentServices {
+  [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '', Justification = 'Controls two related services')]
+  [CmdletBinding(SupportsShouldProcess)]
   foreach ($s in @('itcmdr-agent', 'itcmdr-agent-watchdog')) {
-    try { Start-Service -Name $s -ErrorAction Stop } catch { }
+    if ($PSCmdlet.ShouldProcess($s, 'Start service')) {
+      try { Start-Service -Name $s -ErrorAction Stop } catch { Write-Verbose "start $s failed: $_" }
+    }
   }
 }
 
