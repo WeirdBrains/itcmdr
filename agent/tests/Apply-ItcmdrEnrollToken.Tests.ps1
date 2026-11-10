@@ -122,9 +122,10 @@ Describe 'Apply-ItcmdrEnrollToken.ps1 exit code' {
     try {
       '{"machine":"OLDNAME","role":"workstation"}' | Set-Content -LiteralPath (Join-Path $d 'agent.json')
       $stub = Join-Path $d 'fail.ps1'
+      $newName = 'NEWPC'
       'exit 1' | Set-Content -LiteralPath $stub
       & $script:Pwsh -NoProfile -File $script:Script -Token 'itcmdr-enroll:AAAABBBBCCCCDDDD' `
-        -AgentExe $stub -DataDir $d -ComputerName 'NEWPC' -SkipServiceControl -SkipConnectCheck
+        -AgentExe $stub -DataDir $d -ComputerName $newName -SkipServiceControl -SkipConnectCheck
       $LASTEXITCODE | Should -Be 9
       (Get-Content -LiteralPath (Join-Path $d 'agent.json') -Raw | ConvertFrom-Json).machine | Should -Be 'OLDNAME'
     } finally { Remove-Item -LiteralPath $d -Recurse -Force -ErrorAction SilentlyContinue }

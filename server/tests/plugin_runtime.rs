@@ -563,7 +563,7 @@ async fn unsupported_platform_blocks_bin_plugin_start() {
         "#!/bin/sh\necho started > \"{}\"\nexec sleep 1\n",
         marker.display()
     );
-    let mut d = e.root.join("bin-src");
+    let d = e.root.join("bin-src");
     std::fs::create_dir_all(&d).unwrap();
     let toml = {
         let exclude = if cfg!(target_os = "linux") { "macos" } else { "linux" };

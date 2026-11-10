@@ -42,17 +42,22 @@ fn pwsh() -> Option<PathBuf> {
 }
 
 async fn env() -> Env {
-    std::env::set_var(
-        "ITCMDR_PLUGIN_PS_HOST",
-        env!("CARGO_BIN_EXE_itcmdr-plugin-ps"),
-    );
-    std::env::set_var(
-        "ITCMDR_PS_MODULE",
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../agent/Itcmdr.Plugin.psm1"),
-    );
-    if let Some(p) = pwsh() {
-        std::env::set_var("ITCMDR_POWERSHELL", p);
-    }
+    // Process-wide and the same for every test: set once, not again from each parallel test
+    // while the others' servers and agents are running.
+    static VARS: std::sync::Once = std::sync::Once::new();
+    VARS.call_once(|| {
+        std::env::set_var(
+            "ITCMDR_PLUGIN_PS_HOST",
+            env!("CARGO_BIN_EXE_itcmdr-plugin-ps"),
+        );
+        std::env::set_var(
+            "ITCMDR_PS_MODULE",
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../agent/Itcmdr.Plugin.psm1"),
+        );
+        if let Some(p) = pwsh() {
+            std::env::set_var("ITCMDR_POWERSHELL", p);
+        }
+    });
     let tmp = tempfile::tempdir().unwrap();
     let root = tmp.path().to_path_buf();
     let mut c = ServerConfig {
@@ -327,6 +332,27 @@ async fn owner_release_is_offered_staged_and_a_rollback_pauses_the_rollout() {
             .unwrap()
             .is_some()
     );
+    // The server offers a version once per session, and this session may have spent its offer
+    // before the rollback report paused the rollout: reconnect and wait for the agent to stage it
+    // again (Applied ok), so the checks below never race the sync.
+    s.abort();
+    let _ = s.await;
+    let _ = std::fs::remove_file(&rq);
+    let s = spawn_session(&adir, &st);
+    let p = e.pool.clone();
+    until("the resumed upgrade staged again", 20, || {
+        let p = p.clone();
+        async move {
+            sqlx::query_scalar::<_, i64>(
+                "SELECT ok FROM agent_upgrades WHERE machine = 'WS-21' AND version = '99.0.0'",
+            )
+            .fetch_optional(&p)
+            .await
+            .unwrap()
+                == Some(1)
+        }
+    })
+    .await;
     // agent.upgrades = false holds the machine back.
     srv::settings::set(&e.pool, "agent.upgrades", "false", Some("WS-21"))
         .await
