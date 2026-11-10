@@ -56,6 +56,8 @@ jobs:
       - name: Build the itcmdr-keys bridge (flutter_rust_bridge, host)
         working-directory: app/rust
         run: cargo build --locked
+      - name: Build the server binaries (app/test/e2e_test.dart runs itcmdr-server and itcmdr-cli)
+        run: cargo build -p itcmdr-server --bins --locked
       - name: Test
         working-directory: app
         run: flutter test

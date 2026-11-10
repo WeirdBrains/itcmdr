@@ -96,9 +96,10 @@ function Remove-ItcmdrAgentStateBackup {
   }
 }
 
-function Stop-ItcmdrAgentServices {
-  [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '', Justification = 'Controls two related services')]
+function Stop-ItcmdrAgentService {
+  # Stops the agent and its watchdog (watchdog first).
   [CmdletBinding(SupportsShouldProcess)]
+  param()
   foreach ($s in @('itcmdr-agent-watchdog', 'itcmdr-agent')) {
     if ($PSCmdlet.ShouldProcess($s, 'Stop service')) {
       try { Stop-Service -Name $s -Force -ErrorAction Stop } catch { Write-Verbose "stop $s failed: $_" }
@@ -106,9 +107,10 @@ function Stop-ItcmdrAgentServices {
   }
 }
 
-function Start-ItcmdrAgentServices {
-  [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseSingularNouns', '', Justification = 'Controls two related services')]
+function Start-ItcmdrAgentService {
+  # Starts the agent and its watchdog (agent first).
   [CmdletBinding(SupportsShouldProcess)]
+  param()
   foreach ($s in @('itcmdr-agent', 'itcmdr-agent-watchdog')) {
     if ($PSCmdlet.ShouldProcess($s, 'Start service')) {
       try { Start-Service -Name $s -ErrorAction Stop } catch { Write-Verbose "start $s failed: $_" }
@@ -190,9 +192,9 @@ function Invoke-ItcmdrEnrollToken {
     try {
       $prev = Get-Content -LiteralPath $existing -Raw | ConvertFrom-Json
       if ($prev.role) { $role = [string]$prev.role }
-    } catch { }
+    } catch { Write-Verbose "existing agent.json unreadable, enrolling with role '$role': $_" }
   }
-  if (-not $SkipServiceControl) { Stop-ItcmdrAgentServices }
+  if (-not $SkipServiceControl) { Stop-ItcmdrAgentService }
   $bak = Backup-ItcmdrAgentState -DataDir $DataDir
   $enrolled = $false
   try {
@@ -209,7 +211,7 @@ function Invoke-ItcmdrEnrollToken {
       Remove-Item -LiteralPath $TokenFile -Force -ErrorAction SilentlyContinue
     }
     $mark = Get-ItcmdrAgentLogSize -DataDir $DataDir
-    if (-not $SkipServiceControl) { Start-ItcmdrAgentServices }
+    if (-not $SkipServiceControl) { Start-ItcmdrAgentService }
     if (-not $SkipConnectCheck) {
       if (-not (Wait-ItcmdrAgentLinked -DataDir $DataDir -TimeoutSec $ConnectTimeoutSec -AfterBytes $mark)) {
         throw "agent did not link to the server within ${ConnectTimeoutSec}s after enroll"
@@ -217,7 +219,7 @@ function Invoke-ItcmdrEnrollToken {
     }
   } catch {
     Restore-ItcmdrAgentState -DataDir $DataDir -Backup $bak
-    if (-not $SkipServiceControl) { Start-ItcmdrAgentServices }
+    if (-not $SkipServiceControl) { Start-ItcmdrAgentService }
     throw
   } finally {
     if ($enrolled) { Remove-ItcmdrAgentStateBackup -DataDir $DataDir }
@@ -238,7 +240,7 @@ try {
       New-Item -ItemType Directory -Force -Path $DataDir | Out-Null
       [IO.File]::WriteAllText((Join-Path $DataDir 'last-enroll-error.txt'), $msg)
     }
-  } catch { }
+  } catch { [Console]::Error.WriteLine("warning: could not write last-enroll-error.txt: $($_.Exception.Message)") }
   [Console]::Error.WriteLine("error: $msg")
   exit $script:EnrollFailExit
 }
