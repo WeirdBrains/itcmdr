@@ -566,7 +566,11 @@ async fn unsupported_platform_blocks_bin_plugin_start() {
     let d = e.root.join("bin-src");
     std::fs::create_dir_all(&d).unwrap();
     let toml = {
-        let exclude = if cfg!(target_os = "linux") { "macos" } else { "linux" };
+        let exclude = if cfg!(target_os = "linux") {
+            "macos"
+        } else {
+            "linux"
+        };
         format!(
             "name = \"gate-bin\"\nversion = \"1.0.0\"\nfeatures = [\"execute\"]\nsupported_platforms = [\"{}\"]\n\n[[files]]\nname = \"run.sh\"\ntype = \"bin\"\nmain = true\nchecksum = \"\"\n",
             exclude
@@ -576,17 +580,22 @@ async fn unsupported_platform_blocks_bin_plugin_start() {
     std::fs::write(d.join("package.toml"), toml).unwrap();
     let out = e.root.join("gate-bin.tar.gz");
     packages::pack(&d, &e.admin, &out).unwrap();
-    packages::install(&e.pool, &e.c.layout(), Source::Path(&out), Some(true), "test")
-        .await
-        .unwrap();
+    packages::install(
+        &e.pool,
+        &e.c.layout(),
+        Source::Path(&out),
+        Some(true),
+        "test",
+    )
+    .await
+    .unwrap();
     // Make executable bit for bin.
     use std::os::unix::fs::PermissionsExt;
-    let p = e
-        .c
-        .layout()
-        .service_plugins()
-        .join("gate-bin-1.0.0")
-        .join("run.sh");
+    let p =
+        e.c.layout()
+            .service_plugins()
+            .join("gate-bin-1.0.0")
+            .join("run.sh");
     std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o755)).unwrap();
     let r = srv::runtime::run_plugin(&e.pool, &e.c, spec("gate-bin", &[]), "tester")
         .await

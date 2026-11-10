@@ -397,9 +397,15 @@ async fn invalid_packages_are_quarantined_and_denied() {
         let bytes = tgz(&e, &tamper_platforms);
         let p = e.root.join(format!("bad-{}.tar.gz", uuid::Uuid::new_v4()));
         std::fs::write(&p, &bytes).unwrap();
-        let r = packages::install(&e.pool, &e.c.layout(), Source::Path(&p), Some(false), "test")
-            .await
-            .unwrap_err();
+        let r = packages::install(
+            &e.pool,
+            &e.c.layout(),
+            Source::Path(&p),
+            Some(false),
+            "test",
+        )
+        .await
+        .unwrap_err();
         match r {
             InstallError::Quarantined { reason, .. } => {
                 assert!(
@@ -428,9 +434,15 @@ async fn invalid_packages_are_quarantined_and_denied() {
         let bytes = tgz(&e, &tamper_tags);
         let p = e.root.join(format!("bad-{}.tar.gz", uuid::Uuid::new_v4()));
         std::fs::write(&p, &bytes).unwrap();
-        let r = packages::install(&e.pool, &e.c.layout(), Source::Path(&p), Some(false), "test")
-            .await
-            .unwrap_err();
+        let r = packages::install(
+            &e.pool,
+            &e.c.layout(),
+            Source::Path(&p),
+            Some(false),
+            "test",
+        )
+        .await
+        .unwrap_err();
         match r {
             InstallError::Quarantined { reason, .. } => {
                 assert!(
@@ -624,12 +636,21 @@ checksum = ""
     std::fs::write(d.join("package.toml"), toml).unwrap();
     let pkg = e.root.join("meta-demo-1.0.0.tar.gz");
     packages::pack(&d, &e.admin, &pkg).unwrap();
-    packages::install(&e.pool, &e.c.layout(), Source::Path(&pkg), Some(true), "test")
-        .await
-        .unwrap();
+    packages::install(
+        &e.pool,
+        &e.c.layout(),
+        Source::Path(&pkg),
+        Some(true),
+        "test",
+    )
+    .await
+    .unwrap();
     let rows = packages::list(&e.pool, &e.c.layout()).await.unwrap();
     let p = rows.into_iter().find(|p| p.name == "meta-demo").unwrap();
-    assert_eq!(p.tags, vec!["windows".to_string(), "domain_health".to_string()]);
+    assert_eq!(
+        p.tags,
+        vec!["windows".to_string(), "domain_health".to_string()]
+    );
     assert_eq!(p.supported_platforms, vec!["windows".to_string()]);
 }
 #[test]

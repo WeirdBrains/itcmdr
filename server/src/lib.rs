@@ -197,6 +197,10 @@ pub async fn run(
             }
         }
     };
+    // v1.1.0: HTTPS with the server certificate (the one agents pin). Created here, before the agent
+    // link task starts: both used to create it at the same time on a fresh data dir, and the losing
+    // writer failed the start with "No such file or directory" (flaky app/test/e2e_test.dart in CI).
+    let mat = agents::ensure_material(&cfg.layout())?;
     // v0.17.0: agent link (TLS + client certs) and the heartbeat state machine.
     tokio::spawn(agents::serve(
         pool.clone(),
@@ -246,9 +250,7 @@ pub async fn run(
             .max_decoding_message_size(max_msg),
         ),
     );
-    // v1.1.0: HTTPS with the server certificate (the one agents pin); plain HTTP only from this
-    // machine or with the explicit `api_plain_http` opt-in.
-    let mat = agents::ensure_material(&cfg.layout())?;
+    // Plain HTTP only from this machine or with the explicit `api_plain_http` opt-in.
     let tls = itcmdr_agentlink::tls::api_server_config(&mat.server)?;
     let plain_any = cfg.api_plain_http;
     if plain_any {

@@ -178,7 +178,9 @@ pub fn parse_manifest(bytes: &[u8]) -> std::result::Result<Manifest, Reject> {
         let mut seen = std::collections::HashSet::new();
         for t in &m.tags {
             let Some(n) = normalize_tag(t) else {
-                return rej(format!("invalid tag {t:?} (1..32 chars, a-z, 0-9, - and _)"));
+                return rej(format!(
+                    "invalid tag {t:?} (1..32 chars, a-z, 0-9, - and _)"
+                ));
             };
             if seen.insert(n.clone()) {
                 out.push(n);
@@ -716,27 +718,29 @@ pub async fn list(pool: &DbPool, layout: &Layout) -> Result<Vec<InstalledPlugin>
     .await?;
     Ok(rows
         .into_iter()
-        .map(|(name, version, en, installed_at, signer, package_sha256)| {
-            let dir = plugin_dir(layout, &name, &version);
-            let (tags, supported_platforms) = match std::fs::read(dir.join(MANIFEST))
-                .ok()
-                .and_then(|b| parse_manifest(&b).ok())
-            {
-                Some(m) => (m.tags, m.supported_platforms),
-                None => (vec![], vec![]),
-            };
-            InstalledPlugin {
-                dir,
-                name,
-                version,
-                enabled: en != 0,
-                installed_at,
-                signer,
-                package_sha256,
-                tags,
-                supported_platforms,
-            }
-        })
+        .map(
+            |(name, version, en, installed_at, signer, package_sha256)| {
+                let dir = plugin_dir(layout, &name, &version);
+                let (tags, supported_platforms) = match std::fs::read(dir.join(MANIFEST))
+                    .ok()
+                    .and_then(|b| parse_manifest(&b).ok())
+                {
+                    Some(m) => (m.tags, m.supported_platforms),
+                    None => (vec![], vec![]),
+                };
+                InstalledPlugin {
+                    dir,
+                    name,
+                    version,
+                    enabled: en != 0,
+                    installed_at,
+                    signer,
+                    package_sha256,
+                    tags,
+                    supported_platforms,
+                }
+            },
+        )
         .collect())
 }
 
@@ -936,7 +940,10 @@ main = true
 checksum = "0000000000000000000000000000000000000000000000000000000000000000"
 "#;
         let m = parse_manifest(man.as_bytes()).unwrap();
-        assert_eq!(m.tags, vec!["windows", "domain_health", "upper", "ok-1", "ok_2"]);
+        assert_eq!(
+            m.tags,
+            vec!["windows", "domain_health", "upper", "ok-1", "ok_2"]
+        );
         // too many tags
         let too_many = format!(
             "name=\"d\"\nversion=\"1.0.0\"\ntags = [{}]\n[[files]]\nname=\"a\"\ntype=\"bin\"\nmain=true\nchecksum=\"0000000000000000000000000000000000000000000000000000000000000000\"\n",
