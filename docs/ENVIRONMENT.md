@@ -69,6 +69,7 @@ a test fails when a variable in the source is missing here. adminsvr flags each 
 | `ITCMDR_CHECKS_LIB` | plugins | path of Itcmdr.Checks.ps1 |
 | `ITCMDR_TCP_TIMEOUT_MS` | plugins | TCP check timeout override |
 | `ITCMDR_IMPORT_ONLY` | plugins | load the PowerShell agent's functions without running it |
+| `ITCMDR_BUILTIN_PLUGINS_DIR` | PowerShell agent (tests) | extra folder of built-in plugin copies (`<dir>/<name>/main.ps1`), searched after `<agent>/plugins`; the Pester tests set it to the in-repo mocks in `agent/tests/fixtures/builtin-plugins` |
 
 ## Development and tests
 

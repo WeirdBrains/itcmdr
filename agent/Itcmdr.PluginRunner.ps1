@@ -53,7 +53,8 @@ function Get-ItcmdrBuiltinPluginSet {
     One entry per built-in check plugin: Name, Version, Main, Source (bundled | missing),
     CheckFunction. Agents run ONLY the copies installed next to the agent scripts
     (<agent>\plugins\<name>, or third_party\itcmdr-plugins\plugins\<name> in a source tree, fetched
-    from the pinned itcmdr-plugins tag by scripts/fetch-plugins.sh). They never download or
+    from the pinned itcmdr-plugins tag by scripts/fetch-plugins.sh; tests point
+    ITCMDR_BUILTIN_PLUGINS_DIR at agent/tests/fixtures/builtin-plugins). They never download or
     copy plugins from the share or anywhere else: any PC can write to the share, so a planted copy
     would run as SYSTEM everywhere. Signed packages are fetched (HTTPS) and run by the server only.
   #>
@@ -61,7 +62,10 @@ function Get-ItcmdrBuiltinPluginSet {
   $set = @()
   foreach ($name in @($script:ItcmdrBuiltinPlugins.Keys)) {
     $main = $null
-    foreach ($d in @((Join-Path (Join-Path $AgentDir 'plugins') $name), (Join-Path (Get-ItcmdrSourcePluginsDir $AgentDir) $name))) {
+    $dirs = @(Join-Path (Join-Path $AgentDir 'plugins') $name)
+    if ($env:ITCMDR_BUILTIN_PLUGINS_DIR) { $dirs += (Join-Path $env:ITCMDR_BUILTIN_PLUGINS_DIR $name) }
+    $dirs += (Join-Path (Get-ItcmdrSourcePluginsDir $AgentDir) $name)
+    foreach ($d in $dirs) {
       $m = Join-Path $d 'main.ps1'
       if (Test-Path -LiteralPath $m) { $main = (Resolve-Path -LiteralPath $m).Path; break }
     }

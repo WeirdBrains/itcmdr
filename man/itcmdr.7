@@ -201,6 +201,9 @@ TCP check timeout override (plugins)
 .B ITCMDR_IMPORT_ONLY
 load the PowerShell agent's functions without running it (plugins)
 .TP
+.B ITCMDR_BUILTIN_PLUGINS_DIR
+extra folder of built\-in plugin copies (<dir>/<name>/main.ps1), searched after <agent>/plugins; the Pester tests set it to the in\-repo mocks in agent/tests/fixtures/builtin\-plugins (PowerShell agent (tests))
+.TP
 .B ITCMDR_TEST_SLOW
 scale test deadlines (default 3) (tests)
 .TP

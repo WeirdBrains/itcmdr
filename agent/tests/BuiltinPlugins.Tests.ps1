@@ -2,11 +2,12 @@ Set-StrictMode -Version Latest
 
 # v0.11.0: the built-in checks as plugins. The plugin versions must give exactly the task's
 # records (parity), run report-only in parallel, and the cutover/fallback logic must hold.
+# The plugins here are the in-repo mocks in fixtures/builtin-plugins (same protocol, same check
+# functions as the real ones in itcmdr-plugins), so no third_party checkout is needed.
 BeforeAll {
   $env:ITCMDR_IMPORT_ONLY = '1'
   $script:agentDir = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-  $pinned = Join-Path $script:agentDir '..\third_party\itcmdr-plugins\plugins\itcmdr-network\main.ps1'
-  if (-not (Test-Path -LiteralPath $pinned)) { throw 'The pinned itcmdr-plugins checkout is missing: run scripts/fetch-plugins.sh first (plugins.pin.json).' }
+  $env:ITCMDR_BUILTIN_PLUGINS_DIR = (Resolve-Path (Join-Path (Join-Path $PSScriptRoot 'fixtures') 'builtin-plugins')).Path
   . (Join-Path $script:agentDir 'Invoke-ItcmdrAgent.ps1')
   Remove-Item Env:ITCMDR_IMPORT_ONLY -ErrorAction SilentlyContinue
   $env:ITCMDR_TCP_TIMEOUT_MS = '500'
@@ -48,7 +49,7 @@ BeforeAll {
   }
 }
 
-AfterAll { Remove-Item Env:ITCMDR_TCP_TIMEOUT_MS -ErrorAction SilentlyContinue }
+AfterAll { Remove-Item Env:ITCMDR_TCP_TIMEOUT_MS, Env:ITCMDR_BUILTIN_PLUGINS_DIR -ErrorAction SilentlyContinue }
 
 Describe 'built-in check plugins' {
   It 'ships all five, each mapped to its check function' {
@@ -289,13 +290,19 @@ Describe 'nightly run end to end' {
     $n | Should -BeGreaterThan 0
     (Get-Content (Join-Path $s.paths.agentData 'last-nightly.json') -Raw | ConvertFrom-Json).trigger | Should -Be 'fallback'
 
-    # An agent copy without plugins: every check function runs locally instead.
+    # An agent copy without plugins: every check function runs locally instead. The child run
+    # inherits the environment, so drop the fixtures dir for it.
     $copy = Join-Path $TestDrive "agent-$([guid]::NewGuid())"
     New-Item -ItemType Directory -Path $copy | Out-Null
     Copy-Item -Path (Join-Path $script:agentDir '*.ps*1') -Destination $copy
     $s2 = & $script:runSite
     $s2.agent = @{ pluginMode = 'plugins' }
-    $r2 = Invoke-AgentRun $s2 -AgentDir $copy
+    $fixtures = $env:ITCMDR_BUILTIN_PLUGINS_DIR
+    Remove-Item Env:ITCMDR_BUILTIN_PLUGINS_DIR
+    try {
+      @(Get-ItcmdrBuiltinPluginSet -AgentDir $copy | Where-Object Source -ne 'missing').Count | Should -Be 0
+      $r2 = Invoke-AgentRun $s2 -AgentDir $copy
+    } finally { $env:ITCMDR_BUILTIN_PLUGINS_DIR = $fixtures }
     @($r2 | Where-Object type -eq 'plugin-fallback').Count | Should -Be 5
     @($r2 | Where-Object type -eq 'check').Count | Should -Be $n
   }
