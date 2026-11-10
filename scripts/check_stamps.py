@@ -65,7 +65,8 @@ def check(dist: Path, commit: str, hh: str, stamps_file: Path | None = None):
                     tuple(x.decode() for x in m.groups()) for m in STAMP.finditer(rest.encode()))
     bad = []
     for a in sorted(dist.iterdir()):
-        if a.name == "SHA256SUMS" or not a.is_file():
+        # Detached package signatures carry no stamp; scripts/check_pkg_sigs.py checks them.
+        if a.name == "SHA256SUMS" or a.name.endswith(".sig") or not a.is_file():
             continue
         s = stamps_in(a)
         if not s and a.suffix == ".exe":

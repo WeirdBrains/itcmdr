@@ -5,7 +5,7 @@
 #   scripts/release-local.sh android         # (v0.19.2) admin app APK into dist/<ver>/ (Android SDK + NDK; debug-key signed until a release key exists)
 #   scripts/release-local.sh ios-check       # (v0.19.2) admin app iOS build without code signing (no artifact: needs an Apple team to sign)
 #   scripts/release-local.sh windows-notes   # print the Windows VM step (see docs/RELEASE-LOCAL.md)
-#   scripts/release-local.sh check           # SHA256SUMS + leak check of every artifact (unpacked)
+#   scripts/release-local.sh check           # SHA256SUMS + leak check of every artifact (unpacked) + package .sig pairing
 #   scripts/release-local.sh clean           # (v1.2.1) remove this repo's build caches and targets (also run after unix/android/ios-check)
 #   scripts/release-local.sh publish         # gh release create vX.Y.Z (tag must exist on origin; never moves it)
 # Environment: ITCMDR_LEAK_PATTERNS=file with one extra fixed string per line (e.g. the VM hostname);
@@ -102,6 +102,8 @@ check)
     n=$( (grep -raiF -l -f "$pats" "$d" || true) | wc -l); echo "leak check $a: $n file(s) with hits"; hits=$((hits+n))
   done
   [[ $hits -eq 0 ]] || { echo "LEAK: fix before publishing" >&2; exit 1; }
+  # Every *.pkg.zst / *.pkg.tar.zst needs its pacman .sig (Michael signs them; never on the build machines).
+  python3 ../../scripts/check_pkg_sigs.py . || exit 1
   # v1.3.1 release guard: every asset built from the tagged commit with the current docs.
   tagc=$(git rev-parse "v$ver^{commit}" 2>/dev/null) || { echo "tag v$ver missing (tag before building)" >&2; exit 1; }
   # the docs of the tag (main may have moved on)
@@ -115,6 +117,7 @@ publish)
   gd=$(mktemp -d); git archive "$tag" docs | tar -x -C "$gd"
   python3 scripts/check_stamps.py "$out" "$(git rev-parse "$tag^{commit}")" --stamps "dist/$ver.windows-stamps.txt" --docs "$gd/docs" >/dev/null || { rm -rf "$gd"; echo "GUARD: assets not built from $tag" >&2; exit 1; }
   rm -rf "$gd"
+  python3 scripts/check_pkg_sigs.py "$out" || exit 1
   notes=$(mktemp); trap 'rm -f "$notes"' EXIT
   { awk -v h="## $tag " 'index($0,h)==1{p=1;next} /^## /{p=0} p' CHANGELOG.md
     echo; echo "Built locally (not by Actions). Verify downloads with SHA256SUMS."
