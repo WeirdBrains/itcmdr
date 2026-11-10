@@ -103,6 +103,7 @@ Key backup on by default (opt-out), locked with the 24 words; COOP/COEP accepted
 | v1.3.6 | `/EnrollToken=` link check uses a shared read of `agent.log` so a running agent cannot falsely roll back a good enroll | ✅ Released 2026-11-06 |
 | v1.3.8 | Windows VM upgrade smoke `e2e/v137.ps1` in the repo (no runtime change since 1.3.7) | ✅ Released 2026-11-06 |
 | v1.4.0 | plugin tags and supported platforms, mock built-in plugins, TLS startup race fix and release tooling | ✅ Released 2026-11-09 |
+| v1.5.0 | Fixed all remaining bugs | ✅ Released 2026-11-10 |
 | v1.3.7 | Site server starts `itcmdr-server-watchdog` when it is stopped; installers set `failureflag` 1 on server, agent and both watchdogs (re-applied on upgrade) | ✅ Released 2026-11-06 |
 | v1.3.2 | Windows parts run without the Visual C++ runtime (static CRT, app-local runtime DLLs for the apps); demo workflow | ✅ Released 2026-11-05 |
 
