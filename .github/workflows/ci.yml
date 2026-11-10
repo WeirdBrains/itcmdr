@@ -35,7 +35,10 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Bridge crate (app/rust) clippy
         working-directory: app/rust
-        run: cargo clippy --all-targets --locked -- -D warnings
+        # app/rust/rust-toolchain.toml pins its own toolchain, which rustup installs without clippy.
+        run: |
+          rustup component add clippy
+          cargo clippy --all-targets --locked -- -D warnings
 
   flutter:
     runs-on: ubuntu-latest
