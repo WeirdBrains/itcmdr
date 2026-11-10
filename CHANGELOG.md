@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v1.5.0 (2026-11-10)
+itcmdr 1.5.0: Fixed all remaining bugs.
+- Versions 1.5.0 (app and admin app 1.5.0+52).
+
 ## v1.4.0 (2026-11-09)
 itcmdr 1.4.0: plugin tags and supported platforms, mock built-in plugins, TLS startup race fix and release tooling.
 - Versions 1.4.0 (app and admin app 1.4.0+51).
