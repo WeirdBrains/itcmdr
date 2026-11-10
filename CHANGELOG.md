@@ -1,6 +1,10 @@
 # Changelog
 
 ## Unreleased
+
+## v1.4.0 (2026-11-09)
+itcmdr 1.4.0: plugin tags and supported platforms, mock built-in plugins, TLS startup race fix and release tooling.
+- Versions 1.4.0 (app and admin app 1.4.0+51).
 - Add `tags` (search metadata) and `supported_platforms` (windows|linux|macos) to service plugin `package.toml`. Unknown tokens are refused; tags are normalized (lowercase a-z, 0-9, - and _, deduped, max 32).
 - Host enforces `supported_platforms` before spawning: unsupported plugins never start; runs return an error with a clear "unsupported platform" message. Backward-compatible: a missing/empty `supported_platforms` means all platforms.
 - Metadata stays inside signed `package.toml` and survives pack/install/list/runtime; no proto changes.
