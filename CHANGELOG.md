@@ -6,6 +6,9 @@ itcmdr: plugin metadata and platform gating.
 - Host enforces `supported_platforms` before spawning: unsupported plugins never start; runs return an error with a clear "unsupported platform" message. Backward-compatible: a missing/empty `supported_platforms` means all platforms.
 - Metadata stays inside signed `package.toml` and survives pack/install/list/runtime; no proto changes.
 - Docs: `docs/PLUGINS.md` documents the new fields and semantics.
+- Tests: the built-in plugin parity tests (`agent/tests/BuiltinPlugins.Tests.ps1`) use in-repo mock plugins (`agent/tests/fixtures/builtin-plugins`, same protocol and check functions, found through `ITCMDR_BUILTIN_PLUGINS_DIR`) and no longer need the private itcmdr-plugins checkout; `scripts/fetch-plugins.sh` stays for installs and releases.
+- **Fix:** the site server created its TLS material from two tasks at once on a fresh data folder and could fail to start with "No such file or directory" (seen as a flaky `e2e_test.dart` in CI). It is created once before the agent link starts.
+- Releases: `scripts/release.py` bumps the version (minor by default, `--major`/`--patch`), moves these notes, commits, tags and pushes (docs/RELEASE-LOCAL.md). Ordinary pushes to main never release. Every `*.pkg.zst`/`*.pkg.tar.zst` asset needs its matching pacman `.sig` (Michael signs) before `release-local.sh check`/`publish` accept it (`scripts/check_pkg_sigs.py`).
 
 ## v1.3.8 (2026-11-06)
 itcmdr 1.3.8: Windows VM upgrade smoke script in the repo.
