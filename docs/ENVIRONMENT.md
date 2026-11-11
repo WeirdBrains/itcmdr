@@ -90,6 +90,11 @@ a test fails when a variable in the source is missing here. adminsvr flags each 
 | `ITCMDR_PLUGINS_REPO` | scripts | plugins repository for fetch-plugins.sh |
 | `ITCMDR_LEAK_PATTERNS` | scripts | extra leak patterns for release-local.sh check |
 | `ITCMDR_KEEP_BUILD` | scripts | `1`: release-local.sh skips its automatic clean step after unix/android/ios-check (to chain several targets; run `release-local.sh clean` at the end) |
+| `ITCMDR_GH` | scripts | path to the `gh` that scripts/publish_taur.py runs (default `gh` on PATH; tests point it at a stub) |
+| `ITCMDR_CURL` | scripts | path to the `curl` that scripts/publish_taur.py runs (default `curl` on PATH; tests point it at a stub) |
+| `ITCMDR_TAURCTL` | scripts | path to the `taurctl` that scripts/publish_taur.py runs (default `taurctl` on PATH; tests point it at a stub) |
+| `ITCMDR_MAKEPKG` | scripts | path to the `makepkg` that scripts/publish_taur.py runs (default `makepkg` on PATH; tests point it at a stub) |
+| `ITCMDR_VERCMP` | scripts | path to the `vercmp` that scripts/publish_taur.py runs (default `vercmp` on PATH; tests point it at a stub) |
 | `ITCMDR_SITE_DIR` | site_jaspr/tool/sync_web.sh | path of the site-branch checkout (assets+demos) for a local Jaspr build; default: sibling `itcmdr-site` worktree |
 | `ITCMDR_BUILD_COMMIT` | build (help/build.rs), release scripts | git commit written into every binary's build stamp (default `git rev-parse HEAD`); set by release-local.sh and release-windows.ps1 |
 | `ITCMDR_ALLOW_UNTAGGED` | scripts | `1`: release-local.sh builds a trial from a commit that is not the version tag (`check` refuses it) |

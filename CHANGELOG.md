@@ -1,6 +1,7 @@
 # Changelog
 
 ## Unreleased
+- Releases: `scripts/release-local.sh taur` publishes the `itcmdr-bin` Arch recipe (PKGBUILD + .SRCINFO for the release's linux-x86_64 `itcmdr-cli` and `itcmdr-admin` tarballs) to TAUR with `taurctl`, only for a repository confirmed PUBLIC by gh and anonymously, after checking the tag, assets, checksums, build stamps and `.sig` rule; same recipe is a no-op, a different or older one is refused, and TAUR is verified after the upload (`scripts/publish_taur.py`, docs/RELEASE-LOCAL.md).
 
 ## v1.5.0 (2026-11-10)
 itcmdr 1.5.0: Fixed all remaining bugs.
