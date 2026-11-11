@@ -1,0 +1,26 @@
+# Maintainer: Michael Christenson II <m3talsmith@gmail.com>
+# Prebuilt itcmdr-cli and itcmdr-admin from a published GitHub release of the public repo
+# (the vX.Y.Z linux-x86_64 tarballs). scripts/publish_taur.py fills pkgver and the checksums
+# from that release's SHA256SUMS and uploads PKGBUILD + .SRCINFO to TAUR. Nothing is rebuilt.
+pkgname=itcmdr-bin
+pkgver=0.0.0
+pkgrel=1
+pkgdesc='itcmdr command-line tools (itcmdr-cli and itcmdr-admin), prebuilt'
+arch=('x86_64')
+url='https://github.com/WeirdBrains/itcmdr'
+license=('Apache-2.0')
+depends=('glibc' 'gcc-libs')
+provides=('itcmdr-cli' 'itcmdr-admin')
+conflicts=('itcmdr-cli' 'itcmdr-admin')
+options=('!strip' '!debug')
+source=("$url/releases/download/v$pkgver/itcmdr-cli-$pkgver-linux-x86_64.tar.gz"
+        "$url/releases/download/v$pkgver/itcmdr-admin-$pkgver-linux-x86_64.tar.gz")
+sha256sums=('SKIP'
+            'SKIP')
+
+package() {
+  install -Dm755 "itcmdr-cli-$pkgver-linux-x86_64/itcmdr-cli" "$pkgdir/usr/bin/itcmdr-cli"
+  install -Dm755 "itcmdr-admin-$pkgver-linux-x86_64/itcmdr-admin" "$pkgdir/usr/bin/itcmdr-admin"
+  install -Dm644 "itcmdr-cli-$pkgver-linux-x86_64/README.txt" "$pkgdir/usr/share/doc/$pkgname/README-cli.txt"
+  install -Dm644 "itcmdr-admin-$pkgver-linux-x86_64/README.txt" "$pkgdir/usr/share/doc/$pkgname/README-admin.txt"
+}

@@ -8,6 +8,7 @@
 #   scripts/release-local.sh check           # SHA256SUMS + leak check of every artifact (unpacked) + package .sig pairing
 #   scripts/release-local.sh clean           # (v1.2.1) remove this repo's build caches and targets (also run after unix/android/ios-check)
 #   scripts/release-local.sh publish         # gh release create vX.Y.Z (tag must exist on origin; never moves it)
+#   scripts/release-local.sh taur [--dry-run] # itcmdr-bin recipe of the published release to TAUR (public repo only; scripts/publish_taur.py)
 # Environment: ITCMDR_LEAK_PATTERNS=file with one extra fixed string per line (e.g. the VM hostname);
 # ITCMDR_KEEP_BUILD=1 skips the automatic clean (to chain build steps, then run `clean` last).
 # config/banned.local.txt is always used when present. NINJA_DIR is prepended to PATH for Linux builds.
@@ -125,5 +126,9 @@ publish)
   if gh release view "$tag" >/dev/null 2>&1; then gh release upload "$tag" "$out"/* ; else
     gh release create "$tag" --verify-tag --title "itcmdr $tag" --notes-file "$notes" "$out"/*; fi
   gh release view "$tag" --json url,assets --jq '.url, (.assets[].name)' ;;
-*) sed -n '2,10p' "$0"; exit 2 ;;
+taur)
+  # After publish: the itcmdr-bin PKGBUILD + .SRCINFO for the published vX.Y.Z to TAUR with taurctl. Refuses
+  # unless the repo is confirmed PUBLIC (twice), the release assets match SHA256SUMS and the tag's stamps.
+  shift; python3 scripts/publish_taur.py "$@" "$ver" ;;
+*) sed -n '2,11p' "$0"; exit 2 ;;
 esac

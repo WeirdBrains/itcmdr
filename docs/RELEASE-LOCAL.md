@@ -111,6 +111,34 @@ the installers are unsigned and the release notes say so.
 host names), refuses on any hit, then writes `SHA256SUMS`. `publish` needs the tag on origin and creates the GitHub
 release with the CHANGELOG section as notes (`--verify-tag`), or uploads to an existing release.
 
+## TAUR (Arch recipe, public repos only)
+
+    scripts/release-local.sh taur --dry-run     # every check; prints the taurctl command; uploads nothing
+    scripts/release-local.sh taur               # upload, then verify what TAUR serves
+
+After `publish`, `taur` runs `scripts/publish_taur.py` for the version in `server/Cargo.toml`. TAUR
+(`https://pkg.taur.weirdbrains.com`) takes recipes, not built packages: it uploads only `itcmdr-bin/PKGBUILD`
+and `itcmdr-bin/.SRCINFO` (from `packaging/arch/itcmdr-bin/PKGBUILD` and `makepkg --printsrcinfo`), owned by
+the WeirdBrains organization, with `taurctl pkg upload ARCHIVE --org WeirdBrains -y` and the signed-in taurctl
+session. The recipe installs `itcmdr-cli` and `itcmdr-admin` from the release's `linux-x86_64` tarballs, pinned
+to their SHA256SUMS. Nothing is built, signed or read from a key.
+
+It refuses, and uploads nothing, unless:
+- `gh` reports the repository PUBLIC and GitHub's API, asked anonymously, says public, both checked again
+  just before the upload. Private, internal, unknown, a gh error or an auth failure never upload. Private
+  repos (the plugin repos) have no TAUR step at all.
+- `vX.Y.Z` is an annotated tag on origin at the same commit, and the GitHub release is published with
+  SHA256SUMS and both tarballs.
+- the tarballs, downloaded anonymously, match SHA256SUMS, hold only the expected files, and their binaries
+  carry the build stamp of that version and the tag's commit.
+- every `*.pkg.zst`/`*.pkg.tar.zst` release asset has its non-empty `.sig` (Michael signs).
+- the recipe passes the privacy scan.
+
+TAUR state: the same version with the same recipe is reported unchanged; the same version with another recipe,
+an older version than TAUR's, or another owner is refused (nothing is replaced). After the upload, `taurctl info`
+and the served PKGBUILD and .SRCINFO must match. `--out DIR` keeps the recipe archive (never overwritten).
+Tests: `python3 scripts/test_publish_taur.py` (stub gh, curl, taurctl and vercmp; a temp `TAURCTL_CONFIG_DIR`).
+
 ## Admin app desktop builds (v0.22.0)
 
 - macOS: `release-local.sh unix` on the Mac builds `itcmdr-admin-app-<v>-macos-aarch64.zip` with
