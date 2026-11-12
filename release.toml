@@ -1,6 +1,6 @@
 # itcmdr release config for weirdnet-project-helpers (scripts/weirdnet_release.py).
 # Usage: python3 scripts/weirdnet_release.py [--patch|--major] "title of the release"
-helpers = "0.1.0"
+helpers = "0.1.1"
 project = "itcmdr"
 require_message = true
 tag_message = "itcmdr {version}: {title}"
