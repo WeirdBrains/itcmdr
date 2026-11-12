@@ -4,29 +4,33 @@ Used while GitHub Actions is unavailable (v0.15.0 and later). Nothing here uses 
 and pushed first by the normal release procedure (docs/HANDOVER.md); these steps build from that exact tag and never
 move or recreate it.
 
-## Cutting a release: scripts/release.py
+## Cutting a release: scripts/weirdnet_release.py
 
-Bump, changelog, commit, tag and push with `scripts/release.py`, then build from that tag as below.
+Bump, changelog, commit, tag and push with the shared WeirdBrains release script, vendored from
+weirdnet-project-helpers as `scripts/weirdnet_release.py` and configured by `release.toml`, then build from
+that tag as below. Don't edit the vendored copy: change weirdnet-project-helpers and re-vendor it.
 
-    python3 scripts/release.py "plugin tags and platforms"            # minor bump (default): 1.3.8 -> 1.4.0
-    python3 scripts/release.py --patch "fix the enroll check"         # 1.3.8 -> 1.3.9
-    python3 scripts/release.py --major "2.0"                          # 1.3.8 -> 2.0.0
-    python3 scripts/release.py --dry-run --patch "..."                # print the plan, change nothing
-    python3 scripts/release.py --no-push "..."                        # commit and tag locally only
+    python3 scripts/weirdnet_release.py "plugin tags and platforms"            # minor bump (default): 1.3.8 -> 1.4.0
+    python3 scripts/weirdnet_release.py --patch "fix the enroll check"         # 1.3.8 -> 1.3.9
+    python3 scripts/weirdnet_release.py --major "2.0"                          # 1.3.8 -> 2.0.0
+    python3 scripts/weirdnet_release.py --dry-run --patch "..."                # print the plan and diffs, change nothing
+    python3 scripts/weirdnet_release.py --no-push "..."                        # commit and tag locally only
+    python3 scripts/weirdnet_release.py validate                               # check release.toml (CI runs it)
 
 It needs a clean tree on `main` that is not behind `origin/main`, and refuses when `vX.Y.Z` already exists
 locally or on origin. It bumps every product version (the Rust product crates and their `Cargo.lock` entries,
 both apps' `pubspec.yaml` with the build number + 1, `site_jaspr/pubspec.yaml`, `$script:AgentVersion`,
 `installer/common.iss`; not itcmdr-common, common/derive, itcmdr-plugin or tools/sample-data-gen), moves the
 `## Unreleased` notes of CHANGELOG.md into `## vX.Y.Z (date)` (America/New_York date), updates the latest tag
-in docs/HANDOVER.md and adds a PLAN.md row, regenerates the embedded help (`scripts/gen-help.py`), makes one
-commit (the message, prefixed with `vX.Y.Z:` when it has no version), an annotated tag `vX.Y.Z`, and runs
-`git push --follow-tags origin main`. It never builds, signs or publishes anything; any error stops it before
-the push (a failure before the commit puts the tree back). Tests: `python3 scripts/test_release.py`.
+in docs/HANDOVER.md and adds a PLAN.md row, regenerates the embedded help (`scripts/gen-help.py`, then
+`--check`), runs `cargo fmt --check` and clippy, makes one commit `release: vX.Y.Z` with the message as its
+body, an annotated tag `vX.Y.Z` (`itcmdr X.Y.Z: <title>`), and pushes `main` and that tag in one atomic push.
+It never builds, signs or publishes anything; any error stops it before the push (a failure before the commit
+puts the tree back). Its tests live in weirdnet-project-helpers.
 
 Only this script makes a release. A push of ordinary commits to `main` is not a release: nothing in CI,
 git hooks or a normal push bumps versions, tags or publishes. To build before pushing (the order below),
-use `--no-push` and push with `git push --follow-tags origin main` after `check`.
+use `--no-push` and push with `git push --atomic origin HEAD:refs/heads/main refs/tags/vX.Y.Z` after `check`.
 
 ## Package signatures (pacman)
 
@@ -34,7 +38,7 @@ Every `*.pkg.zst` / `*.pkg.tar.zst` asset needs its standard pacman detached sig
 exactly after the package file (`foo.pkg.tar.zst` -> `foo.pkg.tar.zst.sig`, non-empty). Michael signs the
 packages himself; signing keys never live on alien-blue, the Mac or the Windows VM, and nothing here makes
 signatures. Copy the `.sig` files into `dist/X.Y.Z/` before `check`. `release-local.sh check` and `publish`
-(and `scripts/release.py` when `dist/X.Y.Z/` already exists) run `scripts/check_pkg_sigs.py`, which fails
+(and the release script, a `release.toml` pre hook, when `dist/X.Y.Z/` already exists) run `scripts/check_pkg_sigs.py`, which fails
 closed: a package without its matching `.sig` is not publishable, and when gpg has the public key a signature
 that does not verify fails too (with no key in the keyring the name pairing is still required).
 Tests: `python3 scripts/test_check_pkg_sigs.py`.
@@ -115,6 +119,9 @@ release with the CHANGELOG section as notes (`--verify-tag`), or uploads to an e
 
     scripts/release-local.sh taur --dry-run     # every check; prints the taurctl command; uploads nothing
     scripts/release-local.sh taur               # upload, then verify what TAUR serves
+
+`python3 scripts/weirdnet_release.py taur X.Y.Z [--dry-run]` runs the same `scripts/publish_taur.py`
+(`[[taur.packages]]` in `release.toml`).
 
 After `publish`, `taur` runs `scripts/publish_taur.py` for the version in `server/Cargo.toml`. TAUR
 (`https://pkg.taur.weirdbrains.com`) takes recipes, not built packages: it uploads only `itcmdr-bin/PKGBUILD`

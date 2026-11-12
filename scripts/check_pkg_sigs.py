@@ -10,7 +10,7 @@ is missing or has no public key for it, the name pairing is still required.
 
 Signatures are never made here or on the build machines (alien-blue, the Mac, the Windows VM):
 Michael signs the packages himself with a key that never lives on them. Used by
-`scripts/release-local.sh check` and `publish`, and by scripts/release.py when dist/<version> exists.
+`scripts/release-local.sh check` and `publish`, and by the release script (a release.toml pre hook) when dist/<version> exists.
 """
 import shutil
 import subprocess
