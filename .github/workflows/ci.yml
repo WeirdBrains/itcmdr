@@ -17,6 +17,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Scan repo for site-specific content
         run: python3 scripts/scan_repo.py
+      - name: release.toml is valid for the vendored shared release script
+        run: python3 scripts/weirdnet_release.py validate
 
   rust:
     runs-on: ubuntu-latest
