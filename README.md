@@ -1,6 +1,6 @@
 # itcmdr
 
-Self-healing IT for small offices, by Weird Brains. An agent on every PC checks the network,
+Self-healing IT for small offices, by [Weird Brains](https://weirdbrains.com). An agent on every PC checks the network,
 connections and services each night and repairs what it safely can. A site server in the office
 keeps the history, alerts, metrics and encrypted backups, and the office app shows it all. Nothing
 internal leaves the office.

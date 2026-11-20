@@ -10,8 +10,7 @@ next = [
   "python3 scripts/weirdnet_release.py taur {version} --dry-run, then without --dry-run (scripts/publish_taur.py)",
 ]
 
-[env]
-CARGO_TARGET_DIR = "/path/to/cargo-target"
+# Build outside the checkout: export CARGO_TARGET_DIR (for example a scratch disk) before releasing.
 
 [[files]]                       # the product crates (not itcmdr-common, common/derive, itcmdr-plugin, sample-data-gen)
 kind = "cargo-package"

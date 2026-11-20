@@ -6,7 +6,7 @@ move or recreate it.
 
 ## Cutting a release: scripts/weirdnet_release.py
 
-Bump, changelog, commit, tag and push with the shared WeirdBrains release script, vendored from
+Bump, changelog, commit, tag and push with the shared [WeirdBrains](https://weirdbrains.com) release script, vendored from
 weirdnet-project-helpers as `scripts/weirdnet_release.py` and configured by `release.toml`, then build from
 that tag as below. Don't edit the vendored copy: change weirdnet-project-helpers and re-vendor it.
 
@@ -126,7 +126,7 @@ release with the CHANGELOG section as notes (`--verify-tag`), or uploads to an e
 After `publish`, `taur` runs `scripts/publish_taur.py` for the version in `server/Cargo.toml`. TAUR
 (`https://pkg.taur.weirdbrains.com`) takes recipes, not built packages: it uploads only `itcmdr-bin/PKGBUILD`
 and `itcmdr-bin/.SRCINFO` (from `packaging/arch/itcmdr-bin/PKGBUILD` and `makepkg --printsrcinfo`), owned by
-the WeirdBrains organization, with `taurctl pkg upload ARCHIVE --org WeirdBrains -y` and the signed-in taurctl
+the [WeirdBrains](https://weirdbrains.com) organization, with `taurctl pkg upload ARCHIVE --org WeirdBrains -y` and the signed-in taurctl
 session. The recipe installs `itcmdr-cli` and `itcmdr-admin` from the release's `linux-x86_64` tarballs, pinned
 to their SHA256SUMS. Nothing is built, signed or read from a key.
 

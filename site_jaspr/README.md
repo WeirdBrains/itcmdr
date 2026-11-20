@@ -9,7 +9,7 @@ built with [Jaspr](https://jaspr.site) in **static** mode.
 - **Published output:** committed to the `site` branch at the repo root
   (flat `*.html` URLs, `assets/`, `demos/`, `CNAME`, `.nojekyll`) for GitHub Pages.
 
-Build on a scratch directory under `/path/to/scratch` (never inside `~/Projects`).
+Build in a scratch directory outside the checkout (never inside the repository).
 
 ```bash
 export PATH="$HOME/.pub-cache/bin:$HOME/flutter/bin:$PATH"

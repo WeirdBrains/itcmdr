@@ -381,7 +381,7 @@ In-place upgrade over v0.12.0.
 
 ## Risks and gotchas
 
-- **GitHub Actions is blocked by billing** on the WeirdBrains org ("payments failed / spending limit").
+- **GitHub Actions is blocked by billing** on the [WeirdBrains](https://weirdbrains.com) GitHub org ("payments failed / spending limit").
   The repo is private, so Windows minutes are billed.
 - **The Actions allowlist is set at the org level.** Only GitHub-owned actions are allowed, so the
   workflows use no third-party actions (keep it that way, or have an org admin allow them).

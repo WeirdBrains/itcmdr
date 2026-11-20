@@ -72,7 +72,7 @@ Branding (v0.14.3): `branding/` holds the SVG masters, `build.py` and the render
 
 ### Proposed: server, agents and adminsvr (docs/historical/1.0/design/SERVER-AGENT.md, docs/historical/1.0/design/ADMINSVR.md; decisions recorded 2026-10-31; not started)
 
-Key backup on by default (opt-out), locked with the 24 words; COOP/COEP accepted. Pending: Mac build/signing step for iOS/macOS; adminsvr agent design (m3talsmith); rootless Podman on the Linux dev box (needs sudo).
+Key backup on by default (opt-out), locked with the 24 words; COOP/COEP accepted.
 
 | Version | Scope | Status |
 |---|---|---|
@@ -92,7 +92,7 @@ Key backup on by default (opt-out), locked with the 24 words; COOP/COEP accepted
 | v0.20.1 | Agent config over the link (root-key endorsed `ConfigUpdate`), gated `cutover switch --to agent` with rollback, PS agent retired (no fallback), nightly-task self-heal | ✅ Released 2026-11-02 |
 | v0.21.0 | Agent + server self-upgrade (rings, watchdogs, rollback), update window with push-now, approve-once releases from adminsvr, two-person approval as an org option (off by default); Updates screen | ✅ Released 2026-11-02 |
 | v0.22.0 | Retire the share flows; SRE app Windows/macOS builds; adminsvr restore drill | ✅ Released 2026-11-02 (restore drill on-site only) |
-| v1.0.0 | Product website (GitHub Pages from a separate `site` branch, the one allowed branch, site only; custom domain itcmdr.weirdbrains.com; Weird Brains branding), launch announcement (X and the internal Weird Brains Slack, drafted for m3talsmith's review, never posted by us), 1.0 stabilization (nothing published or announced without m3talsmith's review; no office-specific names, IPs or domains on the site) | ✅ Released 2026-11-02 (site branch updated, not live until Pages/DNS are enabled; launch drafts for m3talsmith's review, not posted) |
+| v1.0.0 | Product website (GitHub Pages from a separate `site` branch, the one allowed branch, site only; custom domain itcmdr.weirdbrains.com; [Weird Brains](https://weirdbrains.com) branding), launch announcement (X and the internal [Weird Brains](https://weirdbrains.com) Slack, drafted for m3talsmith's review, never posted by us), 1.0 stabilization (nothing published or announced without m3talsmith's review; no office-specific names, IPs or domains on the site) | ✅ Released 2026-11-02 (site branch updated, not live until Pages/DNS are enabled; launch drafts for m3talsmith's review, not posted) |
 | v1.1.0 | HTTPS everywhere, Let's Encrypt for adminsvr (TLS-ALPN-01), self-signed trust pins, docs as man pages and in-app help | ✅ Released 2026-11-04 |
 | v1.2.0 | Real app ids (office app `com.weirdbrains.itcmdr`), adminsvr's own encrypted backup, restore and restore drill | ✅ Released 2026-11-04 (v1.2.1 installer logs) |
 | v1.3.0 | Installer log pruning, admin app Deep backup checks screen, VM end-to-end check script with real breaks | ✅ Released 2026-11-05 |
@@ -111,9 +111,6 @@ Key backup on by default (opt-out), locked with the 24 words; COOP/COEP accepted
 
 | Item | Status | Notes |
 |---|---|---|
-| Windows VM test pass | 🔄 Only the second PC is left | v0.10.1, v0.11.0, v0.12.0 and v0.13.0 passes (Pester 82/82, installer, upgrade, task re-registration, both auth paths, Dart tests incl. DPAPI on Windows, signed-only switch and rollback). App click-through on the VM: passed (m3talsmith, 2026-10-31). Still open: a real second PC as agent. Results in docs/HANDOVER.md |
-| GitHub Actions installer builds | ⛔ Blocked | Org billing ("payments failed / spending limit"). Workaround in use: the installer builds on the Windows test VM (v0.10.1) |
-| Real site values in site.json | 📋 Pending (on-site) | Scanners (incl. the 3D unit + exception), DNS records, drive maps, printer queues, ExampleVendor config paths, stale patterns, backup tasks/destinations. See HANDOVER.local.md |
 | Delete the plaintext DB backup after the v0.6 migration | ✅ Done (decided) | Decision 12: deleted automatically after a verified read-back (v0.6.2); kept if verification fails |
 | DB key recovery (`keys/db.key`) | ✅ Done (v0.7.0) | Decision 12: `keys/db.key.escrow` sealed for the master key; `itcmdr-server recover-db-key` with the 24 words |
 | Backup & restore | ✅ App screen done (v0.12.0) | Decision 13: DB + escrow + config, CLI, RPCs, nightly + retention in v0.8.0; plugins in v0.9.0; app-triggered restore server side in v0.10.0; app Backup & Restore screen (sealed words, dry run first) exercised by `app/test/e2e_test.dart`. Clicked through on the VM (2026-10-31). |
