@@ -93,7 +93,7 @@ BEGIN
             VALUE "FileDescription", "itcmdr" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "itcmdr" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.weirdbrains. All rights reserved." "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 Weird Brains LLC. All rights reserved." "\0"
             VALUE "OriginalFilename", "itcmdr.exe" "\0"
             VALUE "ProductName", "itcmdr" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"

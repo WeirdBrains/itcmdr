@@ -22,7 +22,7 @@ edition = "2021"
 license = "Apache-2.0"
 homepage = "https://github.com/WeirdBrains/itcmdr"
 repository = "https://github.com/WeirdBrains/itcmdr"
-authors = ["itcmdr contributors"]
+authors = ["Weird Brains LLC"]
 
 [workspace.lints.rust]
 unsafe_code = "deny"

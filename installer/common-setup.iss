@@ -1,6 +1,6 @@
 ; Included inside each package's [Setup] section.
 AppVersion={#MyAppVersion}
-AppPublisher=itcmdr contributors
+AppPublisher=Weird Brains LLC
 AppPublisherURL=https://github.com/WeirdBrains/itcmdr
 DefaultDirName={pf}\{#InstallDirName}
 DisableDirPage=auto

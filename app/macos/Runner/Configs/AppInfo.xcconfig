@@ -11,4 +11,4 @@ PRODUCT_NAME = itcmdr
 PRODUCT_BUNDLE_IDENTIFIER = com.weirdbrains.itcmdr
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2026 com.weirdbrains. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2026 Weird Brains LLC. All rights reserved.
