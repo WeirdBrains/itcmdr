@@ -66,7 +66,7 @@ heading = "## v{version} ({date})"
 intro = ["itcmdr {version}: {title}.", "- Versions {version} (app and admin app {version}+{build})."]
 
 [hooks]
-# Packages already in dist/X.Y.Z must carry their pacman .sig (m3talsmith signs).
+# Packages already in dist/X.Y.Z must carry their pacman .sig (the release agent signs with the WeirdBrains packages key; no `.sig`, no publish).
 pre = ["test ! -d dist/{version} || python3 scripts/check_pkg_sigs.py dist/{version}"]
 # The embedded help must match the tag.
 post_bump = ["python3 scripts/gen-help.py", "python3 scripts/gen-help.py --check"]

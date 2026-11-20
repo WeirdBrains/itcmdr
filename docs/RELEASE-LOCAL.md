@@ -25,7 +25,7 @@ both apps' `pubspec.yaml` with the build number + 1, `site_jaspr/pubspec.yaml`, 
 in docs/HANDOVER.md and adds a PLAN.md row, regenerates the embedded help (`scripts/gen-help.py`, then
 `--check`), runs `cargo fmt --check` and clippy, makes one commit `release: vX.Y.Z` with the message as its
 body, an annotated tag `vX.Y.Z` (`itcmdr X.Y.Z: <title>`), and pushes `main` and that tag in one atomic push.
-It never builds, signs or publishes anything; any error stops it before the push (a failure before the commit
+It never builds, signs or publishes anything itself (the release agent signs the packages separately); any error stops it before the push (a failure before the commit
 puts the tree back). Its tests live in weirdnet-project-helpers.
 
 Only this script makes a release. A push of ordinary commits to `main` is not a release: nothing in CI,
@@ -35,9 +35,9 @@ use `--no-push` and push with `git push --atomic origin HEAD:refs/heads/main ref
 ## Package signatures (pacman)
 
 Every `*.pkg.zst` / `*.pkg.tar.zst` asset needs its standard pacman detached signature next to it, named
-exactly after the package file (`foo.pkg.tar.zst` -> `foo.pkg.tar.zst.sig`, non-empty). m3talsmith signs the
-packages himself; signing keys never live on the Linux dev box, the Mac or the Windows VM, and nothing here makes
-signatures. Copy the `.sig` files into `dist/X.Y.Z/` before `check`. `release-local.sh check` and `publish`
+exactly after the package file (`foo.pkg.tar.zst` -> `foo.pkg.tar.zst.sig`, non-empty). The release agent signs
+each package with the WeirdBrains packages key as part of the release (detached, binary), and the signing key is never
+exported or copied; nothing in this script makes signatures. Put the `.sig` files into `dist/X.Y.Z/` before `check`. `release-local.sh check` and `publish`
 (and the release script, a `release.toml` pre hook, when `dist/X.Y.Z/` already exists) run `scripts/check_pkg_sigs.py`, which fails
 closed: a package without its matching `.sig` is not publishable, and when gpg has the public key a signature
 that does not verify fails too (with no key in the keyring the name pairing is still required).
@@ -138,7 +138,7 @@ It refuses, and uploads nothing, unless:
   SHA256SUMS and both tarballs.
 - the tarballs, downloaded anonymously, match SHA256SUMS, hold only the expected files, and their binaries
   carry the build stamp of that version and the tag's commit.
-- every `*.pkg.zst`/`*.pkg.tar.zst` release asset has its non-empty `.sig` (m3talsmith signs).
+- every `*.pkg.zst`/`*.pkg.tar.zst` release asset has its non-empty `.sig` (the release agent signs).
 - the recipe passes the privacy scan.
 
 TAUR state: the same version with the same recipe is reported unchanged; the same version with another recipe,
